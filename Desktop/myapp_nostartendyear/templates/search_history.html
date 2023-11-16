@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Search History | Google Scholar Productivity Search Engine</title>
+</head>
+
+<body>
+    <header>
+        <h1>Search History</h1>
+    </header>
+
+    <section>
+        {% if history %}
+            <ul>
+                {% for search in history %}
+                    <li>
+                        <strong>Author:</strong> {{ search['author']['name'] }} <br>
+                        <strong>Total Publications:</strong> {{ search['total_publications'] }} <br>
+                        <strong>Total Citations:</strong> {{ search['author'].get('citedby', 'N/A') }} <br>
+                        <hr>
+                    </li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <p>No search history found.</p>
+        {% endif %}
+    </section>
+
+    <footer>
+        <p>&copy; Google Scholar Productivity Search Engine. All rights reserved.</p>
+    </footer>
+</body>
+
+</html>
