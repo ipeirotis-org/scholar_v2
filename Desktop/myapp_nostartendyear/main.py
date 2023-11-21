@@ -1,5 +1,5 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, send_file
-from util import get_scholar_data, get_author_statistics, generate_plot, get_yearly_data
+from util import get_scholar_data, get_author_statistics, generate_plot, get_yearly_data, import_author_percentiles
 from matplotlib.ticker import MaxNLocator
 import matplotlib.pyplot as plt
 from flask_caching import Cache
@@ -11,6 +11,8 @@ import os
 from util import best_year
 import json
 import logging
+import time
+
 
 logging.basicConfig(level=logging.INFO)
 
@@ -193,37 +195,49 @@ def set_author_count():
 
 
 def perform_search(author_name):
-  # Remove the start_year and end_year parameters from the function signature
-  # and from the internal function calls as well.
+    # Import percentile data (if necessary, remove if already handled in util.py)
+    author_percentiles = import_author_percentiles()
+    if author_percentiles is None:
+        logging.error("Failed to import author percentiles.")
+        flash("Error importing author percentile data.", "error")
+        return {}
 
-  author, query, total_publications = get_author_statistics(author_name)
-  has_results = not query.empty
-  plot_paths = generate_plot(query, author['name']) if has_results else []
+    # Proceed with fetching author statistics
+    author, query, total_publications = get_author_statistics(author_name)
+    has_results = not query.empty
 
-  # Since the yearly range isn't limited anymore, you don't need to pass the years as arguments
-  yearly_data = get_yearly_data(author_name)
-  overall_best_year = best_year(yearly_data)
+    # Try generating the plot and handle potential errors
+    try:
+        plot_paths = generate_plot(query, author['name']) if has_results else []
+    except Exception as e:
+        logging.error(f"Error generating plot for {author_name}: {e}")
+        flash(f"An error occurred while generating the plot for {author_name}.", "error")
+        plot_paths = []
 
-  search_data = {
-      'author': author,
-      'results': query,
-      'has_results': has_results,
-      'plot_paths': plot_paths,
-      'total_publications': total_publications,
-      # Remove the 'start_year' and 'end_year' from the output
-      'overall_best_year': overall_best_year
-  }
+    # Since the yearly range isn't limited anymore, you don't need to pass the years as arguments
+    yearly_data = get_yearly_data(author_name)
+    overall_best_year = best_year(yearly_data)
 
-  # Save to cache
-  timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
-  cache_key = f"{author_name}_{timestamp}"
-  cache.set(cache_key, search_data)
+    search_data = {
+        'author': author,
+        'results': query,
+        'has_results': has_results,
+        'plot_paths': plot_paths,
+        'total_publications': total_publications,
+        'overall_best_year': overall_best_year
+    }
 
-  current_keys = cache.get('search_history_keys') or []
-  current_keys.append(cache_key)
-  cache.set('search_history_keys', current_keys)
+    # Save to cache
+    timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
+    cache_key = f"{author_name}_{timestamp}"
+    cache.set(cache_key, search_data)
 
-  return search_data
+    current_keys = cache.get('search_history_keys') or []
+    current_keys.append(cache_key)
+    cache.set('search_history_keys', current_keys)
+
+    return search_data
+
 
 
 @app.route('/results', methods=['POST'])
@@ -321,3 +335,4 @@ def error():
 if __name__ == "__main__":
 
   app.run(host="0.0.0.0")
+
