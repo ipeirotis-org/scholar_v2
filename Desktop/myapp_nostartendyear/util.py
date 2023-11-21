@@ -14,6 +14,9 @@ percentile_df = pd.read_csv(url).set_index('age')
 percentile_df.columns = [float(p) for p in percentile_df.columns]
 
 
+
+
+
 def get_scholar_data(author_name, multiple=False):
   logging.info(f"Fetching data for author: {author_name}")
 
@@ -219,25 +222,55 @@ def get_yearly_data(author_name, start_year=None, end_year=None):
   return yearly_data
 
 
+def import_author_percentiles():
+    try:
+        author_percentile_url = 'https://raw.githubusercontent.com/ipeirotis-org/scholar_v2/main/author_numpapers_percentiles.csv'
+        author_percentiles = pd.read_csv(author_percentile_url)
+        return author_percentiles
+    except Exception as e:
+        logging.error(f"Failed to load author percentile data: {e}")
+        return None
+
+
+def normalize_paper_count(years_since_first_pub, author_percentiles):
+    # Finding the closest matching row for the given years_since_first_pub
+    closest_year = author_percentiles.iloc[(author_percentiles['years_since_first_pub'] - years_since_first_pub).abs().argsort()[:1]]
+    # Assuming the paper_rank is the percentile value we want to find
+    for percentile in closest_year.columns[1:]:
+        if years_since_first_pub <= closest_year[percentile].iloc[0]:
+            return float(percentile) / 100
+    return None
+
+
+
+
 def generate_plot(dataframe, author_name):
     plot_paths = []
+    try:
+        cleaned_name = "".join([c if c.isalnum() else "_" for c in author_name])
+        logging.info(f"Dataframe before normalization: {dataframe.head()}")
 
-    cleaned_name = "".join([c if c.isalnum() else "_" for c in author_name])
+        if 'import_author_percentiles' in globals():
+            author_percentiles = import_author_percentiles()
+            if author_percentiles is not None:
+                # Apply normalization logic here
+                dataframe['normalized_productivity'] = dataframe['age'].apply(lambda x: normalize_paper_count(x, author_percentiles))
+                logging.info(f"Dataframe after normalization: {dataframe.head()}")
 
-    plt.figure(figsize=(4, 2))
-    dataframe.plot(x='paper_rank', y='percentile_score', c='blue', kind='scatter', title='Paper Rank vs Percentile Score')
+        plt.figure(figsize=(4, 2))
+        x_axis = 'normalized_productivity' if 'normalized_productivity' in dataframe.columns else 'age'
+        dataframe.plot(x=x_axis, y='percentile_score', c='blue', kind='scatter', title='Normalized Productivity vs Percentile Score')
+        plt.xlabel('Normalized Productivity' if x_axis == 'normalized_productivity' else 'Age')
+        plt.ylabel('Percentile Score')
 
-    # Setting the labels for the axes
-    plt.xlabel('Paper Rank')
-    plt.ylabel('Percentile Score')
+        normalized_path = f"static/{cleaned_name}_normalized_productivity_plot.png"
+        plt.savefig(normalized_path)
+        plot_paths.append(normalized_path)
+        plt.close()
 
-    # Saving the plot to a file
-    path = f"static/{cleaned_name}_rank_vs_percentile.png"
-    plt.savefig(path)
-    plot_paths.append(path)
-
-    # Closing the plot to free up memory
-    plt.close()
+    except Exception as e:
+        logging.error(f"Error in generate_plot for {author_name}: {e}")
+        raise
 
     return plot_paths
 
