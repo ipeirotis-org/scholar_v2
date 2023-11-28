@@ -1,5 +1,5 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, send_file
-from util import get_scholar_data, get_author_statistics, generate_plot, get_yearly_data, import_author_percentiles
+from util import get_scholar_data, get_author_statistics, generate_plot, get_yearly_data, best_year
 from matplotlib.ticker import MaxNLocator
 import matplotlib.pyplot as plt
 from flask_caching import Cache
@@ -7,8 +7,6 @@ import os
 import pandas as pd
 from flask import jsonify
 from datetime import datetime
-import os
-from util import best_year
 import json
 import logging
 import time
@@ -195,13 +193,6 @@ def set_author_count():
 
 
 def perform_search(author_name):
-    # Import percentile data (if necessary, remove if already handled in util.py)
-    author_percentiles = import_author_percentiles()
-    if author_percentiles is None:
-        logging.error("Failed to import author percentiles.")
-        flash("Error importing author percentile data.", "error")
-        return {}
-
     # Proceed with fetching author statistics
     author, query, total_publications = get_author_statistics(author_name)
     has_results = not query.empty
@@ -214,7 +205,7 @@ def perform_search(author_name):
         flash(f"An error occurred while generating the plot for {author_name}.", "error")
         plot_paths = []
 
-    # Since the yearly range isn't limited anymore, you don't need to pass the years as arguments
+    # Fetch yearly data
     yearly_data = get_yearly_data(author_name)
     overall_best_year = best_year(yearly_data)
 
@@ -232,11 +223,14 @@ def perform_search(author_name):
     cache_key = f"{author_name}_{timestamp}"
     cache.set(cache_key, search_data)
 
+    # Update the search history keys in the cache
     current_keys = cache.get('search_history_keys') or []
     current_keys.append(cache_key)
     cache.set('search_history_keys', current_keys)
 
     return search_data
+
+
 
 
 
@@ -335,4 +329,6 @@ def error():
 if __name__ == "__main__":
 
   app.run(host="0.0.0.0")
+
+
 
