@@ -14,7 +14,8 @@ percentile_df = pd.read_csv(url).set_index('age')
 percentile_df.columns = [float(p) for p in percentile_df.columns]
 
 
-
+url_author_percentiles = 'https://raw.githubusercontent.com/ipeirotis/scholar_v2/main/author_numpapers_percentiles.csv'
+author_percentiles_df = pd.read_csv(url_author_percentiles)
 
 
 def get_scholar_data(author_name, multiple=False):
@@ -222,26 +223,23 @@ def get_yearly_data(author_name, start_year=None, end_year=None):
   return yearly_data
 
 
-def import_author_percentiles():
-    try:
-        author_percentile_url = 'https://raw.githubusercontent.com/ipeirotis-org/scholar_v2/main/author_numpapers_percentiles.csv'
-        author_percentiles = pd.read_csv(author_percentile_url)
-        return author_percentiles
-    except Exception as e:
-        logging.error(f"Failed to load author percentile data: {e}")
-        return None
 
 
-def normalize_paper_count(years_since_first_pub, author_percentiles):
-    # Finding the closest matching row for the given years_since_first_pub
-    closest_year = author_percentiles.iloc[(author_percentiles['years_since_first_pub'] - years_since_first_pub).abs().argsort()[:1]]
-    # Assuming the paper_rank is the percentile value we want to find
-    for percentile in closest_year.columns[1:]:
-        if years_since_first_pub <= closest_year[percentile].iloc[0]:
+
+author_percentiles_url = 'https://raw.githubusercontent.com/ipeirotis/scholar_v2/main/author_numpapers_percentiles.csv'
+author_percentiles = pd.read_csv(author_percentiles_url).set_index('years_since_first_pub')
+
+
+def normalize_paper_count(years_since_first_pub):
+    # Convert the difference to a NumPy array before applying abs()
+    differences = np.abs(np.array(author_percentiles.index) - years_since_first_pub)
+    closest_year_index = np.argmin(differences)
+    closest_year = author_percentiles.iloc[closest_year_index]
+    
+    for percentile in closest_year.index[1:]:
+        if years_since_first_pub <= closest_year.loc[percentile]:
             return float(percentile) / 100
     return None
-
-
 
 
 def generate_plot(dataframe, author_name):
@@ -250,18 +248,16 @@ def generate_plot(dataframe, author_name):
         cleaned_name = "".join([c if c.isalnum() else "_" for c in author_name])
         logging.info(f"Dataframe before normalization: {dataframe.head()}")
 
-        if 'import_author_percentiles' in globals():
-            author_percentiles = import_author_percentiles()
-            if author_percentiles is not None:
-                # Apply normalization logic here
-                dataframe['normalized_productivity'] = dataframe['age'].apply(lambda x: normalize_paper_count(x, author_percentiles))
-                logging.info(f"Dataframe after normalization: {dataframe.head()}")
+        # Apply normalization logic here
+        dataframe['normalized_productivity'] = dataframe['age'].apply(normalize_paper_count)
+        logging.info(f"Dataframe after normalization: {dataframe.head()}")
 
-        plt.figure(figsize=(4, 2))
-        x_axis = 'normalized_productivity' if 'normalized_productivity' in dataframe.columns else 'age'
-        dataframe.plot(x=x_axis, y='percentile_score', c='blue', kind='scatter', title='Normalized Productivity vs Percentile Score')
-        plt.xlabel('Normalized Productivity' if x_axis == 'normalized_productivity' else 'Age')
+        plt.figure(figsize=(10, 6))
+        ax = dataframe.plot(x='normalized_productivity', y='percentile_score', c='blue', kind='scatter', title='Normalized Productivity vs Percentile Score')
+        plt.xlabel('Normalized Productivity')
         plt.ylabel('Percentile Score')
+
+        ax.set_xlim(0, 1)
 
         normalized_path = f"static/{cleaned_name}_normalized_productivity_plot.png"
         plt.savefig(normalized_path)
