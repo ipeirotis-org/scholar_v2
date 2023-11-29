@@ -5,6 +5,7 @@ on:
     branches:
       - main  # Trigger the workflow on push to the main branch
 
+
 jobs:
   setup-build-publish-deploy:
     name: Setup, Build, Publish, and Deploy
