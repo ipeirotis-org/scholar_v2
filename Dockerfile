@@ -8,6 +8,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY Desktop/myapp_nostartendyear/ .
 
+ENV PORT 5000
+
 EXPOSE 5000
 
 # Command to run on container start
