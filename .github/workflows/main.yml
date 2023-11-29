@@ -17,15 +17,16 @@ jobs:
     - name: Set up Cloud SDK
       uses: google-github-actions/setup-gcloud@v0.2.0
       with:
-        project_id: scholar-version2
+        project_id: ${{ secrets.GCP_PROJECT_ID }}
         service_account_key: ${{ secrets.GCP_SA_KEY }}
         export_default_credentials: true
 
     - name: Build and push image to Google Container Registry
       run: |
-        gcloud builds submit --tag gcr.io/scholar-version2/scholar_v2
+        gcloud builds submit --tag gcr.io/${{ secrets.GCP_PROJECT_ID }}/scholar_v2 .
 
     - name: Deploy to Cloud Run
       run: |
-        gcloud run deploy scholar-service --image gcr.io/scholar-version2/scholar_v2 --platform managed --region us-central1 --allow-unauthenticated
+        gcloud run deploy scholar-service --image gcr.io/${{ secrets.GCP_PROJECT_ID }}/scholar_v2 --platform managed --region us-central1 --allow-unauthenticated
+
 
