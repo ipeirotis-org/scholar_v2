@@ -12,19 +12,17 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v2
+    - uses: actions/checkout@v4
 
-    - name: Set up Cloud SDK
-      uses: google-github-actions/setup-gcloud@v0.2.0
+    - uses: google-github-actions/auth@v2
       with:
-        project_id: ${{ secrets.GCP_PROJECT_ID }}
-        export_default_credentials: true
+        project_id: 'panos-jupyter'
+        credentials_json: ${{ secrets.GCP_SA_KEY }}
 
-    - name: Authenticate with Google Cloud using encoded JSON key
-      run: |
-        echo "${{ secrets.GCP_SA_KEY }}" | base64 --decode > ${HOME}/gcloud-service-key.json
-        gcloud auth activate-service-account --key-file=${HOME}/gcloud-service-key.json
+    # - name: Authenticate with Google Cloud using encoded JSON key
+    #  run: |
+    #    echo "${{ secrets.GCP_SA_KEY }}" | base64 --decode > ${HOME}/cloud-service-key.json
+    #    gcloud auth activate-service-account --key-file=${HOME}/gcloud-service-key.json
 
     - name: Build and push image to Google Container Registry
       run: |
