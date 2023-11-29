@@ -8,9 +8,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY Desktop/myapp_nostartendyear/ .
 
-ENV PORT 5000
+ENV PORT 8080
 
-EXPOSE 5000
+EXPOSE 8080
 
 # Command to run on container start
 CMD ["python", "main.py"]
