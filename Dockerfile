@@ -2,11 +2,12 @@ FROM python:3.8
 
 WORKDIR /app
 
-COPY requirements.txt /app/
-RUN pip install --no-cache-dir -r requirements.txt
-
-COPY . /app
+COPY Desktop/myapp_nostartendyear/requirements.txt .
 
 RUN pip install --no-cache-dir -r requirements.txt
 
+COPY Desktop/myapp_nostartendyear/ .
+
+# Command to run on container start
 CMD ["python", "main.py"]
+
