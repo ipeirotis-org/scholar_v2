@@ -2,11 +2,9 @@ FROM python:3.8
 
 WORKDIR /app
 
-COPY Desktop/myapp_nostartendyear/requirements.txt .
+COPY requirements.txt .
 
 RUN pip install --no-cache-dir -r requirements.txt
-
-COPY Desktop/myapp_nostartendyear/ .
 
 ENV PORT 8080
 
