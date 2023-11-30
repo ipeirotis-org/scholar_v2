@@ -9,12 +9,12 @@ import matplotlib.pyplot as plt
 import os
 import logging
 
-url = 'https://raw.githubusercontent.com/ipeirotis/scholar_v2/main/percentiles.csv'
+url = 'https://raw.githubusercontent.com/ipeirotis-org/scholar_v2/main/data/percentiles.csv'
 percentile_df = pd.read_csv(url).set_index('age')
 percentile_df.columns = [float(p) for p in percentile_df.columns]
 
 
-url_author_percentiles = 'https://raw.githubusercontent.com/ipeirotis/scholar_v2/main/author_numpapers_percentiles.csv'
+url_author_percentiles = 'https://raw.githubusercontent.com/ipeirotis-org/scholar_v2/main/data/author_numpapers_percentiles.csv'
 author_percentiles = pd.read_csv(url_author_percentiles).set_index('years_since_first_pub')
 
 
