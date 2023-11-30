@@ -10,8 +10,14 @@ COPY requirements.txt /app/
 # Install any needed packages specified in requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Import matplotlib the first time to build the font cache
+RUN MPLBACKEND=Agg python -c "import matplotlib.pyplot" && \
+    fix-permissions "/home/${NB_USER}"
+
 # Copy the contents of the app directory into the container at /app
 COPY app/ /app/
+
+COPY data/ /data/
 
 # Make port 8080 available to the world outside this container
 EXPOSE 8080
