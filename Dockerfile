@@ -11,8 +11,7 @@ COPY requirements.txt /app/
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Import matplotlib the first time to build the font cache
-RUN MPLBACKEND=Agg python -c "import matplotlib.pyplot" && \
-    fix-permissions "/home/${NB_USER}"
+RUN MPLBACKEND=Agg python -c "import matplotlib.pyplot" 
 
 # Copy the contents of the app directory into the container at /app
 COPY app/ /app/
