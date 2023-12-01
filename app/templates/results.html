@@ -41,7 +41,6 @@
                         </ul>
 
                         <h3>Analysis Results:</h3>
-                        <p>The most productive year for {{ data.author.get('name', 'N/A') }}, considering publications, citations, and scores, is: {{ data.overall_best_year }}</p>
 
                         {% for path in data.plot_paths %}
                             <img src="{{ path }}" alt="Generated Plot">
