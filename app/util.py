@@ -236,8 +236,9 @@ def normalize_paper_count(years_since_first_pub):
 
 
 def calculate_pip_auc(dataframe):
-    sorted_df = dataframe.sort_values('paper_rank')
-    pip_auc = auc(sorted_df['paper_rank'], sorted_df['percentile_score'])
+    dataframe['normalized_rank'] = dataframe['paper_rank'] / dataframe['paper_rank'].max()
+    sorted_df = dataframe.sort_values('normalized_rank')
+    pip_auc = auc(sorted_df['normalized_rank'], sorted_df['percentile_score'])
     return pip_auc
 
 
@@ -247,7 +248,7 @@ def generate_plot(dataframe, author_name):
     try:
         cleaned_name = "".join([c if c.isalnum() else "_" for c in author_name])
 
-        # Plot settings
+        # Generate the first plot
         plt.figure(figsize=(10, 6))
         dataframe.plot.scatter(
             x="paper_rank",
@@ -259,17 +260,14 @@ def generate_plot(dataframe, author_name):
         )
         plt.xlabel("Paper Rank")
         plt.ylabel("Percentile Score")
-
-        # Save the plot to a file
-        normalized_path = os.path.join(
-            "static", f"{cleaned_name}_normalized_productivity_plot.png"
+        rank_plot_path = os.path.join(
+            "static", f"{cleaned_name}_rank_productivity_plot.png"
         )
-        plt.savefig(normalized_path)
-        plot_paths.append(normalized_path)
+        plt.savefig(rank_plot_path)
+        plt.close()
+        plot_paths.append(rank_plot_path)
 
-        normalized_path_age = os.path.join(
-            "static", f"{cleaned_name}_age_normalized_productivity_plot.png"
-        )
+        # Generate the age-normalized plot
         plt.figure(figsize=(10, 6))
         dataframe.plot.scatter(
             x='age',
@@ -279,9 +277,12 @@ def generate_plot(dataframe, author_name):
         )
         plt.xlabel("Age (Years since publication)")
         plt.ylabel("Percentile Score")
-        plt.savefig(normalized_path_age)
-        plot_paths.append(normalized_path_age)
+        age_normalized_plot_path = os.path.join(
+            "static", f"{cleaned_name}_age_normalized_productivity_plot.png"
+        )
+        plt.savefig(age_normalized_plot_path)
         plt.close()
+        plot_paths.append(age_normalized_plot_path)
 
         # Calculate PiP-AUC score
         pip_auc_score = calculate_pip_auc(dataframe)
@@ -291,3 +292,5 @@ def generate_plot(dataframe, author_name):
         raise
 
     return plot_paths, pip_auc_score
+
+
