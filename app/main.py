@@ -213,13 +213,12 @@ def set_author_count():
 
 
 def perform_search(author_name):
-    # Proceed with fetching author statistics
     author, query, total_publications = get_author_statistics(author_name)
     has_results = not query.empty
-
-    # Try generating the plot and handle potential errors
+    pip_auc_score = 0
+    
     try:
-        plot_paths = generate_plot(query, author["name"]) if has_results else []
+        plot_paths = generate_plot(query, author["name"]) if has_results else ([],0)
     except Exception as e:
         logging.error(f"Error generating plot for {author_name}: {e}")
         flash(
@@ -238,6 +237,7 @@ def perform_search(author_name):
         "plot_paths": plot_paths,
         "total_publications": total_publications,
         "overall_best_year": overall_best_year,
+        "pip_auc_score": pip_auc_score,
     }
 
     # Save to cache
