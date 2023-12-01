@@ -1,12 +1,49 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Google Scholar Productivity Search Engine</title>
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
+    <script>
+      function sortTable(n, tableId) {
+        var table, rows, switching, i, x, y, shouldSwitch, dir, switchcount = 0;
+        table = document.getElementById(tableId);
+        switching = true;
+        dir = "asc"; 
+        while (switching) {
+          switching = false;
+          rows = table.rows;
+          for (i = 1; i < (rows.length - 1); i++) {
+            shouldSwitch = false;
+            x = rows[i].getElementsByTagName("TD")[n];
+            y = rows[i + 1].getElementsByTagName("TD")[n];
+            if (dir == "asc") {
+              if (x.innerHTML.toLowerCase() > y.innerHTML.toLowerCase()) {
+                shouldSwitch = true;
+                break;
+              }
+            } else if (dir == "desc") {
+              if (x.innerHTML.toLowerCase() < y.innerHTML.toLowerCase()) {
+                shouldSwitch = true;
+                break;
+              }
+            }
+          }
+          if (shouldSwitch) {
+            rows[i].parentNode.insertBefore(rows[i + 1], rows[i]);
+            switching = true;
+            switchcount ++;      
+          } else {
+            if (switchcount == 0 && dir == "asc") {
+              dir = "desc";
+              switching = true;
+            }
+          }
+        }
+      }
+    </script>
     <style>
         body {
             margin: 20px;
@@ -22,9 +59,11 @@
             display: block;
             margin-bottom: 20px;
         }
+        th {
+            cursor: pointer;
+        }
     </style>
 </head>
-
 <body>
     <header>
         <h1>Welcome to Google Scholar Productivity Search Engine</h1>
@@ -53,25 +92,23 @@
                             <li>Total Publications: {{ data.total_publications }}</li>
                         </ul>
 
-                        <!-- Displaying the generated plots -->
                         {% for path in data.plot_paths %}
                             <img class="plot" src="{{ path }}" alt="Generated Plot">
                         {% endfor %}
 
-                        <!-- Displaying the PiP-AUC score -->
                         <h3>PiP-AUC Score:</h3>
                         <p>The PiP-AUC score for {{ data.author.get('name', 'N/A') }} is: {{ data.pip_auc_score }}</p>
 
                         <p><strong>Paper Rank (X-axis):</strong> This metric indicates the rank of each paper based on its percentile score. Lower ranks correspond to higher percentile scores.</p>
                         <p><strong>Percentile Score (Y-axis):</strong> This score represents the citation count of a paper as a percentile compared to other papers published in the same year.</p>
 
-                        <table class="table table-striped table-bordered table-hover">
+                        <table class="table table-striped table-bordered table-hover" id="resultsTable">
                             <thead>
                                 <tr>
-                                    <th>Title</th>
-                                    <th>Year of Publication</th>
-                                    <th>Citations</th>
-                                    <th>Score</th>
+                                    <th onclick="sortTable(0, 'resultsTable')">Title</th>
+                                    <th onclick="sortTable(1, 'resultsTable')">Year of Publication</th>
+                                    <th onclick="sortTable(2, 'resultsTable')">Citations</th>
+                                    <th onclick="sortTable(3, 'resultsTable')">Score</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -103,8 +140,8 @@
         <p>&copy; Google Scholar Productivity Search Engine. All rights reserved.</p>
     </footer>
 </body>
-
 </html>
+
 
 
 
