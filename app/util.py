@@ -126,33 +126,20 @@ def score_papers(row):
 
 
 def get_author_statistics(author_name):
-    # Fetching author and publications data
     author, publications, total_publications, error = get_scholar_data(author_name)
 
-    # Check for any errors or if author is None
     if error is not None or author is None:
         logging.error(f"Error fetching data for author {author_name}: {error}")
         return None, pd.DataFrame(), 0  # Return empty DataFrame and zero publications
 
-    # Calculate years since the first publication
-    publication_years = [
-        int(pub["bib"]["pub_year"]) for pub in publications if "pub_year" in pub["bib"]
-    ]
-    if not publication_years:
-        return None, pd.DataFrame(), 0  # Return empty DataFrame and zero publications
-
-    # first_publication_year = min(publication_years)
-    current_year = datetime.now().year
-    # years_since_first_publication = current_year - first_publication_year
-
-    # Process publications
     pubs = [
         {
             "citations": p["citedby"],
-            "age": current_year - int(p["bib"].get("pub_year", 0)) + 1
+            "age": datetime.now().year - int(p["bib"].get("pub_year", 0)) + 1
             if p["bib"].get("pub_year")
             else None,
             "title": p["bib"].get("title"),
+            "year": int(p["bib"].get("pub_year")) if p["bib"].get("pub_year") else None
         }
         for p in publications
         if "pub_year" in p["bib"]
@@ -166,6 +153,7 @@ def get_author_statistics(author_name):
     query_df = query_df.sort_values("percentile_score", ascending=False)
 
     return author, query_df, total_publications
+
 
 
 def best_year(yearly_data):
