@@ -6,6 +6,7 @@ from datetime import datetime
 import matplotlib.pyplot as plt
 import os
 import logging
+from sklearn.metrics import auc
 
 matplotlib.use("Agg")
 
@@ -234,8 +235,15 @@ def normalize_paper_count(years_since_first_pub):
     return None
 
 
+def calculate_pip_auc(dataframe):
+    sorted_df = dataframe.sort_values('paper_rank')
+    pip_auc = auc(sorted_df['paper_rank'], sorted_df['percentile_score'])
+    return pip_auc
+
+
 def generate_plot(dataframe, author_name):
     plot_paths = []
+    pip_auc_score = 0
     try:
         cleaned_name = "".join([c if c.isalnum() else "_" for c in author_name])
 
@@ -258,10 +266,28 @@ def generate_plot(dataframe, author_name):
         )
         plt.savefig(normalized_path)
         plot_paths.append(normalized_path)
+
+        normalized_path_age = os.path.join(
+            "static", f"{cleaned_name}_age_normalized_productivity_plot.png"
+        )
+        plt.figure(figsize=(10, 6))
+        dataframe.plot.scatter(
+            x='age',
+            y='percentile_score',
+            c='DarkBlue',
+            title=f"Age-Normalized Paper Rank vs Percentile Score for {author_name}",
+        )
+        plt.xlabel("Age (Years since publication)")
+        plt.ylabel("Percentile Score")
+        plt.savefig(normalized_path_age)
+        plot_paths.append(normalized_path_age)
         plt.close()
+
+        # Calculate PiP-AUC score
+        pip_auc_score = calculate_pip_auc(dataframe)
 
     except Exception as e:
         logging.error(f"Error in generate_plot for {author_name}: {e}")
         raise
 
-    return plot_paths
+    return plot_paths, pip_auc_score
