@@ -218,13 +218,13 @@ def perform_search(author_name):
     pip_auc_score = 0
     
     try:
-        plot_paths = generate_plot(query, author["name"]) if has_results else ([],0)
+        plot_paths, pip_auc_score = generate_plot(query, author["name"]) if has_results else ([], 0)
     except Exception as e:
         logging.error(f"Error generating plot for {author_name}: {e}")
         flash(
             f"An error occurred while generating the plot for {author_name}.", "error"
         )
-        plot_paths = []
+        plot_paths, pip_auc_score = [], 0
 
     # Fetch yearly data
     yearly_data = get_yearly_data(author_name)
