@@ -5,8 +5,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Google Scholar Productivity Search Engine</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
     <style>
-        /* Add existing CSS here */
+        body {
+            margin: 20px;
+        }
+
         .error {
             color: red;
             font-weight: bold;
@@ -62,7 +66,6 @@
             <input type="submit" value="Submit">
         </form>
 
-        <!-- Link to view search history -->
         <p><a href="{{ url_for('search_history') }}">View Search History</a></p>
     </section>
 
@@ -96,7 +99,7 @@
                         div.innerHTML = author.name;
                         div.onclick = function() {
                             document.getElementById('author_name_' + index).value = author.name;
-                            dropdown.style.display = 'none'; // Hide the dropdown after selection
+                            dropdown.style.display = 'none';
                         };
                         dropdown.appendChild(div);
                     });
@@ -112,3 +115,5 @@
 </body>
 
 </html>
+
+
