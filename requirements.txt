@@ -5,3 +5,5 @@ scholarly==1.7.11
 Werkzeug==2.0.1
 matplotlib
 flask_caching
+scikit-learn
+
