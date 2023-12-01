@@ -237,8 +237,9 @@ def normalize_paper_count(years_since_first_pub):
 
 def calculate_pip_auc(dataframe):
     dataframe['normalized_rank'] = dataframe['paper_rank'] / dataframe['paper_rank'].max()
+    dataframe['normalized_percentile_score'] = dataframe['percentile_score'] / 100.0
     sorted_df = dataframe.sort_values('normalized_rank')
-    pip_auc = auc(sorted_df['normalized_rank'], sorted_df['percentile_score'])
+    pip_auc = auc(sorted_df['normalized_rank'], sorted_df['normalized_percentile_score'])
     return pip_auc
 
 
@@ -292,5 +293,3 @@ def generate_plot(dataframe, author_name):
         raise
 
     return plot_paths, pip_auc_score
-
-
