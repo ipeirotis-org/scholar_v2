@@ -46,9 +46,14 @@
                             <li>Total Publications: {{ data.total_publications }}</li>
                         </ul>
 
+                        <!-- Displaying the generated plots -->
                         {% for path in data.plot_paths %}
                             <img src="{{ path }}" alt="Generated Plot">
                         {% endfor %}
+
+                        <!-- Displaying the PiP-AUC score -->
+                        <h3>PiP-AUC Score:</h3>
+                        <p>The PiP-AUC score for {{ data.author.get('name', 'N/A') }} is: {{ data.pip_auc_score }}</p>
 
                         <p><strong>Paper Rank (X-axis):</strong> This metric indicates the rank of each paper based on its percentile score. Lower ranks correspond to higher percentile scores.</p>
                         <p><strong>Percentile Score (Y-axis):</strong> This score represents the citation count of a paper as a percentile compared to other papers published in the same year.</p>
@@ -93,6 +98,7 @@
 </body>
 
 </html>
+
 
 
 
