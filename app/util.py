@@ -268,33 +268,38 @@ def generate_plot(dataframe, author_name):
         plt.close()
         plot_paths.append(rank_plot_path)
 
-        # Generate the line plot for percentile scores across paper ranks
-        plt.figure(figsize=(10, 6))
-        # We assume dataframe is already sorted by 'paper_rank'
-        dataframe.plot.line(
-            x='paper_rank',
+        # Generate the line plot for percentile scores across author productivity percentiles
+        plt.figure(figsize=(8, 8))
+        dataframe.plot.scatter(
+            x='num_papers_percentile',
             y='percentile_score',
-            title=f"Percentile Score Across Paper Ranks for {author_name}",
+            c='age',
+            cmap='Blues_r',
+            s=2,
+            grid=True,
+            xlim=(0, 100),
+            ylim=(0, 100),
+            title=f"Percentile Score Across Author Productivity Percentiles for {author_name}",
         )
         plt.xlabel("Author Productivity Percentile")
         plt.ylabel("Paper Percentile Score")
         line_plot_path = os.path.join(
-            "static", f"{cleaned_name}_percentile_score_line_plot.png"
+            "static", f"{cleaned_name}_percentile_score_scatter_plot.png"
         )
         plt.savefig(line_plot_path)
         plt.close()
         plot_paths.append(line_plot_path)
 
-        # Calculate PiP-AUC score
-        dataframe['normalized_rank'] = dataframe['paper_rank'] / dataframe['paper_rank'].max()
-        dataframe['normalized_percentile_score'] = dataframe['percentile_score'] / 100.0
-        sorted_df = dataframe.sort_values('normalized_rank')
-        pip_auc_score = auc(sorted_df['normalized_rank'], sorted_df['normalized_percentile_score'])
+        # Calculate AUC score
+        auc_data = dataframe.filter(['num_papers_percentile', 'percentile_score']).drop_duplicates(subset='num_papers_percentile', keep='first')
+        pip_auc_score = np.trapz(auc_data['percentile_score'], auc_data['num_papers_percentile']) / (100 * 100)
+        print(f"AUC score: {pip_auc_score:.4f}")
 
     except Exception as e:
         logging.error(f"Error in generate_plot for {author_name}: {e}")
         raise
 
     return plot_paths, pip_auc_score
+
 
 
