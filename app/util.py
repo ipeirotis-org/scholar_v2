@@ -251,7 +251,7 @@ def generate_plot(dataframe, author_name):
 
         # Generate the first plot
         plt.figure(figsize=(10, 6))
-        dataframe.plot.scatter(
+        ax1 = dataframe.plot.scatter(
             x="paper_rank",
             y="percentile_score",
             c="age",
@@ -270,7 +270,7 @@ def generate_plot(dataframe, author_name):
 
         # Generate the age-normalized plot
         plt.figure(figsize=(10, 6))
-        dataframe.plot.scatter(
+        ax2 = dataframe.plot.scatter(
             x='age',
             y='percentile_score',
             c='DarkBlue',
@@ -293,3 +293,4 @@ def generate_plot(dataframe, author_name):
         raise
 
     return plot_paths, pip_auc_score
+
