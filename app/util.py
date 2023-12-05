@@ -103,6 +103,20 @@ def sanitize_publication_data(pub, timestamp, date_str):
         pub.pop("source", None)  # Remove source if it's not serializable
 
 
+def get_numpaper_percentiles(year):
+    author_percentiles = pd.read_csv(url_author_percentiles).set_index("years_since_first_pub")
+    s = author_percentiles.loc[year,:]
+    highest_indices = s.groupby(s).apply(lambda x: x.index[-1])
+    sw = pd.Series(index=highest_indices.values, data=highest_indices.index)
+    normalized_values = pd.Series(data=sw.index, index=sw.values)
+    return normalized_values
+
+def find_closest(series, number):
+    differences = np.abs(series.index - number)
+    closest_index = differences.argmin()
+    return series.iloc[closest_index]
+    
+
 def score_papers(row):
     age, citations = row["age"], row["citations"]
     if age not in percentile_df.index:
@@ -131,27 +145,30 @@ def get_author_statistics(author_name):
 
     if error is not None or author is None:
         logging.error(f"Error fetching data for author {author_name}: {error}")
-        return None, pd.DataFrame(), 0  # Return empty DataFrame and zero publications
+        return None, pd.DataFrame(), 0, error
 
     pubs = [
         {
             "citations": p["citedby"],
-            "age": datetime.now().year - int(p["bib"].get("pub_year", 0)) + 1
-            if p["bib"].get("pub_year")
-            else None,
+            "age": datetime.now().year - int(p["bib"].get("pub_year", 0)) + 1,
             "title": p["bib"].get("title"),
             "year": int(p["bib"].get("pub_year")) if p["bib"].get("pub_year") else None
         }
         for p in publications
-        if "pub_year" in p["bib"]
+        if "pub_year" in p["bib"] and p["citedby"] is not None
     ]
 
     query_df = pd.DataFrame(pubs)
     query_df["percentile_score"] = query_df.apply(score_papers, axis=1).round(2)
-    query_df["paper_rank"] = (
-        query_df["percentile_score"].rank(ascending=False, method="first").astype(int)
-    )
+    query_df["paper_rank"] = query_df["percentile_score"].rank(ascending=False, method='first').astype(int)
     query_df = query_df.sort_values("percentile_score", ascending=False)
+
+    year = query_df['age'].max()
+    num_papers_percentile = get_numpaper_percentiles(year)
+    query_df['num_papers_percentile'] = query_df['paper_rank'].apply(lambda x: find_closest(num_papers_percentile, x))
+    query_df['num_papers_percentile'] = query_df['num_papers_percentile'].astype(float)
+
+    query_df = query_df.sort_values('percentile_score', ascending=False)
 
     return author, query_df, total_publications
 
