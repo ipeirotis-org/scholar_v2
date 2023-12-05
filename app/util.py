@@ -251,7 +251,7 @@ def generate_plot(dataframe, author_name):
 
         # Generate the first plot
         plt.figure(figsize=(10, 6))
-        ax1 = dataframe.plot.scatter(
+        dataframe.plot.scatter(
             x="paper_rank",
             y="percentile_score",
             c="age",
@@ -268,29 +268,33 @@ def generate_plot(dataframe, author_name):
         plt.close()
         plot_paths.append(rank_plot_path)
 
-        # Generate the age-normalized plot
+        # Generate the line plot for percentile scores across paper ranks
         plt.figure(figsize=(10, 6))
-        ax2 = dataframe.plot.scatter(
-            x='age',
+        # We assume dataframe is already sorted by 'paper_rank'
+        dataframe.plot.line(
+            x='paper_rank',
             y='percentile_score',
-            c='DarkBlue',
-            title=f"Age-Normalized Paper Rank vs Percentile Score for {author_name}",
+            title=f"Percentile Score Across Paper Ranks for {author_name}",
         )
-        plt.xlabel("Age (Years since publication)")
-        plt.ylabel("Percentile Score")
-        age_normalized_plot_path = os.path.join(
-            "static", f"{cleaned_name}_age_normalized_productivity_plot.png"
+        plt.xlabel("Author Productivity Percentile")
+        plt.ylabel("Paper Percentile Score")
+        line_plot_path = os.path.join(
+            "static", f"{cleaned_name}_percentile_score_line_plot.png"
         )
-        plt.savefig(age_normalized_plot_path)
+        plt.savefig(line_plot_path)
         plt.close()
-        plot_paths.append(age_normalized_plot_path)
+        plot_paths.append(line_plot_path)
 
         # Calculate PiP-AUC score
-        pip_auc_score = calculate_pip_auc(dataframe)
+        dataframe['normalized_rank'] = dataframe['paper_rank'] / dataframe['paper_rank'].max()
+        dataframe['normalized_percentile_score'] = dataframe['percentile_score'] / 100.0
+        sorted_df = dataframe.sort_values('normalized_rank')
+        pip_auc_score = auc(sorted_df['normalized_rank'], sorted_df['normalized_percentile_score'])
 
     except Exception as e:
         logging.error(f"Error in generate_plot for {author_name}: {e}")
         raise
 
     return plot_paths, pip_auc_score
+
 
