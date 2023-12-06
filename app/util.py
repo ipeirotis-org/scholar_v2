@@ -310,7 +310,8 @@ def generate_plot(dataframe, author_name):
         # Calculate AUC score
         auc_data = dataframe.filter(['num_papers_percentile', 'percentile_score']).drop_duplicates(subset='num_papers_percentile', keep='first')
         pip_auc_score = np.trapz(auc_data['percentile_score'], auc_data['num_papers_percentile']) / (100 * 100)
-        print(f"AUC score: {pip_auc_score:.4f}")
+        formatted_pip_auc_score = "{:.4f}".format(pip_auc_score)
+        print(f"AUC score: {formatted_pip_auc_score}")
 
     except Exception as e:
         logging.error(f"Error in generate_plot for {author_name}: {e}")
