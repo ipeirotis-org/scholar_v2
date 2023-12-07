@@ -97,48 +97,59 @@
 
     <section id="results">
         <h2>Search Results</h2>
-        {% if data and data.has_results %}
-            <section>
-                <h2>Author Details ({{ data.author.get('name', 'N/A') }}):</h2>
-                <ul>
-                    <li>Author Name: {{ data.author.get('name', 'N/A') }}</li>
-                    <li>Current Affiliation: {{ data.author.get('affiliation', 'N/A') }}</li>
-                    <li>Google Scholar ID: {{ data.author.get('scholar_id', 'N/A') }}</li>
-                    <li>Total Citations: {{ data.author.get('citedby', 'N/A') }}</li>
-                    <li>Total Publications: {{ data.total_publications }}</li>
-                </ul>
+        {% if authors_data %}
+            {% for data in authors_data %}
+                {% if data.has_results %}
+                    <section>
+                        <h2>Author Details ({{ data.author.get('name', 'N/A') }}):</h2>
+                        <ul>
+                            <li>Author Name: {{ data.author.get('name', 'N/A') }}</li>
+                            <li>Current Affiliation: {{ data.author.get('affiliation', 'N/A') }}</li>
+                            <li>Google Scholar ID: {{ data.author.get('scholar_id', 'N/A') }}</li>
+                            <li>Total Citations: {{ data.author.get('citedby', 'N/A') }}</li>
+                            <li>Total Publications: {{ data.total_publications }}</li>
+                        </ul>
 
-                {% for path in data.plot_paths %}
-                    <img class="plot" src="{{ path }}" alt="Generated Plot">
-                {% endfor %}
-
-                <h3>PiP-AUC Score:</h3>
-                <p>The PiP-AUC score for {{ data.author.get('name', 'N/A') }} is: {{ data.pip_auc_score }} (Reflects an author's scholarly influence, higher the better)</p>
-
-                <table id="resultsTable" class="table table-striped table-bordered table-hover">
-                    <thead>
-                        <tr>
-                            <th onclick="sortTable(0, 'resultsTable')" class="sortable">Title</th>
-                            <th onclick="sortTable(1, 'resultsTable', true)" class="sortable">Year of Publication</th>
-                            <th onclick="sortTable(2, 'resultsTable', true)" class="sortable">Citations</th>
-                            <th onclick="sortTable(3, 'resultsTable', true)" class="sortable">Score</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for item in data.results.itertuples() %}
-                            <tr>
-                                <td>{{ item.title }}</td>
-                                <td>{{ item.year }}</td>
-                                <td>{{ item.citations }}</td>
-                                <td>{{ item.percentile_score }}</td>
-                            </tr>
+                        {% for path in data.plot_paths %}
+                            <img class="plot" src="{{ path }}" alt="Generated Plot">
                         {% endfor %}
-                    </tbody>
-                </table>
-                <a href="{{ url_for('download_results', author_name=data.author.get('name', 'N/A')) }}">Download CSV for {{ data.author.get('name', 'N/A') }}</a>
-            </section>
+
+                        <h3>PiP-AUC Score:</h3>
+                        <p>The PiP-AUC score for {{ data.author.get('name', 'N/A') }} is: {{ data.pip_auc_score }} (Reflects an author's scholarly influence, higher the better)</p>
+
+
+
+                        <table id="resultsTable" class="table table-striped table-bordered table-hover">
+                            <thead>
+                                <tr>
+                                    <th onclick="sortTable(0, 'resultsTable')" class="sortable">Title</th>
+                                    <th onclick="sortTable(1, 'resultsTable', true)" class="sortable">Year of Publication</th>
+                                    <th onclick="sortTable(2, 'resultsTable', true)" class="sortable">Citations</th>
+                                    <th onclick="sortTable(3, 'resultsTable', true)" class="sortable">Score</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in data.results.itertuples() %}
+                                    <tr>
+                                        <td>{{ item.title }}</td>
+                                        <td>{{ item.year }}</td>
+                                        <td>{{ item.citations }}</td>
+                                        <td>{{ item.percentile_score }}</td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                        <a href="{{ url_for('download_results', author_name=data.author.get('name', 'N/A')) }}">Download CSV for {{ data.author.get('name', 'N/A') }}</a>
+                    </section>
+                {% else %}
+                    <section>
+                        <p>No results found for {{ data.author.get('name', 'N/A') }}.</p>
+                    </section>
+                {% endif %}
+                <hr>
+            {% endfor %}
         {% else %}
-            <p>No results found. Please try again.</p>
+            <p>No authors' data available. Please try again.</p>
         {% endif %}
     </section>
 
@@ -147,6 +158,7 @@
     </footer>
 </body>
 </html>
+
 
 
 
