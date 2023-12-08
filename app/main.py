@@ -1,7 +1,6 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, send_file
 from util import (
     get_scholar_data,
-    get_multiple_authors,
     get_author_statistics,
     generate_plot,
     get_yearly_data,
@@ -63,11 +62,12 @@ def json_serial(obj):
 @app.route("/get_similar_authors")
 def get_similar_authors():
     author_name = request.args.get("author_name")
-    authors = get_multiple_authors(author_name)
+    authors, _, _, error = get_scholar_data(author_name, multiple=True)
 
-    if authors:
+    if authors is not None:
         clean_authors = []
         for author in authors:
+            logging.info(f"Raw author data: {author}")  # Log raw data here
             clean_author = {
                 "name": author.get("name"),
                 "affiliation": author.get("affiliation"),
@@ -77,11 +77,15 @@ def get_similar_authors():
             }
             clean_authors.append(clean_author)
 
-        return jsonify(clean_authors)
-    else:
-        logging.error("No authors data found or an error occurred.")
-        return jsonify([])
+            diagnose_serialization_issue(clean_author)
 
+        # Convert clean_authors to a format that is JSON serializable
+        serializable_authors = json.dumps(clean_authors, default=json_serial)
+
+        return jsonify(json.loads(serializable_authors))
+    else:
+        logging.error(f"No authors data found or an error occurred: {error}")
+        return jsonify([])
 
 
 def cleanup_old_images(directory="static", max_age=3600):
@@ -202,6 +206,11 @@ def index():
     return render_template("index.html", author_count=author_count)
 
 
+@app.route("/set_author_count", methods=["POST"])
+def set_author_count():
+    author_count = request.form.get("author_count", default=1, type=int)
+    return redirect(url_for("index", author_count=author_count))
+
 
 def perform_search(author_name):
     author, query, total_publications = get_author_statistics(author_name)
@@ -246,28 +255,64 @@ def perform_search(author_name):
 
 @app.route("/results", methods=["POST"])
 def results():
-    author_name = request.form.get("author_name", "")
-
-    if not author_name:
-        flash("Author name is required.")
-        return redirect(url_for("index"))
+    author_count_input = request.form.get("author_count", 1)
 
     try:
-        search_data = perform_search(author_name)
-        search_data["years"] = []  # If needed
+        author_count = int(author_count_input)
+    except ValueError:
+        flash("Invalid author count. Setting default value of 1.")
+        author_count = 1
 
-        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+    authors_data = []
+
+    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+
+    try:
+        for i in range(author_count):
+            author_name = request.form.get(f"author_name_{i}", "")
+
+            if not author_name:
+                flash("Author name is required.")
+                return redirect(url_for("index", author_count=author_count))
+
+            search_data = perform_search(author_name)
+
+            # Ensure 'years' key is available in search_data
+            if "years" not in search_data:
+                search_data["years"] = []
+
+            authors_data.append(search_data)
+
+        # For simplicity, I'm removing the comparison feature. If you want to keep it,
+        # you'd need to adjust how the data ranges are determined.
+        # For now, it'll only generate the comparison if there are exactly two authors.
+        if len(authors_data) == 2:
+            author1_data = get_yearly_data(
+                authors_data[0]["author"]["name"], 1900, 2100
+            )
+            author2_data = get_yearly_data(
+                authors_data[1]["author"]["name"], 1900, 2100
+            )
+            generate_comparison_charts(
+                author1_data,
+                author2_data,
+                authors_data[0]["author"]["name"],
+                authors_data[1]["author"]["name"],
+                timestamp,
+                1900,
+                2100,
+            )
 
         return render_template(
             "results.html",
-            data=search_data,  
-            time_stamp=timestamp 
+            authors_data=authors_data,
+            time_stamp=timestamp,
+            author_count=author_count,
         )
     except Exception as e:
         print(e)  # Log for debugging
         flash("An error occurred while processing your request.", "error")
         return redirect(url_for("index"))
-
 
 
 @app.route("/download/<author_name>")
@@ -286,13 +331,7 @@ def download_results(author_name):
     )
 
 
-@app.route("/search_history")
-def search_history():
-    search_keys = cache.get("search_history_keys") or []
 
-    history = [cache.get(key) for key in search_keys if cache.get(key) is not None]
-
-    return render_template("search_history.html", history=history)
 
 
 def save_to_cache(key, data):
