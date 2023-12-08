@@ -39,22 +39,29 @@ def get_firestore_cache(author_name):
 
 def set_firestore_cache(author_name, data):
     doc_ref = db.collection('scholar_cache').document(author_name)
-    doc_ref.set({
-        'data': data,
-        'timestamp': datetime.utcnow().replace(tzinfo=pytz.utc)
-    })
+    cache_data = {
+        'timestamp': datetime.utcnow().replace(tzinfo=pytz.utc),
+    }
+    if isinstance(data, list):
+        cache_data['data'] = data
+    else:
+        cache_data.update(data)
+
+    doc_ref.set(cache_data)
+
 
 
 
 def get_scholar_data(author_name, multiple=False):
     cached_data = get_firestore_cache(author_name)
     if cached_data:
-        if isinstance(cached_data, dict) and 'publications' in cached_data:
-            return cached_data, None, len(cached_data['publications']), None
+        if 'publications' in cached_data:
+            author_info = cached_data.get('author_info', None)  # Assuming you also cache author info
+            publications = cached_data['publications']
+            total_publications = len(publications)
+            return author_info, publications, total_publications, None
         else:
-            logging.error("Cached data is not in the expected format.")
-
-    logging.info(f"Fetching data for author: {author_name}")
+            logging.error("Cached data is not in the expected format for a single author.")
 
     try:
         search_query = scholarly.search_author(author_name)
@@ -242,11 +249,12 @@ def best_year(yearly_data):
 def get_yearly_data(author_name, start_year=None, end_year=None):
     author, publications, total_publications, error = get_scholar_data(author_name)
 
-    if author is None:
-        return None
+    if error is not None or author is None or publications is None:
+        logging.error(f"Error fetching data for author {author_name}: {error}")
+        return {}  # Return an empty dictionary if there's an error or no data
 
     yearly_data = {}
-    for pub in publications:
+    for pub in publications:  # Now publications is guaranteed not to be None
         year = int(pub["bib"].get("pub_year", 0))
 
         if start_year and year < start_year:
@@ -259,22 +267,22 @@ def get_yearly_data(author_name, start_year=None, end_year=None):
         yearly_data[year]["citations"] += pub["citedby"]
         yearly_data[year]["publications"] += 1
 
-        pub_df = pd.DataFrame(
-            [
-                {
-                    "citations": pub["citedby"],
-                    "age": datetime.now().year - year + 1,
-                    "title": pub["bib"].get("title"),
-                }
-            ]
-        )
+        # Calculate the percentile score and add it to the yearly score
+        pub_df = pd.DataFrame([{
+            "citations": pub["citedby"],
+            "age": datetime.now().year - year + 1,
+            "title": pub["bib"].get("title"),
+        }])
         pub_df["percentile_score"] = pub_df.apply(score_papers, axis=1)
         yearly_data[year]["scores"] += pub_df["percentile_score"].iloc[0]
 
+    # Normalize the scores by the number of publications
     for year in yearly_data:
-        yearly_data[year]["scores"] /= yearly_data[year]["publications"]
+        if yearly_data[year]["publications"] > 0:
+            yearly_data[year]["scores"] /= yearly_data[year]["publications"]
 
     return yearly_data
+
 
 
 def normalize_paper_count(years_since_first_pub):
