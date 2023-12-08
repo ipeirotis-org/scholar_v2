@@ -46,11 +46,23 @@
     </section>
 
     <section id="content">
+        <h2>App Description</h2>
+        <p>Enter how many authors you want to compare:</p>
+        <form action="/set_author_count" method="post">
+            <label for="author_count">Number of Authors:</label>
+            
+            <input type="submit" value="Set">
+        </form>
+
         <form action="/results" method="post">
-            <label for="author_name">Author Name:</label>
-            <input type="text" id="author_name" name="author_name" required autocomplete="off">
-            <div class="autocomplete-dropdown" id="autocomplete-dropdown"></div>
+            
+            {% for i in range(author_count) %}
+            <hr>
+            <label for="author_name_{{ i }}">Author Name ({{ i + 1 }}):</label>
+            
+            <div class="autocomplete-dropdown" id="autocomplete-dropdown-{{ i }}"></div>
             <br><br>
+            {% endfor %}
             <input type="submit" value="Submit">
         </form>
 
@@ -63,19 +75,22 @@
 
     <script>
         let timeout = null;
-        document.getElementById("author_name").addEventListener("keyup", function() {
-            clearTimeout(timeout);
 
-            timeout = setTimeout(() => {
-                fetchSimilarAuthors(this.value);
-            }, 300);
-        });
+        for(let i = 0; i < {{ author_count }}; i++) {
+            document.getElementById("author_name_" + i).addEventListener("keyup", function() {
+                clearTimeout(timeout);
 
-        function fetchSimilarAuthors(authorName) {
+                timeout = setTimeout(() => {
+                    fetchSimilarAuthors(this.value, i);
+                }, 300);
+            });
+        }
+
+        function fetchSimilarAuthors(authorName, index) {
             fetch(`/get_similar_authors?author_name=${authorName}`)
                 .then(response => response.json())
                 .then(authors => {
-                    let dropdown = document.getElementById('autocomplete-dropdown');
+                    let dropdown = document.getElementById('autocomplete-dropdown-' + index);
                     dropdown.innerHTML = '';
 
                     authors.forEach(author => {
@@ -83,7 +98,7 @@
                         div.className = 'author-option';
                         div.innerHTML = author.name;
                         div.onclick = function() {
-                            document.getElementById('author_name').value = author.name;
+                            document.getElementById('author_name_' + index).value = author.name;
                             dropdown.style.display = 'none';
                         };
                         dropdown.appendChild(div);
