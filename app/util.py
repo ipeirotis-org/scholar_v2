@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import os
 import logging
 from sklearn.metrics import auc
+import pytz
 from google.cloud import firestore
 db = firestore.Client()
 
@@ -27,16 +28,20 @@ def get_firestore_cache(author_name):
     doc = doc_ref.get()
     if doc.exists:
         cached_data = doc.to_dict()
-        if datetime.now() - cached_data['timestamp'] < timedelta(weeks=1):
+        cached_time = cached_data['timestamp'].replace(tzinfo=pytz.utc)
+        current_time = datetime.now(pytz.utc)
+        if current_time - cached_time < timedelta(weeks=1):
             return cached_data['data']
     return None
+
 
 def set_firestore_cache(author_name, data):
     doc_ref = db.collection('scholar_cache').document(author_name)
     doc_ref.set({
         'data': data,
-        'timestamp': datetime.now()
+        'timestamp': datetime.now(pytz.utc)
     })
+
 
 
 def get_scholar_data(author_name, multiple=False):
