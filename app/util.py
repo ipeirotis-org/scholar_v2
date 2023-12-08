@@ -2,11 +2,13 @@ import matplotlib
 import pandas as pd
 import numpy as np
 from scholarly import scholarly
-from datetime import datetime
+from datetime import datetime, timedelta
 import matplotlib.pyplot as plt
 import os
 import logging
 from sklearn.metrics import auc
+from google.cloud import firestore
+db = firestore.Client()
 
 matplotlib.use("Agg")
 
@@ -20,8 +22,28 @@ author_percentiles = pd.read_csv(url_author_percentiles).set_index(
     "years_since_first_pub"
 )
 
+def get_firestore_cache(author_name):
+    doc_ref = db.collection('scholar_cache').document(author_name)
+    doc = doc_ref.get()
+    if doc.exists:
+        cached_data = doc.to_dict()
+        if datetime.now() - cached_data['timestamp'] < timedelta(weeks=1):
+            return cached_data['data']
+    return None
+
+def set_firestore_cache(author_name, data):
+    doc_ref = db.collection('scholar_cache').document(author_name)
+    doc_ref.set({
+        'data': data,
+        'timestamp': datetime.now()
+    })
+
 
 def get_scholar_data(author_name, multiple=False):
+    cached_data = get_firestore_cache(author_name)
+    if cached_data:
+        return cached_data, None, len(cached_data), None
+
     logging.info(f"Fetching data for author: {author_name}")
 
     try:
@@ -33,7 +55,8 @@ def get_scholar_data(author_name, multiple=False):
     authors = []
     try:
         for _ in range(10):  # Fetch up to 10 authors for the given name
-            authors.append(next(search_query))
+            author = next(search_query)
+            authors.append(author)
     except StopIteration:
         pass
     except Exception as e:
@@ -49,6 +72,8 @@ def get_scholar_data(author_name, multiple=False):
     if multiple:
         for author in authors:
             sanitize_author_data(author)
+        # Cache the multiple author data
+        set_firestore_cache(author_name, authors)
         return authors, None, None, None
 
     if len(authors) > 1:
@@ -78,6 +103,8 @@ def get_scholar_data(author_name, multiple=False):
     author["last_updated_ts"] = timestamp
     author["last_updated"] = date_str
     del author["publications"]
+
+    set_firestore_cache(author_name, publications)
 
     return author, publications, total_publications, None
 
