@@ -24,20 +24,30 @@ author_percentiles = pd.read_csv(url_author_percentiles).set_index(
 )
 
 def get_firestore_cache(author_name):
+    if not author_name.strip():  # Check if author_name is not empty and not just whitespace
+        logging.error("Invalid author name for Firestore cache.")
+        return None
+
     doc_ref = db.collection('scholar_cache').document(author_name)
-    doc = doc_ref.get()
-    if doc.exists:
-        cached_data = doc.to_dict()
-        cached_time = cached_data['timestamp']
-        if isinstance(cached_time, datetime):  # Making sure it's a datetime object
-            cached_time = cached_time.replace(tzinfo=pytz.utc)
-        current_time = datetime.utcnow().replace(tzinfo=pytz.utc)
-        if (current_time - cached_time).days < 7:
-            return cached_data['data']
+    try:
+        doc = doc_ref.get()
+        if doc.exists:
+            cached_data = doc.to_dict()
+            cached_time = cached_data['timestamp']
+            if isinstance(cached_time, datetime):  # Making sure it's a datetime object
+                cached_time = cached_time.replace(tzinfo=pytz.utc)
+            current_time = datetime.utcnow().replace(tzinfo=pytz.utc)
+            if (current_time - cached_time).days < 7:
+                return cached_data['data']
+    except Exception as e:
+        logging.error(f"Error accessing Firestore: {e}")
     return None
 
-
 def set_firestore_cache(author_name, data):
+    if not author_name.strip():  # Check if author_name is not empty and not just whitespace
+        logging.error("Invalid author name for Firestore cache.")
+        return
+
     doc_ref = db.collection('scholar_cache').document(author_name)
     cache_data = {
         'timestamp': datetime.utcnow().replace(tzinfo=pytz.utc),
@@ -47,7 +57,11 @@ def set_firestore_cache(author_name, data):
     else:
         cache_data.update(data)
 
-    doc_ref.set(cache_data)
+    try:
+        doc_ref.set(cache_data)
+    except Exception as e:
+        logging.error(f"Error updating Firestore: {e}")
+
 
 
 
