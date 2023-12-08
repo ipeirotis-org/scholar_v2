@@ -8,55 +8,39 @@
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
     <script>
       function sortTable(n, tableId, isNumeric) {
-        var table, rows, switching, i, x, y, shouldSwitch, dir, switchcount = 0;
+        var table, rows, i, x, y;
         table = document.getElementById(tableId);
-        switching = true;
-        dir = "asc"; 
+        var switching = true;
+        var dir = "asc";
+        
         while (switching) {
-          switching = false;
-          rows = table.rows;
-          for (i = 1; i < (rows.length - 1); i++) {
-            shouldSwitch = false;
-            x = rows[i].getElementsByTagName("TD")[n];
-            y = rows[i + 1].getElementsByTagName("TD")[n];
-            if (isNumeric) {
-              if (dir == "asc") {
-                if (parseInt(x.innerHTML) > parseInt(y.innerHTML)) {
-                  shouldSwitch = true;
-                  break;
+            switching = false;
+            rows = table.getElementsByTagName("TR");
+            for (i = 1; i < (rows.length - 1); i++) {
+                var shouldSwitch = false;
+                x = rows[i].getElementsByTagName("TD")[n];
+                y = rows[i + 1].getElementsByTagName("TD")[n];
+                var valueX = isNumeric ? parseFloat(x.innerHTML) : x.innerHTML.toLowerCase();
+                var valueY = isNumeric ? parseFloat(y.innerHTML) : y.innerHTML.toLowerCase();
+                
+                if (dir == "asc" && valueX > valueY) {
+                    shouldSwitch = true;
+                    break;
+                } else if (dir == "desc" && valueX < valueY) {
+                    shouldSwitch = true;
+                    break;
                 }
-              } else if (dir == "desc") {
-                if (parseInt(x.innerHTML) < parseInt(y.innerHTML)) {
-                  shouldSwitch = true;
-                  break;
-                }
-              }
-            } else {
-              if (dir == "asc") {
-                if (x.innerHTML.toLowerCase() > y.innerHTML.toLowerCase()) {
-                  shouldSwitch = true;
-                  break;
-                }
-              } else if (dir == "desc") {
-                if (x.innerHTML.toLowerCase() < y.innerHTML.toLowerCase()) {
-                  shouldSwitch = true;
-                  break;
-                }
-              }
             }
-          }
-          if (shouldSwitch) {
-            rows[i].parentNode.insertBefore(rows[i + 1], rows[i]);
-            switching = true;
-            switchcount ++;      
-          } else {
-            if (switchcount == 0 && dir == "asc") {  // Corrected here
-              dir = "desc";
-              switching = true;
+            if (shouldSwitch) {
+                rows[i].parentNode.insertBefore(rows[i + 1], rows[i]);
+                switching = true;
+            } else if (dir == "asc") {
+                dir = "desc";
+                switching = true;
             }
-          }
         }
     }
+
 
     </script>
     <style>
