@@ -6,4 +6,5 @@ Werkzeug==2.0.1
 matplotlib
 flask_caching
 scikit-learn
+google-cloud-firestore
 
