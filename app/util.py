@@ -189,7 +189,7 @@ def get_author_statistics(author_name):
 
     if error is not None or author is None:
         logging.error(f"Error fetching data for author {author_name}: {error}")
-        return None, pd.DataFrame(), 0, error
+        return None, pd.DataFrame(), 0
 
     pubs = [
         {
@@ -215,6 +215,7 @@ def get_author_statistics(author_name):
     query_df = query_df.sort_values('percentile_score', ascending=False)
 
     return author, query_df, total_publications
+
 
 
 
