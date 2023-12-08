@@ -46,23 +46,11 @@
     </section>
 
     <section id="content">
-        <h2>App Description</h2>
-        <p>Enter how many authors you want to compare:</p>
-        <form action="/set_author_count" method="post">
-            <label for="author_count">Number of Authors:</label>
-            <input type="number" id="author_count" name="author_count" value="{{ author_count }}" min="1" required>
-            <input type="submit" value="Set">
-        </form>
-
         <form action="/results" method="post">
-            <input type="hidden" name="author_count" value="{{ author_count }}">
-            {% for i in range(author_count) %}
-            <hr>
-            <label for="author_name_{{ i }}">Author Name ({{ i + 1 }}):</label>
-            <input type="text" id="author_name_{{ i }}" name="author_name_{{ i }}" required autocomplete="off">
-            <div class="autocomplete-dropdown" id="autocomplete-dropdown-{{ i }}"></div>
+            <label for="author_name">Author Name:</label>
+            <input type="text" id="author_name" name="author_name" required autocomplete="off">
+            <div class="autocomplete-dropdown" id="autocomplete-dropdown"></div>
             <br><br>
-            {% endfor %}
             <input type="submit" value="Submit">
         </form>
 
@@ -75,22 +63,19 @@
 
     <script>
         let timeout = null;
+        document.getElementById("author_name").addEventListener("keyup", function() {
+            clearTimeout(timeout);
 
-        for(let i = 0; i < {{ author_count }}; i++) {
-            document.getElementById("author_name_" + i).addEventListener("keyup", function() {
-                clearTimeout(timeout);
+            timeout = setTimeout(() => {
+                fetchSimilarAuthors(this.value);
+            }, 300);
+        });
 
-                timeout = setTimeout(() => {
-                    fetchSimilarAuthors(this.value, i);
-                }, 300);
-            });
-        }
-
-        function fetchSimilarAuthors(authorName, index) {
+        function fetchSimilarAuthors(authorName) {
             fetch(`/get_similar_authors?author_name=${authorName}`)
                 .then(response => response.json())
                 .then(authors => {
-                    let dropdown = document.getElementById('autocomplete-dropdown-' + index);
+                    let dropdown = document.getElementById('autocomplete-dropdown');
                     dropdown.innerHTML = '';
 
                     authors.forEach(author => {
@@ -98,7 +83,7 @@
                         div.className = 'author-option';
                         div.innerHTML = author.name;
                         div.onclick = function() {
-                            document.getElementById('author_name_' + index).value = author.name;
+                            document.getElementById('author_name').value = author.name;
                             dropdown.style.display = 'none';
                         };
                         dropdown.appendChild(div);
@@ -115,5 +100,6 @@
 </body>
 
 </html>
+
 
 
