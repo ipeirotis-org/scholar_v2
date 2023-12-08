@@ -21,45 +21,19 @@ author_percentiles = pd.read_csv(url_author_percentiles).set_index(
 )
 
 
-def get_scholar_data(author_name, multiple=False):
+def get_scholar_data(author_name):
     logging.info(f"Fetching data for author: {author_name}")
 
     try:
         search_query = scholarly.search_author(author_name)
-    except Exception as e:
-        logging.error(f"Error fetching author data: {e}")
-        return None, None, None, str(e)
-
-    authors = []
-    try:
-        for _ in range(10):  # Fetch up to 10 authors for the given name
-            authors.append(next(search_query))
-    except StopIteration:
-        pass
-    except Exception as e:
-        logging.error(f"Error iterating through author data: {e}")
-        return None, None, None, str(e)
-
-    if not authors:
-        logging.warning("No authors found.")
-        return None, None, None, "No authors found."
-
-    logging.info(f"Found {len(authors)} authors.")
-
-    if multiple:
-        for author in authors:
-            sanitize_author_data(author)
-        return authors, None, None, None
-
-    if len(authors) > 1:
-        author = max(authors, key=lambda a: a.get("citedby", 0))
-    else:
-        author = authors[0]
-
-    try:
+        author = next(search_query, None)
+        if author is None:
+            logging.warning("No author found.")
+            return None, None, None, "No author found."
+        
         author = scholarly.fill(author)
     except Exception as e:
-        logging.error(f"Error fetching detailed author data: {e}")
+        logging.error(f"Error in get_scholar_data: {e}")
         return None, None, None, str(e)
 
     now = datetime.now()
@@ -80,6 +54,7 @@ def get_scholar_data(author_name, multiple=False):
     del author["publications"]
 
     return author, publications, total_publications, None
+
 
 
 def sanitize_author_data(author):
