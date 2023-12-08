@@ -62,12 +62,11 @@ def json_serial(obj):
 @app.route("/get_similar_authors")
 def get_similar_authors():
     author_name = request.args.get("author_name")
-    authors, _, _, error = get_scholar_data(author_name, multiple=True)
+    authors = get_multiple_authors(author_name)
 
-    if authors is not None:
+    if authors:
         clean_authors = []
         for author in authors:
-            logging.info(f"Raw author data: {author}")  # Log raw data here
             clean_author = {
                 "name": author.get("name"),
                 "affiliation": author.get("affiliation"),
@@ -77,15 +76,11 @@ def get_similar_authors():
             }
             clean_authors.append(clean_author)
 
-            diagnose_serialization_issue(clean_author)
-
-        # Convert clean_authors to a format that is JSON serializable
-        serializable_authors = json.dumps(clean_authors, default=json_serial)
-
-        return jsonify(json.loads(serializable_authors))
+        return jsonify(clean_authors)
     else:
-        logging.error(f"No authors data found or an error occurred: {error}")
+        logging.error("No authors data found or an error occurred.")
         return jsonify([])
+
 
 
 def cleanup_old_images(directory="static", max_age=3600):
