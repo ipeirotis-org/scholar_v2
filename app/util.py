@@ -164,7 +164,7 @@ def sanitize_publication_data(pub, timestamp, date_str):
 def get_numpaper_percentiles(year):
     if year not in author_percentiles.index:
         logging.warning(f"Year {year} not found in author percentiles.")
-        return None
+        return pd.Series()
     s = author_percentiles.loc[year, :]
     highest_indices = s.groupby(s).apply(lambda x: x.index[-1])
     sw = pd.Series(index=highest_indices.values, data=highest_indices.index)
@@ -173,6 +173,8 @@ def get_numpaper_percentiles(year):
 
 
 def find_closest(series, number):
+    if series.empty:
+        return np.nan
     differences = np.abs(series.index - number)
     closest_index = differences.argmin()
     return series.iloc[closest_index]
@@ -226,6 +228,9 @@ def get_author_statistics(author_name):
 
     year = query_df['age'].max()
     num_papers_percentile = get_numpaper_percentiles(year)
+    if num_papers_percentile.empty:
+        logging.error("Empty num_papers_percentile series.")
+        return None, pd.DataFrame(), 0
     query_df['num_papers_percentile'] = query_df['paper_rank'].apply(lambda x: find_closest(num_papers_percentile, x))
     query_df['num_papers_percentile'] = query_df['num_papers_percentile'].astype(float)
 
