@@ -49,7 +49,10 @@ def set_firestore_cache(author_name, data):
 def get_scholar_data(author_name, multiple=False):
     cached_data = get_firestore_cache(author_name)
     if cached_data:
-        return cached_data, None, len(cached_data.get('publications', [])), None
+        if isinstance(cached_data, dict) and 'publications' in cached_data:
+            return cached_data, None, len(cached_data['publications']), None
+        else:
+            logging.error("Cached data is not in the expected format.")
 
     logging.info(f"Fetching data for author: {author_name}")
 
