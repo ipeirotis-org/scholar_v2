@@ -47,7 +47,7 @@ def set_firestore_cache(author_name, data):
 def get_scholar_data(author_name, multiple=False):
     cached_data = get_firestore_cache(author_name)
     if cached_data:
-        return cached_data, None, len(cached_data), None
+        return cached_data, None, len(cached_data['publications']), None
 
     logging.info(f"Fetching data for author: {author_name}")
 
@@ -55,7 +55,7 @@ def get_scholar_data(author_name, multiple=False):
         search_query = scholarly.search_author(author_name)
     except Exception as e:
         logging.error(f"Error fetching author data: {e}")
-        return None, None, None, str(e)
+        return None, [], 0, str(e)
 
     authors = []
     try:
@@ -66,11 +66,11 @@ def get_scholar_data(author_name, multiple=False):
         pass
     except Exception as e:
         logging.error(f"Error iterating through author data: {e}")
-        return None, None, None, str(e)
+        return None, [], 0, str(e)
 
     if not authors:
         logging.warning("No authors found.")
-        return None, None, None, "No authors found."
+        return None, [], 0, "No authors found."
 
     logging.info(f"Found {len(authors)} authors.")
 
@@ -78,7 +78,7 @@ def get_scholar_data(author_name, multiple=False):
         for author in authors:
             sanitize_author_data(author)
         # Cache the multiple author data
-        set_firestore_cache(author_name, authors)
+        set_firestore_cache(author_name, {'publications': authors})
         return authors, None, None, None
 
     if len(authors) > 1:
@@ -90,10 +90,10 @@ def get_scholar_data(author_name, multiple=False):
         author = scholarly.fill(author)
     except Exception as e:
         logging.error(f"Error fetching detailed author data: {e}")
-        return None, None, None, str(e)
+        return None, [], 0, str(e)
 
-    now = datetime.now()
-    timestamp = int(datetime.timestamp(now))
+    now = datetime.now(pytz.utc)
+    timestamp = int(now.timestamp())
     date_str = now.strftime("%Y-%m-%d %H:%M:%S")
 
     publications = []
@@ -109,7 +109,7 @@ def get_scholar_data(author_name, multiple=False):
     author["last_updated"] = date_str
     del author["publications"]
 
-    set_firestore_cache(author_name, publications)
+    set_firestore_cache(author_name, {'publications': publications})
 
     return author, publications, total_publications, None
 
