@@ -1,6 +1,7 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, send_file
 from util import (
     get_scholar_data,
+    get_multiple_authors,
     get_author_statistics,
     generate_plot,
     get_yearly_data,
