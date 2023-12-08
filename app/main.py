@@ -253,9 +253,9 @@ def perform_search(author_name):
     return search_data
 
 
-@app.route("/results", methods=["POST"])
+@app.route("/results", methods=["GET"])
 def results():
-    author_name = request.form.get("author_name_0", "")
+    author_name = request.args.get("author_name", "")
 
     if not author_name:
         flash("Author name is required.")
@@ -276,6 +276,7 @@ def results():
         time_stamp=timestamp,
         author_count=1, 
     )
+
 
 
 @app.route("/download/<author_name>")
