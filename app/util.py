@@ -204,7 +204,7 @@ def score_papers(row):
 def get_author_statistics(author_name):
     author, publications, total_publications, error = get_scholar_data(author_name)
 
-    if error is not None or author is None:
+    if error is not None or author is None or not publications:
         logging.error(f"Error fetching data for author {author_name}: {error}")
         return None, pd.DataFrame(), 0
 
