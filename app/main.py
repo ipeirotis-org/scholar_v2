@@ -281,17 +281,26 @@ def results():
 @app.route("/download/<author_name>")
 @cache.cached(timeout=3600)  # cache for 1 hour
 def download_results(author_name):
-    author, query, _ = get_author_statistics(author_name)  # Adjusted the function call
+    # Fetch the author's data
+    author, query, _ = get_author_statistics(author_name)
 
+    # Check if there is data to download
     if query.empty:
         flash("No results found to download.")
         return redirect(url_for("index"))
 
-    file_path = f"downloads/{author_name}_results.csv"
+    downloads_dir = os.path.join(app.root_path, 'downloads')
+    if not os.path.exists(downloads_dir):
+        os.makedirs(downloads_dir)  # Create the downloads directory if it doesn't exist
+
+    file_path = os.path.join(downloads_dir, f"{author_name}_results.csv")
+
     query.to_csv(file_path, index=False)
+
     return send_file(
         file_path, as_attachment=True, download_name=f"{author_name}_results.csv"
     )
+
 
 
 
