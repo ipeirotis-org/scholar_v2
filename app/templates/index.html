@@ -39,33 +39,13 @@
         <h1>Welcome to Google Scholar Productivity Search Engine</h1>
     </header>
 
-    <section id="messages">
-        {% for message in messages %}
-        <p class="error">{{ message }}</p>
-        {% endfor %}
-    </section>
-
     <section id="content">
-        <h2>App Description</h2>
-        <p>Enter how many authors you want to compare:</p>
-        <form action="/set_author_count" method="post">
-            <label for="author_count">Number of Authors:</label>
-            
-            <input type="submit" value="Set">
-        </form>
-
         <form action="/results" method="post">
-            
-            {% for i in range(author_count) %}
-            <hr>
-            <label for="author_name_{{ i }}">Author Name ({{ i + 1 }}):</label>
-            
-            <div class="autocomplete-dropdown" id="autocomplete-dropdown-{{ i }}"></div>
-            <br><br>
-            {% endfor %}
+            <label for="author_name_0">Author Name:</label>
+            <input type="text" id="author_name_0" name="author_name_0" required>
+            <div class="autocomplete-dropdown" id="autocomplete-dropdown-0"></div>
             <input type="submit" value="Submit">
         </form>
-
     </section>
 
     <footer>
@@ -74,46 +54,43 @@
 
     <script>
         let timeout = null;
+        document.getElementById("author_name_0").addEventListener("keyup", function() {
+            clearTimeout(timeout);
 
-        for(let i = 0; i < {{ author_count }}; i++) {
-            document.getElementById("author_name_" + i).addEventListener("keyup", function() {
-                clearTimeout(timeout);
+            timeout = setTimeout(() => {
+                fetchSimilarAuthors(this.value);
+            }, 300);
+        });
 
-                timeout = setTimeout(() => {
-                    fetchSimilarAuthors(this.value, i);
-                }, 300);
-            });
-        }
-
-        function fetchSimilarAuthors(authorName, index) {
+        function fetchSimilarAuthors(authorName) {
             fetch(`/get_similar_authors?author_name=${authorName}`)
                 .then(response => response.json())
                 .then(authors => {
-                    let dropdown = document.getElementById('autocomplete-dropdown-' + index);
+                    let dropdown = document.getElementById('autocomplete-dropdown-0');
                     dropdown.innerHTML = '';
 
                     authors.forEach(author => {
-                        let div = document.createElement('div');
-                        div.className = 'author-option';
-                        div.innerHTML = author.name;
-                        div.onclick = function() {
-                            document.getElementById('author_name_' + index).value = author.name;
-                            dropdown.style.display = 'none';
-                        };
+                        let div = createAuthorOption(author);
                         dropdown.appendChild(div);
                     });
 
-                    if(authors.length > 0) {
-                        dropdown.style.display = 'block';
-                    } else {
-                        dropdown.style.display = 'none';
-                    }
+                    dropdown.style.display = authors.length > 0 ? 'block' : 'none';
                 });
+        }
+
+        function createAuthorOption(author) {
+            let div = document.createElement('div');
+            div.className = 'author-option';
+            div.textContent = author.name;
+            div.onclick = function() {
+                document.getElementById('author_name_0').value = author.name;
+                document.getElementById('autocomplete-dropdown-0').style.display = 'none';
+            };
+            return div;
         }
     </script>
 </body>
 
 </html>
-
 
 
