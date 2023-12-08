@@ -7,4 +7,5 @@ matplotlib
 flask_caching
 scikit-learn
 google-cloud-firestore
+pytz==2022.1
 
