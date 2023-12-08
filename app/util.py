@@ -21,37 +21,65 @@ author_percentiles = pd.read_csv(url_author_percentiles).set_index(
 )
 
 
-def get_scholar_data(author_name):
+def get_scholar_data(author_name, multiple=False):
     logging.info(f"Fetching data for author: {author_name}")
 
     try:
         search_query = scholarly.search_author(author_name)
-        author = next(search_query, None)
-
-        if author is None:
-            logging.warning("No author found.")
-            return None, None, None, "No author found."
-        
-        author = scholarly.fill(author)
-
-        publications = []
-        for pub in author.get("publications", []):
-            try:
-                sanitize_publication_data(pub)
-                publications.append(pub)
-            except Exception as e:
-                logging.warning(f"Skipping a publication due to error: {e}")
-
-        total_publications = len(publications)
-        author["last_updated_ts"] = datetime.now().strftime("%Y%m%d%H%M%S")
-        author["last_updated"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        del author["publications"]
-
-        return author, publications, total_publications, None
     except Exception as e:
-        logging.error(f"Error fetching data for author {author_name}: {e}")
+        logging.error(f"Error fetching author data: {e}")
         return None, None, None, str(e)
 
+    authors = []
+    try:
+        for _ in range(10):  # Fetch up to 10 authors for the given name
+            authors.append(next(search_query))
+    except StopIteration:
+        pass
+    except Exception as e:
+        logging.error(f"Error iterating through author data: {e}")
+        return None, None, None, str(e)
+
+    if not authors:
+        logging.warning("No authors found.")
+        return None, None, None, "No authors found."
+
+    logging.info(f"Found {len(authors)} authors.")
+
+    if multiple:
+        for author in authors:
+            sanitize_author_data(author)
+        return authors, None, None, None
+
+    if len(authors) > 1:
+        author = max(authors, key=lambda a: a.get("citedby", 0))
+    else:
+        author = authors[0]
+
+    try:
+        author = scholarly.fill(author)
+    except Exception as e:
+        logging.error(f"Error fetching detailed author data: {e}")
+        return None, None, None, str(e)
+
+    now = datetime.now()
+    timestamp = int(datetime.timestamp(now))
+    date_str = now.strftime("%Y-%m-%d %H:%M:%S")
+
+    publications = []
+    for pub in author.get("publications", []):
+        try:
+            sanitize_publication_data(pub, timestamp, date_str)
+            publications.append(pub)
+        except Exception as e:
+            logging.warning(f"Skipping a publication due to error: {e}")
+
+    total_publications = len(publications)
+    author["last_updated_ts"] = timestamp
+    author["last_updated"] = date_str
+    del author["publications"]
+
+    return author, publications, total_publications, None
 
 
 def sanitize_author_data(author):
@@ -62,20 +90,17 @@ def sanitize_author_data(author):
         author["name"] = "Unknown"
 
 
-def sanitize_publication_data(pub):
-    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-    date_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
+def sanitize_publication_data(pub, timestamp, date_str):
     citedby = int(pub.get("num_citations", 0))
     pub["citedby"] = citedby
     pub["last_updated_ts"] = timestamp
     pub["last_updated"] = date_str
 
+    # Handle potential serialization issues
     if "source" in pub and hasattr(pub["source"], "name"):
         pub["source"] = pub["source"].name
     else:
-        pub.pop("source", None) 
-
+        pub.pop("source", None)  # Remove source if it's not serializable
 
 
 def get_numpaper_percentiles(year):
@@ -113,25 +138,6 @@ def score_papers(row):
             upper_bound = percentiles[above]
             weight = (citations - lower_bound) / (upper_bound - lower_bound)
             return below + weight * (above - below)
-
-
-
-def get_multiple_authors(author_name):
-    try:
-        search_query = scholarly.search_author(author_name)
-        authors = []
-        for _ in range(10):  # Adjust the number based on how many similar names you want to fetch
-            try:
-                author = next(search_query)
-                if author:
-                    authors.append(author)
-            except StopIteration:
-                break
-        return authors
-    except Exception as e:
-        logging.error(f"Error in get_multiple_authors: {e}")
-        return []
-
 
 
 def get_author_statistics(author_name):
@@ -304,14 +310,13 @@ def generate_plot(dataframe, author_name):
         # Calculate AUC score
         auc_data = dataframe.filter(['num_papers_percentile', 'percentile_score']).drop_duplicates(subset='num_papers_percentile', keep='first')
         pip_auc_score = np.trapz(auc_data['percentile_score'], auc_data['num_papers_percentile']) / (100 * 100)
-        formatted_pip_auc_score = "{:.4f}".format(pip_auc_score)
-        print(f"AUC score: {formatted_pip_auc_score}")
+        print(f"AUC score: {pip_auc_score:.4f}")
 
     except Exception as e:
         logging.error(f"Error in generate_plot for {author_name}: {e}")
         raise
 
-    return plot_paths, formatted_pip_auc_score
+    return plot_paths, pip_auc_score
 
 
 
