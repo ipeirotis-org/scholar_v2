@@ -111,6 +111,25 @@ def score_papers(row):
             return below + weight * (above - below)
 
 
+
+def get_multiple_authors(author_name):
+    try:
+        search_query = scholarly.search_author(author_name)
+        authors = []
+        for _ in range(10):  # Adjust the number based on how many similar names you want to fetch
+            try:
+                author = next(search_query)
+                if author:
+                    authors.append(author)
+            except StopIteration:
+                break
+        return authors
+    except Exception as e:
+        logging.error(f"Error in get_multiple_authors: {e}")
+        return []
+
+
+
 def get_author_statistics(author_name):
     author, publications, total_publications, error = get_scholar_data(author_name)
 
