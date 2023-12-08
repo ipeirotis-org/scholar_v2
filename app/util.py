@@ -162,12 +162,15 @@ def sanitize_publication_data(pub, timestamp, date_str):
 
 
 def get_numpaper_percentiles(year):
-    author_percentiles = pd.read_csv(url_author_percentiles).set_index("years_since_first_pub")
-    s = author_percentiles.loc[year,:]
+    if year not in author_percentiles.index:
+        logging.warning(f"Year {year} not found in author percentiles.")
+        return None
+    s = author_percentiles.loc[year, :]
     highest_indices = s.groupby(s).apply(lambda x: x.index[-1])
     sw = pd.Series(index=highest_indices.values, data=highest_indices.index)
     normalized_values = pd.Series(data=sw.index, index=sw.values)
     return normalized_values
+
 
 def find_closest(series, number):
     differences = np.abs(series.index - number)
