@@ -28,9 +28,11 @@ def get_firestore_cache(author_name):
     doc = doc_ref.get()
     if doc.exists:
         cached_data = doc.to_dict()
-        cached_time = cached_data['timestamp'].replace(tzinfo=pytz.utc)
-        current_time = datetime.now(pytz.utc)
-        if current_time - cached_time < timedelta(weeks=1):
+        cached_time = cached_data['timestamp']
+        if isinstance(cached_time, datetime):  # Making sure it's a datetime object
+            cached_time = cached_time.replace(tzinfo=pytz.utc)
+        current_time = datetime.utcnow().replace(tzinfo=pytz.utc)
+        if (current_time - cached_time).days < 7:
             return cached_data['data']
     return None
 
@@ -39,7 +41,7 @@ def set_firestore_cache(author_name, data):
     doc_ref = db.collection('scholar_cache').document(author_name)
     doc_ref.set({
         'data': data,
-        'timestamp': datetime.now(pytz.utc)
+        'timestamp': datetime.utcnow().replace(tzinfo=pytz.utc)
     })
 
 
@@ -47,7 +49,7 @@ def set_firestore_cache(author_name, data):
 def get_scholar_data(author_name, multiple=False):
     cached_data = get_firestore_cache(author_name)
     if cached_data:
-        return cached_data, None, len(cached_data['publications']), None
+        return cached_data, None, len(cached_data.get('publications', [])), None
 
     logging.info(f"Fetching data for author: {author_name}")
 
