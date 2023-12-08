@@ -206,11 +206,6 @@ def index():
     return render_template("index.html", author_count=author_count)
 
 
-@app.route("/set_author_count", methods=["POST"])
-def set_author_count():
-    author_count = request.form.get("author_count", default=1, type=int)
-    return redirect(url_for("index", author_count=author_count))
-
 
 def perform_search(author_name):
     author, query, total_publications = get_author_statistics(author_name)
@@ -255,64 +250,28 @@ def perform_search(author_name):
 
 @app.route("/results", methods=["POST"])
 def results():
-    author_count_input = request.form.get("author_count", 1)
+    author_name = request.form.get("author_name", "")
+
+    if not author_name:
+        flash("Author name is required.")
+        return redirect(url_for("index"))
 
     try:
-        author_count = int(author_count_input)
-    except ValueError:
-        flash("Invalid author count. Setting default value of 1.")
-        author_count = 1
+        search_data = perform_search(author_name)
+        search_data["years"] = []  # If needed
 
-    authors_data = []
-
-    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-
-    try:
-        for i in range(author_count):
-            author_name = request.form.get(f"author_name_{i}", "")
-
-            if not author_name:
-                flash("Author name is required.")
-                return redirect(url_for("index", author_count=author_count))
-
-            search_data = perform_search(author_name)
-
-            # Ensure 'years' key is available in search_data
-            if "years" not in search_data:
-                search_data["years"] = []
-
-            authors_data.append(search_data)
-
-        # For simplicity, I'm removing the comparison feature. If you want to keep it,
-        # you'd need to adjust how the data ranges are determined.
-        # For now, it'll only generate the comparison if there are exactly two authors.
-        if len(authors_data) == 2:
-            author1_data = get_yearly_data(
-                authors_data[0]["author"]["name"], 1900, 2100
-            )
-            author2_data = get_yearly_data(
-                authors_data[1]["author"]["name"], 1900, 2100
-            )
-            generate_comparison_charts(
-                author1_data,
-                author2_data,
-                authors_data[0]["author"]["name"],
-                authors_data[1]["author"]["name"],
-                timestamp,
-                1900,
-                2100,
-            )
+        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
 
         return render_template(
             "results.html",
-            authors_data=authors_data,
-            time_stamp=timestamp,
-            author_count=author_count,
+            data=search_data,  
+            time_stamp=timestamp 
         )
     except Exception as e:
         print(e)  # Log for debugging
         flash("An error occurred while processing your request.", "error")
         return redirect(url_for("index"))
+
 
 
 @app.route("/download/<author_name>")
