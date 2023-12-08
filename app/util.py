@@ -27,33 +27,30 @@ def get_scholar_data(author_name):
     try:
         search_query = scholarly.search_author(author_name)
         author = next(search_query, None)
+
         if author is None:
             logging.warning("No author found.")
             return None, None, None, "No author found."
         
         author = scholarly.fill(author)
+
+        publications = []
+        for pub in author.get("publications", []):
+            try:
+                sanitize_publication_data(pub)
+                publications.append(pub)
+            except Exception as e:
+                logging.warning(f"Skipping a publication due to error: {e}")
+
+        total_publications = len(publications)
+        author["last_updated_ts"] = datetime.now().strftime("%Y%m%d%H%M%S")
+        author["last_updated"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        del author["publications"]
+
+        return author, publications, total_publications, None
     except Exception as e:
-        logging.error(f"Error in get_scholar_data: {e}")
+        logging.error(f"Error fetching data for author {author_name}: {e}")
         return None, None, None, str(e)
-
-    now = datetime.now()
-    timestamp = int(datetime.timestamp(now))
-    date_str = now.strftime("%Y-%m-%d %H:%M:%S")
-
-    publications = []
-    for pub in author.get("publications", []):
-        try:
-            sanitize_publication_data(pub, timestamp, date_str)
-            publications.append(pub)
-        except Exception as e:
-            logging.warning(f"Skipping a publication due to error: {e}")
-
-    total_publications = len(publications)
-    author["last_updated_ts"] = timestamp
-    author["last_updated"] = date_str
-    del author["publications"]
-
-    return author, publications, total_publications, None
 
 
 
@@ -71,11 +68,10 @@ def sanitize_publication_data(pub, timestamp, date_str):
     pub["last_updated_ts"] = timestamp
     pub["last_updated"] = date_str
 
-    # Handle potential serialization issues
     if "source" in pub and hasattr(pub["source"], "name"):
         pub["source"] = pub["source"].name
     else:
-        pub.pop("source", None)  # Remove source if it's not serializable
+        pub.pop("source", None)
 
 
 def get_numpaper_percentiles(year):
