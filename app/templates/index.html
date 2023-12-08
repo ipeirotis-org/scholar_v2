@@ -40,9 +40,9 @@
     </header>
 
     <section id="content">
-        <form action="/results" method="post">
-            <label for="author_name_0">Author Name:</label>
-            <input type="text" id="author_name_0" name="author_name_0" required>
+        <form action="/results" method="get">
+            <label for="author_name">Author Name:</label>
+            <input type="text" id="author_name" name="author_name" required>
             <div class="autocomplete-dropdown" id="autocomplete-dropdown-0"></div>
             <input type="submit" value="Submit">
         </form>
@@ -54,7 +54,7 @@
 
     <script>
         let timeout = null;
-        document.getElementById("author_name_0").addEventListener("keyup", function() {
+        document.getElementById("author_name").addEventListener("keyup", function() {
             clearTimeout(timeout);
 
             timeout = setTimeout(() => {
@@ -63,7 +63,7 @@
         });
 
         function fetchSimilarAuthors(authorName) {
-            fetch(`/get_similar_authors?author_name=${authorName}`)
+            fetch(`/get_similar_authors?author_name=${encodeURIComponent(authorName)}`)
                 .then(response => response.json())
                 .then(authors => {
                     let dropdown = document.getElementById('autocomplete-dropdown-0');
@@ -83,7 +83,7 @@
             div.className = 'author-option';
             div.textContent = author.name;
             div.onclick = function() {
-                document.getElementById('author_name_0').value = author.name;
+                document.getElementById('author_name').value = author.name;
                 document.getElementById('autocomplete-dropdown-0').style.display = 'none';
             };
             return div;
@@ -92,5 +92,6 @@
 </body>
 
 </html>
+
 
 
