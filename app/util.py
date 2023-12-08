@@ -62,7 +62,10 @@ def sanitize_author_data(author):
         author["name"] = "Unknown"
 
 
-def sanitize_publication_data(pub, timestamp, date_str):
+def sanitize_publication_data(pub):
+    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+    date_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
     citedby = int(pub.get("num_citations", 0))
     pub["citedby"] = citedby
     pub["last_updated_ts"] = timestamp
@@ -71,7 +74,8 @@ def sanitize_publication_data(pub, timestamp, date_str):
     if "source" in pub and hasattr(pub["source"], "name"):
         pub["source"] = pub["source"].name
     else:
-        pub.pop("source", None)
+        pub.pop("source", None) 
+
 
 
 def get_numpaper_percentiles(year):
