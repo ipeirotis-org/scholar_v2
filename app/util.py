@@ -48,10 +48,12 @@ def set_firestore_cache(author_name, data):
         logging.error("Invalid author name for Firestore cache.")
         return
 
-    doc_ref = db.collection('scholar_cache').document(author_name)
+    firestore_author_name = author_name.lower()
+    doc_ref = db.collection('scholar_cache').document(firestore_author_name)
+    
     cache_data = {
         'timestamp': datetime.utcnow().replace(tzinfo=pytz.utc),
-        'data': data 
+        'data': data  # Ensure you're storing the relevant data
     }
 
     try:
@@ -63,12 +65,14 @@ def set_firestore_cache(author_name, data):
 
 
 
+
 def get_scholar_data(author_name, multiple=False):
-    cached_data = get_firestore_cache(author_name)
+    firestore_author_name = author_name.lower() 
+    cached_data = get_firestore_cache(firestore_author_name)
     if cached_data:
         logging.info(f"Cache hit for author '{author_name}'. Data fetched from Firestore.")
-        if 'publications' in cached_data:
-            author_info = cached_data.get('author_info', None)
+        if 'author_info' in cached_data and 'publications' in cached_data:
+            author_info = cached_data['author_info']
             publications = cached_data['publications']
             total_publications = len(publications)
             return author_info, publications, total_publications, None
