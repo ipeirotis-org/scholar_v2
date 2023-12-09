@@ -3,8 +3,6 @@ from util import (
     get_scholar_data,
     get_author_statistics,
     generate_plot,
-    get_yearly_data,
-    best_year,
 )
 from matplotlib.ticker import MaxNLocator
 import matplotlib.pyplot as plt
@@ -221,14 +219,8 @@ def perform_search(author_name):
         plot_paths, pip_auc_score = generate_plot(query, author["name"]) if has_results else ([], 0)
     except Exception as e:
         logging.error(f"Error generating plot for {author_name}: {e}")
-        flash(
-            f"An error occurred while generating the plot for {author_name}.", "error"
-        )
+        flash(f"An error occurred while generating the plot for {author_name}.", "error")
         plot_paths, pip_auc_score = [], 0
-
-    # Fetch yearly data
-    yearly_data = get_yearly_data(author_name)
-    overall_best_year = best_year(yearly_data)
 
     search_data = {
         "author": author,
@@ -236,16 +228,13 @@ def perform_search(author_name):
         "has_results": has_results,
         "plot_paths": plot_paths,
         "total_publications": total_publications,
-        "overall_best_year": overall_best_year,
-        "pip_auc_score": pip_auc_score,
+        "pip_auc_score": pip_auc_score
     }
 
-    # Save to cache
     timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
     cache_key = f"{author_name}_{timestamp}"
     cache.set(cache_key, search_data)
 
-    # Update the search history keys in the cache
     current_keys = cache.get("search_history_keys") or []
     current_keys.append(cache_key)
     cache.set("search_history_keys", current_keys)
