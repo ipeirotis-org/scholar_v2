@@ -24,7 +24,7 @@ author_percentiles = pd.read_csv(url_author_percentiles).set_index(
 )
 
 def get_firestore_cache(author_name):
-    if not author_name.strip():  # Check if author_name is not empty and not just whitespace
+    if not author_name.strip():  
         logging.error("Invalid author name for Firestore cache.")
         return None
 
@@ -33,29 +33,26 @@ def get_firestore_cache(author_name):
         doc = doc_ref.get()
         if doc.exists:
             cached_data = doc.to_dict()
-            cached_time = cached_data['timestamp']
-            if isinstance(cached_time, datetime):  # Making sure it's a datetime object
+            cached_time = cached_data.get('timestamp', None)
+            if cached_time and isinstance(cached_time, datetime):
                 cached_time = cached_time.replace(tzinfo=pytz.utc)
-            current_time = datetime.utcnow().replace(tzinfo=pytz.utc)
-            if (current_time - cached_time).days < 7:
-                return cached_data['data']
+                current_time = datetime.utcnow().replace(tzinfo=pytz.utc)
+                if (current_time - cached_time).days < 7:
+                    return cached_data.get('data', None)
     except Exception as e:
         logging.error(f"Error accessing Firestore: {e}")
     return None
 
 def set_firestore_cache(author_name, data):
-    if not author_name.strip():  # Check if author_name is not empty and not just whitespace
+    if not author_name.strip():
         logging.error("Invalid author name for Firestore cache.")
         return
 
     doc_ref = db.collection('scholar_cache').document(author_name)
     cache_data = {
         'timestamp': datetime.utcnow().replace(tzinfo=pytz.utc),
+        'data': data 
     }
-    if isinstance(data, list):
-        cache_data['data'] = data
-    else:
-        cache_data.update(data)
 
     try:
         doc_ref.set(cache_data)
