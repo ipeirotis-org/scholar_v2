@@ -69,14 +69,17 @@ def set_firestore_cache(author_name, data):
 def get_scholar_data(author_name, multiple=False):
     cached_data = get_firestore_cache(author_name)
     if cached_data:
+        logging.info(f"Cache hit for author '{author_name}'. Data fetched from Firestore.")
         if 'publications' in cached_data:
-            author_info = cached_data.get('author_info', None)  # Assuming you also cache author info
+            author_info = cached_data.get('author_info', None)
             publications = cached_data['publications']
             total_publications = len(publications)
             return author_info, publications, total_publications, None
         else:
             logging.error("Cached data is not in the expected format for a single author.")
+            return None, [], 0, "Cached data format error"
 
+    logging.info(f"Cache miss for author '{author_name}'. Fetching data from Google Scholar.")
     try:
         search_query = scholarly.search_author(author_name)
     except Exception as e:
@@ -85,7 +88,7 @@ def get_scholar_data(author_name, multiple=False):
 
     authors = []
     try:
-        for _ in range(10):  # Fetch up to 10 authors for the given name
+        for _ in range(10):
             author = next(search_query)
             authors.append(author)
     except StopIteration:
