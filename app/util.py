@@ -242,7 +242,6 @@ def get_author_statistics(author_name):
 
 
 def normalize_paper_count(years_since_first_pub):
-    # Convert the difference to a NumPy array before applying abs()
     differences = np.abs(np.array(author_percentiles.index) - years_since_first_pub)
     closest_year_index = np.argmin(differences)
     closest_year = author_percentiles.iloc[closest_year_index]
