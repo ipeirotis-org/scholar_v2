@@ -60,7 +60,7 @@ def set_firestore_cache(author_name, data):
 
 
 def get_scholar_data(author_name, multiple=False):
-    firestore_author_name = author_name.lower() 
+    firestore_author_name = author_name.lower()
     cached_data = get_firestore_cache(firestore_author_name)
     if cached_data:
         logging.info(f"Cache hit for author '{author_name}'. Data fetched from Firestore.")
@@ -100,7 +100,6 @@ def get_scholar_data(author_name, multiple=False):
     if multiple:
         for author in authors:
             sanitize_author_data(author)
-        # Cache the multiple author data
         set_firestore_cache(author_name, {'publications': authors})
         return authors, None, None, None
 
@@ -109,17 +108,23 @@ def get_scholar_data(author_name, multiple=False):
     else:
         author = authors[0]
 
+    now = datetime.now(pytz.utc)
+    timestamp = int(now.timestamp())
+    date_str = now.strftime("%Y-%m-%d %H:%M:%S")
+
     try:
         author = scholarly.fill(author)
-        now = datetime.now(pytz.utc)
-        timestamp = int(now.timestamp())
-        date_str = now.strftime("%Y-%m-%d %H:%M:%S")
-        publications = [sanitize_publication_data(pub, timestamp, date_str) for pub in author.get('publications', []) if 'bib' in pub]
+
+        publications = []
+        for pub in author.get('publications', []):
+            if 'bib' in pub:
+                sanitized_pub = sanitize_publication_data(pub, timestamp, date_str)
+                if sanitized_pub:  # Only add if publication data is valid
+                    publications.append(sanitized_pub)
 
     except Exception as e:
         logging.error(f"Error fetching detailed author data: {e}")
         return None, [], 0, str(e)
-
 
     total_publications = len(publications)
     author["last_updated_ts"] = timestamp
@@ -129,6 +134,7 @@ def get_scholar_data(author_name, multiple=False):
     set_firestore_cache(author_name, {'author_info': author, 'publications': publications})
 
     return author, publications, total_publications, None
+
 
 
 
