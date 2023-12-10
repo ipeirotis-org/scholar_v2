@@ -24,42 +24,40 @@ author_percentiles = pd.read_csv(url_author_percentiles).set_index(
 )
 
 def get_firestore_cache(author_name):
-    if not author_name.strip():  
-        logging.error("Invalid author name for Firestore cache.")
-        return None
-
-    doc_ref = db.collection('scholar_cache').document(author_name)
+    firestore_author_name = author_name.lower()
+    doc_ref = db.collection('scholar_cache').document(firestore_author_name)
     try:
         doc = doc_ref.get()
         if doc.exists:
             cached_data = doc.to_dict()
-            cached_time = cached_data.get('timestamp', None)
-            if cached_time and isinstance(cached_time, datetime):
+            cached_time = cached_data['timestamp']
+            if isinstance(cached_time, datetime):  # Making sure it's a datetime object
                 cached_time = cached_time.replace(tzinfo=pytz.utc)
-                current_time = datetime.utcnow().replace(tzinfo=pytz.utc)
-                if (current_time - cached_time).days < 7:
-                    return cached_data.get('data', None)
+            current_time = datetime.utcnow().replace(tzinfo=pytz.utc)
+            if (current_time - cached_time).days < 7:
+                return cached_data['data']  # Make sure to fetch the data field
+            else:
+                return None 
     except Exception as e:
         logging.error(f"Error accessing Firestore: {e}")
     return None
 
-def set_firestore_cache(author_name, data):
-    if not author_name.strip():
-        logging.error("Invalid author name for Firestore cache.")
-        return
 
+def set_firestore_cache(author_name, data):
     firestore_author_name = author_name.lower()
     doc_ref = db.collection('scholar_cache').document(firestore_author_name)
-    
     cache_data = {
         'timestamp': datetime.utcnow().replace(tzinfo=pytz.utc),
-        'data': data  # Ensure you're storing the relevant data
+        'data': {
+            'author_info': data.get('author_info', {}),
+            'publications': data.get('publications', [])
+        }
     }
-
     try:
         doc_ref.set(cache_data)
     except Exception as e:
         logging.error(f"Error updating Firestore: {e}")
+
 
 
 
