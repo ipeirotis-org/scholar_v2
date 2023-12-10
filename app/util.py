@@ -44,14 +44,12 @@ def get_firestore_cache(author_name):
 
 
 def set_firestore_cache(author_name, data):
+    # Convert author name to lowercase for consistent caching
     firestore_author_name = author_name.lower()
     doc_ref = db.collection('scholar_cache').document(firestore_author_name)
     cache_data = {
         'timestamp': datetime.utcnow().replace(tzinfo=pytz.utc),
-        'data': {
-            'author_info': data.get('author_info', {}),
-            'publications': data.get('publications', [])
-        }
+        'data': data  # Data is already structured as needed
     }
     try:
         doc_ref.set(cache_data)
@@ -116,6 +114,8 @@ def get_scholar_data(author_name, multiple=False):
 
     try:
         author = scholarly.fill(author)
+        publications = [sanitize_publication_data(pub) for pub in author.get('publications', [])]
+
     except Exception as e:
         logging.error(f"Error fetching detailed author data: {e}")
         return None, [], 0, str(e)
@@ -150,17 +150,12 @@ def sanitize_author_data(author):
         author["name"] = "Unknown"
 
 
-def sanitize_publication_data(pub, timestamp, date_str):
-    citedby = int(pub.get("num_citations", 0))
-    pub["citedby"] = citedby
-    pub["last_updated_ts"] = timestamp
-    pub["last_updated"] = date_str
-
-    # Handle potential serialization issues
-    if "source" in pub and hasattr(pub["source"], "name"):
-        pub["source"] = pub["source"].name
-    else:
-        pub.pop("source", None)  # Remove source if it's not serializable
+def sanitize_publication_data(pub):
+    return {
+        'title': pub['bib'].get('title', 'No title'),
+        'pub_year': pub['bib'].get('pub_year', 'Unknown year'),
+        'citations': pub.get('citedby', 0)
+    }
 
 
 def get_numpaper_percentiles(year):
