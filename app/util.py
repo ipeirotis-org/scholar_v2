@@ -114,7 +114,10 @@ def get_scholar_data(author_name, multiple=False):
 
     try:
         author = scholarly.fill(author)
-        publications = [sanitize_publication_data(pub) for pub in author.get('publications', [])]
+        now = datetime.now(pytz.utc)
+        timestamp = int(now.timestamp())
+        date_str = now.strftime("%Y-%m-%d %H:%M:%S")
+        publications = [sanitize_publication_data(pub, timestamp, date_str) for pub in author.get('publications', [])]
 
     except Exception as e:
         logging.error(f"Error fetching detailed author data: {e}")
@@ -150,7 +153,7 @@ def sanitize_author_data(author):
         author["name"] = "Unknown"
 
 
-def sanitize_publication_data(pub):
+def sanitize_publication_data(pub, timestamp, date_str):
     return {
         'title': pub['bib'].get('title', 'No title'),
         'pub_year': pub['bib'].get('pub_year', 'Unknown year'),
