@@ -143,16 +143,22 @@ def sanitize_author_data(author):
 
 
 def sanitize_publication_data(pub, timestamp, date_str):
-    citedby = int(pub.get("num_citations", 0))
-    pub["citedby"] = citedby
-    pub["last_updated_ts"] = timestamp
-    pub["last_updated"] = date_str
+    try:
+        citedby = int(pub.get("num_citations", 0))
+        pub["citedby"] = citedby
+        pub["last_updated_ts"] = timestamp
+        pub["last_updated"] = date_str
 
-    # Handle potential serialization issues
-    if "source" in pub and hasattr(pub["source"], "name"):
-        pub["source"] = pub["source"].name
-    else:
-        pub.pop("source", None)  
+        # Handle potential serialization issues
+        if "source" in pub and hasattr(pub["source"], "name"):
+            pub["source"] = pub["source"].name
+        else:
+            pub.pop("source", None)  # Remove source if it's not serializable
+
+        return pub  # Make sure to return the updated publication dict
+    except Exception as e:
+        logging.error(f"Error sanitizing publication data: {e}")
+        return None  # Return None if there's an error
 
 
 def get_numpaper_percentiles(year):
@@ -205,15 +211,11 @@ def get_author_statistics(author_name):
         return None, pd.DataFrame(), 0
 
     pubs = [
-        {
-            "citations": p["citedby"],
-            "age": datetime.now().year - int(p["bib"].get("pub_year", 0)) + 1,
-            "title": p["bib"].get("title"),
-            "year": int(p["bib"].get("pub_year")) if p["bib"].get("pub_year") else None
-        }
+        sanitize_publication_data(p, timestamp, date_str)
         for p in publications
-        if "pub_year" in p["bib"] and p["citedby"] is not None
+        if p and "bib" in p and "pub_year" in p["bib"]  # Check if publication data is valid and contains required fields
     ]
+    pubs = [p for p in pubs if p]
 
     query_df = pd.DataFrame(pubs)
     query_df["percentile_score"] = query_df.apply(score_papers, axis=1).round(2)
