@@ -44,12 +44,14 @@ def get_firestore_cache(author_name):
 
 
 def set_firestore_cache(author_name, data):
-    # Convert author name to lowercase for consistent caching
     firestore_author_name = author_name.lower()
     doc_ref = db.collection('scholar_cache').document(firestore_author_name)
     cache_data = {
         'timestamp': datetime.utcnow().replace(tzinfo=pytz.utc),
-        'data': data  # Data is already structured as needed
+        'data': {
+            'author_info': data.get('author_info', {}),
+            'publications': data.get('publications', [])
+        }
     }
     try:
         doc_ref.set(cache_data)
@@ -154,11 +156,16 @@ def sanitize_author_data(author):
 
 
 def sanitize_publication_data(pub, timestamp, date_str):
-    return {
-        'title': pub['bib'].get('title', 'No title'),
-        'pub_year': pub['bib'].get('pub_year', 'Unknown year'),
-        'citations': pub.get('citedby', 0)
-    }
+    citedby = int(pub.get("num_citations", 0))
+    pub["citedby"] = citedby
+    pub["last_updated_ts"] = timestamp
+    pub["last_updated"] = date_str
+
+    # Handle potential serialization issues
+    if "source" in pub and hasattr(pub["source"], "name"):
+        pub["source"] = pub["source"].name
+    else:
+        pub.pop("source", None)  
 
 
 def get_numpaper_percentiles(year):
