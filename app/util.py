@@ -48,10 +48,8 @@ def set_firestore_cache(author_name, data):
     doc_ref = db.collection('scholar_cache').document(firestore_author_name)
     cache_data = {
         'timestamp': datetime.utcnow().replace(tzinfo=pytz.utc),
-        'data': {
-            'author_info': data.get('author_info', {}),
-            'publications': data.get('publications', [])
-        }
+        'data': data  
+        
     }
     try:
         doc_ref.set(cache_data)
