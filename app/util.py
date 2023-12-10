@@ -42,7 +42,6 @@ def get_firestore_cache(author_name):
         logging.error(f"Error accessing Firestore: {e}")
     return None
 
-
 def set_firestore_cache(author_name, data):
     firestore_author_name = author_name.lower()
     doc_ref = db.collection('scholar_cache').document(firestore_author_name)
@@ -106,45 +105,36 @@ def get_scholar_data(author_name, multiple=False):
         for author in authors:
             sanitize_author_data(author)
         # Cache the multiple author data
-        set_firestore_cache(author_name, {'publications': authors})
+        set_firestore_cache(firestore_author_name, {'publications': authors})
         return authors, None, None, None
 
-    if len(authors) > 1:
-        author = max(authors, key=lambda a: a.get("citedby", 0))
-    else:
-        author = authors[0]
+    # In case there is more than one author, select the one with the highest citation count.
+    author = max(authors, key=lambda a: a.get("citedby", 0)) if len(authors) > 1 else authors[0]
 
     try:
-        author = scholarly.fill(author)
-        now = datetime.now(pytz.utc)
-        timestamp = int(now.timestamp())
-        date_str = now.strftime("%Y-%m-%d %H:%M:%S")
-        publications = [sanitize_publication_data(pub, timestamp, date_str) for pub in author.get('publications', [])]
+        author = scholarly.fill(author, sections=['basics', 'indices', 'counts', 'publications'])
+        author_info = {
+            'name': author.get('name', 'Unknown'),
+            'affiliation': author.get('affiliation', 'N/A'),
+            'email': author.get('email', 'N/A'),
+            'citedby': author.get('citedby', 'N/A'),
+            'scholar_id': author.get('scholar_id', 'N/A')
+        }
+        publications = [sanitize_publication_data(pub) for pub in author.get('publications', [])]
+        total_publications = len(publications)
+
+        # Cache the data
+        set_firestore_cache(firestore_author_name, {
+            'author_info': author_info,
+            'publications': publications
+        })
 
     except Exception as e:
         logging.error(f"Error fetching detailed author data: {e}")
         return None, [], 0, str(e)
 
-    now = datetime.now(pytz.utc)
-    timestamp = int(now.timestamp())
-    date_str = now.strftime("%Y-%m-%d %H:%M:%S")
+    return author_info, publications, total_publications, None
 
-    publications = []
-    for pub in author.get("publications", []):
-        try:
-            sanitize_publication_data(pub, timestamp, date_str)
-            publications.append(pub)
-        except Exception as e:
-            logging.warning(f"Skipping a publication due to error: {e}")
-
-    total_publications = len(publications)
-    author["last_updated_ts"] = timestamp
-    author["last_updated"] = date_str
-    del author["publications"]
-
-    set_firestore_cache(author_name, {'publications': publications})
-
-    return author, publications, total_publications, None
 
 
 def sanitize_author_data(author):
