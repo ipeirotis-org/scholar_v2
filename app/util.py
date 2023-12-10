@@ -222,12 +222,19 @@ def get_author_statistics(author_name):
         logging.error(f"Error fetching data for author {author_name}: {error}")
         return None, pd.DataFrame(), 0
 
+    now = datetime.now(pytz.utc)
+    timestamp = int(now.timestamp())
+    date_str = now.strftime("%Y-%m-%d %H:%M:%S")
+
     pubs = [
-        sanitize_publication_data(p, timestamp, date_str)
-        for p in publications
-        if p and "bib" in p and "pub_year" in p["bib"]  # Check if publication data is valid and contains required fields
+        {
+            "citations": sanitize_publication_data(p, timestamp, date_str)["citedby"],
+            "age": datetime.now().year - int(p["bib"].get("pub_year", 0)) + 1,
+            "title": p["bib"].get("title"),
+            "year": int(p["bib"].get("pub_year")) if p["bib"].get("pub_year") else None
+        }
+        for p in publications if "bib" in p and "pub_year" in p["bib"] and "citedby" in p
     ]
-    pubs = [p for p in pubs if p]
 
     query_df = pd.DataFrame(pubs)
     query_df["percentile_score"] = query_df.apply(score_papers, axis=1).round(2)
