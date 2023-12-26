@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -10,39 +9,35 @@
         body {
             margin: 20px;
         }
-
         .error {
             color: red;
             font-weight: bold;
         }
-
         .autocomplete-dropdown {
             border: 1px solid #ddd;
             max-height: 150px;
             overflow-y: auto;
             display: none;
         }
-
         .author-option {
             padding: 5px;
             cursor: pointer;
         }
-
         .author-option:hover {
             background-color: #eee;
         }
     </style>
 </head>
-
 <body>
     <header>
         <h1>Welcome to Google Scholar Productivity Search Engine</h1>
     </header>
 
     <section id="content">
-        <form action="/results" method="get">
+        <!-- Prevent the default form submission -->
+        <form id="searchForm" action="/results" method="get" onsubmit="event.preventDefault(); submitForm();">
             <label for="author_name">Author Name:</label>
-            <input type="text" id="author_name" name="author_name" required>
+            <input type="text" id="author_name" name="author_name" autocomplete="off" required>
             <div class="autocomplete-dropdown" id="autocomplete-dropdown-0"></div>
             <input type="submit" value="Submit">
         </form>
@@ -54,9 +49,16 @@
 
     <script>
         let timeout = null;
-        document.getElementById("author_name").addEventListener("keyup", function(event) {
-            clearTimeout(timeout);
+        const authorInput = document.getElementById("author_name");
 
+        authorInput.addEventListener("keyup", function(event) {
+            // Prevent form submission on 'Enter'
+            if (event.key === "Enter") {
+                event.preventDefault();
+                return;
+            }
+
+            clearTimeout(timeout);
             timeout = setTimeout(() => {
                 fetchSimilarAuthors(this.value);
             }, 300);
@@ -74,11 +76,7 @@
                         dropdown.appendChild(div);
                     });
 
-                    if(authors.length > 0) {
-                        dropdown.style.display = 'block';
-                    } else {
-                        dropdown.style.display = 'none';
-                    }
+                    dropdown.style.display = authors.length > 0 ? 'block' : 'none';
                 });
         }
 
@@ -87,10 +85,12 @@
             div.className = 'author-option';
             div.textContent = author.name;
             div.onclick = function() {
-                document.getElementById('author_name').value = author.name;
+                authorInput.value = author.name;
                 document.getElementById('autocomplete-dropdown-0').style.display = 'none';
                 // Cache the selected author name
                 cacheAuthorName(author.name);
+                // Optionally, submit the form
+                // document.getElementById('searchForm').submit();
             };
             return div;
         }
@@ -115,11 +115,14 @@
                 console.error('Error:', error);
             });
         }
+
+        function submitForm() {
+            // Submit the form here if needed, or redirect to /results with the author name
+            window.location.href = `/results?author_name=${encodeURIComponent(authorInput.value)}`;
+        }
     </script>
 </body>
-
 </html>
-
 
 
 
