@@ -335,13 +335,14 @@ def generate_plot(dataframe, author_name):
 
 
 def check_and_add_author_to_cache(author_name):
-    authors_ref = db.collection('scholar_cache')
-    existing_authors = authors_ref.where('name', '==', author_name.lower()).get()
-    
-    if not existing_authors:
-        authors_ref.document(author_name.lower()).set({
-            'name': author_name,
+    firestore_author_name = author_name.lower()
+    doc_ref = db.collection('scholar_cache').document(firestore_author_name)
+    doc = doc_ref.get()
+    if not doc.exists:
+        doc_ref.set({
+            'name': author_name,  # Store the display name as it is
             'cached_on': datetime.utcnow()
         })
+
 
 
