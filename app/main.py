@@ -227,59 +227,60 @@ def set_author_count():
 
 
 def perform_search(author_name):
-    author, query, total_publications = get_author_statistics(author_name)
-    has_results = not query.empty
-    pip_auc_score = 0
-    
     try:
-        plot_paths, pip_auc_score = generate_plot(query, author["name"]) if has_results else ([], 0)
+        author, query, total_publications = get_author_statistics(author_name)
+        has_results = not query.empty
+        pip_auc_score = 0
+        
+        if has_results:
+            plot_paths, pip_auc_score = generate_plot(query, author["name"])
+        else:
+            plot_paths, pip_auc_score = [], 0
+
+        search_data = {
+            "author": author,
+            "results": query,
+            "has_results": has_results,
+            "plot_paths": plot_paths,
+            "total_publications": total_publications,
+            "pip_auc_score": pip_auc_score
+        }
+
+        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+        cache_key = f"{author_name}_{timestamp}"
+        cache.set(cache_key, search_data)
+
+        current_keys = cache.get("search_history_keys") or []
+        current_keys.append(cache_key)
+        cache.set("search_history_keys", current_keys)
+
+        return search_data
     except Exception as e:
-        logging.error(f"Error generating plot for {author_name}: {e}")
-        flash(f"An error occurred while generating the plot for {author_name}.", "error")
-        plot_paths, pip_auc_score = [], 0
-
-    search_data = {
-        "author": author,
-        "results": query,
-        "has_results": has_results,
-        "plot_paths": plot_paths,
-        "total_publications": total_publications,
-        "pip_auc_score": pip_auc_score
-    }
-
-    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-    cache_key = f"{author_name}_{timestamp}"
-    cache.set(cache_key, search_data)
-
-    current_keys = cache.get("search_history_keys") or []
-    current_keys.append(cache_key)
-    cache.set("search_history_keys", current_keys)
-
-    return search_data
-
+        logging.error(f"Exception occurred during search: {e}")
+        flash(f"An error occurred: {e}", "error")
+        return {"has_results": False}
 
 @app.route("/results", methods=["GET"])
 def results():
     author_name = request.args.get("author_name", "")
-
     if not author_name:
         flash("Author name is required.")
         return redirect(url_for("index"))
 
     search_data = perform_search(author_name)
 
-    if search_data['has_results']:
+    if search_data.get('has_results', False):
         authors_data = [search_data]
     else:
         authors_data = []
+        flash("No results found or an error occurred.", "error")
 
     timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-
     return render_template(
         "results.html",
         authors_data=authors_data,
         time_stamp=timestamp,
-        author_count=1, 
+        author_count=1
     )
 
 
