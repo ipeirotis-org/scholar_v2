@@ -1,9 +1,6 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, send_file
-from util import (
-    get_scholar_data,
-    get_author_statistics,
-    generate_plot,
-)
+import util
+
 from matplotlib.ticker import MaxNLocator
 import matplotlib.pyplot as plt
 from flask_caching import Cache
