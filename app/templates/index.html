@@ -53,7 +53,6 @@
 
     <script>
         const authorInput = document.getElementById("author_name");
-        const findAuthorButton = document.getElementById("findAuthorButton");
         const analyzeAuthorButton = document.getElementById("analyzeAuthorButton");
         const dropdown = document.getElementById('autocomplete-dropdown');
 
@@ -88,7 +87,6 @@
         function analyzeAuthor() {
             const authorName = authorInput.value.trim();
             if (authorName) {
-                // Redirect to the results page with the author name
                 window.location.href = `/results?author_name=${encodeURIComponent(authorName)}`;
             }
         }
