@@ -31,10 +31,12 @@ search_history_keys = []
 def cache_author_name():
     author_name = request.json.get('author_name')
     if author_name:
+        logging.info(f"Caching author name: {author_name}")
         util.check_and_add_author_to_cache(author_name)
         return jsonify({'success': True, 'message': 'Author name cached successfully'})
     else:
         return jsonify({'success': False, 'message': 'No author name provided'})
+
 
 
 
