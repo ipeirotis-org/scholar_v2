@@ -26,6 +26,21 @@ cache = Cache(app)
 search_history_keys = []
 
 
+
+@app.route('/cache_author_name', methods=['POST'])
+def cache_author_name():
+    author_name = request.form.get('author_name')  # This should be the complete name from the dropdown
+    if author_name:
+        try:
+            util.check_and_add_author_to_cache(author_name)  # Use the new function from util.py
+            return jsonify({'success': True, 'message': 'Author name cached successfully'})
+        except Exception as e:
+            logging.error(f"Failed to cache author name: {e}")
+            return jsonify({'success': False, 'message': 'Failed to cache author name'})
+
+    return jsonify({'success': False, 'message': 'No author name provided'})
+
+
 def diagnose_serialization_issue(data, depth=0, max_depth=5):
     try:
         json.dumps(data)
