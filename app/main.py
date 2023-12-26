@@ -40,6 +40,7 @@ def cache_author_name():
     return jsonify({'success': False, 'message': 'No author name provided'})
 
 
+
 def diagnose_serialization_issue(data, depth=0, max_depth=5):
     try:
         json.dumps(data)
