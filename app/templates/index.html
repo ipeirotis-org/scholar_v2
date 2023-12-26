@@ -85,12 +85,9 @@
             div.className = 'author-option';
             div.textContent = author.name;
             div.onclick = function() {
-                // Set the selected full name as the input value
                 document.getElementById('author_name').value = author.name;
-                // Hide the dropdown
                 document.getElementById('autocomplete-dropdown-0').style.display = 'none';
-                // Cache the selected author name
-                cacheAuthorName(author.name);
+                cacheAuthorName(author.name); // Cache only when author is clicked
             };
             return div;
         }
