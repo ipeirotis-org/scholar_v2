@@ -54,7 +54,7 @@
 
     <script>
         let timeout = null;
-        document.getElementById("author_name").addEventListener("keyup", function() {
+        document.getElementById("author_name").addEventListener("keyup", function(event) {
             clearTimeout(timeout);
 
             timeout = setTimeout(() => {
@@ -74,7 +74,11 @@
                         dropdown.appendChild(div);
                     });
 
-                    dropdown.style.display = authors.length > 0 ? 'block' : 'none';
+                    if(authors.length > 0) {
+                        dropdown.style.display = 'block';
+                    } else {
+                        dropdown.style.display = 'none';
+                    }
                 });
         }
 
@@ -85,33 +89,37 @@
             div.onclick = function() {
                 document.getElementById('author_name').value = author.name;
                 document.getElementById('autocomplete-dropdown-0').style.display = 'none';
-                // Here we make a POST request to cache the selected author name
-                fetch('/cache_author_name', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ author_name: author.name }),
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        console.log('Author name cached successfully.');
-                    } else {
-                        console.error('Failed to cache author name.');
-                    }
-                })
-                .catch((error) => {
-                    console.error('Error:', error);
-                });
+                // Cache the selected author name
+                cacheAuthorName(author.name);
             };
             return div;
         }
 
+        function cacheAuthorName(fullName) {
+            fetch('/cache_author_name', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ author_name: fullName }),
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    console.log('Author name cached successfully.');
+                } else {
+                    console.error('Failed to cache author name.');
+                }
+            })
+            .catch((error) => {
+                console.error('Error:', error);
+            });
+        }
     </script>
 </body>
 
 </html>
+
 
 
 
