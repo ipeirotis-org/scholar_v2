@@ -18,6 +18,10 @@
             max-height: 150px;
             overflow-y: auto;
             display: none;
+            position: absolute;
+            width: calc(100% - 10px);
+            z-index: 1000;
+            background: white;
         }
         .author-option {
             padding: 5px;
@@ -37,9 +41,9 @@
         <div>
             <label for="author_name">Author Name:</label>
             <input type="text" id="author_name" name="author_name" autocomplete="off" required>
-            <div class="autocomplete-dropdown" id="autocomplete-dropdown"></div>
             <button type="button" id="findAuthorButton" onclick="findAuthor()">Find Author</button>
             <button type="button" id="analyzeAuthorButton" onclick="analyzeAuthor()" disabled>Analyze Author</button>
+            <div class="autocomplete-dropdown" id="autocomplete-dropdown"></div>
         </div>
     </section>
 
@@ -49,18 +53,9 @@
 
     <script>
         const authorInput = document.getElementById("author_name");
+        const findAuthorButton = document.getElementById("findAuthorButton");
         const analyzeAuthorButton = document.getElementById("analyzeAuthorButton");
         const dropdown = document.getElementById('autocomplete-dropdown');
-
-        authorInput.addEventListener("input", function() {
-            const authorName = authorInput.value.trim();
-            if (authorName) {
-                // Fetch similar authors as the user types
-                findAuthor();
-            } else {
-                dropdown.style.display = 'none';
-            }
-        });
 
         function findAuthor() {
             const authorName = authorInput.value.trim();
@@ -100,7 +95,4 @@
     </script>
 </body>
 </html>
-
-
-
 
