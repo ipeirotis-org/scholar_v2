@@ -334,4 +334,11 @@ def generate_plot(dataframe, author_name):
     return plot_paths, pip_auc_score
 
 
+def check_and_add_author_to_cache(author_name):
+    """ Check for duplicate author entries and add to Firestore if unique. """
+    authors_ref = db.collection('scholar_cache')
+    existing_authors = authors_ref.where('name', '==', author_name).get()
+    
+    if not existing_authors:
+        authors_ref.document(author_name).set({'name': author_name, 'cached_on': datetime.now()})
 
