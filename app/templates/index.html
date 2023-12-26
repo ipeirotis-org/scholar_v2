@@ -34,7 +34,6 @@
     </header>
 
     <section id="content">
-        <!-- Prevent the default form submission -->
         <form id="searchForm" action="/results" method="get" onsubmit="event.preventDefault(); submitForm();">
             <label for="author_name">Author Name:</label>
             <input type="text" id="author_name" name="author_name" autocomplete="off" required>
@@ -59,9 +58,14 @@
             }
 
             clearTimeout(timeout);
-            timeout = setTimeout(() => {
-                fetchSimilarAuthors(this.value);
-            }, 300);
+            const inputValue = this.value;
+            if (inputValue) {
+                timeout = setTimeout(() => {
+                    fetchSimilarAuthors(inputValue);
+                }, 300);
+            } else {
+                document.getElementById('autocomplete-dropdown-0').style.display = 'none';
+            }
         });
 
         function fetchSimilarAuthors(authorName) {
@@ -70,12 +74,10 @@
                 .then(authors => {
                     let dropdown = document.getElementById('autocomplete-dropdown-0');
                     dropdown.innerHTML = '';
-
                     authors.forEach(author => {
                         let div = createAuthorOption(author);
                         dropdown.appendChild(div);
                     });
-
                     dropdown.style.display = authors.length > 0 ? 'block' : 'none';
                 });
         }
@@ -87,7 +89,7 @@
             div.onclick = function() {
                 document.getElementById('author_name').value = author.name;
                 document.getElementById('autocomplete-dropdown-0').style.display = 'none';
-                cacheAuthorName(author.name); // Cache only when author is clicked
+                cacheAuthorName(author.name);
             };
             return div;
         }
