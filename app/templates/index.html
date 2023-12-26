@@ -34,13 +34,13 @@
     </header>
 
     <section id="content">
-        <form id="searchForm" action="javascript:void(0);">
+        <div>
             <label for="author_name">Author Name:</label>
             <input type="text" id="author_name" name="author_name" autocomplete="off" required>
-            <div class="autocomplete-dropdown" id="autocomplete-dropdown-0"></div>
+            <div class="autocomplete-dropdown" id="autocomplete-dropdown"></div>
             <button type="button" id="findAuthorButton" onclick="findAuthor()">Find Author</button>
             <button type="button" id="analyzeAuthorButton" onclick="analyzeAuthor()" disabled>Analyze Author</button>
-        </form>
+        </div>
     </section>
 
     <footer>
@@ -49,6 +49,18 @@
 
     <script>
         const authorInput = document.getElementById("author_name");
+        const analyzeAuthorButton = document.getElementById("analyzeAuthorButton");
+        const dropdown = document.getElementById('autocomplete-dropdown');
+
+        authorInput.addEventListener("input", function() {
+            const authorName = authorInput.value.trim();
+            if (authorName) {
+                // Fetch similar authors as the user types
+                findAuthor();
+            } else {
+                dropdown.style.display = 'none';
+            }
+        });
 
         function findAuthor() {
             const authorName = authorInput.value.trim();
@@ -56,7 +68,6 @@
                 fetch(`/get_similar_authors?author_name=${encodeURIComponent(authorName)}`)
                     .then(response => response.json())
                     .then(authors => {
-                        let dropdown = document.getElementById('autocomplete-dropdown-0');
                         dropdown.innerHTML = '';
                         authors.forEach(author => {
                             let div = createAuthorOption(author);
@@ -73,8 +84,8 @@
             div.textContent = author.name;
             div.onclick = function() {
                 authorInput.value = author.name;
-                document.getElementById('autocomplete-dropdown-0').style.display = 'none';
-                document.getElementById('analyzeAuthorButton').disabled = false;
+                dropdown.style.display = 'none';
+                analyzeAuthorButton.disabled = false; // Enable the analyze button
             };
             return div;
         }
@@ -82,12 +93,14 @@
         function analyzeAuthor() {
             const authorName = authorInput.value.trim();
             if (authorName) {
+                // Redirect to the results page with the author name
                 window.location.href = `/results?author_name=${encodeURIComponent(authorName)}`;
             }
         }
     </script>
 </body>
 </html>
+
 
 
 
