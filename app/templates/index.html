@@ -85,16 +85,16 @@
             div.className = 'author-option';
             div.textContent = author.name;
             div.onclick = function() {
-                authorInput.value = author.name;
+                // Set the selected full name as the input value
+                document.getElementById('author_name').value = author.name;
+                // Hide the dropdown
                 document.getElementById('autocomplete-dropdown-0').style.display = 'none';
                 // Cache the selected author name
                 cacheAuthorName(author.name);
-                // Optionally, submit the form
-                // document.getElementById('searchForm').submit();
             };
             return div;
         }
-
+        
         function cacheAuthorName(fullName) {
             fetch('/cache_author_name', {
                 method: 'POST',
@@ -107,6 +107,8 @@
             .then(data => {
                 if (data.success) {
                     console.log('Author name cached successfully.');
+                    // Optional: Trigger the form submission here if you want to search immediately after caching
+                    document.getElementById('searchForm').submit();
                 } else {
                     console.error('Failed to cache author name.');
                 }
@@ -115,6 +117,7 @@
                 console.error('Error:', error);
             });
         }
+
 
         function submitForm() {
             // Submit the form here if needed, or redirect to /results with the author name
