@@ -105,9 +105,8 @@
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    console.log('Author name cached successfully.');
-                    // Optional: Trigger the form submission here if you want to search immediately after caching
-                    document.getElementById('searchForm').submit();
+                    window.location.href = `/results?author_name=${encodeURIComponent(fullName)}`;
+
                 } else {
                     console.error('Failed to cache author name.');
                 }
