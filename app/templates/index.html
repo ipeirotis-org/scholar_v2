@@ -38,7 +38,8 @@
             <label for="author_name">Author Name:</label>
             <input type="text" id="author_name" name="author_name" autocomplete="off" required>
             <div class="autocomplete-dropdown" id="autocomplete-dropdown-0"></div>
-            <input type="submit" value="Submit">
+            <button type="button" id="findAuthorBtn" onclick="findAuthors()">Find Author</button>
+            <input type="submit" value="Analyze Author" id="analyzeAuthorBtn" disabled>
         </form>
     </section>
 
@@ -47,26 +48,13 @@
     </footer>
 
     <script>
-        let timeout = null;
         const authorInput = document.getElementById("author_name");
+        const analyzeAuthorBtn = document.getElementById("analyzeAuthorBtn");
 
-        authorInput.addEventListener("keyup", function(event) {
-            // Prevent form submission on 'Enter'
-            if (event.key === "Enter") {
-                event.preventDefault();
-                return;
-            }
-
-            clearTimeout(timeout);
-            const inputValue = this.value;
-            if (inputValue) {
-                timeout = setTimeout(() => {
-                    fetchSimilarAuthors(inputValue);
-                }, 300);
-            } else {
-                document.getElementById('autocomplete-dropdown-0').style.display = 'none';
-            }
-        });
+        function findAuthors() {
+            let authorName = authorInput.value;
+            fetchSimilarAuthors(authorName);
+        }
 
         function fetchSimilarAuthors(authorName) {
             fetch(`/get_similar_authors?author_name=${encodeURIComponent(authorName)}`)
@@ -87,38 +75,14 @@
             div.className = 'author-option';
             div.textContent = author.name;
             div.onclick = function() {
-                document.getElementById('author_name').value = author.name;
-                document.getElementById('autocomplete-dropdown-0').style.display = 'none';
-                cacheAuthorName(author.name);
+                authorInput.value = author.name;
+                dropdown.style.display = 'none';
+                analyzeAuthorBtn.disabled = false;
             };
             return div;
         }
-        
-        function cacheAuthorName(fullName) {
-            fetch('/cache_author_name', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ author_name: fullName }),
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    window.location.href = `/results?author_name=${encodeURIComponent(fullName)}`;
-
-                } else {
-                    console.error('Failed to cache author name.');
-                }
-            })
-            .catch((error) => {
-                console.error('Error:', error);
-            });
-        }
-
 
         function submitForm() {
-            // Submit the form here if needed, or redirect to /results with the author name
             window.location.href = `/results?author_name=${encodeURIComponent(authorInput.value)}`;
         }
     </script>
