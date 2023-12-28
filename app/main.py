@@ -80,26 +80,31 @@ def get_similar_authors():
 
     if authors is not None:
         clean_authors = []
-        for author in authors:
-            logging.info(f"Raw author data: {author}")  # Log raw data here
+        if isinstance(authors, list):  # Handling list of authors (direct Google Scholar fetch)
+            for author in authors:
+                clean_author = {
+                    "name": author.get("name", ""),
+                    "affiliation": author.get("affiliation", ""),
+                    "email": author.get("email", ""),
+                    "citedby": author.get("citedby", 0),
+                    "scholar_id": author.get("scholar_id", "")
+                }
+                clean_authors.append(clean_author)
+        elif isinstance(authors, dict):  # Handling single author object (from Firestore)
             clean_author = {
-                "name": author.get("name"),
-                "affiliation": author.get("affiliation"),
-                "email": author.get("email"),
-                "citedby": author.get("citedby"),
-                "scholar_id": author.get("scholar_id"),
+                "name": authors.get("name", ""),
+                "affiliation": authors.get("affiliation", ""),
+                "email": authors.get("email", ""),
+                "citedby": authors.get("citedby", 0),
+                "scholar_id": authors.get("scholar_id", "")
             }
             clean_authors.append(clean_author)
 
-            diagnose_serialization_issue(clean_author)
-
-        # Convert clean_authors to a format that is JSON serializable
-        serializable_authors = json.dumps(clean_authors, default=json_serial)
-
-        return jsonify(json.loads(serializable_authors))
+        return jsonify(clean_authors)
     else:
         logging.error(f"No authors data found or an error occurred: {error}")
         return jsonify([])
+
 
 
 def cleanup_old_images(directory="static", max_age=3600):
