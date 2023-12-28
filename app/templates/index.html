@@ -56,20 +56,28 @@
         const analyzeAuthorButton = document.getElementById("analyzeAuthorButton");
         const dropdown = document.getElementById('autocomplete-dropdown');
 
+        // Store the last searched authors to re-populate the dropdown
+        let lastSearchedAuthors = [];
+
         function findAuthor() {
             const authorName = authorInput.value.trim();
             if (authorName) {
                 fetch(`/get_similar_authors?author_name=${encodeURIComponent(authorName)}`)
                     .then(response => response.json())
                     .then(authors => {
-                        dropdown.innerHTML = '';
-                        authors.forEach(author => {
-                            let div = createAuthorOption(author);
-                            dropdown.appendChild(div);
-                        });
-                        dropdown.style.display = authors.length > 0 ? 'block' : 'none';
+                        lastSearchedAuthors = authors; // Store the last searched authors
+                        populateDropdown(authors);
                     });
             }
+        }
+
+        function populateDropdown(authors) {
+            dropdown.innerHTML = '';
+            authors.forEach(author => {
+                let div = createAuthorOption(author);
+                dropdown.appendChild(div);
+            });
+            dropdown.style.display = authors.length > 0 ? 'block' : 'none';
         }
 
         function createAuthorOption(author) {
@@ -90,7 +98,20 @@
                 window.location.href = `/results?author_name=${encodeURIComponent(authorName)}`;
             }
         }
+
+        // Re-populate dropdown with cached authors when the input field is clicked
+        authorInput.addEventListener('click', () => {
+            if (authorInput.value.trim() && lastSearchedAuthors.length > 0) {
+                populateDropdown(lastSearchedAuthors);
+            }
+        });
+
+        // Clear the dropdown when user clicks outside
+        document.addEventListener('click', (event) => {
+            if (!event.target.matches('#author_name')) {
+                dropdown.style.display = 'none';
+            }
+        });
     </script>
 </body>
 </html>
-
