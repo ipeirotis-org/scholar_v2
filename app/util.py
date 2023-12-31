@@ -340,9 +340,10 @@ def check_and_add_author_to_cache(author_name):
     doc = doc_ref.get()
     if not doc.exists:
         doc_ref.set({
-            'name': author_name,  # Store the display name as it is
+            'name': author_name,
             'cached_on': datetime.utcnow()
         })
+
 
 
 
