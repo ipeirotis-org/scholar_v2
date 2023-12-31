@@ -42,6 +42,7 @@ def cache_author_name():
 
 
 
+
 def diagnose_serialization_issue(data, depth=0, max_depth=5):
     try:
         json.dumps(data)
