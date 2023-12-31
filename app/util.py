@@ -61,19 +61,23 @@ def set_firestore_cache(author_name, data):
 
 def get_scholar_data(author_name, multiple=False):
     firestore_author_name = author_name.lower()
-    cached_data = get_firestore_cache(firestore_author_name)
-    if cached_data:
-        logging.info(f"Cache hit for author '{author_name}'. Data fetched from Firestore.")
-        if 'author_info' in cached_data and 'publications' in cached_data:
-            author_info = cached_data['author_info']
-            publications = cached_data['publications']
-            total_publications = len(publications)
-            return author_info, publications, total_publications, None
-        else:
-            logging.error("Cached data is not in the expected format for a single author.")
-            return None, [], 0, "Cached data format error"
+    # Check if author_name seems complete (e.g., contains a space)
+    if " " in author_name:
+        cached_data = get_firestore_cache(firestore_author_name)
+        if cached_data:
+            logging.info(f"Cache hit for author '{author_name}'. Data fetched from Firestore.")
+            if 'author_info' in cached_data and 'publications' in cached_data:
+                author_info = cached_data['author_info']
+                publications = cached_data['publications']
+                total_publications = len(publications)
+                return author_info, publications, total_publications, None
+            else:
+                logging.error("Cached data is not in the expected format for a single author.")
+                return None, [], 0, "Cached data format error"
+    else:
+        logging.info(f"Fetching data for incomplete name '{author_name}' directly from Google Scholar.")
 
-    logging.info(f"Cache miss for author '{author_name}'. Fetching data from Google Scholar.")
+    
     try:
         search_query = scholarly.search_author(author_name)
     except Exception as e:
