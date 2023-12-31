@@ -315,6 +315,15 @@ def download_results(author_name):
 
 
 
+@app.route('/cache_and_analyze_author', methods=['POST'])
+def cache_and_analyze_author():
+    author_name = request.json.get('author_name')
+    if author_name:
+        logging.info(f"Caching and analyzing author name: {author_name}")
+        check_and_add_author_to_cache(author_name)
+        return jsonify({'success': True, 'message': 'Author name cached successfully'})
+    else:
+        return jsonify({'success': False, 'message': 'No author name provided'})
 
 
 
