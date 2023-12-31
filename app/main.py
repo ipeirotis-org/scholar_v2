@@ -270,7 +270,7 @@ def results():
     if not author_name:
         flash("Author name is required.")
         return redirect(url_for("index"))
-
+    check_and_add_author_to_cache(author_name)
     search_data = perform_search(author_name)
 
     if search_data['has_results']:
