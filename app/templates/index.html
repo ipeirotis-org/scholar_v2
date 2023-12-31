@@ -90,27 +90,30 @@
         function analyzeAuthor() {
             const authorName = authorInput.value.trim();
             if (authorName) {
-                fetch('/cache_author_name', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ author_name: authorName }),
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        window.location.href = `/results?author_name=${encodeURIComponent(authorName)}`;
-                    } else {
-                        console.error('Failed to cache author name.');
-                    }
-                })
-                .catch((error) => {
-                    console.error('Error:', error);
-                });
+                cacheAndAnalyzeAuthor(authorName);
             }
         }
 
+        function cacheAndAnalyzeAuthor(authorName) {
+            fetch('/cache_and_analyze_author', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ author_name: authorName }),
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    window.location.href = `/results?author_name=${encodeURIComponent(authorName)}`;
+                } else {
+                    console.error('Failed to cache author name.');
+                }
+            })
+            .catch((error) => {
+                console.error('Error:', error);
+            });
+        }
     </script>
 
 
