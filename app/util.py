@@ -31,11 +31,11 @@ def get_firestore_cache(author_name):
         if doc.exists:
             cached_data = doc.to_dict()
             cached_time = cached_data['timestamp']
-            if isinstance(cached_time, datetime):  # Making sure it's a datetime object
+            if isinstance(cached_time, datetime):  
                 cached_time = cached_time.replace(tzinfo=pytz.utc)
             current_time = datetime.utcnow().replace(tzinfo=pytz.utc)
             if (current_time - cached_time).days < 7:
-                return cached_data['data']  # Make sure to fetch the data field
+                return cached_data['data']
             else:
                 return None 
     except Exception as e:
@@ -155,7 +155,7 @@ def sanitize_publication_data(pub, timestamp, date_str):
         if "source" in pub and hasattr(pub["source"], "name"):
             pub["source"] = pub["source"].name
         else:
-            pub.pop("source", None)  # Remove source if it's not serializable
+            pub.pop("source", None)  
 
         return pub  # Make sure to return the updated publication dict
     except Exception as e:
