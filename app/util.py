@@ -61,23 +61,26 @@ def set_firestore_cache(author_name, data):
 
 def get_scholar_data(author_name, multiple=False):
     firestore_author_name = author_name.lower()
-    # Check if author_name seems complete (e.g., contains a space)
-    if " " in author_name:
-        cached_data = get_firestore_cache(firestore_author_name)
-        if cached_data:
-            logging.info(f"Cache hit for author '{author_name}'. Data fetched from Firestore.")
-            if 'author_info' in cached_data and 'publications' in cached_data:
-                author_info = cached_data['author_info']
-                publications = cached_data['publications']
-                total_publications = len(publications)
-                return author_info, publications, total_publications, None
-            else:
-                logging.error("Cached data is not in the expected format for a single author.")
-                return None, [], 0, "Cached data format error"
-    else:
-        logging.info(f"Fetching data for incomplete name '{author_name}' directly from Google Scholar.")
+    cached_data = get_firestore_cache(firestore_author_name)
 
-    
+    if cached_data:
+        logging.info(f"Cache hit for author '{author_name}'. Data fetched from Firestore.")
+        author_info = cached_data.get('author_info', None)
+        publications = cached_data.get('publications', [])
+
+        if author_info and publications:
+            total_publications = len(publications)
+            return author_info, publications, total_publications, None
+        else:
+            logging.error("Cached data is not in the expected format for a single author.")
+            # If cached data is not in the expected format, proceed to fetch from Google Scholar
+            return fetch_from_scholar(author_name, multiple)
+    else:
+        # Cache miss or cached data not useful, fetch from Google Scholar
+        return fetch_from_scholar(author_name, multiple)
+
+def fetch_from_scholar(author_name, multiple):
+    logging.info(f"Cache miss for author '{author_name}'. Fetching data from Google Scholar.")
     try:
         search_query = scholarly.search_author(author_name)
     except Exception as e:
@@ -86,11 +89,10 @@ def get_scholar_data(author_name, multiple=False):
 
     authors = []
     try:
-        for _ in range(10):
-            author = next(search_query)
-            authors.append(author)
-    except StopIteration:
-        pass
+        for _ in range(10 if multiple else 1):
+            author = next(search_query, None)
+            if author:
+                authors.append(author)
     except Exception as e:
         logging.error(f"Error iterating through author data: {e}")
         return None, [], 0, str(e)
@@ -105,36 +107,20 @@ def get_scholar_data(author_name, multiple=False):
         set_firestore_cache(author_name, {'publications': authors})
         return authors, None, None, None
 
-    if len(authors) > 1:
-        author = max(authors, key=lambda a: a.get("citedby", 0))
-    else:
-        author = authors[0]
-
+    author = authors[0]
     try:
         author = scholarly.fill(author)
     except Exception as e:
         logging.error(f"Error fetching detailed author data: {e}")
         return None, [], 0, str(e)
 
-    # Prepare the timestamp and date string for publications
-    now = datetime.now(pytz.utc)
-    timestamp = int(now.timestamp())
-    date_str = now.strftime("%Y-%m-%d %H:%M:%S")
-
-    publications = []
-    for pub in author.get('publications', []):
-        try:
-            sanitized_pub = sanitize_publication_data(pub, timestamp, date_str)
-            publications.append(sanitized_pub)
-        except Exception as e:
-            logging.warning(f"Skipping a publication due to error: {e}")
-
+    publications = [sanitize_publication_data(pub, int(datetime.now().timestamp()), datetime.now().strftime("%Y-%m-%d %H:%M:%S")) for pub in author.get('publications', [])]
     total_publications = len(publications)
     author_info = extract_author_info(author, total_publications)
 
     set_firestore_cache(author_name, {'author_info': author_info, 'publications': publications})
-
     return author_info, publications, total_publications, None
+
 
 def extract_author_info(author, total_publications):
     return {
