@@ -293,7 +293,6 @@ def results():
 @app.route("/download/<author_name>")
 @cache.cached(timeout=3600)  # cache for 1 hour
 def download_results(author_name):
-    # Fetch the author's data
     author, query, _ = get_author_statistics(author_name)
 
     # Check if there is data to download
