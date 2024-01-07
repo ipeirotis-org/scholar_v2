@@ -61,8 +61,10 @@
             if (authorName) {
                 fetch(`/get_similar_authors?author_name=${encodeURIComponent(authorName)}`)
                     .then(response => response.json())
-                    .then(authors => {
+                    .then(data => {
+                        // Clear previous results
                         dropdown.innerHTML = '';
+                        let authors = Array.isArray(data) ? data : [data]; // Ensure data is an array
                         authors.forEach(author => {
                             let div = createAuthorOption(author);
                             dropdown.appendChild(div);
@@ -73,47 +75,24 @@
                     });
             }
         }
-
     
         function createAuthorOption(author) {
             let div = document.createElement('div');
             div.className = 'author-option';
-            div.innerHTML = `${author.name} (ID: ${author.scholar_id}, ${author.affiliation}, Cited by: ${author.citedby})`;
+            div.textContent = `${author.name} (ID: ${author.scholar_id}, Affiliation: ${author.affiliation})`; // Display name, ID, and affiliation
             div.onclick = function() {
                 authorInput.value = author.name;
                 dropdown.style.display = 'none';
-                analyzeAuthorButton.disabled = false;
-                analyzeAuthorButton.dataset.scholarId = author.scholar_id; // Store the Scholar ID
+                analyzeAuthorButton.disabled = false; // Enable the analyze button
             };
             return div;
         }
-        
+    
         function analyzeAuthor() {
-            const scholarId = analyzeAuthorButton.dataset.scholarId; // Retrieve the Scholar ID
-            if (scholarId) {
-                window.location.href = `/results?scholar_id=${encodeURIComponent(scholarId)}`;
+            const authorName = authorInput.value.trim();
+            if (authorName) {
+                window.location.href = `/results?author_name=${encodeURIComponent(authorName)}`;
             }
-        }
-
-        function cacheAndAnalyzeAuthor(authorName) {
-            fetch('/cache_and_analyze_author', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ author_name: authorName }),
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    window.location.href = `/results?author_name=${encodeURIComponent(authorName)}`;
-                } else {
-                    console.error('Failed to cache author name.');
-                }
-            })
-            .catch((error) => {
-                console.error('Error:', error);
-            });
         }
     </script>
 
