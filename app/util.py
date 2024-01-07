@@ -280,7 +280,7 @@ def generate_plot(dataframe, author_name):
         plt.rcParams.update({'font.size': 14})
         
         # Adjust marker size
-        marker_size = 50  # Increase this value for larger markers
+        marker_size = 40
         
         # First subplot (Rank vs Percentile Score)
         ax1.scatter(
