@@ -245,52 +245,6 @@ def get_author_statistics(author_name):
 
 
 
-def get_author_statistics_by_id(scholar_id):
-    try:
-        author = scholarly.search_author_id(scholar_id)
-        if author:
-            author = scholarly.fill(author)
-            logging.info(f"Fetched author data: {author}")
-
-            if not author.get('publications'):
-                logging.error(f"No publications found for author with ID {scholar_id}.")
-                return None, pd.DataFrame(), 0
-
-            now = datetime.now(pytz.utc)
-            timestamp = int(now.timestamp())
-            date_str = now.strftime("%Y-%m-%d %H:%M:%S")
-
-            pubs = []
-            for p in author['publications']:
-                logging.info(f"Processing publication: {p}")
-                sanitized_pub = sanitize_publication_data(p, timestamp, date_str)
-                if sanitized_pub:
-                    pub_info = {
-                        "citations": sanitized_pub["citedby"],
-                        "age": now.year - int(p["bib"]["pub_year"]) + 1,
-                        "title": p["bib"].get("title"),
-                        "year": int(p["bib"]["pub_year"])
-                    }
-                    pubs.append(pub_info)
-
-            if not pubs:
-                logging.error(f"No valid publication data found for author with ID {scholar_id}.")
-                return None, pd.DataFrame(), 0
-
-            query_df = pd.DataFrame(pubs)
-            # [Rest of the function remains the same]
-        else:
-            logging.error(f"No author found with ID {scholar_id}.")
-            return None, pd.DataFrame(), 0
-    except Exception as e:
-        logging.error(f"Error fetching data for author with ID {scholar_id}: {e}")
-        return None, pd.DataFrame(), 0
-
-
-
-
-
-
 
 def normalize_paper_count(years_since_first_pub):
     differences = np.abs(np.array(author_percentiles.index) - years_since_first_pub)
