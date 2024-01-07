@@ -271,7 +271,7 @@ def generate_plot(dataframe, author_name):
     try:
         cleaned_name = "".join([c if c.isalnum() else "_" for c in author_name])
 
-        # Generate the first plot
+        # Generate the first plot (Rank vs Percentile Score)
         plt.figure(figsize=(10, 6))
         dataframe.plot.scatter(
             x="paper_rank",
@@ -279,18 +279,17 @@ def generate_plot(dataframe, author_name):
             c="age",
             cmap="Blues_r",
             s=2,
-            title=f"Paper Rank vs Percentile Score for {author_name}",
+            title=f"Paper Rank vs Percentile Score for {author_name}"
         )
         plt.xlabel("Paper Rank")
         plt.ylabel("Percentile Score")
-        rank_plot_path = os.path.join(
-            "static", f"{cleaned_name}_rank_productivity_plot.png"
-        )
+        plt.grid(False)  # Disable grid
+        rank_plot_path = os.path.join("static", f"{cleaned_name}_rank_productivity_plot.png")
         plt.savefig(rank_plot_path)
         plt.close()
         plot_paths.append(rank_plot_path)
 
-        # Generate the line plot for percentile scores across author productivity percentiles
+        # Generate the second plot (Productivity Percentiles)
         plt.figure(figsize=(8, 8))
         dataframe.plot.scatter(
             x='num_papers_percentile',
@@ -298,16 +297,14 @@ def generate_plot(dataframe, author_name):
             c='age',
             cmap='Blues_r',
             s=2,
-            grid=True,
-            xlim=(0, 100),
-            ylim=(0, 100),
             title=f"Percentile Score Across Author Productivity Percentiles for {author_name}",
+            xlim=(0, 100),
+            ylim=(0, 100)
         )
         plt.xlabel("Author Productivity Percentile")
         plt.ylabel("Paper Percentile Score")
-        line_plot_path = os.path.join(
-            "static", f"{cleaned_name}_percentile_score_scatter_plot.png"
-        )
+        plt.grid(False)  # Disable grid
+        line_plot_path = os.path.join("static", f"{cleaned_name}_percentile_score_scatter_plot.png")
         plt.savefig(line_plot_path)
         plt.close()
         plot_paths.append(line_plot_path)
