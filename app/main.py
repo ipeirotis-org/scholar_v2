@@ -4,6 +4,7 @@ from util import (
     get_author_statistics,
     generate_plot,
     check_and_add_author_to_cache,
+    get_author_statistics_by_id,
 )
 from matplotlib.ticker import MaxNLocator
 import matplotlib.pyplot as plt
