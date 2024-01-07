@@ -265,50 +265,55 @@ def calculate_pip_auc(dataframe):
     return pip_auc
 
 
+import matplotlib.pyplot as plt
+
 def generate_plot(dataframe, author_name):
     plot_paths = []
     pip_auc_score = 0
     try:
         cleaned_name = "".join([c if c.isalnum() else "_" for c in author_name])
-
-        # Create a figure and a set of subplots with increased width
-        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(100, 24))  
-
+        
+        # Create a figure with two subplots and set a larger figure size
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(20, 10), dpi=100)  # Adjusted for better resolution
+        
+        # Increase default font size for all plot elements
+        plt.rcParams.update({'font.size': 14})
+        
+        # Adjust marker size
+        marker_size = 50  # Increase this value for larger markers
+        
         # First subplot (Rank vs Percentile Score)
-        dataframe.plot.scatter(
-            x="paper_rank",
-            y="percentile_score",
-            c="age",
+        ax1.scatter(
+            dataframe["paper_rank"],
+            dataframe["percentile_score"],
+            c=dataframe["age"],
             cmap="Blues_r",
-            s=2,
-            title=f"Paper Rank vs Percentile Score for {author_name}",
-            ax=ax1
+            s=marker_size  # Adjusted marker size
         )
+        ax1.set_title(f"Paper Rank vs Percentile Score for {author_name}")
         ax1.set_xlabel("Paper Rank")
         ax1.set_ylabel("Percentile Score")
-        ax1.grid(False)  # Disable grid
+        ax1.grid(True)  # Optionally add grid
 
         # Second subplot (Productivity Percentiles)
-        dataframe.plot.scatter(
-            x='num_papers_percentile',
-            y='percentile_score',
-            c='age',
+        ax2.scatter(
+            dataframe['num_papers_percentile'],
+            dataframe['percentile_score'],
+            c=dataframe['age'],
             cmap='Blues_r',
-            s=2,
-            title=f"Percentile Score Across Author Productivity Percentiles for {author_name}",
-            xlim=(0, 100),
-            ylim=(0, 100),
-            ax=ax2
+            s=marker_size  # Adjusted marker size
         )
+        ax2.set_title(f"Percentile Score Across Author Productivity Percentiles for {author_name}")
         ax2.set_xlabel("Author Productivity Percentile")
         ax2.set_ylabel("Paper Percentile Score")
-        ax2.grid(False)  # Disable grid
+        ax2.grid(True)  # Optionally add grid
+        ax2.set_xlim(0, 100)
+        ax2.set_ylim(0, 100)
 
-        # Adjust layout and save the plot
         plt.tight_layout()
         combined_plot_path = os.path.join("static", f"{cleaned_name}_combined_plot.png")
-        plt.savefig(combined_plot_path)
-        plt.close()
+        fig.savefig(combined_plot_path)
+        plt.close(fig)
         plot_paths.append(combined_plot_path)
 
         # Calculate AUC score
@@ -321,6 +326,7 @@ def generate_plot(dataframe, author_name):
         raise
 
     return plot_paths, pip_auc_score
+
 
 
 def check_and_add_author_to_cache(author_name):
