@@ -246,8 +246,20 @@ def get_author_statistics(author_name):
 
 
 def get_author_statistics_by_id(scholar_id):
+    try:
+        author = scholarly.search_author_id(scholar_id)
+        if author:
+            author = scholarly.fill(author)
+            publications = [sanitize_publication_data(pub, int(datetime.now().timestamp()), datetime.now().strftime("%Y-%m-%d %H:%M:%S")) for pub in author.get('publications', [])]
+            total_publications = len(publications)
+            author_info = extract_author_info(author, total_publications)
+            return author_info, pd.DataFrame(publications), total_publications
+        else:
+            return None, pd.DataFrame(), 0
+    except Exception as e:
+        logging.error(f"Error fetching data for author with ID {scholar_id}: {e}")
+        return None, pd.DataFrame(), 0
 
-    pass
 
 
 
