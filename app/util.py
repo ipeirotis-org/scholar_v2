@@ -270,36 +270,34 @@ def generate_plot(dataframe, author_name):
     pip_auc_score = 0
     try:
         cleaned_name = "".join([c if c.isalnum() else "_" for c in author_name])
-        
-        # Create a figure with two subplots and set a larger figure size
         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(20, 10), dpi=100)  # Adjusted for better resolution
         
-        # Increase default font size for all plot elements
         plt.rcParams.update({'font.size': 16})
         
-        # Adjust marker size
         marker_size = 40
         
         # First subplot (Rank vs Percentile Score)
         ax1.scatter(
-            x="paper_rank",
-            y="percentile_score",
+            dataframe["paper_rank"],
+            dataframe["percentile_score"],
             cmap="Blues_r",
             s=marker_size 
         )
         ax1.set_title(f"Paper Rank vs Percentile Score for {author_name}")
         ax1.set_xlabel("Paper Rank")
         ax1.set_ylabel("Percentile Score")
-        ax1.grid(True)  
+        ax1.grid(True) 
 
         # Second subplot (Productivity Percentiles)
         ax2.scatter(
-            x='num_papers_percentile',
-            y='percentile_score',
-            c='age',
+            dataframe['num_papers_percentile'],
+            dataframe['percentile_score'],
+            c=dataframe['age'],
             cmap='Blues_r',
-            s=marker_size 
+            s=marker_size  
         )
+        colorbar2 = fig.colorbar(scatter2, ax=ax2) 
+        colorbar2.set_label('Age of Publication')
         ax2.set_title(f"Percentile Score Across Author Productivity Percentiles for {author_name}")
         ax2.set_xlabel("Author Productivity Percentile")
         ax2.set_ylabel("Paper Percentile Score")
