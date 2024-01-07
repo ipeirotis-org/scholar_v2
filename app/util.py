@@ -245,6 +245,11 @@ def get_author_statistics(author_name):
 
 
 
+def get_author_statistics_by_id(scholar_id):
+
+    pass
+
+
 
 def normalize_paper_count(years_since_first_pub):
     differences = np.abs(np.array(author_percentiles.index) - years_since_first_pub)
