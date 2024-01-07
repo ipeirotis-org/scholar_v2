@@ -286,7 +286,6 @@ def generate_plot(dataframe, author_name):
         ax1.scatter(
             dataframe["paper_rank"],
             dataframe["percentile_score"],
-            c=dataframe["age"],
             cmap="Blues_r",
             s=marker_size  # Adjusted marker size
         )
