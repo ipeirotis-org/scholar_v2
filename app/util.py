@@ -250,15 +250,42 @@ def get_author_statistics_by_id(scholar_id):
         author = scholarly.search_author_id(scholar_id)
         if author:
             author = scholarly.fill(author)
-            publications = [sanitize_publication_data(pub, int(datetime.now().timestamp()), datetime.now().strftime("%Y-%m-%d %H:%M:%S")) for pub in author.get('publications', [])]
-            total_publications = len(publications)
+            now = datetime.now(pytz.utc)
+            timestamp = int(now.timestamp())
+            date_str = now.strftime("%Y-%m-%d %H:%M:%S")
+
+            pubs = [
+                {
+                    "citations": sanitize_publication_data(p, timestamp, date_str)["citedby"],
+                    "age": now.year - int(p["bib"].get("pub_year", 0)) + 1,
+                    "title": p["bib"].get("title"),
+                    "year": int(p["bib"].get("pub_year")) if p["bib"].get("pub_year") else None
+                }
+                for p in author.get('publications', []) if "bib" in p and "pub_year" in p["bib"] and "citedby" in p
+            ]
+
+            query_df = pd.DataFrame(pubs)
+            query_df["percentile_score"] = query_df.apply(score_papers, axis=1).round(2)
+            query_df["paper_rank"] = query_df["percentile_score"].rank(ascending=False, method='first').astype(int)
+            query_df = query_df.sort_values("percentile_score", ascending=False)
+
+            year = query_df['age'].max()
+            num_papers_percentile = get_numpaper_percentiles(year)
+            if num_papers_percentile.empty:
+                logging.error("Empty num_papers_percentile series.")
+                return None, pd.DataFrame(), 0
+            query_df['num_papers_percentile'] = query_df['paper_rank'].apply(lambda x: find_closest(num_papers_percentile, x))
+            query_df['num_papers_percentile'] = query_df['num_papers_percentile'].astype(float)
+
+            total_publications = len(pubs)
             author_info = extract_author_info(author, total_publications)
-            return author_info, pd.DataFrame(publications), total_publications
+            return author_info, query_df, total_publications
         else:
             return None, pd.DataFrame(), 0
     except Exception as e:
         logging.error(f"Error fetching data for author with ID {scholar_id}: {e}")
         return None, pd.DataFrame(), 0
+
 
 
 
