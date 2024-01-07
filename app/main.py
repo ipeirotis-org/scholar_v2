@@ -264,15 +264,40 @@ def perform_search(author_name):
     return search_data
 
 
+def perform_search_by_id(scholar_id):
+    author, query, total_publications = get_author_statistics_by_id(scholar_id)
+    has_results = not query.empty
+    pip_auc_score = 0
+    
+    try:
+        plot_paths, pip_auc_score = generate_plot(query, author["name"]) if has_results else ([], 0)
+    except Exception as e:
+        logging.error(f"Error generating plot for {scholar_id}: {e}")
+        flash(f"An error occurred while generating the plot for {scholar_id}.", "error")
+        plot_paths, pip_auc_score = [], 0
+
+    search_data = {
+        "author": author,
+        "results": query,
+        "has_results": has_results,
+        "plot_paths": plot_paths,
+        "total_publications": total_publications,
+        "pip_auc_score": pip_auc_score
+    }
+
+    return search_data
+
+
+
 @app.route("/results", methods=["GET"])
 def results():
-    author_name = request.args.get("author_name", "")
+    scholar_id = request.args.get("scholar_id", "")
 
-    if not author_name:
-        flash("Author name is required.")
+    if not scholar_id:
+        flash("Google Scholar ID is required.")
         return redirect(url_for("index"))
-    check_and_add_author_to_cache(author_name)
-    search_data = perform_search(author_name)
+
+    search_data = perform_search_by_id(scholar_id)
 
     if search_data['has_results']:
         authors_data = [search_data]
@@ -280,13 +305,7 @@ def results():
         authors_data = []
 
     timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-
-    return render_template(
-        "results.html",
-        authors_data=authors_data,
-        time_stamp=timestamp,
-        author_count=1, 
-    )
+    return render_template("results.html", authors_data=authors_data, time_stamp=timestamp, author_count=1)
 
 
 
