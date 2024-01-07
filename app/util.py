@@ -271,26 +271,23 @@ def generate_plot(dataframe, author_name):
     try:
         cleaned_name = "".join([c if c.isalnum() else "_" for c in author_name])
 
-        # Generate the first plot (Rank vs Percentile Score)
-        plt.figure(figsize=(10, 6))
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(20, 6))
+
+        # First subplot (Rank vs Percentile Score)
         dataframe.plot.scatter(
             x="paper_rank",
             y="percentile_score",
             c="age",
             cmap="Blues_r",
             s=2,
-            title=f"Paper Rank vs Percentile Score for {author_name}"
+            title=f"Paper Rank vs Percentile Score for {author_name}",
+            ax=ax1
         )
-        plt.xlabel("Paper Rank")
-        plt.ylabel("Percentile Score")
-        plt.grid(False)  # Disable grid
-        rank_plot_path = os.path.join("static", f"{cleaned_name}_rank_productivity_plot.png")
-        plt.savefig(rank_plot_path)
-        plt.close()
-        plot_paths.append(rank_plot_path)
+        ax1.set_xlabel("Paper Rank")
+        ax1.set_ylabel("Percentile Score")
+        ax1.grid(False)  # Disable grid
 
-        # Generate the second plot (Productivity Percentiles)
-        plt.figure(figsize=(8, 8))
+        # Second subplot (Productivity Percentiles)
         dataframe.plot.scatter(
             x='num_papers_percentile',
             y='percentile_score',
@@ -299,15 +296,19 @@ def generate_plot(dataframe, author_name):
             s=2,
             title=f"Percentile Score Across Author Productivity Percentiles for {author_name}",
             xlim=(0, 100),
-            ylim=(0, 100)
+            ylim=(0, 100),
+            ax=ax2
         )
-        plt.xlabel("Author Productivity Percentile")
-        plt.ylabel("Paper Percentile Score")
-        plt.grid(False)  # Disable grid
-        line_plot_path = os.path.join("static", f"{cleaned_name}_percentile_score_scatter_plot.png")
-        plt.savefig(line_plot_path)
+        ax2.set_xlabel("Author Productivity Percentile")
+        ax2.set_ylabel("Paper Percentile Score")
+        ax2.grid(False)  # Disable grid
+
+        # Adjust layout and save the plot
+        plt.tight_layout()
+        combined_plot_path = os.path.join("static", f"{cleaned_name}_combined_plot.png")
+        plt.savefig(combined_plot_path)
         plt.close()
-        plot_paths.append(line_plot_path)
+        plot_paths.append(combined_plot_path)
 
         # Calculate AUC score
         auc_data = dataframe.filter(['num_papers_percentile', 'percentile_score']).drop_duplicates(subset='num_papers_percentile', keep='first')
