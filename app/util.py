@@ -264,6 +264,10 @@ def get_author_statistics_by_id(scholar_id):
                 for p in author.get('publications', []) if "bib" in p and "pub_year" in p["bib"] and "citedby" in p
             ]
 
+            if not pubs:  # Check if the publications list is empty
+                logging.error(f"No publications found for author with ID {scholar_id}.")
+                return None, pd.DataFrame(), 0
+
             query_df = pd.DataFrame(pubs)
             query_df["percentile_score"] = query_df.apply(score_papers, axis=1).round(2)
             query_df["paper_rank"] = query_df["percentile_score"].rank(ascending=False, method='first').astype(int)
@@ -281,10 +285,12 @@ def get_author_statistics_by_id(scholar_id):
             author_info = extract_author_info(author, total_publications)
             return author_info, query_df, total_publications
         else:
+            logging.error(f"No author found with ID {scholar_id}.")
             return None, pd.DataFrame(), 0
     except Exception as e:
         logging.error(f"Error fetching data for author with ID {scholar_id}: {e}")
         return None, pd.DataFrame(), 0
+
 
 
 
