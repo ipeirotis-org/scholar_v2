@@ -270,55 +270,50 @@ def generate_plot(dataframe, author_name):
     pip_auc_score = 0
     try:
         cleaned_name = "".join([c if c.isalnum() else "_" for c in author_name])
-                fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(20, 10))  # Adjusted for better resolution
         
-        # Adjust marker size for visibility
+        # Create a figure with two subplots and set a larger figure size
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(20, 10), dpi=100)  # Adjusted for better resolution
+        
+        # Increase default font size for all plot elements
+        plt.rcParams.update({'font.size': 16})
+        
+        # Adjust marker size
         marker_size = 40
         
         # First subplot (Rank vs Percentile Score)
-        scatter1 = ax1.scatter(
-            dataframe["paper_rank"],
-            dataframe["percentile_score"],
-            c=dataframe["age"],  # Ensure that 'age' is a numeric column
-            cmap="viridis",  # This colormap goes from light (low values) to dark (high values)
-            s=marker_size,
-            alpha=0.6  # Transparency can help overlap
+        ax1.scatter(
+            x="paper_rank",
+            y="percentile_score",
+            cmap="Blues_r",
+            s=marker_size 
         )
         ax1.set_title(f"Paper Rank vs Percentile Score for {author_name}")
         ax1.set_xlabel("Paper Rank")
         ax1.set_ylabel("Percentile Score")
-        ax1.grid(True)
-
-        # Add a colorbar for the first subplot to show the 'age' mapping
-        fig.colorbar(scatter1, ax=ax1, label='Age')
+        ax1.grid(True)  
 
         # Second subplot (Productivity Percentiles)
-        scatter2 = ax2.scatter(
-            dataframe['num_papers_percentile'],
-            dataframe['percentile_score'],
-            c=dataframe['age'],
-            cmap='viridis',
-            s=marker_size,
-            alpha=0.6  # Transparency can help overlap
+        ax2.scatter(
+            x='num_papers_percentile',
+            y='percentile_score',
+            c='age',
+            cmap='Blues_r',
+            s=marker_size 
         )
         ax2.set_title(f"Percentile Score Across Author Productivity Percentiles for {author_name}")
         ax2.set_xlabel("Author Productivity Percentile")
         ax2.set_ylabel("Paper Percentile Score")
-        ax2.grid(True)
+        ax2.grid(True) 
         ax2.set_xlim(0, 100)
         ax2.set_ylim(0, 100)
 
-        # Add a colorbar for the second subplot to show the 'age' mapping
-        fig.colorbar(scatter2, ax=ax2, label='Age')
-
         plt.tight_layout()
         combined_plot_path = os.path.join("static", f"{cleaned_name}_combined_plot.png")
-        plt.savefig(combined_plot_path)
-        plt.close()
-
+        fig.savefig(combined_plot_path)
+        plt.close(fig)
         plot_paths.append(combined_plot_path)
 
-        # Calculate AUC score (This section may remain unchanged from your original code)
+        # Calculate AUC score
         auc_data = dataframe.filter(['num_papers_percentile', 'percentile_score']).drop_duplicates(subset='num_papers_percentile', keep='first')
         pip_auc_score = np.trapz(auc_data['percentile_score'], auc_data['num_papers_percentile']) / (100 * 100)
         print(f"AUC score: {pip_auc_score:.4f}")
