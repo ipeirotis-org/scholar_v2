@@ -78,19 +78,20 @@
         function createAuthorOption(author) {
             let div = document.createElement('div');
             div.className = 'author-option';
-            div.textContent = author.name;
+            div.innerHTML = `${author.name} (ID: ${author.scholar_id}, ${author.affiliation}, Cited by: ${author.citedby})`;
             div.onclick = function() {
                 authorInput.value = author.name;
                 dropdown.style.display = 'none';
-                analyzeAuthorButton.disabled = false; // Enable the analyze button
+                analyzeAuthorButton.disabled = false;
+                analyzeAuthorButton.dataset.scholarId = author.scholar_id; // Store the Scholar ID
             };
             return div;
         }
-    
+        
         function analyzeAuthor() {
-            const authorName = authorInput.value.trim();
-            if (authorName) {
-                cacheAndAnalyzeAuthor(authorName);
+            const scholarId = analyzeAuthorButton.dataset.scholarId; // Retrieve the Scholar ID
+            if (scholarId) {
+                window.location.href = `/results?scholar_id=${encodeURIComponent(scholarId)}`;
             }
         }
 
