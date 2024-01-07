@@ -272,7 +272,7 @@ def generate_plot(dataframe, author_name):
         cleaned_name = "".join([c if c.isalnum() else "_" for c in author_name])
 
         # Create a figure and a set of subplots with increased width
-        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(30, 6))  
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(50, 12))  
 
         # First subplot (Rank vs Percentile Score)
         dataframe.plot.scatter(
