@@ -289,7 +289,7 @@ def generate_plot(dataframe, author_name):
         ax1.grid(True) 
 
         # Second subplot (Productivity Percentiles)
-        ax2.scatter(
+        scatter2 = ax2.scatter(
             dataframe['num_papers_percentile'],
             dataframe['percentile_score'],
             c=dataframe['age'],
