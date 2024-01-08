@@ -331,12 +331,15 @@ def generate_plot(dataframe, author_name):
         marker_size = 40
         
         # First subplot (Rank vs Percentile Score)
-        ax1.scatter(
+        scatter1 = ax1.scatter(
             dataframe["paper_rank"],
             dataframe["percentile_score"],
+            c=dataframe['age'],
             cmap="Blues_r",
             s=marker_size 
         )
+        colorbar1 = fig.colorbar(scatter1, ax=ax1) 
+        colorbar1.set_label('Age of Publication')
         ax1.set_title(f"Paper Rank vs Percentile Score for {author_name}")
         ax1.set_xlabel("Paper Rank")
         ax1.set_ylabel("Percentile Score")
