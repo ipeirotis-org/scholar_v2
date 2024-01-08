@@ -312,10 +312,10 @@ def results():
 
 
 
-@app.route("/download/<author_name>")
+@app.route('/download/<author_id>')
 @cache.cached(timeout=3600)  # cache for 1 hour
-def download_results(author_name):
-    author, query, _ = get_author_statistics(author_name)
+def download_results(author_id):
+    author, query, _ = get_author_statistics_by_id(author_id)
 
     # Check if there is data to download
     if query.empty:
@@ -326,12 +326,12 @@ def download_results(author_name):
     if not os.path.exists(downloads_dir):
         os.makedirs(downloads_dir)  # Create the downloads directory if it doesn't exist
 
-    file_path = os.path.join(downloads_dir, f"{author_name}_results.csv")
+    file_path = os.path.join(downloads_dir, f"{author_id}_results.csv")
 
     query.to_csv(file_path, index=False)
 
     return send_file(
-        file_path, as_attachment=True, download_name=f"{author_name}_results.csv"
+        file_path, as_attachment=True, download_name=f"{author_id}_results.csv"
     )
 
 
