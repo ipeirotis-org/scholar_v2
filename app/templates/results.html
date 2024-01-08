@@ -122,7 +122,7 @@
                                 {% endfor %}
                             </tbody>
                         </table>
-                        <a href="{{ url_for('download_results', author_id=author_data.author.get('scholar_id', 'N/A')) }}">Download CSV</a>
+                        <a href="{{ url_for('download_results', author_id=author_data.author.get('scholar_id', 'N/A')) }}">Download CSV for {{ author_data.author.get('name', 'N/A') }}</a>
                     </section>
                 {% else %}
                     <section>
