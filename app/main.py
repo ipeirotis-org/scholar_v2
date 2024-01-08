@@ -266,12 +266,12 @@ def perform_search(author_name):
 
 
 def perform_search_by_id(scholar_id):
-    author, publications, total_publications = get_author_statistics_by_id(scholar_id)
-    has_results = publications != []
+    author, query, total_publications = get_author_statistics_by_id(scholar_id)
+    has_results = not query.empty
     pip_auc_score = 0
     
     try:
-        plot_paths, pip_auc_score = generate_plot(publications, author["name"]) if has_results else ([], 0)
+        plot_paths, pip_auc_score = generate_plot(query, author["name"]) if has_results else ([], 0)
     except Exception as e:
         logging.error(f"Error generating plot for {scholar_id}: {e}")
         flash(f"An error occurred while generating the plot for {scholar_id}.", "error")
@@ -279,7 +279,7 @@ def perform_search_by_id(scholar_id):
 
     search_data = {
         "author": author,
-        "results": publications,  # Note that publications should be converted to a DataFrame if needed
+        "results": query,
         "has_results": has_results,
         "plot_paths": plot_paths,
         "total_publications": total_publications,
@@ -287,6 +287,7 @@ def perform_search_by_id(scholar_id):
     }
 
     return search_data
+
 
 
 
