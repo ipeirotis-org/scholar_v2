@@ -245,6 +245,25 @@ def get_author_statistics(author_name):
 
 
 
+def get_author_statistics_by_id(scholar_id):
+    try:
+        # Fetch the author's data using the scholar_id
+        author = scholarly.search_author_id(scholar_id)
+        if author:
+            author = scholarly.fill(author)
+            publications = [sanitize_publication_data(pub) for pub in author.get('publications', [])]
+            total_publications = len(publications)
+            author_info = extract_author_info(author, total_publications)
+            return author_info, publications, total_publications
+        else:
+            logging.error(f"No author found with ID {scholar_id}.")
+            return None, [], 0
+    except Exception as e:
+        logging.error(f"Error fetching data for author with ID {scholar_id}: {e}")
+        return None, [], 0
+
+
+
 
 def normalize_paper_count(years_since_first_pub):
     differences = np.abs(np.array(author_percentiles.index) - years_since_first_pub)
