@@ -254,15 +254,22 @@ def get_author_statistics_by_id(scholar_id):
             timestamp = int(now.timestamp())
             date_str = now.strftime("%Y-%m-%d %H:%M:%S")
 
-            pubs = [
-                {
-                    "citations": sanitize_publication_data(p, timestamp, date_str)["citedby"],
-                    "age": datetime.now().year - int(p["bib"].get("pub_year", 0)) + 1,
-                    "title": p["bib"].get("title"),
-                    "year": int(p["bib"].get("pub_year")) if p["bib"].get("pub_year") else None
-                }
-                for p in author.get('publications', []) if "bib" in p and "pub_year" in p["bib"] and "citedby" in p
-            ]
+            pubs = []
+            for p in author.get('publications', []):
+                if 'bib' in p and 'pub_year' in p['bib'] and 'title' in p['bib']:
+                    sanitized_pub = sanitize_publication_data(p, timestamp, date_str)
+                    if sanitized_pub and 'citedby' in sanitized_pub:
+                        pub_info = {
+                            "citations": sanitized_pub["citedby"],
+                            "age": now.year - int(p["bib"]["pub_year"]) + 1,
+                            "title": p["bib"].get("title"),
+                            "year": int(p["bib"]["pub_year"])
+                        }
+                        pubs.append(pub_info)
+
+            if not pubs:
+                logging.error(f"No valid publication data found for author with ID {scholar_id}.")
+                return None, pd.DataFrame(), 0
 
             query_df = pd.DataFrame(pubs)
             query_df["percentile_score"] = query_df.apply(score_papers, axis=1).round(2)
@@ -286,6 +293,7 @@ def get_author_statistics_by_id(scholar_id):
     except Exception as e:
         logging.error(f"Error fetching data for author with ID {scholar_id}: {e}")
         return None, pd.DataFrame(), 0
+
 
 
 
