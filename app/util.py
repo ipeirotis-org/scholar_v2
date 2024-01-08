@@ -246,53 +246,62 @@ def get_author_statistics(author_name):
 
 
 def get_author_statistics_by_id(scholar_id):
-    try:
-        author = scholarly.search_author_id(scholar_id)
-        if author:
-            author = scholarly.fill(author)
-            now = datetime.now(pytz.utc)
-            timestamp = int(now.timestamp())
-            date_str = now.strftime("%Y-%m-%d %H:%M:%S")
+    cached_data = get_firestore_cache(scholar_id)
+    if cached_data:
+        logging.info(f"Cache hit for author ID '{scholar_id}'. Data fetched from Firestore.")
+        return cached_data['author_info'], pd.DataFrame(cached_data['publications']), len(cached_data['publications'])
+    else:
+        logging.info(f"Cache miss for author ID '{scholar_id}'. Fetching data from Google Scholar.")
+        try:
+            author = scholarly.search_author_id(scholar_id)
+            if author:
+                author = scholarly.fill(author)
+                now = datetime.now(pytz.utc)
+                timestamp = int(now.timestamp())
+                date_str = now.strftime("%Y-%m-%d %H:%M:%S")
 
-            pubs = []
-            for p in author.get('publications', []):
-                if 'bib' in p and 'pub_year' in p['bib'] and 'title' in p['bib']:
-                    sanitized_pub = sanitize_publication_data(p, timestamp, date_str)
-                    if sanitized_pub and 'citedby' in sanitized_pub:
-                        pub_info = {
-                            "citations": sanitized_pub["citedby"],
-                            "age": now.year - int(p["bib"]["pub_year"]) + 1,
-                            "title": p["bib"].get("title"),
-                            "year": int(p["bib"]["pub_year"])
-                        }
-                        pubs.append(pub_info)
+                pubs = []
+                for p in author.get('publications', []):
+                    if 'bib' in p and 'pub_year' in p['bib'] and 'title' in p['bib']:
+                        sanitized_pub = sanitize_publication_data(p, timestamp, date_str)
+                        if sanitized_pub and 'citedby' in sanitized_pub:
+                            pub_info = {
+                                "citations": sanitized_pub["citedby"],
+                                "age": now.year - int(p["bib"]["pub_year"]) + 1,
+                                "title": p["bib"].get("title"),
+                                "year": int(p["bib"]["pub_year"])
+                            }
+                            pubs.append(pub_info)
 
-            if not pubs:
-                logging.error(f"No valid publication data found for author with ID {scholar_id}.")
+                if not pubs:
+                    logging.error(f"No valid publication data found for author with ID {scholar_id}.")
+                    return None, pd.DataFrame(), 0
+
+                query_df = pd.DataFrame(pubs)
+                query_df["percentile_score"] = query_df.apply(score_papers, axis=1).round(2)
+                query_df["paper_rank"] = query_df["percentile_score"].rank(ascending=False, method='first').astype(int)
+                query_df = query_df.sort_values("percentile_score", ascending=False)
+
+                year = query_df['age'].max()
+                num_papers_percentile = get_numpaper_percentiles(year)
+                if num_papers_percentile.empty:
+                    logging.error("Empty num_papers_percentile series.")
+                    return None, pd.DataFrame(), 0
+                query_df['num_papers_percentile'] = query_df['paper_rank'].apply(lambda x: find_closest(num_papers_percentile, x))
+                query_df['num_papers_percentile'] = query_df['num_papers_percentile'].astype(float)
+
+                query_df = query_df.sort_values('percentile_score', ascending=False)
+
+                set_firestore_cache(scholar_id, {'author_info': author, 'publications': pubs})
+
+                return author, query_df, len(pubs)
+            else:
+                logging.error(f"No author found with ID {scholar_id}.")
                 return None, pd.DataFrame(), 0
-
-            query_df = pd.DataFrame(pubs)
-            query_df["percentile_score"] = query_df.apply(score_papers, axis=1).round(2)
-            query_df["paper_rank"] = query_df["percentile_score"].rank(ascending=False, method='first').astype(int)
-            query_df = query_df.sort_values("percentile_score", ascending=False)
-
-            year = query_df['age'].max()
-            num_papers_percentile = get_numpaper_percentiles(year)
-            if num_papers_percentile.empty:
-                logging.error("Empty num_papers_percentile series.")
-                return None, pd.DataFrame(), 0
-            query_df['num_papers_percentile'] = query_df['paper_rank'].apply(lambda x: find_closest(num_papers_percentile, x))
-            query_df['num_papers_percentile'] = query_df['num_papers_percentile'].astype(float)
-
-            query_df = query_df.sort_values('percentile_score', ascending=False)
-
-            return author, query_df, len(pubs)
-        else:
-            logging.error(f"No author found with ID {scholar_id}.")
+        except Exception as e:
+            logging.error(f"Error fetching data for author with ID {scholar_id}: {e}")
             return None, pd.DataFrame(), 0
-    except Exception as e:
-        logging.error(f"Error fetching data for author with ID {scholar_id}: {e}")
-        return None, pd.DataFrame(), 0
+
 
 
 
