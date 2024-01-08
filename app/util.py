@@ -247,11 +247,17 @@ def get_author_statistics(author_name):
 
 def get_author_statistics_by_id(scholar_id):
     try:
-        # Fetch the author's data using the scholar_id
         author = scholarly.search_author_id(scholar_id)
         if author:
             author = scholarly.fill(author)
-            publications = [sanitize_publication_data(pub) for pub in author.get('publications', [])]
+            
+            # Get current timestamp and formatted date string
+            now = datetime.now(pytz.utc)
+            timestamp = int(now.timestamp())
+            date_str = now.strftime("%Y-%m-%d %H:%M:%S")
+            
+            # Process each publication with the current timestamp and date string
+            publications = [sanitize_publication_data(pub, timestamp, date_str) for pub in author.get('publications', []) if pub.get('bib')]
             total_publications = len(publications)
             author_info = extract_author_info(author, total_publications)
             return author_info, publications, total_publications
@@ -261,6 +267,7 @@ def get_author_statistics_by_id(scholar_id):
     except Exception as e:
         logging.error(f"Error fetching data for author with ID {scholar_id}: {e}")
         return None, [], 0
+
 
 
 
