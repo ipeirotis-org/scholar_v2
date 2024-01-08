@@ -42,9 +42,10 @@ def get_firestore_cache(author_name):
         logging.error(f"Error accessing Firestore: {e}")
     return None
 
-def set_firestore_cache(author_name, data):
-    firestore_author_name = author_name.lower()
-    doc_ref = db.collection('scholar_cache').document(firestore_author_name)
+def set_firestore_cache(author_id, data):
+    firestore_author_id = str(author_id).lower()  # Ensure the ID is a string and lowercase
+    doc_ref = db.collection('scholar_cache').document(firestore_author_id)
+
     cache_data = {
         'timestamp': datetime.utcnow().replace(tzinfo=pytz.utc),
         'data': {
@@ -52,10 +53,19 @@ def set_firestore_cache(author_name, data):
             'publications': data.get('publications', [])
         }
     }
+    if not firestore_author_id.strip():
+        logging.error("Firestore document ID is empty or invalid.")
+        return
+
+    if not cache_data['data']['author_info'] or not cache_data['data']['publications']:
+        logging.error("Invalid author_info or publications data for caching.")
+        return
+
     try:
         doc_ref.set(cache_data)
     except Exception as e:
         logging.error(f"Error updating Firestore: {e}")
+
 
 
 
@@ -249,7 +259,10 @@ def get_author_statistics_by_id(scholar_id):
     cached_data = get_firestore_cache(scholar_id)
     if cached_data:
         logging.info(f"Cache hit for author ID '{scholar_id}'. Data fetched from Firestore.")
-        return cached_data['author_info'], pd.DataFrame(cached_data['publications']), len(cached_data['publications'])
+        author_info = cached_data['author_info']
+        publications_df = pd.DataFrame(cached_data['publications'])
+        total_publications = len(publications_df)
+        return author_info, publications_df, total_publications
     else:
         logging.info(f"Cache miss for author ID '{scholar_id}'. Fetching data from Google Scholar.")
         try:
@@ -262,16 +275,15 @@ def get_author_statistics_by_id(scholar_id):
 
                 pubs = []
                 for p in author.get('publications', []):
-                    if 'bib' in p and 'pub_year' in p['bib'] and 'title' in p['bib']:
-                        sanitized_pub = sanitize_publication_data(p, timestamp, date_str)
-                        if sanitized_pub and 'citedby' in sanitized_pub:
-                            pub_info = {
-                                "citations": sanitized_pub["citedby"],
-                                "age": now.year - int(p["bib"]["pub_year"]) + 1,
-                                "title": p["bib"].get("title"),
-                                "year": int(p["bib"]["pub_year"])
-                            }
-                            pubs.append(pub_info)
+                    sanitized_pub = sanitize_publication_data(p, timestamp, date_str)
+                    if sanitized_pub:
+                        pub_info = {
+                            "citations": sanitized_pub["citedby"],
+                            "age": now.year - int(p["bib"]["pub_year"]) + 1,
+                            "title": p["bib"].get("title"),
+                            "year": int(p["bib"]["pub_year"])
+                        }
+                        pubs.append(pub_info)
 
                 if not pubs:
                     logging.error(f"No valid publication data found for author with ID {scholar_id}.")
@@ -292,15 +304,17 @@ def get_author_statistics_by_id(scholar_id):
 
                 query_df = query_df.sort_values('percentile_score', ascending=False)
 
-                set_firestore_cache(scholar_id, {'author_info': author, 'publications': pubs})
+                author_info = extract_author_info(author, len(pubs))
+                set_firestore_cache(scholar_id, {'author_info': author_info, 'publications': pubs.to_dict(orient='records')})
 
-                return author, query_df, len(pubs)
+                return author_info, query_df, len(pubs)
             else:
                 logging.error(f"No author found with ID {scholar_id}.")
                 return None, pd.DataFrame(), 0
         except Exception as e:
             logging.error(f"Error fetching data for author with ID {scholar_id}: {e}")
             return None, pd.DataFrame(), 0
+
 
 
 
