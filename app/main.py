@@ -85,17 +85,26 @@ def get_similar_authors():
 
     # Primary search attempt
     primary_search = scholarly.search_author(author_name)
-    authors.extend(next(primary_search, [])[:10])
+    try:
+        primary_authors = next(primary_search, [])
+    except StopIteration:
+        primary_authors = []
+    authors.extend(primary_authors[:10])
 
+    # Fallback search if primary search yields few results
     if len(authors) < 10:
         words = author_name.split()
         for word in words:
             secondary_search = scholarly.search_author(word)
-            additional_authors = next(secondary_search, [])[:10 - len(authors)]
-            authors.extend(additional_authors)
+            try:
+                additional_authors = next(secondary_search, [])
+            except StopIteration:
+                additional_authors = []
+            authors.extend(additional_authors[:10 - len(authors)])
             if len(authors) >= 10:
                 break
 
+    # Process and return the authors
     clean_authors = [{
         "name": author.get("name", ""),
         "affiliation": author.get("affiliation", ""),
@@ -105,6 +114,7 @@ def get_similar_authors():
     } for author in authors]
 
     return jsonify(clean_authors)
+
 
 
 
