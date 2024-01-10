@@ -15,6 +15,8 @@ from datetime import datetime
 import json
 import logging
 import time
+from scholarly import scholarly
+
 
 
 logging.basicConfig(level=logging.INFO)
