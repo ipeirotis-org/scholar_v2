@@ -77,26 +77,35 @@ def json_serial(obj):
     raise TypeError(f"Type {type(obj)} not serializable")
 
 
+
 @app.route("/get_similar_authors")
 def get_similar_authors():
     author_name = request.args.get("author_name")
-    try:
-        search_query = scholarly.search_author(author_name)
-        authors = []
-        for _ in range(10):  # Adjust the range as needed for the number of suggestions
-            author = next(search_query, None)
-            if author:
-                authors.append({
-                    "name": author.get("name", ""),
-                    "affiliation": author.get("affiliation", ""),
-                    "email": author.get("email", ""),
-                    "citedby": author.get("citedby", 0),
-                    "scholar_id": author.get("scholar_id", "")
-                })
-        return jsonify(authors)
-    except Exception as e:
-        logging.error(f"Error fetching similar authors: {e}")
-        return jsonify([])
+    authors = []
+
+    # Primary search attempt
+    primary_search = scholarly.search_author(author_name)
+    authors.extend(next(primary_search, [])[:10])
+
+    if len(authors) < 10:
+        words = author_name.split()
+        for word in words:
+            secondary_search = scholarly.search_author(word)
+            additional_authors = next(secondary_search, [])[:10 - len(authors)]
+            authors.extend(additional_authors)
+            if len(authors) >= 10:
+                break
+
+    clean_authors = [{
+        "name": author.get("name", ""),
+        "affiliation": author.get("affiliation", ""),
+        "email": author.get("email", ""),
+        "citedby": author.get("citedby", 0),
+        "scholar_id": author.get("scholar_id", "")
+    } for author in authors]
+
+    return jsonify(clean_authors)
+
 
 
 
