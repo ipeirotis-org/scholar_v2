@@ -78,34 +78,24 @@ def json_serial(obj):
 @app.route("/get_similar_authors")
 def get_similar_authors():
     author_name = request.args.get("author_name")
-    authors, _, _, error = get_scholar_data(author_name, multiple=True)
-
-    if authors is not None:
-        clean_authors = []
-        if isinstance(authors, list):  # Handling list of authors (direct Google Scholar fetch)
-            for author in authors:
-                clean_author = {
+    try:
+        search_query = scholarly.search_author(author_name)
+        authors = []
+        for _ in range(10):  # Adjust the range as needed for the number of suggestions
+            author = next(search_query, None)
+            if author:
+                authors.append({
                     "name": author.get("name", ""),
                     "affiliation": author.get("affiliation", ""),
                     "email": author.get("email", ""),
                     "citedby": author.get("citedby", 0),
                     "scholar_id": author.get("scholar_id", "")
-                }
-                clean_authors.append(clean_author)
-        elif isinstance(authors, dict):  # Handling single author object (from Firestore)
-            clean_author = {
-                "name": authors.get("name", ""),
-                "affiliation": authors.get("affiliation", ""),
-                "email": authors.get("email", ""),
-                "citedby": authors.get("citedby", 0),
-                "scholar_id": authors.get("scholar_id", "")
-            }
-            clean_authors.append(clean_author)
-
-        return jsonify(clean_authors)
-    else:
-        logging.error(f"No authors data found or an error occurred: {error}")
+                })
+        return jsonify(authors)
+    except Exception as e:
+        logging.error(f"Error fetching similar authors: {e}")
         return jsonify([])
+
 
 
 
