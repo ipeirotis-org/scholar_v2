@@ -174,16 +174,28 @@ def sanitize_publication_data(pub, timestamp, date_str):
 
 
 def get_numpaper_percentiles(year):
+    # If the exact year is in the index, use that year
     if year in author_percentiles.index:
         s = author_percentiles.loc[year, :]
     else:
+        # If the specific year is not in the index, find the closest year
         closest_year = min(author_percentiles.index, key=lambda x: abs(x - year))
-        s = author_percentiles.loc[closest_year, :]
+        
+        valid_range = range(0, 100) # Replace with your valid range for percentile scores
+        if not all(value in valid_range for value in author_percentiles.loc[closest_year]):
+            years = sorted(author_percentiles.index)
+            year_index = years.index(closest_year)
+            prev_year = years[max(0, year_index - 1)]
+            next_year = years[min(len(years) - 1, year_index + 1)]
+            s = (author_percentiles.loc[prev_year, :] + author_percentiles.loc[next_year, :]) / 2
+        else:
+            s = author_percentiles.loc[closest_year, :]
     
     highest_indices = s.groupby(s).apply(lambda x: x.index[-1])
     sw = pd.Series(index=highest_indices.values, data=highest_indices.index)
     normalized_values = pd.Series(data=sw.index, index=sw.values)
     return normalized_values
+
 
 
 
