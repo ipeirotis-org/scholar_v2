@@ -366,43 +366,46 @@ def calculate_pip_auc(dataframe):
 def generate_plot(dataframe, author_name):
     plot_paths = []
     pip_auc_score = 0
+
     try:
         cleaned_name = "".join([c if c.isalnum() else "_" for c in author_name])
-        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(20, 10), dpi=100)  # Adjusted for better resolution
-        
-        plt.rcParams.update({'font.size': 16})
-        
-        marker_size = 40
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(20, 10), dpi=100)
+
+        # Set the colormap and the normalization for the age of publication
+        max_age = dataframe['age'].max()
+        cmap = plt.get_cmap('Blues_r', max_age)  # Ensuring the colormap scales with the max age
         
         # First subplot (Rank vs Percentile Score)
         scatter1 = ax1.scatter(
             dataframe["paper_rank"],
             dataframe["percentile_score"],
             c=dataframe['age'],
-            cmap="Blues_r",
-            s=marker_size 
+            cmap=cmap,
+            s=100  # Adjust the marker size as needed
         )
-        colorbar1 = fig.colorbar(scatter1, ax=ax1) 
+        # Ensure the color bar represents the correct range of ages
+        colorbar1 = fig.colorbar(scatter1, ax=ax1, ticks=range(0, max_age+1))
         colorbar1.set_label('Age of Publication')
         ax1.set_title(f"Paper Rank vs Percentile Score for {author_name}")
         ax1.set_xlabel("Paper Rank")
         ax1.set_ylabel("Percentile Score")
-        ax1.grid(True) 
+        ax1.grid(True)
 
         # Second subplot (Productivity Percentiles)
         scatter2 = ax2.scatter(
             dataframe['num_papers_percentile'],
             dataframe['percentile_score'],
             c=dataframe['age'],
-            cmap='Blues_r',
-            s=marker_size  
+            cmap=cmap,
+            s=100  # Adjust the marker size as needed
         )
-        colorbar2 = fig.colorbar(scatter2, ax=ax2) 
+        # Ensure the color bar represents the correct range of ages
+        colorbar2 = fig.colorbar(scatter2, ax=ax2, ticks=range(0, max_age+1))
         colorbar2.set_label('Age of Publication')
         ax2.set_title(f"Percentile Score Across Author Productivity Percentiles for {author_name}")
         ax2.set_xlabel("Author Productivity Percentile")
         ax2.set_ylabel("Paper Percentile Score")
-        ax2.grid(True) 
+        ax2.grid(True)
         ax2.set_xlim(0, 100)
         ax2.set_ylim(0, 100)
 
@@ -413,7 +416,7 @@ def generate_plot(dataframe, author_name):
         plot_paths.append(combined_plot_path)
 
         # Calculate AUC score
-        auc_data = dataframe.filter(['num_papers_percentile', 'percentile_score']).drop_duplicates(subset='num_papers_percentile', keep='first')
+        auc_data = dataframe[['num_papers_percentile', 'percentile_score']].drop_duplicates(subset='num_papers_percentile', keep='first')
         pip_auc_score = np.trapz(auc_data['percentile_score'], auc_data['num_papers_percentile']) / (100 * 100)
         print(f"AUC score: {pip_auc_score:.4f}")
 
@@ -422,6 +425,7 @@ def generate_plot(dataframe, author_name):
         raise
 
     return plot_paths, pip_auc_score
+
 
 
 
