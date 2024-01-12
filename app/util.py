@@ -174,14 +174,17 @@ def sanitize_publication_data(pub, timestamp, date_str):
 
 
 def get_numpaper_percentiles(year):
-    if year not in author_percentiles.index:
-        logging.warning(f"Year {year} not found in author percentiles.")
-        return pd.Series()
-    s = author_percentiles.loc[year, :]
+    if year in author_percentiles.index:
+        s = author_percentiles.loc[year, :]
+    else:
+        closest_year = min(author_percentiles.index, key=lambda x: abs(x - year))
+        s = author_percentiles.loc[closest_year, :]
+    
     highest_indices = s.groupby(s).apply(lambda x: x.index[-1])
     sw = pd.Series(index=highest_indices.values, data=highest_indices.index)
     normalized_values = pd.Series(data=sw.index, index=sw.values)
     return normalized_values
+
 
 
 def find_closest(series, number):
