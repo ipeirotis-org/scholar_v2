@@ -194,11 +194,13 @@ def find_closest(series, number):
 
 def score_papers(row):
     age, citations = row["age"], row["citations"]
+    
     if age not in percentile_df.index:
-        nearest_age = percentile_df.index[np.abs(percentile_df.index - age).argmin()]
+        closest_year = percentile_df.index[np.abs(percentile_df.index - age).argmin()]
+        percentiles = percentile_df.loc[closest_year]
     else:
-        nearest_age = age
-    percentiles = percentile_df.loc[nearest_age]
+        percentiles = percentile_df.loc[age]
+
     if citations <= percentiles.min():
         return 0.0
     elif citations >= percentiles.max():
@@ -213,6 +215,7 @@ def score_papers(row):
             upper_bound = percentiles[above]
             weight = (citations - lower_bound) / (upper_bound - lower_bound)
             return below + weight * (above - below)
+
 
 
 def get_author_statistics(author_name):
