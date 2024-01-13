@@ -161,24 +161,16 @@ def sanitize_publication_data(pub, timestamp, date_str):
         pub["last_updated_ts"] = timestamp
         pub["last_updated"] = date_str
 
-        current_year = datetime.now().year
-        pub_year = pub["bib"].get("pub_year")
-        if pub_year and pub_year.isdigit():
-            pub_year = int(pub_year)
-            pub["age"] = current_year - pub_year if current_year >= pub_year else 0
-        else:
-            pub["age"] = 0 
-
+        # Handle potential serialization issues
         if "source" in pub and hasattr(pub["source"], "name"):
             pub["source"] = pub["source"].name
         else:
-            pub.pop("source", None)
+            pub.pop("source", None)  
 
-        return pub
+        return pub 
     except Exception as e:
         logging.error(f"Error sanitizing publication data: {e}")
-        return None
-
+        return None  # Return None if there's an error
 
 
 def get_numpaper_percentiles(year):
@@ -189,7 +181,7 @@ def get_numpaper_percentiles(year):
         # If the specific year is not in the index, find the closest year
         closest_year = min(author_percentiles.index, key=lambda x: abs(x - year))
         
-        valid_range = range(0, 100) # Replace with your valid range for percentile scores
+        valid_range = range(0, 100)
         if not all(value in valid_range for value in author_percentiles.loc[closest_year]):
             years = sorted(author_percentiles.index)
             year_index = years.index(closest_year)
@@ -376,7 +368,7 @@ def generate_plot(dataframe, author_name):
     pip_auc_score = 0
     try:
         cleaned_name = "".join([c if c.isalnum() else "_" for c in author_name])
-        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(20, 10), dpi=100)
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(20, 10), dpi=100)  # Adjusted for better resolution
         
         plt.rcParams.update({'font.size': 16})
         
