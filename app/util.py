@@ -162,9 +162,12 @@ def sanitize_publication_data(pub, timestamp, date_str):
         pub["last_updated"] = date_str
 
         current_year = datetime.now().year
-        pub_year = int(pub.get("bib", {}).get("pub_year", current_year))
-        pub_year = pub_year if pub_year <= current_year else current_year
-        pub["age"] = current_year - pub_year
+        pub_year = pub["bib"].get("pub_year")
+        if pub_year and pub_year.isdigit():
+            pub_year = int(pub_year)
+            pub["age"] = current_year - pub_year if current_year >= pub_year else 0
+        else:
+            pub["age"] = 0 
 
         if "source" in pub and hasattr(pub["source"], "name"):
             pub["source"] = pub["source"].name
