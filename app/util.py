@@ -373,7 +373,7 @@ def generate_plot(dataframe, author_name):
     pip_auc_score = 0
     try:
         cleaned_name = "".join([c if c.isalnum() else "_" for c in author_name])
-        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(20, 10), dpi=100)  # Adjusted for better resolution
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(20, 10), dpi=100)
         
         plt.rcParams.update({'font.size': 16})
         
