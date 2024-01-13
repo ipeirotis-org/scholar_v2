@@ -161,7 +161,7 @@ def sanitize_publication_data(pub, timestamp, date_str):
         pub["last_updated_ts"] = timestamp
         pub["last_updated"] = date_str
 
-        current_year = datetime.datetime.now().year
+        current_year = datetime.now().year
         pub_year = int(pub.get("bib", {}).get("pub_year", current_year))
         pub_year = pub_year if pub_year <= current_year else current_year
         pub["age"] = current_year - pub_year
@@ -174,7 +174,7 @@ def sanitize_publication_data(pub, timestamp, date_str):
         return pub
     except Exception as e:
         logging.error(f"Error sanitizing publication data: {e}")
-        return None  # Return None if there's an error
+        return None
 
 
 
