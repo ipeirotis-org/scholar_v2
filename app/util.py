@@ -382,8 +382,7 @@ def generate_plot(dataframe, author_name):
             cmap="Blues_r",
             s=marker_size 
         )
-        max_age = dataframe['age'].max()
-        colorbar1 = fig.colorbar(scatter1, ax=ax1, ticks=range(0, max_age + 1, 5))
+        colorbar1 = fig.colorbar(scatter1, ax=ax1) 
         colorbar1.set_label('Age of Publication')
         ax1.set_title(f"Paper Rank vs Percentile Score for {author_name}")
         ax1.set_xlabel("Paper Rank")
@@ -398,7 +397,7 @@ def generate_plot(dataframe, author_name):
             cmap='Blues_r',
             s=marker_size  
         )
-        colorbar2 = fig.colorbar(scatter2, ax=ax2, ticks=range(0, max_age + 1, 5))
+        colorbar2 = fig.colorbar(scatter2, ax=ax2) 
         colorbar2.set_label('Age of Publication')
         ax2.set_title(f"Percentile Score Across Author Productivity Percentiles for {author_name}")
         ax2.set_xlabel("Author Productivity Percentile")
