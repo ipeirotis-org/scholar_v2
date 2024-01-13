@@ -8,11 +8,12 @@ from selenium.webdriver.chrome.service import Service as ChromeService
 class FlaskAppTests(unittest.TestCase):
 
     def setUp(self):
-        self.driver = webdriver.Chrome(service=ChromeService(ChromeDriverManager().install()))
+        self.driver = webdriver.Chrome(ChromeDriverManager(version="120.0.6099.199").install())
+
 
     def test_home_page(self):
         driver = self.driver
-        driver.get("https://scholar.ipeirotis.org/")  # Replace with your application's URL
+        driver.get("https://scholar.ipeirotis.org/") 
         assert "Google Scholar Productivity Search Engine" in driver.title
 
         elem = driver.find_element(By.NAME, "author_name")
