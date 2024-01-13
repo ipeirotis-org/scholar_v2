@@ -8,4 +8,6 @@ flask_caching
 scikit-learn
 google-cloud-firestore
 pytz==2022.1
+selenium==3.141.0
+webdriver_manager==3.4.2
 
