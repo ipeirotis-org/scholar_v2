@@ -161,16 +161,21 @@ def sanitize_publication_data(pub, timestamp, date_str):
         pub["last_updated_ts"] = timestamp
         pub["last_updated"] = date_str
 
-        # Handle potential serialization issues
+        current_year = datetime.datetime.now().year
+        pub_year = int(pub.get("bib", {}).get("pub_year", current_year))
+        pub_year = pub_year if pub_year <= current_year else current_year
+        pub["age"] = current_year - pub_year
+
         if "source" in pub and hasattr(pub["source"], "name"):
             pub["source"] = pub["source"].name
         else:
-            pub.pop("source", None)  
+            pub.pop("source", None)
 
-        return pub  # Make sure to return the updated publication dict
+        return pub
     except Exception as e:
         logging.error(f"Error sanitizing publication data: {e}")
         return None  # Return None if there's an error
+
 
 
 def get_numpaper_percentiles(year):
