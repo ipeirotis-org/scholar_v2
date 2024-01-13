@@ -33,6 +33,9 @@ jobs:
       run: |
         gcloud run deploy scholar-service --image gcr.io/${{ secrets.GCP_PROJECT_ID }}/scholar_v2 --platform managed --region us-central1 --allow-unauthenticated
 
+    - name: Check Chrome version
+      run: google-chrome --version
+
   run-selenium-tests:
     needs: setup-build-publish-deploy
     runs-on: ubuntu-latest
