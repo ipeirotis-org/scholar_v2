@@ -8,7 +8,7 @@ from selenium.webdriver.chrome.service import Service as ChromeService
 class FlaskAppTests(unittest.TestCase):
 
     def setUp(self):
-        self.driver = webdriver.Chrome(ChromeDriverManager(version="120.0.6099.199").install())
+        self.driver = webdriver.Chrome(ChromeDriverManager().install())
 
 
     def test_home_page(self):
