@@ -29,7 +29,7 @@ class DownloadCsvTests(unittest.TestCase):
         search_box.send_keys(Keys.RETURN)
 
         WebDriverWait(self.driver, 120).until(
-            EC.presence_of_element_located((By.ID, "results"))
+            EC.presence_of_element_located((By.CSS_SELECTOR, "div.search-results"))
         )
 
    
