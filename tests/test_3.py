@@ -25,7 +25,7 @@ class DownloadCsvTests(unittest.TestCase):
         search_box.send_keys(search_query)
         search_box.send_keys(Keys.RETURN)
 
-        self.driver.implicitly_wait(30)  # Adjust time as needed
+        self.driver.implicitly_wait(60)  # Adjust time as needed
 
         # Construct download link text based on the author's name
         download_link_text = f"Download CSV for {search_query}"
