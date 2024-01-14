@@ -4,12 +4,17 @@ from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.chrome.options import Options
 
 class FlaskAppTests(unittest.TestCase):
 
     def setUp(self):
+        chrome_options = Options()
+        chrome_options.add_argument("--headless")
+        chrome_options.add_argument("--no-sandbox")
+        chrome_options.add_argument("--disable-dev-shm-usage")
         service = Service(executable_path="./webdriver/chromedriver")
-        self.driver = webdriver.Chrome(service=service)
+        self.driver = webdriver.Chrome(service=service, options=chrome_options)
 
 
 
@@ -25,7 +30,7 @@ class FlaskAppTests(unittest.TestCase):
         assert "No author's data available. Please try again." not in driver.page_source
 
     def tearDown(self):
-        self.driver.close()
+        self.driver.quit()
 
 if __name__ == "__main__":
     unittest.main()
