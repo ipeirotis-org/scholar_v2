@@ -53,6 +53,9 @@ jobs:
         pip install -r requirements.txt
         pip install selenium pytest pytest-selenium
 
+    - name: Set Executable Permissions for ChromeDriver
+      run: chmod +x ./webdriver/chromedriver
+      
     - name: Run Selenium tests
       run: |
         pytest tests/
