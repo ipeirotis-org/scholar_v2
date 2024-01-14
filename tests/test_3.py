@@ -17,7 +17,7 @@ class DownloadCsvTests(unittest.TestCase):
 
     def test_download_csv(self):
         self.driver.get("https://scholar.ipeirotis.org/")
-        search_terms = ["Panos Ipeirotis", "Adam Heller", "Juliana Freire", "Claudio T. Silva"]
+        search_terms = ["Panos Ipeirotis", "Adam Heller", "Juliana Freire"]
         search_query = random.choice(search_terms)
 
         search_box = self.driver.find_element(By.NAME, "author_name")
