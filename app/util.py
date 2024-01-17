@@ -422,7 +422,7 @@ def generate_plot(dataframe, author_name):
         logging.error(f"Error in generate_plot for {author_name}: {e}")
         raise
 
-    return plot_paths, pip_auc_score
+    return plot_paths, round(pip_auc_score,4)
 
 
 
