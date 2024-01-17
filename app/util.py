@@ -297,7 +297,7 @@ def get_author_statistics_by_id(scholar_id):
                         pub_year = p['bib'].get('pub_year')
                         if pub_year is None or int(pub_year)<1950: continue
                         sanitized_pub = sanitize_publication_data(p, timestamp, date_str)
-                        if sanitized_pub and 'citedby' in sanitized_pub:
+                        if sanitized_pub and 'citedby' in sanitized_pub and sanitized_pub["citedby"]>0:
                             pub_info = {
                                 "citations": sanitized_pub["citedby"],
                                 "age": now.year - int(pub_year) + 1,
