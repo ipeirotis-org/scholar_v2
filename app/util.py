@@ -40,8 +40,7 @@ def get_firestore_cache(author_id):
     return None
 
 def set_firestore_cache(author_id, data):
-    firestore_author_id = str(author_id).lower()  # Ensure the ID is a string and lowercase
-    doc_ref = db.collection('scholar_cache').document(firestore_author_id)
+    doc_ref = db.collection('scholar_cache').document(author_id)
 
     cache_data = {
         'timestamp': datetime.utcnow().replace(tzinfo=pytz.utc),
