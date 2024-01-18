@@ -1,13 +1,11 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, send_file
 from util import (
     get_scholar_data,
-    get_author_statistics,
     generate_plot,
     check_and_add_author_to_cache,
     get_author_statistics_by_id,
 )
-from matplotlib.ticker import MaxNLocator
-import matplotlib.pyplot as plt
+
 from flask_caching import Cache
 import os
 from flask import jsonify
@@ -40,41 +38,6 @@ def cache_author_name():
         return jsonify({'success': True, 'message': 'Author name cached successfully'})
     else:
         return jsonify({'success': False, 'message': 'No author name provided'})
-
-
-
-
-
-
-def diagnose_serialization_issue(data, depth=0, max_depth=5):
-    try:
-        json.dumps(data)
-    except TypeError as e:
-        logging.error(f"Serialization error at depth {depth}: {e}")
-
-        if depth < max_depth:
-            if isinstance(data, dict):
-                for key, value in data.items():
-                    logging.error(f"Inspecting key: {key}")
-                    diagnose_serialization_issue(
-                        value, depth=depth + 1, max_depth=max_depth
-                    )
-            elif isinstance(data, list):
-                for index, item in enumerate(data):
-                    logging.error(f"Inspecting index: {index}")
-                    diagnose_serialization_issue(
-                        item, depth=depth + 1, max_depth=max_depth
-                    )
-            else:
-                logging.error(f"Unhandled data type: {type(data)}")
-        else:
-            logging.error("Max recursion depth reached.")
-
-
-def json_serial(obj):
-    if isinstance(obj, (datetime, datetime.date)):
-        return obj.isoformat()
-    raise TypeError(f"Type {type(obj)} not serializable")
 
 
 
@@ -122,19 +85,6 @@ def get_similar_authors():
 
 
 
-
-
-def cleanup_old_images(directory="static", max_age=3600):
-    """Delete files older than max_age seconds."""
-    now = time.time()
-
-    for filename in os.listdir(directory):
-        file_path = os.path.join(directory, filename)
-        file_age = now - os.path.getmtime(file_path)
-        if os.path.isfile(file_path) and file_age > max_age:
-            os.remove(file_path)
-
-
 @app.after_request
 def add_header(response):
     response.cache_control.no_store = True
@@ -143,97 +93,6 @@ def add_header(response):
 
 def filter_data_by_timeframe(data, start_year, end_year):
     return {year: data[year] for year in data if start_year <= year <= end_year}
-
-
-def generate_comparison_charts(
-    data1, data2, name1, name2, timestamp, start_year_comparison, end_year_comparison
-):
-    cleanup_old_images()  # Clean up old images
-
-    years = list(set(data1.keys()).union(data2.keys()))
-    years = [
-        year
-        for year in years
-        if year >= start_year_comparison and year <= end_year_comparison
-    ]
-    years.sort()
-
-    if not years:
-        return
-
-    file_prefix = f"comparison_{name1}_vs_{name2}_{timestamp}"
-
-    # Dot plot for Citations
-    plt.figure(figsize=(10, 6))
-    plt.scatter(
-        years,
-        [data1.get(year, {}).get("citations", 0) for year in years],
-        label=name1,
-        marker="o",
-    )
-    plt.scatter(
-        years,
-        [data2.get(year, {}).get("citations", 0) for year in years],
-        label=name2,
-        marker="x",
-    )
-    plt.legend()
-    plt.title("Yearly Citations Comparison")
-    plt.xlabel("Year")
-    plt.ylabel("Citations")
-    plt.grid(True, which="both")
-    plt.gca().xaxis.set_major_locator(MaxNLocator(integer=True))
-    plt.tight_layout()
-    plt.savefig(f"static/{file_prefix}_citations.png")
-    plt.close()
-
-    # Dot plot for Publications
-    plt.figure(figsize=(10, 6))
-    plt.scatter(
-        years,
-        [data1.get(year, {}).get("publications", 0) for year in years],
-        label=name1,
-        marker="o",
-    )
-    plt.scatter(
-        years,
-        [data2.get(year, {}).get("publications", 0) for year in years],
-        label=name2,
-        marker="x",
-    )
-    plt.legend()
-    plt.title("Yearly Publications Comparison")
-    plt.xlabel("Year")
-    plt.ylabel("Publications")
-    plt.grid(True, which="both")
-    plt.gca().xaxis.set_major_locator(MaxNLocator(integer=True))
-    plt.tight_layout()
-    plt.savefig(f"static/{file_prefix}_publications.png")
-    plt.close()
-
-    # Dot plot for Scores
-    plt.figure(figsize=(10, 6))
-    plt.scatter(
-        years,
-        [data1.get(year, {}).get("scores", 0) for year in years],
-        label=name1,
-        marker="o",
-    )
-    plt.scatter(
-        years,
-        [data2.get(year, {}).get("scores", 0) for year in years],
-        label=name2,
-        marker="x",
-    )
-    plt.legend()
-    plt.title("Yearly Scores Comparison")
-    plt.xlabel("Year")
-    plt.ylabel("Scores")
-    plt.grid(True, which="both")
-    plt.gca().xaxis.set_major_locator(MaxNLocator(integer=True))
-    plt.tight_layout()
-    plt.savefig(f"static/{file_prefix}_scores.png")
-    plt.close()
 
 
 @app.route("/")
@@ -246,38 +105,6 @@ def index():
 def set_author_count():
     author_count = request.form.get("author_count", default=1, type=int)
     return redirect(url_for("index", author_count=author_count))
-
-
-def perform_search(author_name):
-    author, query, total_publications = get_author_statistics(author_name)
-    has_results = not query.empty
-    pip_auc_score = 0
-    
-    try:
-        plot_paths, pip_auc_score = generate_plot(query, author["name"]) if has_results else ([], 0)
-    except Exception as e:
-        logging.error(f"Error generating plot for {author_name}: {e}")
-        flash(f"An error occurred while generating the plot for {author_name}.", "error")
-        plot_paths, pip_auc_score = [], 0
-
-    search_data = {
-        "author": author,
-        "results": query,
-        "has_results": has_results,
-        "plot_paths": plot_paths,
-        "total_publications": total_publications,
-        "pip_auc_score": pip_auc_score
-    }
-
-    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-    cache_key = f"{author_name}_{timestamp}"
-    cache.set(cache_key, search_data)
-
-    current_keys = cache.get("search_history_keys") or []
-    current_keys.append(cache_key)
-    cache.set("search_history_keys", current_keys)
-
-    return search_data
 
 
 def perform_search_by_id(scholar_id):
@@ -328,7 +155,7 @@ def results():
 
 
 @app.route('/download/<author_id>')
-@cache.cached(timeout=3600)  # cache for 1 hour
+@cache.cached(timeout=7*24*3600)  # cache for 1 week
 def download_results(author_id):
     author, query, _ = get_author_statistics_by_id(author_id)
 
