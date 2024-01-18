@@ -136,9 +136,6 @@
     
 </head>
 <body>
-    <header align="center">
-        <h1>Age-normalized Google Scholar Analysis</h1>
-    </header>
 
     <section id="messages">
         {% with messages = get_flashed_messages() %}
@@ -154,7 +151,7 @@
             {% for author_data in authors_data %}
                 {% if author_data.has_results %}
                     <section>
-                        <h2>Author Details ({{ author_data.author.get('name', 'N/A') }})</h2>
+                        <h2>Author: {{ author_data.author.get('name', 'N/A') }}</h2>
                         <div class="author-details">
                         <ul>
                             <li>Author Name: {{ author_data.author.get('name', 'N/A') }}</li>
@@ -205,7 +202,11 @@
     </section>
 
     <footer>
-       <p><href="https://github.com/ipeirotis-org/scholar_v2">Code</href<a> and <a href="https://arxiv.org/abs/2103.16025">Paper</a>. For any issues, please contact <a href="mailto:panos@nyu.edu">Panos Ipeirotis</a>. </p>
+       <p>
+           <a href="https://github.com/ipeirotis-org/scholar_v2">Code</a> 
+           and <a href="https://arxiv.org/abs/2103.16025">Paper</a>. 
+           For any issues, please contact <a href="mailto:panos@nyu.edu">Panos Ipeirotis</a>. 
+       </p>
     </footer>
 </body>
 </html>
