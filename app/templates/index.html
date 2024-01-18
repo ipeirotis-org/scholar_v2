@@ -39,6 +39,28 @@
             align-items: center;
             flex-direction: column; /* Stack elements vertically */
         }
+    
+            
+        .autocomplete-dropdown {
+            border: 1px solid #ddd;
+            max-height: 150px;
+            overflow-y: auto;
+            display: none;
+            position: absolute;
+            z-index: 1000;
+            background: white;
+            left: 50%; /* Align center to the parent element */
+            transform: translateX(-50%); /* Shift left by half of its own width */
+            text-align: left; /* Align text to the left */
+        }
+        .author-option {
+            padding: 5px;
+            cursor: pointer;
+            white-space: nowrap; /* Prevent text from wrapping */
+        }
+        .author-option:hover {
+            background-color: #eee;
+        }
     </style>
 </head>
 <body>
