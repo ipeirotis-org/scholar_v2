@@ -66,7 +66,7 @@ def set_firestore_cache(author_id, data):
 
 
 def get_scholar_data(author_name, multiple=False):
-    firestore_author_name = author_name.lower()
+    firestore_author_name = author_name
     cached_data = get_firestore_cache(firestore_author_name)
 
     if cached_data:
