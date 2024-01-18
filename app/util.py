@@ -373,13 +373,13 @@ def generate_plot(dataframe, author_name):
     return plot_paths, round(pip_auc_score,4)
 
 
-def check_and_add_author_to_cache(author_name):
-    firestore_author_name = author_name.lower()
-    doc_ref = db.collection('scholar_cache').document(firestore_author_name)
-    doc = doc_ref.get()
-    if not doc.exists:
-        doc_ref.set({
-            'name': author_name,
-            'cached_on': datetime.utcnow()
-        })
+# def check_and_add_author_to_cache(author_name):
+#    firestore_author_name = author_name.lower()
+#    doc_ref = db.collection('scholar_cache').document(firestore_author_name)
+#    doc = doc_ref.get()
+#    if not doc.exists:
+#        doc_ref.set({
+#            'name': author_name,
+#            'cached_on': datetime.utcnow()
+#        })
 
