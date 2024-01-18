@@ -356,10 +356,9 @@ def generate_plot(dataframe, author_name):
         ax2.set_xlim(0, 100)
         ax2.set_ylim(0, 100)
 
-        plt.tight_layout()
+        fig.tight_layout()
         combined_plot_path = os.path.join("static", f"{cleaned_name}_combined_plot.png")
         fig.savefig(combined_plot_path)
-        plt.close(fig)
         plot_paths.append(combined_plot_path)
 
         # Calculate AUC score
