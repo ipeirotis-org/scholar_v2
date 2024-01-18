@@ -2,7 +2,6 @@ from flask import Flask, render_template, request, redirect, url_for, flash, sen
 from util import (
     get_scholar_data,
     generate_plot,
-    check_and_add_author_to_cache,
     get_author_statistics_by_id,
 )
 
@@ -29,15 +28,15 @@ search_history_keys = []
 
 
 
-@app.route('/cache_author_name', methods=['POST'])
-def cache_author_name():
-    author_name = request.json.get('author_name')
-    if author_name:
-        logging.info(f"Caching author name: {author_name}")
-        check_and_add_author_to_cache(author_name)
-        return jsonify({'success': True, 'message': 'Author name cached successfully'})
-    else:
-        return jsonify({'success': False, 'message': 'No author name provided'})
+# @app.route('/cache_author_name', methods=['POST'])
+# def cache_author_name():
+#    author_name = request.json.get('author_name')
+#    if author_name:
+#        logging.info(f"Caching author name: {author_name}")
+#        check_and_add_author_to_cache(author_name)
+#        return jsonify({'success': True, 'message': 'Author name cached successfully'})
+#    else:
+#        return jsonify({'success': False, 'message': 'No author name provided'})
 
 
 
@@ -160,19 +159,6 @@ def download_results(author_id):
     return send_file(
         file_path, as_attachment=True, download_name=f"{author_id}_results.csv"
     )
-
-
-
-@app.route('/cache_and_analyze_author', methods=['POST'])
-def cache_and_analyze_author():
-    author_name = request.json.get('author_name')
-    if author_name:
-        logging.info(f"Caching and analyzing author name: {author_name}")
-        check_and_add_author_to_cache(author_name)
-        return jsonify({'success': True, 'message': 'Author name cached successfully'})
-    else:
-        return jsonify({'success': False, 'message': 'No author name provided'})
-
 
 
 def save_to_cache(key, data):
