@@ -30,15 +30,24 @@
         .author-option:hover {
             background-color: #eee;
         }
+        header {
+            margin-bottom: 40px; /* Adjust this value as needed */
+        }    
+        #content {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column; /* Stack elements vertically */
+        }
     </style>
 </head>
 <body>
-    <header>
-        <h1>Welcome to Google Scholar Productivity Search Engine</h1>
+    <header align="center">
+        <h1>Age-normalized Google Scholar Analysis</h1>
     </header>
 
     <section id="content">
-        <div>
+        <div align="center">
             <label for="author_name">Author Name:</label>
             <input type="text" id="author_name" name="author_name" autocomplete="off" required>
             <button type="button" id="findAuthorButton" onclick="findAuthor()">Find Author</button>
@@ -48,7 +57,7 @@
     </section>
 
     <footer>
-        <p>&copy; Google Scholar Productivity Search Engine. All rights reserved.</p>
+        <p>For any issues, please contact <a href="mailto:panos@nyu.edu">Panos Ipeirotis</a></p>
     </footer>
 
     <script>
@@ -58,20 +67,30 @@
     
         function findAuthor() {
             const authorName = authorInput.value.trim();
+            const findAuthorButton = document.getElementById('findAuthorButton');
+        
             if (authorName) {
+                analyzeAuthorButton.disabled = true;
+                findAuthorButton.disabled = true;
+                findAuthorButton.textContent = 'Searching...'; // Indicate a busy state
+        
                 fetch(`/get_similar_authors?author_name=${encodeURIComponent(authorName)}`)
                     .then(response => response.json())
                     .then(data => {
-                        // Clear previous results
-                        dropdown.innerHTML = '';
-                        let authors = Array.isArray(data) ? data : [data]; // Ensure data is an array
-                        authors.forEach(author => {
-                            let div = createAuthorOption(author);
-                            dropdown.appendChild(div);
-                        });
-                        dropdown.style.display = authors.length > 0 ? 'block' : 'none';
+                                // Clear previous results
+                                dropdown.innerHTML = '';
+                                let authors = Array.isArray(data) ? data : [data]; // Ensure data is an array
+                                authors.forEach(author => {
+                                    let div = createAuthorOption(author);
+                                    dropdown.appendChild(div);
+                                });
+                                dropdown.style.display = authors.length > 0 ? 'block' : 'none';
                     }).catch(error => {
                         console.error('Error:', error);
+                    }).finally(() => {
+                        findAuthorButton.disabled = false;
+                        findAuthorButton.textContent = 'Find Author'; // Reset button state
+                        analyzeAuthorButton.disabled = false;
                     });
             }
         }
@@ -92,6 +111,7 @@
         function analyzeAuthor() {
             const scholarId = analyzeAuthorButton.dataset.scholarId; // Retrieve the Scholar ID
             if (scholarId) {
+                analyzeAuthorButton.disabled = true
                 window.location.href = `/results?author_id=${encodeURIComponent(scholarId)}`;
             }
         }
