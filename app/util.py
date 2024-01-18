@@ -28,8 +28,8 @@ def get_firestore_cache(author_id):
         if doc.exists:
             cached_data = doc.to_dict()
             cached_time = cached_data['timestamp']
-            if isinstance(cached_time, datetime):  
-                cached_time = cached_time.replace(tzinfo=pytz.utc)
+            # if isinstance(cached_time, datetime):  
+            #    cached_time = cached_time.replace(tzinfo=pytz.utc)
             current_time = datetime.utcnow().replace(tzinfo=pytz.utc)
             if (current_time - cached_time).days < 30:
                 return cached_data['data']
