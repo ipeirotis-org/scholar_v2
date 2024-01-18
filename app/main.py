@@ -5,7 +5,7 @@ from util import (
     get_author_statistics_by_id,
 )
 
-from flask_caching import Cache
+
 import os
 from flask import jsonify
 from datetime import datetime
@@ -20,9 +20,6 @@ logging.basicConfig(level=logging.INFO)
 
 app = Flask(__name__)
 app.secret_key = "secret-key"
-
-app.config["CACHE_TYPE"] = "simple"
-cache = Cache(app)
 
 
 def perform_search_by_id(scholar_id):
@@ -57,7 +54,6 @@ def index():
 
 
 @app.route("/get_similar_authors")
-@cache.cached(timeout=7*24*3600)  # cache for 1 week
 def get_similar_authors():
     author_name = request.args.get("author_name")
     authors = []
@@ -84,7 +80,6 @@ def get_similar_authors():
     return jsonify(clean_authors)
 
 @app.route("/results", methods=["GET"])
-@cache.cached(timeout=7*24*3600)  # cache for 1 week
 def results():
     author_id = request.args.get("author_id", "")
 
@@ -104,15 +99,7 @@ def results():
 
 
 
-
-@app.after_request
-def add_header(response):
-    response.cache_control.no_store = True
-    return response
-
-
 @app.route('/download/<author_id>')
-@cache.cached(timeout=7*24*3600)  # cache for 1 week
 def download_results(author_id):
     author, query, _ = get_author_statistics_by_id(author_id)
 
