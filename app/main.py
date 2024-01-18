@@ -56,21 +56,6 @@ def get_similar_authors():
         except StopIteration:
             break  # Break the loop if there are no more authors
 
-    # If the primary search yields fewer than 10 authors, do additional searches on each word
-    if len(authors) < 10:
-        words = author_name.split()
-        for word in words:
-            secondary_search = scholarly.search_author(word)
-            for _ in range(10 - len(authors)):
-                try:
-                    additional_author = next(secondary_search)
-                    if additional_author:
-                        authors.append(additional_author)
-                except StopIteration:
-                    break  # Break the loop if there are no more authors
-            if len(authors) >= 10:
-                break
-
     # Process and return the authors
     clean_authors = [{
         "name": author.get("name", ""),
