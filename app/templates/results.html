@@ -105,6 +105,32 @@
                 padding: 10px;
             }
         }
+
+            section {
+        text-align: center;
+    }
+
+    /* Author details styling */
+    .author-details {
+        background-color: #f8f8f8; /* Light gray background */
+        padding: 15px;
+        margin-top: 20px; /* Space between title and box */
+        border-radius: 8px;
+        display: inline-block; /* Allows for text-align to take effect */
+        text-align: left; /* Left align text inside the box */
+        width: 100%; /* Full width for smaller devices */
+    }
+
+    img.plot {
+        /* Existing styles... */
+        margin: 0 auto; /* Center align plots */
+    }
+
+    @media (min-width: 768px) {
+        .author-details {
+            width: 80%; /* Adjust width on larger devices */
+        }
+    }
     </style>
 
     
@@ -129,14 +155,16 @@
                 {% if author_data.has_results %}
                     <section>
                         <h2>Author Details ({{ author_data.author.get('name', 'N/A') }})</h2>
+                        <div class="author-details">
                         <ul>
                             <li>Author Name: {{ author_data.author.get('name', 'N/A') }}</li>
                             <li>Current Affiliation: {{ author_data.author.get('affiliation', 'N/A') }}</li>
                             <li>Google Scholar ID: {{ author_data.author.get('scholar_id', 'N/A') }}</li>
                             <li>Total Citations: {{ author_data.author.get('citedby', 'N/A') }}</li>
                             <li>Total Publications: {{ author_data.total_publications }}</li>
-                            <li><strong>PiP-AUC Score:</strong> {{ author_data.pip_auc_score }}</li>
+                            <li><strong>PiP-AUC Score: {{ author_data.pip_auc_score }}</strong></li>
                         </ul>
+                        </div>
 
                         {% for path in author_data.plot_paths %}
                             <img class="plot" src="{{ path }}" alt="Generated Plot">
@@ -177,7 +205,7 @@
     </section>
 
     <footer>
-        <p>For any issues, please contact <a href="mailto:panos@nyu.edu">Panos Ipeirotis</a></p>
+       <p><href="https://github.com/ipeirotis-org/scholar_v2">Code</href>a> and <a href="https://arxiv.org/abs/2103.16025">Paper</a>. For any issues, please contact <a href="mailto:panos@nyu.edu">Panos Ipeirotis</a>. </p>
     </footer>
 </body>
 </html>
