@@ -21,9 +21,8 @@ author_percentiles = pd.read_csv(url_author_percentiles).set_index(
     "years_since_first_pub"
 )
 
-def get_firestore_cache(author_name):
-    firestore_author_name = author_name.lower()
-    doc_ref = db.collection('scholar_cache').document(firestore_author_name)
+def get_firestore_cache(author_id):
+    doc_ref = db.collection('scholar_cache').document(author_id)
     try:
         doc = doc_ref.get()
         if doc.exists:
@@ -32,7 +31,7 @@ def get_firestore_cache(author_name):
             if isinstance(cached_time, datetime):  
                 cached_time = cached_time.replace(tzinfo=pytz.utc)
             current_time = datetime.utcnow().replace(tzinfo=pytz.utc)
-            if (current_time - cached_time).days < 7:
+            if (current_time - cached_time).days < 30:
                 return cached_data['data']
             else:
                 return None 
@@ -231,46 +230,6 @@ def score_papers(row):
 
 
 
-def get_author_statistics(author_name):
-    author, publications, total_publications, error = get_scholar_data(author_name)
-
-    if error is not None or author is None or not publications:
-        logging.error(f"Error fetching data for author {author_name}: {error}")
-        return None, pd.DataFrame(), 0
-
-    now = datetime.now(pytz.utc)
-    timestamp = int(now.timestamp())
-    date_str = now.strftime("%Y-%m-%d %H:%M:%S")
-
-    pubs = [
-        {
-            "citations": sanitize_publication_data(p, timestamp, date_str)["citedby"],
-            "age": datetime.now().year - int(p["bib"].get("pub_year", 0)) + 1,
-            "title": p["bib"].get("title"),
-            "year": int(p["bib"].get("pub_year")) if p["bib"].get("pub_year") else None
-        }
-        for p in publications if "bib" in p and "pub_year" in p["bib"] and "citedby" in p
-    ]
-
-    query_df = pd.DataFrame(pubs)
-    query_df["percentile_score"] = query_df.apply(score_papers, axis=1).round(2)
-    query_df["paper_rank"] = query_df["percentile_score"].rank(ascending=False, method='first').astype(int)
-    query_df = query_df.sort_values("percentile_score", ascending=False)
-
-    year = query_df['age'].max()
-    num_papers_percentile = get_numpaper_percentiles(year)
-    if num_papers_percentile.empty:
-        logging.error("Empty num_papers_percentile series.")
-        return None, pd.DataFrame(), 0
-    query_df['num_papers_percentile'] = query_df['paper_rank'].apply(lambda x: find_closest(num_papers_percentile, x))
-    query_df['num_papers_percentile'] = query_df['num_papers_percentile'].astype(float)
-
-    query_df = query_df.sort_values('percentile_score', ascending=False)
-
-    return author, query_df, total_publications
-
-
-
 def get_author_statistics_by_id(scholar_id):
     cached_data = get_firestore_cache(scholar_id)
     if cached_data:
@@ -353,15 +312,6 @@ def normalize_paper_count(years_since_first_pub):
             return float(percentile) / 100
     return None
 
-
-def calculate_pip_auc(dataframe):
-    dataframe['normalized_rank'] = dataframe['paper_rank'] / dataframe['paper_rank'].max()
-    dataframe['normalized_percentile_score'] = dataframe['percentile_score'] / 100.0
-    sorted_df = dataframe.sort_values('normalized_rank')
-    pip_auc = auc(sorted_df['normalized_rank'], sorted_df['normalized_percentile_score'])
-    return pip_auc
-
-
 def generate_plot(dataframe, author_name):
     plot_paths = []
     pip_auc_score = 0
@@ -415,15 +365,13 @@ def generate_plot(dataframe, author_name):
         # Calculate AUC score
         auc_data = dataframe.filter(['num_papers_percentile', 'percentile_score']).drop_duplicates(subset='num_papers_percentile', keep='first')
         pip_auc_score = np.trapz(auc_data['percentile_score'], auc_data['num_papers_percentile']) / (100 * 100)
-        print(f"AUC score: {pip_auc_score:.4f}")
+        # print(f"AUC score: {pip_auc_score:.4f}")
 
     except Exception as e:
         logging.error(f"Error in generate_plot for {author_name}: {e}")
         raise
 
     return plot_paths, round(pip_auc_score,4)
-
-
 
 
 def check_and_add_author_to_cache(author_name):
@@ -435,9 +383,4 @@ def check_and_add_author_to_cache(author_name):
             'name': author_name,
             'cached_on': datetime.utcnow()
         })
-
-
-
-
-
 
