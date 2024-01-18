@@ -7,26 +7,43 @@
     <title>Google Scholar: Age-normalized Analysis</title>
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
     <script>
-        function sortTable(n, tableId, isNumeric) {
+        // Global object to track sort states of each column
+        var sortStates = {};
+        function sortTable(columnIndex, tableId, isNumeric) {
             var table = document.getElementById(tableId);
             var rowsArray = Array.from(table.getElementsByTagName("TR")).slice(1); // Exclude header row
         
-            var sortedRows = rowsArray.sort(function(rowA, rowB) {
-                var cellA = rowA.getElementsByTagName("TD")[n];
-                var cellB = rowB.getElementsByTagName("TD")[n];
+            // Initialize or toggle the sort state
+            if (!sortStates[tableId]) {
+                sortStates[tableId] = {};
+            }
+            if (sortStates[tableId][columnIndex] === 'asc') {
+                sortStates[tableId][columnIndex] = 'desc';
+            } else {
+                sortStates[tableId][columnIndex] = 'asc';
+            }
+        
+            // Perform the sort
+            rowsArray.sort(function(rowA, rowB) {
+                var cellA = rowA.getElementsByTagName("TD")[columnIndex];
+                var cellB = rowB.getElementsByTagName("TD")[columnIndex];
         
                 var valueA = isNumeric ? parseFloat(cellA.innerHTML) : cellA.innerHTML.toLowerCase();
                 var valueB = isNumeric ? parseFloat(cellB.innerHTML) : cellB.innerHTML.toLowerCase();
         
-                if (valueA < valueB) return -1;
-                if (valueA > valueB) return 1;
-                return 0;
+                if (sortStates[tableId][columnIndex] === 'asc') {
+                    return valueA > valueB ? 1 : -1;
+                } else {
+                    return valueA < valueB ? 1 : -1;
+                }
             });
         
-            for (var i = 0; i < sortedRows.length; i++) {
-                table.appendChild(sortedRows[i]); // Append each row in order
-            }
+            // Re-append sorted rows to the table
+            rowsArray.forEach(function(row) {
+                table.appendChild(row);
+            });
         }
+
 
 
 
@@ -69,20 +86,7 @@
             cursor: pointer;
         }
     
-        h1, h2, h3 {
-            color: #007bff; /* Example primary color */
-        }
-    
-        .pip-score {
-            font-weight: bold;
-            color: #28a745; /* Example highlight color */
-            font-size: 1.2em;
-            background-color: #f0f0f0;
-            padding: 5px;
-            border-radius: 5px;
-            display: inline-block;
-            margin-top: 10px;
-        }
+
     
         .author-section {
             background-color: #f9f9f9;
@@ -106,7 +110,7 @@
     
 </head>
 <body>
-    <header>
+    <header align="center">
         <h1>Age-normalized Google Scholar Analysis</h1>
     </header>
 
@@ -119,23 +123,20 @@
     </section>
 
     <section id="results">
-        <h2>Search Results</h2>
+        
         {% if authors_data %}
             {% for author_data in authors_data %}
                 {% if author_data.has_results %}
                     <section>
-                        <h2>Author Details ({{ author_data.author.get('name', 'N/A') }}):</h2>
+                        <h2>Author Details ({{ author_data.author.get('name', 'N/A') }})</h2>
                         <ul>
                             <li>Author Name: {{ author_data.author.get('name', 'N/A') }}</li>
                             <li>Current Affiliation: {{ author_data.author.get('affiliation', 'N/A') }}</li>
                             <li>Google Scholar ID: {{ author_data.author.get('scholar_id', 'N/A') }}</li>
                             <li>Total Citations: {{ author_data.author.get('citedby', 'N/A') }}</li>
                             <li>Total Publications: {{ author_data.total_publications }}</li>
+                            <li><strong>PiP-AUC Score:</strong> {{ author_data.pip_auc_score }}</li>
                         </ul>
-
-                        <div class="pip-score">
-                            <strong>PiP-AUC Score:</strong> {{ author_data.pip_auc_score }}
-                        </div>
 
                         {% for path in author_data.plot_paths %}
                             <img class="plot" src="{{ path }}" alt="Generated Plot">
@@ -171,12 +172,12 @@
                 {% endif %}
             {% endfor %}
         {% else %}
-            <p>No author's data available. Please try again.</p>
+            <p>No data available for the author. Please try again.</p>
         {% endif %}
     </section>
 
     <footer>
-        <p>&copy; Google Scholar Productivity Search Engine. All rights reserved.</p>
+        <p>For any issues, please contact <a href="mailto:panos@nyu.edu">Panos Ipeirotis</a></p>
     </footer>
 </body>
 </html>
