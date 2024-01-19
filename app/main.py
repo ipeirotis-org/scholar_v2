@@ -1,3 +1,77 @@
+from flask import Flask, render_template, request, jsonify, redirect, url_for, flash, send_file
+import os
+from datetime import datetime
+import logging
+from scholarly_service import get_scholar_data, get_similar_authors
+from analytics import calculate_paper_percentiles
+
+# Initialize Flask app
+app = Flask(__name__)
+app.secret_key = "secret-key"
+logging.basicConfig(level=logging.INFO)
+
+@app.route("/")
+def index():
+    author_count = request.args.get("author_count", default=1, type=int)
+    return render_template("index.html", author_count=author_count)
+
+@app.route("/get_similar_authors")
+def get_similar_authors_route():
+    author_name = request.args.get("author_name")
+    if not author_name:
+        return jsonify([])
+
+    authors = get_similar_authors(author_name)
+    clean_authors = [{
+        "name": author.get("name", ""),
+        "affiliation": author.get("affiliation", ""),
+        "email": author.get("email", ""),
+        "citedby": author.get("citedby", 0),
+        "scholar_id": author.get("scholar_id", "")
+    } for author in authors]
+
+    return jsonify(clean_authors)
+
+@app.route("/results", methods=["GET"])
+def results():
+    author_id = request.args.get("author_id", "")
+    if not author_id:
+        flash("Google Scholar ID is required.")
+        return redirect(url_for("index"))
+
+    author_data = get_scholar_data(author_id)
+    if author_data and 'publications' in author_data:
+        author_data['publications'] = calculate_paper_percentiles(author_data['publications'])
+
+    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+    return render_template("results.html", author=author_data, time_stamp=timestamp)
+
+@app.route('/download/<author_id>')
+def download_results(author_id):
+    author_data = get_scholar_data(author_id)
+    if not author_data or 'publications' not in author_data or author_data['publications'].empty:
+        flash("No results found to download.")
+        return redirect(url_for("index"))
+
+    downloads_dir = os.path.join(app.root_path, 'downloads')
+    if not os.path.exists(downloads_dir):
+        os.makedirs(downloads_dir)
+
+    file_path = os.path.join(downloads_dir, f"{author_id}_results.csv")
+    author_data['publications'].to_csv(file_path, index=False)
+
+    return send_file(file_path, as_attachment=True, download_name=f"{author_id}_results.csv")
+
+@app.route("/error")
+def error():
+    return render_template("error.html")
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=8080)
+
+
+
+'''
 from flask import Flask, render_template, request, redirect, url_for, flash, send_file
 from util import (
     get_scholar_data,
@@ -98,7 +172,7 @@ def results():
     timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
     return render_template("results.html", author=author, time_stamp=timestamp)
 
-
+'''
 
 @app.route('/download/<author_id>')
 def download_results(author_id):
@@ -126,6 +200,8 @@ def download_results(author_id):
 @app.route("/error")
 def error():
     return render_template("error.html")
+
+    
 
 
 if __name__ == "__main__":
