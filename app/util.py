@@ -49,7 +49,7 @@ def set_firestore_cache(author_id, data):
             'publications': data.get('publications', [])
         }
     }
-    if not firestore_author_id.strip():
+    if not author_id.strip():
         logging.error("Firestore document ID is empty or invalid.")
         return
 
