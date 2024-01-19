@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ authors_data[0].author.get('name', 'N/A') }} -- Age-normalized Google Scholar Analysis</title>
+    <title>{{ author.author.get('name', 'N/A') }} -- Age-normalized Google Scholar Analysis</title>
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
     <script>
         // Global object to track sort states of each column
@@ -147,33 +147,23 @@
 </head>
 <body>
 
-    <section id="messages">
-        {% with messages = get_flashed_messages() %}
-            {% for message in messages %}
-                <p class="error">{{ message }}</p>
-            {% endfor %}
-        {% endwith %}
-    </section>
-
     <section id="results">
         
-        {% if authors_data %}
-            {% for author_data in authors_data %}
-                {% if author_data.has_results %}
+                {% if author.has_results %}
                     <section>
-                        <h2>Author: {{ author_data.author.get('name', 'N/A') }}</h2>
+                        <h2>Author: {{ author.author.get('name', 'N/A') }}</h2>
                         <div class="author-details">
                         <ul>
-                            <li>Author Name: {{ author_data.author.get('name', 'N/A') }}</li>
-                            <li>Current Affiliation: {{ author_data.author.get('affiliation', 'N/A') }}</li>
-                            <li>Google Scholar ID: {{ author_data.author.get('scholar_id', 'N/A') }}</li>
-                            <li>Total Citations: {{ author_data.author.get('citedby', 'N/A') }}</li>
-                            <li>Total Publications: {{ author_data.total_publications }}</li>
-                            <li><strong>PiP-AUC Score: {{ author_data.pip_auc_score }}</strong></li>
+                            <li>Author Name: {{ author.author.get('name', 'N/A') }}</li>
+                            <li>Current Affiliation: {{ author.author.get('affiliation', 'N/A') }}</li>
+                            <li>Google Scholar ID: {{ author.author.get('scholar_id', 'N/A') }}</li>
+                            <li>Total Citations: {{ author.author.get('citedby', 'N/A') }}</li>
+                            <li>Total Publications: {{ author.total_publications }}</li>
+                            <li><strong>PiP-AUC Score: {{ author.pip_auc_score }}</strong></li>
                         </ul>
                         </div>
 
-                        {% for path in author_data.plot_paths %}
+                        {% for path in author.plot_paths %}
                             <img class="plot" src="{{ path }}" alt="Generated Plot">
                         {% endfor %}
 
@@ -188,7 +178,7 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                {% for item in author_data.results.itertuples() %}
+                                {% for item in author.results.itertuples() %}
                                     <tr>
                                         <td>{{ item.title }}</td>
                                         <td>{{ item.year }}</td>
@@ -198,17 +188,14 @@
                                 {% endfor %}
                             </tbody>
                         </table>
-                        <a href="{{ url_for('download_results', author_id=author_data.author.get('scholar_id', 'N/A')) }}">Download CSV for {{ author_data.author.get('name', 'N/A') }}</a>
+                        <a href="{{ url_for('download_results', author_id=author.author.get('scholar_id', 'N/A')) }}">Download CSV for {{ author.author.get('name', 'N/A') }}</a>
                     </section>
                 {% else %}
                     <section>
-                        <p>No results found for {{ author_data.author.get('name', 'N/A') }}.</p>
+                        <p>No results found for {{ author.author.get('name', 'N/A') }}.</p>
                     </section>
                 {% endif %}
-            {% endfor %}
-        {% else %}
-            <p>No data available for the author. Please try again.</p>
-        {% endif %}
+
     </section>
 
     <footer>
@@ -220,21 +207,6 @@
     </footer>
 </body>
 </html>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
