@@ -90,12 +90,13 @@ def results():
     search_data = perform_search_by_id(author_id)
 
     if search_data['has_results']:
-        authors_data = [search_data]
+        author = search_data
     else:
-        authors_data = []
+        flash("Google Scholar ID has no data.")
+        return redirect(url_for("index"))
 
     timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-    return render_template("results.html", authors_data=authors_data, time_stamp=timestamp, author_count=1)
+    return render_template("results.html", author=author, time_stamp=timestamp)
 
 
 
