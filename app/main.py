@@ -204,22 +204,7 @@ def download_results(author_id):
 def error():
     return render_template("error.html")
 
-from scholarly_service import get_scholar_data
-from analytics import calculate_paper_percentiles
 
-@app.route("/results2", methods=["GET"])
-def results():
-    author_id = request.args.get("author_id", "")
-    if not author_id:
-        flash("Google Scholar ID is required.")
-        return redirect(url_for("index"))
-
-    author_data = get_scholar_data(author_id)
-    if author_data and 'publications' in author_data:
-        author_data['publications'] = calculate_paper_percentiles(author_data['publications'])
-
-    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-    return render_template("results.html", author=author_data, time_stamp=timestamp)
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8080)
