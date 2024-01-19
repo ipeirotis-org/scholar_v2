@@ -65,12 +65,12 @@ def set_firestore_cache(author_id, data):
 
 
 
-def get_scholar_data(author_name, multiple=False):
-    firestore_author_name = author_name
-    cached_data = get_firestore_cache(firestore_author_name)
+def get_scholar_data(author_id):
+
+    cached_data = get_firestore_cache(author_id)
 
     if cached_data:
-        logging.info(f"Cache hit for author '{author_name}'. Data fetched from Firestore.")
+        logging.info(f"Cache hit for author '{author_id}'. Data fetched from Firestore.")
         author_info = cached_data.get('author_info', None)
         publications = cached_data.get('publications', [])
 
@@ -80,40 +80,19 @@ def get_scholar_data(author_name, multiple=False):
         else:
             logging.error("Cached data is not in the expected format for a single author.")
             # If cached data is not in the expected format, proceed to fetch from Google Scholar
-            return fetch_from_scholar(author_name, multiple)
+            return fetch_from_scholar(author_id)
     else:
         # Cache miss or cached data not useful, fetch from Google Scholar
-        return fetch_from_scholar(author_name, multiple)
+        return fetch_from_scholar(author_id)
 
-def fetch_from_scholar(author_name, multiple):
-    logging.info(f"Cache miss for author '{author_name}'. Fetching data from Google Scholar.")
+def fetch_from_scholar(author_id):
+    logging.info(f"Cache miss for author '{author_id}'. Fetching data from Google Scholar.")
     try:
-        search_query = scholarly.search_author(author_name)
+        author =  scholarly.search_author_id(author_id)
     except Exception as e:
         logging.error(f"Error fetching author data: {e}")
         return None, [], 0, str(e)
 
-    authors = []
-    try:
-        for _ in range(10 if multiple else 1):
-            author = next(search_query, None)
-            if author:
-                authors.append(author)
-    except Exception as e:
-        logging.error(f"Error iterating through author data: {e}")
-        return None, [], 0, str(e)
-
-    if not authors:
-        logging.warning("No authors found.")
-        return None, [], 0, "No authors found."
-
-    if multiple:
-        for author in authors:
-            sanitize_author_data(author)
-        set_firestore_cache(author_name, {'publications': authors})
-        return authors, None, None, None
-
-    author = authors[0]
     try:
         author = scholarly.fill(author)
     except Exception as e:
@@ -124,7 +103,7 @@ def fetch_from_scholar(author_name, multiple):
     total_publications = len(publications)
     author_info = extract_author_info(author, total_publications)
 
-    set_firestore_cache(author_name, {'author_info': author_info, 'publications': publications})
+    set_firestore_cache(author_id, {'author_info': author_info, 'publications': publications})
     return author_info, publications, total_publications, None
 
 
