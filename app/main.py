@@ -1,3 +1,4 @@
+'''
 from flask import Flask, render_template, request, jsonify, redirect, url_for, flash, send_file
 import os
 from datetime import datetime
@@ -72,6 +73,8 @@ if __name__ == "__main__":
 
 
 '''
+
+
 from flask import Flask, render_template, request, redirect, url_for, flash, send_file
 from util import (
     get_scholar_data,
@@ -172,7 +175,7 @@ def results():
     timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
     return render_template("results.html", author=author, time_stamp=timestamp)
 
-'''
+
 
 @app.route('/download/<author_id>')
 def download_results(author_id):
