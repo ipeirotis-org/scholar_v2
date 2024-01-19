@@ -4,6 +4,9 @@ from scholarly import scholarly
 from datetime import datetime
 import pytz
 
+from data_sanitization import sanitize_author_data, create_publications_dataframe
+
+
 # Initialize Firestore client
 db = firestore.Client()
 
@@ -36,20 +39,31 @@ def set_firestore_cache(author_id, data):
         logging.error(f"Error updating Firestore: {e}")
 
 def fetch_from_scholar(author_id):
-    """Fetches data from Google Scholar if not available in the cache."""
+    """
+    Fetches data from Google Scholar for a given author ID, 
+    then sanitizes and returns this data.
+    """
     try:
         author = scholarly.search_author_id(author_id)
         if author:
+            # Filling in the detailed author information
             author = scholarly.fill(author)
-            # Extract and return relevant data from author...
-            # (Implement based on your specific data requirements)
-            return author
+
+            # Sanitize author data
+            sanitized_author = sanitize_author_data(author)
+
+            # If publications exist, create a DataFrame from sanitized publication data
+            if 'publications' in author:
+                sanitized_author['publications'] = create_publications_dataframe(author['publications'])
+
+            return sanitized_author
         else:
             logging.error(f"No author found with ID {author_id}.")
             return None
     except Exception as e:
         logging.error(f"Error fetching data for author with ID {author_id}: {e}")
         return None
+        
 
 def get_scholar_data(author_id):
     """Public interface to fetch scholar data, checks cache first."""
