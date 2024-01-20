@@ -194,7 +194,7 @@ def score_papers(row):
 
 
 def get_author_statistics_by_id(scholar_id):
-    cached_data = get_firestore_cache("author", scholar_id)
+    cached_data = get_firestore_cache(scholar_id)
     if cached_data:
         logging.info(f"Cache hit for author ID '{scholar_id}'. Data fetched from Firestore.")
         author_info = cached_data['author_info']
@@ -208,15 +208,13 @@ def get_author_statistics_by_id(scholar_id):
             if author:
                 author = scholarly.fill(author)
                 now = datetime.now(pytz.utc)
-                timestamp = int(now.timestamp())
-                date_str = now.strftime("%Y-%m-%d %H:%M:%S")
 
                 pubs = []
                 for p in author.get('publications', []):
                     if 'bib' in p and 'title' in p['bib']:
                         pub_year = p['bib'].get('pub_year')
                         if pub_year is None or int(pub_year)<1950: continue
-                        sanitized_pub = sanitize_publication_data(p, timestamp, date_str)
+                        sanitized_pub = sanitize_publication_data(p)
                         if sanitized_pub and 'citedby' in sanitized_pub and sanitized_pub["citedby"]>0:
                             pub_info = {
                                 "citations": sanitized_pub["citedby"],
