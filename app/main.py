@@ -112,13 +112,13 @@ def sanitize_author_data(author):
         author["name"] = "Unknown"
 '''
 
-'''
-def sanitize_publication_data(pub, timestamp, date_str):
+
+def sanitize_publication_data2(pub):
     try:
         citedby = int(pub.get("num_citations", 0))
         pub["citedby"] = citedby
-        pub["last_updated_ts"] = timestamp
-        pub["last_updated"] = date_str
+        # pub["last_updated_ts"] = timestamp
+        # pub["last_updated"] = date_str
 
         # Handle potential serialization issues
         if "source" in pub and hasattr(pub["source"], "name"):
@@ -130,7 +130,7 @@ def sanitize_publication_data(pub, timestamp, date_str):
     except Exception as e:
         logging.error(f"Error sanitizing publication data: {e}")
         return None  # Return None if there's an error
-'''
+
 
 
 def get_numpaper_percentiles(year):
@@ -194,7 +194,7 @@ def score_papers(row):
 
 
 def get_author_statistics_by_id(scholar_id):
-    cached_data = get_firestore_cache(scholar_id)
+    cached_data = get_firestore_cache("author_stats", scholar_id)
     if cached_data:
         logging.info(f"Cache hit for author ID '{scholar_id}'. Data fetched from Firestore.")
         author_info = cached_data['author_info']
@@ -202,7 +202,7 @@ def get_author_statistics_by_id(scholar_id):
         total_publications = len(publications_df)
         return author_info, publications_df, total_publications
     else:
-        logging.info(f"Cache miss for author ID '{scholar_id}'. Fetching data from Google Scholar.")
+        logging.info(f"Cache miss for author stats for ID '{scholar_id}'. Fetching data from Google Scholar.")
         try:
             author = scholarly.search_author_id(scholar_id)
             if author:
@@ -214,7 +214,7 @@ def get_author_statistics_by_id(scholar_id):
                     if 'bib' in p and 'title' in p['bib']:
                         pub_year = p['bib'].get('pub_year')
                         if pub_year is None or int(pub_year)<1950: continue
-                        sanitized_pub = sanitize_publication_data(p)
+                        sanitized_pub = sanitize_publication_data2(p)
                         if sanitized_pub and 'citedby' in sanitized_pub and sanitized_pub["citedby"]>0:
                             pub_info = {
                                 "citations": sanitized_pub["citedby"],
@@ -244,7 +244,7 @@ def get_author_statistics_by_id(scholar_id):
                 query_df = query_df.sort_values('percentile_score', ascending=False)
 
                 author_info = extract_author_info(author, len(pubs))
-                set_firestore_cache("author", scholar_id, {'author_info': author_info, 'publications': query_df.to_dict(orient='records')})
+                set_firestore_cache("author_stats", scholar_id, {'author_info': author_info, 'publications': query_df.to_dict(orient='records')})
 
                 return author_info, query_df, len(pubs)
             else:
