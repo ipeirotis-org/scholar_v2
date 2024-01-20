@@ -81,7 +81,7 @@ def fetch_from_scholar(author_id):
     total_publications = len(publications)
     author_info = extract_author_info(author, total_publications)
 
-    set_firestore_cache(author_id, {'author_info': author_info, 'publications': publications})
+    set_firestore_cache("author", author_id, {'author_info': author_info, 'publications': publications})
     return author_info, publications, total_publications, None
 
 
