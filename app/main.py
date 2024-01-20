@@ -23,6 +23,7 @@ import pytz
 from google.cloud import firestore
 
 from data_access import get_firestore_cache, set_firestore_cache
+from scholar import get_scholar_data, fetch_from_scholar, extract_author_info, sanitize_author_data, sanitize_publication_data, get_similar_authors
 
 
 db = firestore.Client()
@@ -43,6 +44,7 @@ logging.basicConfig(level=logging.INFO)
 app = Flask(__name__)
 app.secret_key = "secret-key"
 
+'''
 def get_scholar_data(author_id):
 
     cached_data = get_firestore_cache("author", author_id)
@@ -62,7 +64,9 @@ def get_scholar_data(author_id):
     else:
         # Cache miss or cached data not useful, fetch from Google Scholar
         return fetch_from_scholar(author_id)
+'''
 
+'''
 def fetch_from_scholar(author_id):
     logging.info(f"Cache miss for author '{author_id}'. Fetching data from Google Scholar.")
     try:
@@ -83,8 +87,9 @@ def fetch_from_scholar(author_id):
 
     set_firestore_cache("author", author_id, {'author_info': author_info, 'publications': publications})
     return author_info, publications, total_publications, None
+'''
 
-
+'''
 def extract_author_info(author, total_publications):
     return {
         'name': author.get('name', 'Unknown'),
@@ -94,19 +99,20 @@ def extract_author_info(author, total_publications):
         'total_publications': total_publications
     }
 
+'''
 
 
 
-
-
+'''
 def sanitize_author_data(author):
     if "citedby" not in author:
         author["citedby"] = 0
 
     if "name" not in author:
         author["name"] = "Unknown"
+'''
 
-
+'''
 def sanitize_publication_data(pub, timestamp, date_str):
     try:
         citedby = int(pub.get("num_citations", 0))
@@ -124,6 +130,7 @@ def sanitize_publication_data(pub, timestamp, date_str):
     except Exception as e:
         logging.error(f"Error sanitizing publication data: {e}")
         return None  # Return None if there's an error
+'''
 
 
 def get_numpaper_percentiles(year):
@@ -361,7 +368,14 @@ def index():
     author_count = request.args.get("author_count", default=1, type=int)
     return render_template("index.html", author_count=author_count)
 
+@app.route("/get_similar_authors")
+def get_similar_authors_route():
+    author_name = request.args.get("author_name")
+    authors = get_similar_authors(author_name)
+    return jsonify(authors)
 
+
+'''
 @app.route("/get_similar_authors")
 def get_similar_authors():
     author_name = request.args.get("author_name")
@@ -387,6 +401,8 @@ def get_similar_authors():
     } for author in authors]
 
     return jsonify(clean_authors)
+'''
+
 
 @app.route("/results", methods=["GET"])
 def results():
