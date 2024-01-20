@@ -22,6 +22,9 @@ from sklearn.metrics import auc
 import pytz
 from google.cloud import firestore
 
+from data_access import get_firestore_cache, set_firestore_cache
+
+
 db = firestore.Client()
 url = "../data/percentiles.csv"
 percentile_df = pd.read_csv(url).set_index("age")
@@ -40,53 +43,9 @@ logging.basicConfig(level=logging.INFO)
 app = Flask(__name__)
 app.secret_key = "secret-key"
 
-def get_firestore_cache(author_id):
-    doc_ref = db.collection('scholar_cache').document(author_id)
-    try:
-        doc = doc_ref.get()
-        if doc.exists:
-            cached_data = doc.to_dict()
-            cached_time = cached_data['timestamp']
-            # if isinstance(cached_time, datetime):  
-            #    cached_time = cached_time.replace(tzinfo=pytz.utc)
-            current_time = datetime.utcnow().replace(tzinfo=pytz.utc)
-            if (current_time - cached_time).days < 30:
-                return cached_data['data']
-            else:
-                return None 
-    except Exception as e:
-        logging.error(f"Error accessing Firestore: {e}")
-    return None
-
-def set_firestore_cache(author_id, data):
-    doc_ref = db.collection('scholar_cache').document(author_id)
-
-    cache_data = {
-        'timestamp': datetime.utcnow().replace(tzinfo=pytz.utc),
-        'data': {
-            'author_info': data.get('author_info', {}),
-            'publications': data.get('publications', [])
-        }
-    }
-    if not author_id.strip():
-        logging.error("Firestore document ID is empty or invalid.")
-        return
-
-    if not cache_data['data']['author_info'] or not cache_data['data']['publications']:
-        logging.error("Invalid author_info or publications data for caching.")
-        return
-
-    try:
-        doc_ref.set(cache_data)
-    except Exception as e:
-        logging.error(f"Error updating Firestore: {e}")
-
-
-
-
 def get_scholar_data(author_id):
 
-    cached_data = get_firestore_cache(author_id)
+    cached_data = get_firestore_cache("author", author_id)
 
     if cached_data:
         logging.info(f"Cache hit for author '{author_id}'. Data fetched from Firestore.")
@@ -228,7 +187,7 @@ def score_papers(row):
 
 
 def get_author_statistics_by_id(scholar_id):
-    cached_data = get_firestore_cache(scholar_id)
+    cached_data = get_firestore_cache("author", scholar_id)
     if cached_data:
         logging.info(f"Cache hit for author ID '{scholar_id}'. Data fetched from Firestore.")
         author_info = cached_data['author_info']
