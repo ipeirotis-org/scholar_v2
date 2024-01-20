@@ -239,7 +239,7 @@ def get_author_statistics_by_id(scholar_id):
                 query_df = query_df.sort_values('percentile_score', ascending=False)
 
                 author_info = extract_author_info(author, len(pubs))
-                set_firestore_cache(scholar_id, {'author_info': author_info, 'publications': query_df.to_dict(orient='records')})
+                set_firestore_cache("author", scholar_id, {'author_info': author_info, 'publications': query_df.to_dict(orient='records')})
 
                 return author_info, query_df, len(pubs)
             else:
