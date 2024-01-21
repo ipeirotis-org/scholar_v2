@@ -33,6 +33,7 @@ def set_firestore_cache(collection, doc_id, data):
     
     doc_ref = db.collection(collection).document(doc_id)
 
+
     cache_data = {
         'timestamp': datetime.utcnow().replace(tzinfo=pytz.utc),
         'data': data
