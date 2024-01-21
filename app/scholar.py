@@ -31,7 +31,7 @@ def fetch_from_scholar(author_id):
 
 
 def get_scholar_data(author_id):
-    cached_data = get_firestore_cache("authors", author_id)
+    cached_data = get_firestore_cache("author", author_id)
 
     if cached_data:
         logging.info(f"Cache hit for author '{author_id}'. Data fetched from Firestore.")
