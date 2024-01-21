@@ -4,25 +4,8 @@ from datetime import datetime
 import pytz
 from data_access import get_firestore_cache, set_firestore_cache
 
-def get_scholar_data(author_id):
-    cached_data = get_firestore_cache("author", author_id)
-
-    if cached_data:
-        logging.info(f"Cache hit for author '{author_id}'. Data fetched from Firestore.")
-        author_info = cached_data.get('author_info', None)
-        publications = cached_data.get('publications', [])
-
-        if author_info and publications:
-            total_publications = len(publications)
-            return author_info, publications, total_publications, None
-        else:
-            logging.error("Cached data is not in the expected format for a single author.")
-            return fetch_from_scholar(author_id)
-    else:
-        return fetch_from_scholar(author_id)
-
 def fetch_from_scholar(author_id):
-    logging.info(f"Cache miss for author '{author_id}'. Fetching data from Google Scholar.")
+    
     try:
         author = scholarly.search_author_id(author_id)
     except Exception as e:
@@ -35,12 +18,37 @@ def fetch_from_scholar(author_id):
         logging.error(f"Error fetching detailed author data: {e}")
         return None, [], 0, str(e)
 
-    publications = [sanitize_publication_data(pub) for pub in author.get('publications', [])]
+    publications = []
+    for pub in author.get('publications', []):
+        spub = sanitize_publication_data(pub)
+        if spub: publications.append(spub)
+
     total_publications = len(publications)
     author_info = extract_author_info(author, total_publications)
 
     set_firestore_cache("author", author_id, {'author_info': author_info, 'publications': publications})
     return author_info, publications, total_publications, None
+
+
+def get_scholar_data(author_id):
+    cached_data = get_firestore_cache("authors", author_id)
+
+    if cached_data:
+        logging.info(f"Cache hit for author '{author_id}'. Data fetched from Firestore.")
+        author_info = cached_data.get('author_info', None)
+        publications = cached_data.get('publications', [])
+
+        if author_info and publications:
+            total_publications = len(publications)
+            return author_info, publications, total_publications, None
+        else:
+            logging.error("Cached data is not in the expected format for a single author.")
+            logging.info(f"Fetching data from Google Scholar for {author_id}.")
+            return fetch_from_scholar(author_id)
+    else:
+        logging.info(f"Cache miss for author '{author_id}'. Fetching data from Google Scholar.")
+        return fetch_from_scholar(author_id)
+
 
 def extract_author_info(author, total_publications):
     return {
@@ -60,23 +68,30 @@ def sanitize_author_data(author):
 
 def sanitize_publication_data(pub):
     try:
-        citedby = int(pub.get("num_citations", 0))
-        pub["citedby"] = citedby
+        citations = pub.get("num_citations", 0)
+        if not citations: return None
+        
+        pub_year = pub['bib'].get('pub_year')
+        if not pub_year: return None
+        
+        year = int(pub_year)
+        if year<1950: return None
+        
+        now = datetime.now(pytz.utc)
+        age = now.year - year + 1
 
-        # Timestamps for last update
-        current_time = datetime.utcnow()
-        timestamp = int(current_time.timestamp())
-        date_str = current_time.strftime("%Y-%m-%d %H:%M:%S")
-        pub["last_updated_ts"] = timestamp
-        pub["last_updated"] = date_str
-
-        # Handle potential serialization issues
-        if "source" in pub and hasattr(pub["source"], "name"):
-            pub["source"] = pub["source"].name
+        if "bib" in pub:
+            title = pub["bib"].get("title")
         else:
-            pub.pop("source", None)  
+            return None
 
-        return pub 
+        return {
+            "citations": citations,
+            "age": now.year - year + 1,
+            "title": pub["bib"].get("title"),
+            "year": year
+        }
+        
     except Exception as e:
         logging.error(f"Error sanitizing publication data: {e}")
         return None  # Return None if there's an error

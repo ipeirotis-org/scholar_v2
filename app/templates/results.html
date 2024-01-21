@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ author.author.get('name', 'N/A') }} -- Age-normalized Google Scholar Analysis</title>
+    <title>{{ author.get('name', 'N/A') }} -- Age-normalized Google Scholar Analysis</title>
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
     <script>
         // Global object to track sort states of each column
@@ -154,10 +154,10 @@
                         <h2>Author: {{ author.author.get('name', 'N/A') }}</h2>
                         <div class="author-details">
                         <ul>
-                            <li>Author Name: {{ author.author.get('name', 'N/A') }}</li>
-                            <li>Current Affiliation: {{ author.author.get('affiliation', 'N/A') }}</li>
-                            <li>Google Scholar ID: {{ author.author.get('scholar_id', 'N/A') }}</li>
-                            <li>Total Citations: {{ author.author.get('citedby', 'N/A') }}</li>
+                            <li>Author Name: {{ author.get('name', 'N/A') }}</li>
+                            <li>Current Affiliation: {{ author.get('affiliation', 'N/A') }}</li>
+                            <li>Google Scholar ID: {{ author.get('scholar_id', 'N/A') }}</li>
+                            <li>Total Citations: {{ author.get('citedby', 'N/A') }}</li>
                             <li>Total Publications: {{ author.total_publications }}</li>
                             <li><strong>PiP-AUC Score: {{ author.pip_auc_score }}</strong></li>
                         </ul>
