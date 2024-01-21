@@ -44,94 +44,6 @@ logging.basicConfig(level=logging.INFO)
 app = Flask(__name__)
 app.secret_key = "secret-key"
 
-'''
-def get_scholar_data(author_id):
-
-    cached_data = get_firestore_cache("author", author_id)
-
-    if cached_data:
-        logging.info(f"Cache hit for author '{author_id}'. Data fetched from Firestore.")
-        author_info = cached_data.get('author_info', None)
-        publications = cached_data.get('publications', [])
-
-        if author_info and publications:
-            total_publications = len(publications)
-            return author_info, publications, total_publications, None
-        else:
-            logging.error("Cached data is not in the expected format for a single author.")
-            # If cached data is not in the expected format, proceed to fetch from Google Scholar
-            return fetch_from_scholar(author_id)
-    else:
-        # Cache miss or cached data not useful, fetch from Google Scholar
-        return fetch_from_scholar(author_id)
-'''
-
-'''
-def fetch_from_scholar(author_id):
-    logging.info(f"Cache miss for author '{author_id}'. Fetching data from Google Scholar.")
-    try:
-        author =  scholarly.search_author_id(author_id)
-    except Exception as e:
-        logging.error(f"Error fetching author data: {e}")
-        return None, [], 0, str(e)
-
-    try:
-        author = scholarly.fill(author)
-    except Exception as e:
-        logging.error(f"Error fetching detailed author data: {e}")
-        return None, [], 0, str(e)
-
-    publications = [sanitize_publication_data(pub, int(datetime.now().timestamp()), datetime.now().strftime("%Y-%m-%d %H:%M:%S")) for pub in author.get('publications', [])]
-    total_publications = len(publications)
-    author_info = extract_author_info(author, total_publications)
-
-    set_firestore_cache("author", author_id, {'author_info': author_info, 'publications': publications})
-    return author_info, publications, total_publications, None
-'''
-
-'''
-def extract_author_info(author, total_publications):
-    return {
-        'name': author.get('name', 'Unknown'),
-        'affiliation': author.get('affiliation', 'Unknown'),
-        'scholar_id': author.get('scholar_id', 'Unknown'),
-        'citedby': author.get('citedby', 0),
-        'total_publications': total_publications
-    }
-
-'''
-
-
-
-'''
-def sanitize_author_data(author):
-    if "citedby" not in author:
-        author["citedby"] = 0
-
-    if "name" not in author:
-        author["name"] = "Unknown"
-'''
-
-'''
-def sanitize_publication_data2(pub):
-    try:
-        citedby = int(pub.get("num_citations", 0))
-        pub["citedby"] = citedby
-        # pub["last_updated_ts"] = timestamp
-        # pub["last_updated"] = date_str
-
-        # Handle potential serialization issues
-        if "source" in pub and hasattr(pub["source"], "name"):
-            pub["source"] = pub["source"].name
-        else:
-            pub.pop("source", None)  
-
-        return pub 
-    except Exception as e:
-        logging.error(f"Error sanitizing publication data: {e}")
-        return None  # Return None if there's an error
-
-'''
 
 def get_numpaper_percentiles(year):
     # If the exact year is in the index, use that year
@@ -211,7 +123,6 @@ def get_author_statistics_by_id(scholar_id):
     publications_df["paper_rank"] = publications_df["percentile_score"].rank(ascending=False, method='first').astype(int)
     publications_df = publications_df.sort_values("percentile_score", ascending=False)
     
-
     year = publications_df['age'].max()
     num_papers_percentile = get_numpaper_percentiles(year)
     if num_papers_percentile.empty:
@@ -225,24 +136,6 @@ def get_author_statistics_by_id(scholar_id):
     return author_info, publications_df, total_publications
 
 
-
-
-
-
-
-
-
-'''
-def normalize_paper_count(years_since_first_pub):
-    differences = np.abs(np.array(author_percentiles.index) - years_since_first_pub)
-    closest_year_index = np.argmin(differences)
-    closest_year = author_percentiles.iloc[closest_year_index]
-
-    for percentile in closest_year.index[1:]:
-        if years_since_first_pub <= closest_year.loc[percentile]:
-            return float(percentile) / 100
-    return None
-'''
 
 def generate_plot(dataframe, author_name):
     plot_paths = []
@@ -344,34 +237,6 @@ def get_similar_authors_route():
     return jsonify(authors)
 
 
-'''
-@app.route("/get_similar_authors")
-def get_similar_authors():
-    author_name = request.args.get("author_name")
-    authors = []
-
-    # Primary search attempt
-    primary_search = scholarly.search_author(author_name)
-    for _ in range(10):
-        try:
-            author = next(primary_search)
-            if author:
-                authors.append(author)
-        except StopIteration:
-            break  # Break the loop if there are no more authors
-
-    # Process and return the authors
-    clean_authors = [{
-        "name": author.get("name", ""),
-        "affiliation": author.get("affiliation", ""),
-        "email": author.get("email", ""),
-        "citedby": author.get("citedby", 0),
-        "scholar_id": author.get("scholar_id", "")
-    } for author in authors]
-
-    return jsonify(clean_authors)
-'''
-
 
 @app.route("/results", methods=["GET"])
 def results():
@@ -389,8 +254,7 @@ def results():
         flash("Google Scholar ID has no data.")
         return redirect(url_for("index"))
 
-    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-    return render_template("results.html", author=author, time_stamp=timestamp)
+    return render_template("results.html", author=author)
 
 
 
