@@ -6,6 +6,7 @@ from google.cloud import firestore
 db = firestore.Client()
 
 def get_firestore_cache(collection, author_id):
+    logging.info(f"Trying to fetch from cache for '{author_id}'.")
     doc_ref = db.collection(collection).document(author_id)
     try:
         doc = doc_ref.get()
