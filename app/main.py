@@ -82,30 +82,28 @@ def generate_plot(dataframe, author_name):
         plot_paths.append(combined_plot_path)
 
         # Calculate AUC score
-        auc_data = dataframe.filter(
-            ["num_papers_percentile", "percentile_score"]
-        ).drop_duplicates(subset="num_papers_percentile", keep="first")
-        pip_auc_score = np.trapz(
-            auc_data["percentile_score"], auc_data["num_papers_percentile"]
-        ) / (100 * 100)
+        # auc_data = dataframe.filter(
+        #    ["num_papers_percentile", "percentile_score"]
+        #).drop_duplicates(subset="num_papers_percentile", keep="first")
+        #pip_auc_score = np.trapz(
+        #    auc_data["percentile_score"], auc_data["num_papers_percentile"]
+        #) / (100 * 100)
         # print(f"AUC score: {pip_auc_score:.4f}")
 
     except Exception as e:
         logging.error(f"Error in generate_plot for {author_name}: {e}")
         raise
 
-    return plot_paths, round(pip_auc_score, 4)
+    return plot_paths #, round(pip_auc_score, 4)
 
 
 def perform_search_by_id(scholar_id):
-    author, publications, total_publications = get_author_statistics_by_id(scholar_id)
+    author, publications, total_publications, pip_auc_score = get_author_statistics_by_id(scholar_id)
     has_results = not publications.empty
     pip_auc_score = 0
 
     try:
-        plot_paths, pip_auc_score = (
-            generate_plot(publications, author["name"]) if has_results else ([], 0)
-        )
+        plot_paths = generate_plot(publications, author["name"]) if has_results else ([], 0)
     except Exception as e:
         logging.error(f"Error generating plot for {scholar_id}: {e}")
         flash(f"An error occurred while generating the plot for {scholar_id}.", "error")

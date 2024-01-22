@@ -87,19 +87,20 @@ def get_author_statistics_by_id(scholar_id):
         author_info = cached_data.get("author_info", None)
         publications = cached_data.get("publications", [])
         total_publications = cached_data.get("total_publications", 0)
-        return author_info, publications, total_publications
+        pip_auc = cached_data.get("pip_auc", 0)
+        return author_info, publications, total_publications, pip_auc
 
     author_info, publications, total_publications, error = get_scholar_data(scholar_id)
 
     if error:
         logging.error(f"Error fetching data for author with ID {scholar_id}: {error}")
-        return None, pd.DataFrame(), 0
+        return None, pd.DataFrame(), 0, 0
 
     if not publications:
         logging.error(
             f"No valid publication data found for author with ID {scholar_id}."
         )
-        return None, pd.DataFrame(), 0
+        return None, pd.DataFrame(), 0, 0
 
     publications_df = pd.DataFrame(publications)
 
@@ -117,7 +118,7 @@ def get_author_statistics_by_id(scholar_id):
     num_papers_percentile = get_numpaper_percentiles(year)
     if num_papers_percentile.empty:
         logging.error("Empty num_papers_percentile series.")
-        return None, pd.DataFrame(), 0
+        return None, pd.DataFrame(), 0, 0
 
     publications_df["num_papers_percentile"] = publications_df["paper_rank"].apply(
         lambda x: find_closest(num_papers_percentile, x)
@@ -127,6 +128,17 @@ def get_author_statistics_by_id(scholar_id):
     ].astype(float)
     publications_df = publications_df.sort_values("percentile_score", ascending=False)
 
+    # Calculate AUC score
+    auc_data = ( publications_df
+                .filter(["num_papers_percentile", "percentile_score"])
+                .drop_duplicates(subset="num_papers_percentile", keep="first")
+               )
+    pip_auc_score = np.trapz(
+        auc_data["percentile_score"], auc_data["num_papers_percentile"]
+    ) / (100 * 100)
+
+    pip_auc_score = round(pip_auc_score, 4)
+
     set_firestore_cache(
         "author_stats",
         scholar_id,
@@ -134,7 +146,8 @@ def get_author_statistics_by_id(scholar_id):
             "author_info": author_info,
             "publications": publications_df,
             "total_publications": total_publications,
+            "pip_auc": round(pip_auc_score, 4)
         },
     )
 
-    return author_info, publications_df, total_publications
+    return author_info, publications_df, total_publications, pip_auc_score
