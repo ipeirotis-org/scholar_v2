@@ -1,8 +1,11 @@
 import pandas as pd
 import numpy as np
+import logging
 
 from data_access import get_firestore_cache, set_firestore_cache
 from scholar import get_scholar_data
+
+logging.basicConfig(level=logging.INFO)
 
 # Load the dataframes at the start of the module
 url = "../data/percentiles.csv"
