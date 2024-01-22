@@ -85,7 +85,7 @@ def get_author_statistics_by_id(scholar_id):
         )
 
         author_info = cached_data.get("author_info", None)
-        publications = cached_data.get("publications", [])
+        publications =  pd.DataFrame(cached_data.get("publications", []))
         total_publications = cached_data.get("total_publications", 0)
         pip_auc = cached_data.get("pip_auc", 0)
         return author_info, publications, total_publications, pip_auc
@@ -144,7 +144,7 @@ def get_author_statistics_by_id(scholar_id):
         scholar_id,
         {
             "author_info": author_info,
-            "publications": publications_df,
+            "publications": publications_df.to_dict(orient='records'),
             "total_publications": total_publications,
             "pip_auc": round(pip_auc_score, 4)
         },
