@@ -100,14 +100,13 @@ def generate_plot(dataframe, author_name):
 def perform_search_by_id(scholar_id):
     author, publications, total_publications, pip_auc_score = get_author_statistics_by_id(scholar_id)
     has_results = not publications.empty
-    pip_auc_score = 0
 
     try:
-        plot_paths = generate_plot(publications, author["name"]) if has_results else ([], 0)
+        plot_paths = generate_plot(publications, author["name"]) if has_results else ([])
     except Exception as e:
         logging.error(f"Error generating plot for {scholar_id}: {e}")
         flash(f"An error occurred while generating the plot for {scholar_id}.", "error")
-        plot_paths, pip_auc_score = [], 0
+        plot_paths = []
 
     search_data = {
         "author": author,
