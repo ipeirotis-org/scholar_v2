@@ -5,13 +5,22 @@ import pytz
 import json
 from data_access import get_firestore_cache, set_firestore_cache
 
+def convert_integers_to_strings(data):
+    if isinstance(data, dict):
+        return {key: convert_integers_to_strings(value) for key, value in data.items()}
+    elif isinstance(data, list):
+        return [convert_integers_to_strings(element) for element in data]
+    elif isinstance(data, int):
+        return str(data)
+    else:
+        return data
 
 def get_scholar_data(author_id):
 
     cached_data = get_firestore_cache("scholar_raw_author", author_id)
     if cached_data:
         logging.info(f"Cache hit for raw scholar data for '{author_id}'.")
-        author = cached_data.get("scholar")
+        author = cached_data
     else:
         try:
             author = scholarly.search_author_id(author_id)
@@ -22,8 +31,8 @@ def get_scholar_data(author_id):
         try:
             logging.info(f"Filling author entry for {author_id}")
             author = scholarly.fill(author)
-            serialized = json.loads(json.dumps(author))
-            set_firestore_cache("scholar_raw_author", author_id, {"scholar": serialized})
+            serialized = convert_integers_to_strings(json.loads(json.dumps(author)))
+            set_firestore_cache("scholar_raw_author", author_id, serialized)
             logging.info(f"Saved raw filled scholar data for {author_id}")
         except Exception as e:
             logging.error(f"Error fetching detailed author data: {e}")
@@ -72,16 +81,16 @@ def extract_author_info(author, total_publications):
         "name": author.get("name", "Unknown"),
         "affiliation": author.get("affiliation", "Unknown"),
         "scholar_id": author.get("scholar_id", "Unknown"),
-        "citedby": author.get("citedby", 0),
+        "citedby": int(author.get("citedby", 0)),
         "total_publications": total_publications,
         "homepage": author.get("homepage", "Unknown"),
-        "hindex": author.get("hindex", 0),
+        "hindex": int(author.get("hindex", 0)),
     }
 
 
 def sanitize_publication_data(pub):
     try:
-        citations = pub.get("num_citations", 0)
+        citations = int(pub.get("num_citations", 0))
         if not citations:
             return None
 
