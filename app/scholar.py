@@ -2,21 +2,31 @@ import logging
 from scholarly import scholarly
 from datetime import datetime
 import pytz
+import json
 from data_access import get_firestore_cache, set_firestore_cache
 
 
-def fetch_from_scholar(author_id):
-    try:
-        author = scholarly.search_author_id(author_id)
-    except Exception as e:
-        logging.error(f"Error fetching author data: {e}")
-        return None, [], 0, str(e)
+def get_scholar_data(author_id):
 
-    try:
-        author = scholarly.fill(author)
-    except Exception as e:
-        logging.error(f"Error fetching detailed author data: {e}")
-        return None, [], 0, str(e)
+    cached_data = get_firestore_cache("scholar_raw_author", author_id)
+    if cached_data:
+        logging.info(
+            f"Cache hit for author '{author_id}'. Data fetched from Firestore."
+        )
+        author = cached_data
+    else:
+        try:
+            author = scholarly.search_author_id(author_id)
+        except Exception as e:
+            logging.error(f"Error fetching author data: {e}")
+            return None, [], 0, str(e)
+    
+        try:
+            author = scholarly.fill(author)
+            set_firestore_cache("scholar_raw_author", json.dumps(author))
+        except Exception as e:
+            logging.error(f"Error fetching detailed author data: {e}")
+            return None, [], 0, str(e)
 
     publications = []
     for pub in author.get("publications", []):
@@ -27,12 +37,12 @@ def fetch_from_scholar(author_id):
     total_publications = len(publications)
     author_info = extract_author_info(author, total_publications)
 
-    set_firestore_cache(
-        "author", author_id, {"author_info": author_info, "publications": publications}
-    )
+    # set_firestore_cache(
+    #    "author", author_id, {"author_info": author_info, "publications": publications}
+    # )
     return author_info, publications, total_publications, None
 
-
+'''
 def get_scholar_data(author_id):
     cached_data = get_firestore_cache("author", author_id)
 
@@ -57,7 +67,7 @@ def get_scholar_data(author_id):
             f"Cache miss for author '{author_id}'. Fetching data from Google Scholar."
         )
         return fetch_from_scholar(author_id)
-
+'''
 
 def extract_author_info(author, total_publications):
     return {
@@ -66,15 +76,9 @@ def extract_author_info(author, total_publications):
         "scholar_id": author.get("scholar_id", "Unknown"),
         "citedby": author.get("citedby", 0),
         "total_publications": total_publications,
+        "homepage": author.get("homepage", "Unknown"),
+        "hindex": author.get("hindex", 0),
     }
-
-
-def sanitize_author_data(author):
-    if "citedby" not in author:
-        author["citedby"] = 0
-
-    if "name" not in author:
-        author["name"] = "Unknown"
 
 
 def sanitize_publication_data(pub):
@@ -101,8 +105,8 @@ def sanitize_publication_data(pub):
 
         return {
             "citations": citations,
-            "age": now.year - year + 1,
-            "title": pub["bib"].get("title"),
+            "age": age,
+            "title": title,
             "year": year,
         }
 
