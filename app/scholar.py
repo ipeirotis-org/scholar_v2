@@ -11,7 +11,10 @@ def convert_integers_to_strings(data):
     elif isinstance(data, list):
         return [convert_integers_to_strings(element) for element in data]
     elif isinstance(data, int):
-        return str(data)
+        if abs(data) > 2**62:
+            return str(data)
+        else:
+            return data
     else:
         return data
 
