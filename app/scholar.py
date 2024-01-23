@@ -23,7 +23,8 @@ def get_scholar_data(author_id):
     
         try:
             author = scholarly.fill(author)
-            set_firestore_cache("scholar_raw_author", author_id, author)
+            serialized = json.loads(json.dumps(author))
+            set_firestore_cache("scholar_raw_author", author_id, serialized)
         except Exception as e:
             logging.error(f"Error fetching detailed author data: {e}")
             return None, [], 0, str(e)
