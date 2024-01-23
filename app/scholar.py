@@ -11,7 +11,7 @@ def get_scholar_data(author_id):
     cached_data = get_firestore_cache("scholar_raw_author", author_id)
     if cached_data:
         logging.info(
-            f"Cache hit for author '{author_id}'. Data fetched from Firestore."
+            f"Cache hit for raw scholar data for '{author_id}'. Data fetched from Firestore."
         )
         author = cached_data
     else:
@@ -25,6 +25,7 @@ def get_scholar_data(author_id):
             author = scholarly.fill(author)
             serialized = json.loads(json.dumps(author))
             set_firestore_cache("scholar_raw_author", author_id, serialized)
+            logging.info(f"Saved raw filled scholar data for {author_id}")
         except Exception as e:
             logging.error(f"Error fetching detailed author data: {e}")
             return None, [], 0, str(e)
