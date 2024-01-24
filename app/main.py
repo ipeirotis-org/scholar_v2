@@ -153,7 +153,8 @@ def results():
 
 @app.route("/download/<author_id>")
 def download_results(author_id):
-    author, publications, _ = get_author_statistics_by_id(author_id)
+    author_info, publications, total_publications, pip_auc = get_author_statistics_by_id(author_id)
+
 
     # Check if there is data to download
     if publications.empty:
