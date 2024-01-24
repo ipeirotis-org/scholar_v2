@@ -53,9 +53,12 @@ def generate_plot(dataframe, author_name):
         colorbar1 = fig.colorbar(scatter1, ax=ax1)
         colorbar1.set_label("Years since Publication")
         ax1.set_title(f"Paper Percentile Scores for {author_name}")
+        ax1.set_aspect('equal', 'box')
+        ax1.set_yticks(np.arange(0, 1.1, step=0.1))  # Adjust step as needed
+        ax1.grid(True, color='lightgray', linestyle='--')
+        ax1.set_ylim(0, 1)
         ax1.set_xlabel("Paper Rank")
         ax1.set_ylabel("Paper Percentile Score")
-        ax1.grid(True)
 
         # Second subplot (Productivity Percentiles)
         scatter2 = ax2.scatter(
@@ -67,57 +70,29 @@ def generate_plot(dataframe, author_name):
         )
         colorbar2 = fig.colorbar(scatter2, ax=ax2)
         colorbar2.set_label("Years since Publication")
-        ax2.set_title(
-            f"Paper Percentile Scores vs #Papers Percentile for {author_name}"
-        )
+        ax2.set_aspect('equal', 'box')
+        ax2.set_title(f"Paper Percentile Scores vs #Papers Percentile for {author_name}")
         ax2.set_xlabel("Number of Papers Published Percentile")
         ax2.set_ylabel("Paper Percentile Score")
-        ax2.grid(True)
+        ax2.grid(True, color='lightgray', linestyle='--')
         ax2.set_xlim(0, 100)
         ax2.set_ylim(0, 100)
+        ax2.set_xticks(np.arange(0, 100, step=10))  # Adjust step as needed
+        ax2.set_yticks(np.arange(0, 100, step=105))  # Adjust step as needed
 
+        
         fig.tight_layout()
         combined_plot_path = os.path.join("static", f"{cleaned_name}_combined_plot.png")
         fig.savefig(combined_plot_path)
         plot_paths.append(combined_plot_path)
 
-        # Calculate AUC score
-        # auc_data = dataframe.filter(
-        #    ["num_papers_percentile", "percentile_score"]
-        #).drop_duplicates(subset="num_papers_percentile", keep="first")
-        #pip_auc_score = np.trapz(
-        #    auc_data["percentile_score"], auc_data["num_papers_percentile"]
-        #) / (100 * 100)
-        # print(f"AUC score: {pip_auc_score:.4f}")
-
     except Exception as e:
         logging.error(f"Error in generate_plot for {author_name}: {e}")
         raise
 
-    return plot_paths #, round(pip_auc_score, 4)
+    return plot_paths
 
 
-def perform_search_by_id(scholar_id):
-    author, publications, total_publications, pip_auc_score = get_author_statistics_by_id(scholar_id)
-    has_results = not publications.empty
-
-    try:
-        plot_paths = generate_plot(publications, author["name"]) if has_results else ([])
-    except Exception as e:
-        logging.error(f"Error generating plot for {scholar_id}: {e}")
-        flash(f"An error occurred while generating the plot for {scholar_id}.", "error")
-        plot_paths = []
-
-    search_data = {
-        "author": author,
-        "publications": publications,
-        "has_results": has_results,
-        "plot_paths": plot_paths,
-        "total_publications": total_publications,
-        "pip_auc_score": pip_auc_score,
-    }
-
-    return search_data
 
 
 @app.route("/")
@@ -140,13 +115,26 @@ def results():
         flash("Google Scholar ID is required.")
         return redirect(url_for("index"))
 
-    search_data = perform_search_by_id(author_id)
+    author, publications, total_publications, pip_auc_score = get_author_statistics_by_id(author_id)
 
-    if search_data["has_results"]:
-        author = search_data
-    else:
+    if publications.empty:
         flash("Google Scholar ID has no data.")
         return redirect(url_for("index"))
+
+    try:
+        plot_paths = generate_plot(publications, author["name"])
+    except Exception as e:
+        logging.error(f"Error generating plot for {author_id}: {e}")
+        flash(f"An error occurred while generating the plot for {author_id}.", "error")
+        plot_paths = []
+
+    author = {
+        "author": author,
+        "publications": publications,
+        "plot_paths": plot_paths,
+        "total_publications": total_publications,
+        "pip_auc_score": pip_auc_score,
+    }
 
     return render_template("results.html", author=author)
 

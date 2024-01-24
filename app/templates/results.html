@@ -149,7 +149,6 @@
 
     <section id="results">
         
-                {% if author.has_results %}
                     <section>
                         <h2>Author: {{ author.author.get('name', 'N/A') }}</h2>
                         <div class="author-details">
@@ -188,13 +187,11 @@
                                 {% endfor %}
                             </tbody>
                         </table>
-                        <a href="{{ url_for('download_results', author_id=author.author.get('scholar_id', 'N/A')) }}">Download CSV for {{ author.author.get('name', 'N/A') }}</a>
+                        <a href="{{ url_for('download_results', author_id=author.author.get('scholar_id', 'N/A')) }}">
+                            Download CSV for {{ author.author.get('name', 'N/A') }}
+                        </a>
                     </section>
-                {% else %}
-                    <section>
-                        <p>No results found for {{ author.author.get('name', 'N/A') }}.</p>
-                    </section>
-                {% endif %}
+
 
     </section>
 
