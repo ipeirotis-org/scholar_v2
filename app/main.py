@@ -54,9 +54,9 @@ def generate_plot(dataframe, author_name):
         colorbar1.set_label("Years since Publication")
         ax1.set_title(f"Paper Percentile Scores for {author_name}")
         ax1.set_aspect('equal', 'box')
-        ax1.set_yticks(np.arange(0, 1.1, step=0.1))  # Adjust step as needed
+        ax1.set_yticks(np.arange(0, 100, step=10))  # Adjust step as needed
         ax1.grid(True, color='lightgray', linestyle='--')
-        ax1.set_ylim(0, 1)
+        ax1.set_ylim(0, 100)
         ax1.set_xlabel("Paper Rank")
         ax1.set_ylabel("Paper Percentile Score")
 
@@ -78,7 +78,7 @@ def generate_plot(dataframe, author_name):
         ax2.set_xlim(0, 100)
         ax2.set_ylim(0, 100)
         ax2.set_xticks(np.arange(0, 100, step=10))  # Adjust step as needed
-        ax2.set_yticks(np.arange(0, 100, step=105))  # Adjust step as needed
+        ax2.set_yticks(np.arange(0, 100, step=10))  # Adjust step as needed
 
         
         fig.tight_layout()
