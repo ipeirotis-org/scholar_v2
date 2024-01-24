@@ -52,32 +52,6 @@ def get_scholar_data(author_id):
 
     return author_info, publications, total_publications, None
 
-'''
-def get_scholar_data(author_id):
-    cached_data = get_firestore_cache("author", author_id)
-
-    if cached_data:
-        logging.info(
-            f"Cache hit for author '{author_id}'. Data fetched from Firestore."
-        )
-        author_info = cached_data.get("author_info", None)
-        publications = cached_data.get("publications", [])
-
-        if author_info and publications:
-            total_publications = len(publications)
-            return author_info, publications, total_publications, None
-        else:
-            logging.error(
-                "Cached data is not in the expected format for a single author."
-            )
-            logging.info(f"Fetching data from Google Scholar for {author_id}.")
-            return fetch_from_scholar(author_id)
-    else:
-        logging.info(
-            f"Cache miss for author '{author_id}'. Fetching data from Google Scholar."
-        )
-        return fetch_from_scholar(author_id)
-'''
 
 def extract_author_info(author, total_publications):
     return {

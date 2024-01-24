@@ -53,10 +53,8 @@ def generate_plot(dataframe, author_name):
         colorbar1 = fig.colorbar(scatter1, ax=ax1)
         colorbar1.set_label("Years since Publication")
         ax1.set_title(f"Paper Percentile Scores for {author_name}")
-        ax1.set_aspect('equal', 'box')
-        ax1.set_yticks(np.arange(0, 100, step=10))  # Adjust step as needed
+        ax1.set_yticks(np.arange(0, 110, step=10))  # Adjust step as needed
         ax1.grid(True, color='lightgray', linestyle='--')
-        ax1.set_ylim(0, 100)
         ax1.set_xlabel("Paper Rank")
         ax1.set_ylabel("Paper Percentile Score")
 
@@ -70,15 +68,12 @@ def generate_plot(dataframe, author_name):
         )
         colorbar2 = fig.colorbar(scatter2, ax=ax2)
         colorbar2.set_label("Years since Publication")
-        ax2.set_aspect('equal', 'box')
         ax2.set_title(f"Paper Percentile Scores vs #Papers Percentile for {author_name}")
         ax2.set_xlabel("Number of Papers Published Percentile")
         ax2.set_ylabel("Paper Percentile Score")
         ax2.grid(True, color='lightgray', linestyle='--')
-        ax2.set_xlim(0, 100)
-        ax2.set_ylim(0, 100)
-        ax2.set_xticks(np.arange(0, 100, step=10))  # Adjust step as needed
-        ax2.set_yticks(np.arange(0, 100, step=10))  # Adjust step as needed
+        ax2.set_xticks(np.arange(0, 110, step=10))  # Adjust step as needed
+        ax2.set_yticks(np.arange(0, 110, step=10))  # Adjust step as needed
 
         
         fig.tight_layout()
