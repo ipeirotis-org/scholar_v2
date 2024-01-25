@@ -68,7 +68,8 @@ def get_publication_data(author_id, author_pub_id):
     for pub in pubs:
         if pub['author_pub_id'] == author_pub_id:
             pub = scholarly.fill(pub)
-            set_firestore_cache("scholar_raw_pub", pub['author_pub_id'], pub)
+            serialized = convert_integers_to_strings(json.loads(json.dumps(pub)))
+            set_firestore_cache("scholar_raw_pub", pub['author_pub_id'], serialized)
             return pub
 
     return None
