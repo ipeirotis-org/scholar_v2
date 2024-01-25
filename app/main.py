@@ -136,7 +136,7 @@ def results():
     }
     
     pip_auc_score = author['pip_auc_score']        
-    pip_auc_percentile = find_closest(pip_auc_score, pip_auc_percentiles_df)
+    pip_auc_percentile = find_closest(pip_auc_percentiles_df['pip_auc_percentile'], pip_auc_score)
 
 
     return render_template('results.html', author=author, pip_auc_percentile=pip_auc_percentile)
