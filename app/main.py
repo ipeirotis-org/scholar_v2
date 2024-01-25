@@ -24,6 +24,8 @@ from sklearn.metrics import auc
 from scholar import get_scholar_data, get_similar_authors
 from data_analysis import get_author_statistics_by_id
 from data_analysis import pip_auc_percentiles_df
+from data_analysis import find_closest
+
 
 
 logging.basicConfig(level=logging.INFO)
