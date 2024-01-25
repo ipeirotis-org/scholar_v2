@@ -51,12 +51,12 @@ def get_numpaper_percentiles(year):
     return normalized_values
 
 
-def find_closest(series, number, data_frame):
-    if data_frame.empty:
+def find_closest(series, number):
+    if series.empty:
         return np.nan
-    differences = np.abs(data_frame.index - number)
-    closest_index = differences.argmin()
-    return data_frame.iloc[closest_index]
+    differences = np.abs(series - number)
+    closest_index = differences.idxmin()
+    return series[closest_index]
 
 
 
