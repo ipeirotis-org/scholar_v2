@@ -17,6 +17,10 @@ author_percentiles = pd.read_csv(url_author_percentiles).set_index(
     "years_since_first_pub"
 )
 
+url_pip_auc_percentiles = "../data/pip-auc-percentiles.csv"
+pip_auc_percentiles_df = pd.read_csv(url_pip_auc_percentiles).set_index('pip_auc_score')
+
+
 
 def get_numpaper_percentiles(year):
     # If the exact year is in the index, use that year
@@ -47,12 +51,13 @@ def get_numpaper_percentiles(year):
     return normalized_values
 
 
-def find_closest(series, number):
-    if series.empty:
+def find_closest(series, number, data_frame):
+    if data_frame.empty:
         return np.nan
-    differences = np.abs(series.index - number)
+    differences = np.abs(data_frame.index - number)
     closest_index = differences.argmin()
-    return series.iloc[closest_index]
+    return data_frame.iloc[closest_index]
+
 
 
 def score_papers(row):
