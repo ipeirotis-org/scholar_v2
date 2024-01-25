@@ -22,7 +22,7 @@ def get_scholar_data(author_id):
 
     cached_data = get_firestore_cache("scholar_raw_author", author_id)
     if cached_data:
-        logging.info(f"Cache hit for raw scholar data for '{author_id}'.")
+        logging.info(f"Cache hit for raw scholar data for author: '{author_id}'.")
         author = cached_data
     else:
         try:
@@ -51,6 +51,27 @@ def get_scholar_data(author_id):
     author_info = extract_author_info(author, total_publications)
 
     return author_info, publications, total_publications, None
+
+def get_publication_data(author_id, author_pub_id):
+    cached_data = get_firestore_cache("scholar_raw_pub", author_pub_id)
+    if cached_data:
+        logging.info(f"Cache hit for raw scholar data for publication: '{author_pub_id}'.")
+        return cached_data
+
+    cached_author = get_firestore_cache("scholar_raw_author", author_id)
+    if not cached_author:
+        _, _, _, _ = get_scholar_data(author_id)
+        cached_author = get_firestore_cache("scholar_raw_author", author_id)
+    
+    pubs = cached_author.get("publications")
+
+    for pub in pubs:
+        if pub['author_pub_id'] == author_pub_id:
+            pub = scholarly.fill(pub)
+            set_firestore_cache("scholar_raw_pub", pub['author_pub_id'], pub)
+            return pub
+
+    return None
 
 
 def extract_author_info(author, total_publications):

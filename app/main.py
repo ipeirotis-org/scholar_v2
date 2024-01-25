@@ -21,7 +21,7 @@ from matplotlib.figure import Figure
 
 from sklearn.metrics import auc
 
-from scholar import get_scholar_data, get_similar_authors
+from scholar import get_scholar_data, get_similar_authors, get_publication_data
 from data_analysis import get_author_statistics_by_id
 
 logging.basicConfig(level=logging.INFO)
@@ -100,6 +100,13 @@ def get_similar_authors_route():
     author_name = request.args.get("author_name")
     authors = get_similar_authors(author_name)
     return jsonify(authors)
+
+@app.route("/get_publication")
+def get_publication_data_route():
+    author_id = request.args.get("author_id", "")
+    pub_id = request.args.get("pub_id", "")
+    pub = get_publication_data(author_id, pub_id)
+    return jsonify(pub)
 
 
 @app.route("/results", methods=["GET"])
