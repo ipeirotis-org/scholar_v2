@@ -1,4 +1,4 @@
-pip_auc_score,pip_auc_percentile
+pip_auc_percentile,pip_auc_score
 0,0
 0.001,0.0015072
 0.002,0.0050144
