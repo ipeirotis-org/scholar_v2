@@ -55,9 +55,11 @@ def get_numpaper_percentiles(year):
 def find_closest(series, number):
     if series.empty:
         return np.nan
+    series = pd.to_numeric(series, errors='coerce')
     differences = np.abs(series - number)
     closest_index = differences.idxmin()
-    return series[closest_index]
+    return series.loc[closest_index]
+
 
 def score_papers(row):
     age, citations = row["age"], row["citations"]
@@ -106,28 +108,28 @@ def get_author_statistics_by_id(scholar_id):
         total_publications = cached_data.get("total_publications", 0)
         pip_auc = cached_data.get("pip_auc", 0)
         pip_auc_percentile = find_closest_pip_percentile(pip_auc)
+        return author_info, publications, total_publications, pip_auc, pip_auc_percentile
     else:
-        logging.info(f"Cache miss or incomplete data for author stats for '{scholar_id}'. Fetching data from Google Scholar.")
+        logging.info(f"Cache miss or incomplete data for '{scholar_id}'. Fetching data from Google Scholar.")
         author_info, publications, total_publications, error = get_scholar_data(scholar_id)
+
         if error or not publications:
             logging.error(f"Error fetching data for author with ID {scholar_id}: {error}")
             return None, pd.DataFrame(), 0, 0, np.nan
-        
+
         publications_df = pd.DataFrame(publications)
         publications_df["percentile_score"] = publications_df.apply(score_papers, axis=1).round(2)
         publications_df["paper_rank"] = publications_df["percentile_score"].rank(ascending=False, method="first").astype(int)
         publications_df = publications_df.sort_values("percentile_score", ascending=False)
 
-        # Ensure 'num_papers_percentile' is calculated and present
         num_papers_percentile = get_numpaper_percentiles(publications_df["age"].max())
         publications_df["num_papers_percentile"] = publications_df["paper_rank"].apply(lambda x: find_closest(num_papers_percentile, x))
 
-        # Calculate the AUC score
+        # Calculate AUC score
         auc_data = publications_df.filter(["num_papers_percentile", "percentile_score"]).drop_duplicates(subset="num_papers_percentile", keep="first")
         pip_auc_score = np.trapz(auc_data["percentile_score"], auc_data["num_papers_percentile"]) / (100 * 100)
         pip_auc_score = round(pip_auc_score, 4)
 
-        # Find the closest percentile
         pip_auc_percentile = find_closest_pip_percentile(pip_auc_score)
 
         # Cache the new data
@@ -141,8 +143,7 @@ def get_author_statistics_by_id(scholar_id):
                 "pip_auc": pip_auc_score
             },
         )
-        publications = publications_df
 
-    return author_info, publications, total_publications, pip_auc_score, pip_auc_percentile
+        return author_info, publications_df, total_publications, pip_auc_score, pip_auc_percentile
 
 
