@@ -121,7 +121,8 @@ def results():
         flash("Google Scholar ID is required.")
         return redirect(url_for("index"))
 
-    author, publications, total_publications, pip_auc_score = get_author_statistics_by_id(author_id)
+    author, publications, total_publications, pip_auc_score, pip_auc_percentile = get_author_statistics_by_id(author_id)
+
 
     if publications.empty:
         flash("Google Scholar ID has no data.")
@@ -147,6 +148,7 @@ def results():
 
 
     return render_template('results.html', author=author, pip_auc_percentile=pip_auc_percentile)
+
 
 
 @app.route("/download/<author_id>")
