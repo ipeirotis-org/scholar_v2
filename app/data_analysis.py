@@ -88,9 +88,14 @@ def score_papers(row):
 def find_closest_pip_percentile(pip_auc_score):
     if pip_auc_percentiles_df.empty:
         return np.nan
-    differences = np.abs(pip_auc_percentiles_df.index - pip_auc_score)
+
+    # Calculate the absolute differences between the pip_auc_score and the pip_auc_score column in the DataFrame
+    differences = np.abs(pip_auc_percentiles_df['pip_auc_score'] - pip_auc_score)
+
     closest_index = differences.idxmin()
+
     return pip_auc_percentiles_df.loc[closest_index, 'pip_auc_percentile']
+
 
 def get_author_statistics_by_id(scholar_id):
     cached_data = get_firestore_cache("author_stats", scholar_id)
