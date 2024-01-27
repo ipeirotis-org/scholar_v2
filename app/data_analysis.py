@@ -52,15 +52,6 @@ def get_numpaper_percentiles(year):
     return normalized_values
 
 
-def find_closest(series, number):
-    if series.empty:
-        return np.nan
-    differences = np.abs(series - number)
-    closest_index = differences.idxmin()
-    return series[closest_index]
-
-
-
 def score_papers(row):
     age, citations = row["age"], row["citations"]
 
