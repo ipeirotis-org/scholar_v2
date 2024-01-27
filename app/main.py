@@ -24,7 +24,7 @@ from sklearn.metrics import auc
 from scholar import get_scholar_data, get_similar_authors, get_publication_data
 from data_analysis import get_author_statistics_by_id
 from data_analysis import pip_auc_percentiles_df
-from data_analysis import find_closest
+from data_analysis import find_closest_pip_percentile
 
 
 
@@ -144,7 +144,7 @@ def results():
     }
     
     pip_auc_score = author['pip_auc_score']        
-    pip_auc_percentile = find_closest(pip_auc_percentiles_df['pip_auc_percentile'], pip_auc_score)
+    pip_auc_percentile = find_closest_pip_percentile(pip_auc_percentiles_df['pip_auc_percentile'], pip_auc_score)
 
 
     return render_template('results.html', author=author, pip_auc_percentile=pip_auc_percentile)
