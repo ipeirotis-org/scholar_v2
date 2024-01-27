@@ -18,7 +18,8 @@ author_percentiles = pd.read_csv(url_author_percentiles).set_index(
 )
 
 url_pip_auc_percentiles = "../data/pip-auc-percentiles.csv"
-pip_auc_percentiles_df = pd.read_csv(url_pip_auc_percentiles).set_index('pip_auc_score')
+pip_auc_percentiles_df = pd.read_csv(url_pip_auc_percentiles)
+
 
 
 
