@@ -23,8 +23,8 @@ from sklearn.metrics import auc
 
 from scholar import get_scholar_data, get_similar_authors, get_publication_data
 from data_analysis import get_author_statistics_by_id
-from data_analysis import pip_auc_percentiles_df
-from data_analysis import find_closest_pip_percentile
+# from data_analysis import pip_auc_percentiles_df
+# from data_analysis import find_closest_pip_percentile
 
 
 
@@ -121,7 +121,7 @@ def results():
         flash("Google Scholar ID is required.")
         return redirect(url_for("index"))
 
-    author, publications, total_publications, pip_auc_score, pip_auc_percentile = get_author_statistics_by_id(author_id)
+    author, publications, total_publications, pip_auc_score, pip_auc_percentile, total_publications_percentile, first_year_active = get_author_statistics_by_id(author_id)
 
 
     if publications.empty:
@@ -141,20 +141,18 @@ def results():
         "plot_paths": plot_paths,
         "total_publications": total_publications,
         "pip_auc_score": pip_auc_score,
+        "pip_auc_percentile": pip_auc_percentile,
+        "total_publications_percentile": total_publications_percentile,
+        "first_year_active": first_year_active
     }
     
-    pip_auc_score = author['pip_auc_score']        
-    pip_auc_percentile = find_closest_pip_percentile(pip_auc_score)
-
-
-
-    return render_template('results.html', author=author, pip_auc_percentile=pip_auc_percentile)
+    return render_template('results.html', author=author)
 
 
 
 @app.route("/download/<author_id>")
 def download_results(author_id):
-    author_info, publications, total_publications, pip_auc = get_author_statistics_by_id(author_id)
+    author_info, publications, total_publications, pip_auc, total_publications_percentile, first_year_active = get_author_statistics_by_id(author_id)
 
 
     # Check if there is data to download

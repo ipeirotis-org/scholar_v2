@@ -107,7 +107,7 @@ def get_author_statistics_by_id(scholar_id):
         publications = pd.DataFrame(cached_data.get("publications", []))
         total_publications = cached_data.get("total_publications", 0)
         pip_auc = cached_data.get("pip_auc", 0)
-        pip_auc_percentile = find_closest_pip_percentile(pip_auc)
+        pip_auc_percentile = cached_data.get("pip_auc_percentile", 0)
         return author_info, publications, total_publications, pip_auc, pip_auc_percentile
     else:
         logging.info(f"Cache miss or incomplete data for '{scholar_id}'. Fetching data from Google Scholar.")
@@ -132,6 +132,9 @@ def get_author_statistics_by_id(scholar_id):
 
         pip_auc_percentile = find_closest_pip_percentile(pip_auc_score)
 
+        total_publications_percentile = round(publications_df["num_papers_percentile"].values.max(),2)
+        first_year_active = int(publications_df['year'].values.min())
+
         # Cache the new data
         set_firestore_cache(
             "author_stats",
@@ -140,10 +143,14 @@ def get_author_statistics_by_id(scholar_id):
                 "author_info": author_info,
                 "publications": publications_df.to_dict(orient='records'),
                 "total_publications": total_publications,
-                "pip_auc": pip_auc_score
+                "pip_auc": pip_auc_score,
+                "pip_auc_percentile": pip_auc_percentile,
+                "total_publications_percentile": total_publications_percentile,
+                "first_year_active": first_year_active
+                
             },
         )
 
-        return author_info, publications_df, total_publications, pip_auc_score, pip_auc_percentile
+        return author_info, publications_df, total_publications, pip_auc_score, pip_auc_percentile, total_publications_percentile, first_year_active
 
 

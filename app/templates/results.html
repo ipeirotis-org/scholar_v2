@@ -157,9 +157,15 @@
                             <li>Current Affiliation: {{ author.author.get('affiliation', 'N/A') }}</li>
                             <li>Google Scholar ID: {{ author.author.get('scholar_id', 'N/A') }}</li>
                             <li>Total Citations: {{ author.author.get('citedby', 'N/A') }}</li>
-                            <li>Total Publications: {{ author.total_publications }}</li>
-                            <li><strong>PiP-AUC Score: {{ author.pip_auc_score }}</strong></li>
-                            <li><strong>PiP-AUC Percentile: {{ pip_auc_percentile }}</strong></li>
+                            <li>First Year Active: {{ author.first_year_active }} </li>
+                            <li>Total Publications: {{ author.total_publications }}
+                            ({{ author.total_publications_percentile }}% percentile) </li>
+                            <li>
+                                <strong>
+                                PiP-AUC Score: {{ author.pip_auc_score }} 
+                                ({{ 100*author.pip_auc_percentile }}% percentile)
+                                </strong>
+                            </li>
                         </ul>
                         </div>
 
