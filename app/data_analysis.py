@@ -55,10 +55,11 @@ def get_numpaper_percentiles(year):
 def find_closest(series, number):
     if series.empty:
         return np.nan
-    series = pd.to_numeric(series, errors='coerce')
+    series = series.reset_index().set_index(0)
     differences = np.abs(series - number)
     closest_index = differences.idxmin()
-    return series.loc[closest_index]
+    return float(closest_index.values[0])
+
 
 
 def score_papers(row):
