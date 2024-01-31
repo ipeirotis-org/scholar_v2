@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ author.author.get('name', 'N/A') }} -- Age-normalized Google Scholar Analysis</title>
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.7.2/font/bootstrap-icons.css">
     <script>
         // Global object to track sort states of each column
         var sortStates = {};
@@ -158,13 +159,17 @@
                             <li>Google Scholar ID: {{ author.author.get('scholar_id', 'N/A') }}</li>
                             <li>Total Citations: {{ author.author.get('citedby', 'N/A') }}</li>
                             <li>First Year Active: {{ author.first_year_active }} </li>
+                            <li>Total Years Active: {{ author.years_active }}</li>
                             <li>Total Publications: {{ author.total_publications }}
-                            ({{ author.total_publications_percentile }}% percentile) </li>
+                                ({{ author.total_publications_percentile }}% percentile)
+                                <i class="bi bi-question-circle-fill" data-toggle="tooltip" title="The total number of publications by the author and their percentile rank compared to other authors."></i>
+                            </li>
                             <li>
                                 <strong>
                                 PiP-AUC Score: {{ author.pip_auc_score }} 
                                 ({{ 100*author.pip_auc_percentile }}% percentile)
                                 </strong>
+                                <i class="bi bi-question-circle-fill" data-toggle="tooltip" title="PiP-AUC Score represents the author's impact and productivity, with its percentile indicating the rank compared to other authors."></i>
                             </li>
                         </ul>
                         </div>
@@ -209,6 +214,14 @@
            For any issues, please contact <a href="mailto:panos@nyu.edu">Panos Ipeirotis</a>. 
        </p>
     </footer>
+
+    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.3.1/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        $(document).ready(function(){
+            $('[data-toggle="tooltip"]').tooltip(); 
+        });
+    </script>
 </body>
 </html>
 

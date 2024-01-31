@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 import logging
-
+import datetime
 from data_access import get_firestore_cache, set_firestore_cache
 from scholar import get_scholar_data
 
@@ -101,6 +101,7 @@ def find_closest_pip_percentile(pip_auc_score):
 
 
 def get_author_statistics_by_id(scholar_id):
+    current_year = datetime.datetime.now().year
     cached_data = get_firestore_cache("author_stats", scholar_id)
     if cached_data and cached_data.get("pip_auc", 0) != 0:
         logging.info(f"Cache hit for author stats for '{scholar_id}'. Data fetched from Firestore.")
@@ -110,8 +111,9 @@ def get_author_statistics_by_id(scholar_id):
         pip_auc = cached_data.get("pip_auc", 0)
         pip_auc_percentile = cached_data.get("pip_auc_percentile", 0)
         total_publications_percentile = cached_data.get("total_publications_percentile", 0)
-        first_year_active = cached_data.get("first_year_active", 0)     
-        return author_info, publications, total_publications, pip_auc, pip_auc_percentile, total_publications_percentile, first_year_active
+        first_year_active = cached_data.get("first_year_active", current_year)     
+        years_active = current_year - first_year_active
+        return author_info, publications, total_publications, pip_auc, pip_auc_percentile, total_publications_percentile, first_year_active, years_active
     else:
         logging.info(f"Cache miss or incomplete data for '{scholar_id}'. Fetching data from Google Scholar.")
         author_info, publications, total_publications, error = get_scholar_data(scholar_id)
@@ -121,6 +123,12 @@ def get_author_statistics_by_id(scholar_id):
             return None, pd.DataFrame(), 0, 0, np.nan
 
         publications_df = pd.DataFrame(publications)
+        if 'year' in publications_df.columns:
+            first_year_active = int(publications_df['year'].min())
+            years_active = current_year - first_year_active
+        else:
+            first_year_active = current_year
+            years_active = 0
         publications_df["percentile_score"] = publications_df.apply(score_papers, axis=1).round(2)
         publications_df["paper_rank"] = publications_df["percentile_score"].rank(ascending=False, method="first").astype(int)
         publications_df = publications_df.sort_values("percentile_score", ascending=False)
@@ -149,11 +157,12 @@ def get_author_statistics_by_id(scholar_id):
                 "pip_auc": pip_auc_score,
                 "pip_auc_percentile": pip_auc_percentile,
                 "total_publications_percentile": total_publications_percentile,
-                "first_year_active": first_year_active
+                "first_year_active": first_year_active,
+                "years_active": years_active
                 
             },
         )
 
-        return author_info, publications_df, total_publications, pip_auc_score, pip_auc_percentile, total_publications_percentile, first_year_active
+        return author_info, publications_df, total_publications, pip_auc_score, pip_auc_percentile, total_publications_percentile, first_year_active, years_active
 
 
