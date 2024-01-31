@@ -3,13 +3,14 @@ import numpy as np
 import logging
 import datetime
 from data_access import get_firestore_cache, set_firestore_cache
-from scholar import get_scholar_data
+from scholar import get_scholar_data, get_author, sanitize_publication
 
 logging.basicConfig(level=logging.INFO)
 
 # Load the dataframes at the start of the module
-url = "../data/percentiles.csv"
-percentile_df = pd.read_csv(url).set_index("age")
+paper_percentiles_url = "../data/percentiles.csv"
+percentile_df = pd.read_csv(paper_percentiles_url).set_index("age")
+percentile_df.index = percentile_df.index.astype(float)
 percentile_df.columns = [float(p) for p in percentile_df.columns]
 
 url_author_percentiles = "../data/author_numpapers_percentiles.csv"
@@ -96,6 +97,105 @@ def find_closest_pip_percentile(pip_auc_score):
     return pip_auc_percentiles_df.loc[closest_index, "pip_auc_percentile"]
 
 
+
+def get_age_paper_percentile(age):
+    
+    if age < 1: age = 1
+    if age > 40: age = 40
+    
+    # Get the percentiles for the given age
+    percentiles = percentile_df.T[age]
+    percentiles.index = percentiles.index.astype(float)
+
+    return percentiles
+    
+
+
+def find_percentile(number, percentiles):
+
+    # If the number is less than the minimum percentile, return 0 percentile
+    if number <= percentiles.min():
+        return 0.0
+    # If the number is greater than the maximum percentile, return 100 percentile
+    elif number >= percentiles.max():
+        return 100.0
+    else:
+        # Find the two closest percentiles
+        below = percentiles[percentiles <= number].idxmax()
+        above = percentiles[percentiles >= number].idxmin()
+
+        # Interpolate the score (or simply use the closest percentile)
+        if above == below:
+            return above
+        else:
+            # Linear interpolation
+            lower_bound = percentiles[below]
+            upper_bound = percentiles[above]
+            weight = (number - lower_bound) / (upper_bound - lower_bound)
+            return below + weight * (above - below)
+     
+
+def calculate_publication_stats(publications):
+
+    current_year = datetime.datetime.now().year
+    publications_df = pd.DataFrame(publications)
+
+    publications_df['age'] = current_year - publications_df['pub_year'].astype(int) + 1
+    publications_df["percentile_score"] = publications_df.apply(score_papers, axis=1).round(2)
+    publications_df["paper_rank"] = publications_df["percentile_score"].rank(ascending=False, method="first").astype(int)
+    publications_df = publications_df.sort_values("percentile_score", ascending=False)
+
+    num_papers_percentile = get_numpaper_percentiles(publications_df["age"].max())
+    publications_df["num_papers_percentile"] = publications_df["paper_rank"].apply(lambda x: find_closest(num_papers_percentile, x))
+
+    return publications_df.to_dict(orient="records")
+
+
+def calculate_author_stats(publications):
+
+    publications_df = pd.DataFrame(publications)
+
+    current_year = datetime.datetime.now().year
+    first_year_active = int(publications_df["year"].values.min())
+    years_active = current_year - first_year_active
+    
+    # Calculate AUC score
+    auc_data = publications_df.filter(["num_papers_percentile", "percentile_score"])
+    auc_data = auc_data.drop_duplicates(subset="num_papers_percentile", keep="first")
+    pip_auc_score = np.trapz(auc_data["percentile_score"], auc_data["num_papers_percentile"]) / (100 * 100)
+    pip_auc_score = round(pip_auc_score, 4)
+    pip_auc_percentile = find_closest_pip_percentile(pip_auc_score)
+
+    total_publications_percentile = round(publications_df["num_papers_percentile"].values.max(), 2)
+    
+    return {
+        "total_publications": len(publications),
+        "total_publications_percentile": total_publications_percentile,
+        "pip_auc": pip_auc_score,
+        "pip_auc_percentile": pip_auc_percentile,
+        "first_year_active": first_year_active,
+        "years_active": years_active,
+    }
+        
+
+def get_author_stats(author_id):
+
+    current_year = datetime.datetime.now().year
+    author = get_author(author_id)
+    pubs = []
+    for p in author['publications']: 
+        pub = sanitize_publication(p)
+        if pub: pubs.append(pub)
+        
+    author['publications'] = pubs
+    author['publications'] = calculate_publication_stats(author['publications'])
+    author['stats'] = calculate_author_stats(author['publications'])
+
+    return author
+
+        
+
+
 def get_author_statistics_by_id(scholar_id):
     current_year = datetime.datetime.now().year
     cached_data = get_firestore_cache("author_stats", scholar_id)
@@ -144,9 +244,7 @@ def get_author_statistics_by_id(scholar_id):
         else:
             first_year_active = current_year
             years_active = 0
-        publications_df["percentile_score"] = publications_df.apply(
-            score_papers, axis=1
-        ).round(2)
+        publications_df["percentile_score"] = publications_df.apply(score_papers, axis=1).round(2)
         publications_df["paper_rank"] = (
             publications_df["percentile_score"]
             .rank(ascending=False, method="first")

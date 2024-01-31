@@ -22,7 +22,7 @@ import numpy as np
 from sklearn.metrics import auc
 
 from scholar import get_author, get_similar_authors, get_publication
-from data_analysis import get_author_statistics_by_id
+from data_analysis import get_author_statistics_by_id, get_author_stats
 from visualization import generate_plot
 
 
@@ -46,8 +46,13 @@ def get_similar_authors_route():
 
 @app.route("/api/author/<author_id>")
 def get_author_route(author_id):
-    pub = get_author(author_id)
-    return jsonify(pub)
+    author = get_author(author_id)
+    return jsonify(author)
+
+@app.route("/api/author_stats/<author_id>")
+def get_author_stats_route(author_id):
+    author = get_author_stats(author_id)
+    return jsonify(author)
 
 
 @app.route("/api/author/<author_id>/publication/<pub_id>")
