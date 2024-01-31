@@ -158,18 +158,17 @@
                             <li>Current Affiliation: {{ author.author.get('affiliation', 'N/A') }}</li>
                             <li>Google Scholar ID: {{ author.author.get('scholar_id', 'N/A') }}</li>
                             <li>Total Citations: {{ author.author.get('citedby', 'N/A') }}</li>
-                            <li>First Year Active: {{ author.first_year_active }} </li>
-                            <li>Total Years Active: {{ author.years_active }}</li>
+                            <li>First Year Active: {{ author.first_year_active }} ({{ author.years_active }} years active)</li>
                             <li>Total Publications: {{ author.total_publications }}
                                 ({{ author.total_publications_percentile }}% percentile)
-                                <i class="bi bi-question-circle-fill" data-toggle="tooltip" title="The total number of publications by the author and their percentile rank compared to other authors."></i>
+                                <i class="bi bi-question-circle-fill" data-toggle="tooltip" title="The total number of publications by the author and their percentile rank compared to other authors who have been active for the same number of years."></i>
                             </li>
                             <li>
                                 <strong>
                                 PiP-AUC Score: {{ author.pip_auc_score }} 
                                 ({{ 100*author.pip_auc_percentile }}% percentile)
                                 </strong>
-                                <i class="bi bi-question-circle-fill" data-toggle="tooltip" title="PiP-AUC Score represents the author's impact and productivity, with its percentile indicating the rank compared to other authors."></i>
+                                <i class="bi bi-question-circle-fill" data-toggle="tooltip" title="PiP-AUC Score represents the author's impact and productivity, with its percentile indicating the rank compared to other authors who have been active for the same number of years."></i>
                             </li>
                         </ul>
                         </div>

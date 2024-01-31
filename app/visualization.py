@@ -1,7 +1,7 @@
 import matplotlib
 from matplotlib.figure import Figure
 import logging
-
+import numpy as np
 
 def generate_plot(dataframe, author_name):
     plot_paths = []
