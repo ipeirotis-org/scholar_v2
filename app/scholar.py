@@ -18,6 +18,57 @@ def convert_integers_to_strings(data):
     else:
         return data
 
+
+def get_author(author_id):
+
+    cached_data = get_firestore_cache("scholar_raw_author", author_id)
+    if cached_data:
+        logging.info(f"Cache hit for raw scholar data for author: '{author_id}'.")
+        return cached_data
+
+    try:
+        author = scholarly.search_author_id(author_id)
+    except Exception as e:
+        logging.error(f"Error fetching raw author data: {e}")
+        return None
+
+    try:
+        logging.info(f"Filling author entry for {author_id}")
+        author = scholarly.fill(author)
+        serialized = convert_integers_to_strings(json.loads(json.dumps(author)))
+        set_firestore_cache("scholar_raw_author", author_id, serialized)
+        logging.info(f"Saved raw filled scholar data for {author_id}")
+    except Exception as e:
+        logging.error(f"Error fetching detailed author data: {e}")
+        return None
+
+    return serialized
+
+
+def get_publication(author_id, author_pub_id):
+    cached_data = get_firestore_cache("scholar_raw_pub", author_pub_id)
+    if cached_data:
+        logging.info(f"Cache hit for raw scholar data for publication: '{author_pub_id}'.")
+        return cached_data
+
+    cached_author = get_firestore_cache("scholar_raw_author", author_id)
+    if not cached_author:
+        author = get_author(author_id)
+        # cached_author = get_firestore_cache("scholar_raw_author", author_id)
+    
+    pubs = author.get("publications")
+
+    for pub in pubs:
+        if pub['author_pub_id'] == author_pub_id:
+            pub = scholarly.fill(pub)
+            serialized = convert_integers_to_strings(json.loads(json.dumps(pub)))
+            set_firestore_cache("scholar_raw_pub", pub['author_pub_id'], serialized)
+            return pub
+
+    return None
+
+
+
 def get_scholar_data(author_id):
 
     cached_data = get_firestore_cache("scholar_raw_author", author_id)
@@ -52,27 +103,7 @@ def get_scholar_data(author_id):
 
     return author_info, publications, total_publications, None
 
-def get_publication_data(author_id, author_pub_id):
-    cached_data = get_firestore_cache("scholar_raw_pub", author_pub_id)
-    if cached_data:
-        logging.info(f"Cache hit for raw scholar data for publication: '{author_pub_id}'.")
-        return cached_data
 
-    cached_author = get_firestore_cache("scholar_raw_author", author_id)
-    if not cached_author:
-        _, _, _, _ = get_scholar_data(author_id)
-        cached_author = get_firestore_cache("scholar_raw_author", author_id)
-    
-    pubs = cached_author.get("publications")
-
-    for pub in pubs:
-        if pub['author_pub_id'] == author_pub_id:
-            pub = scholarly.fill(pub)
-            serialized = convert_integers_to_strings(json.loads(json.dumps(pub)))
-            set_firestore_cache("scholar_raw_pub", pub['author_pub_id'], serialized)
-            return pub
-
-    return None
 
 
 def extract_author_info(author, total_publications):

@@ -15,16 +15,15 @@ import json
 import logging
 
 import pandas as pd
-import matplotlib
+
 import numpy as np
-from matplotlib.figure import Figure
+
 
 from sklearn.metrics import auc
 
-from scholar import get_scholar_data, get_similar_authors, get_publication_data
+from scholar import get_author, get_similar_authors, get_publication
 from data_analysis import get_author_statistics_by_id
-# from data_analysis import pip_auc_percentiles_df
-# from data_analysis import find_closest_pip_percentile
+from visualization import generate_plot
 
 
 
@@ -32,65 +31,6 @@ logging.basicConfig(level=logging.INFO)
 
 app = Flask(__name__)
 app.secret_key = "secret-key"
-
-
-def generate_plot(dataframe, author_name):
-    plot_paths = []
-    pip_auc_score = 0
-    try:
-        cleaned_name = "".join([c if c.isalnum() else "_" for c in author_name])
-        fig = Figure(figsize=(20, 10), dpi=100)
-        ax1, ax2 = fig.subplots(1, 2)  # Adjusted for better resolution
-
-        matplotlib.rcParams.update({"font.size": 16})
-
-        marker_size = 40
-
-        # First subplot (Rank vs Percentile Score)
-        scatter1 = ax1.scatter(
-            dataframe["paper_rank"],
-            dataframe["percentile_score"],
-            c=dataframe["age"],
-            cmap="Blues_r",
-            s=marker_size,
-        )
-        colorbar1 = fig.colorbar(scatter1, ax=ax1)
-        colorbar1.set_label("Years since Publication")
-        ax1.set_title(f"Paper Percentile Scores for {author_name}")
-        ax1.set_yticks(np.arange(0, 110, step=10))  # Adjust step as needed
-        ax1.grid(True, color='lightgray', linestyle='--')
-        ax1.set_xlabel("Paper Rank")
-        ax1.set_ylabel("Paper Percentile Score")
-
-        # Second subplot (Productivity Percentiles)
-        scatter2 = ax2.scatter(
-            dataframe["num_papers_percentile"],
-            dataframe["percentile_score"],
-            c=dataframe["age"],
-            cmap="Blues_r",
-            s=marker_size,
-        )
-        colorbar2 = fig.colorbar(scatter2, ax=ax2)
-        colorbar2.set_label("Years since Publication")
-        ax2.set_title(f"Paper Percentile Scores vs #Papers Percentile for {author_name}")
-        ax2.set_xlabel("Number of Papers Published Percentile")
-        ax2.set_ylabel("Paper Percentile Score")
-        ax2.grid(True, color='lightgray', linestyle='--')
-        ax2.set_xticks(np.arange(0, 110, step=10))  # Adjust step as needed
-        ax2.set_yticks(np.arange(0, 110, step=10))  # Adjust step as needed
-
-        
-        fig.tight_layout()
-        combined_plot_path = os.path.join("static", f"{cleaned_name}_combined_plot.png")
-        fig.savefig(combined_plot_path)
-        plot_paths.append(combined_plot_path)
-
-    except Exception as e:
-        logging.error(f"Error in generate_plot for {author_name}: {e}")
-        raise
-
-    return plot_paths
-
 
 
 
@@ -105,11 +45,16 @@ def get_similar_authors_route():
     authors = get_similar_authors(author_name)
     return jsonify(authors)
 
-@app.route("/get_publication")
-def get_publication_data_route():
-    author_id = request.args.get("author_id", "")
-    pub_id = request.args.get("pub_id", "")
-    pub = get_publication_data(author_id, pub_id)
+
+@app.route("/api/author/<author_id>")
+def get_author_route(author_id):
+    pub = get_author(author_id)
+    return jsonify(pub)
+
+
+@app.route("/api/author/<author_id>/publication/<pub_id>")
+def get_publication_route(author_id, pub_id):
+    pub = get_publication(author_id, pub_id)
     return jsonify(pub)
 
 
