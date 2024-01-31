@@ -22,7 +22,7 @@ import numpy as np
 from sklearn.metrics import auc
 
 from scholar import get_author, get_similar_authors, get_publication
-from data_analysis import get_author_statistics_by_id, get_author_stats
+from data_analysis import get_author_stats
 from visualization import generate_plot
 
 
@@ -71,23 +71,6 @@ def results():
 
     author = get_author_stats(author_id)
     
-    '''
-    (
-        author,
-        publications,
-        total_publications,
-        pip_auc_score,
-        pip_auc_percentile,
-        total_publications_percentile,
-        first_year_active,
-        years_active,
-    ) = get_author_statistics_by_id(author_id)
-
-    if publications.empty:
-        flash("Google Scholar ID has no data.")
-        return redirect(url_for("index"))
-    '''
-
     try:
         plot_paths = generate_plot(pd.DataFrame(author['publications']), author["name"])
         author["plot_paths"] = plot_paths
@@ -96,26 +79,12 @@ def results():
         flash(f"An error occurred while generating the plot for {author_id}.", "error")
         plot_paths = []
 
-
-    '''
-    author = {
-        "author": author,
-        "publications": publications,
-        "plot_paths": plot_paths,
-        "total_publications": total_publications,
-        "pip_auc_score": pip_auc_score,
-        "pip_auc_percentile": pip_auc_percentile,
-        "total_publications_percentile": total_publications_percentile,
-        "first_year_active": first_year_active,
-        "years_active": years_active,
-    }
-    '''
-
     return render_template("results.html", author=author)
 
 
 @app.route("/download/<author_id>")
 def download_results(author_id):
+    '''
     (
         author_info,
         publications,
@@ -124,9 +93,12 @@ def download_results(author_id):
         total_publications_percentile,
         first_year_active,
     ) = get_author_statistics_by_id(author_id)
+    '''
+
+    author = get_author_stats(author_id)
 
     # Check if there is data to download
-    if publications.empty:
+    if len(author['publications'])==0 :
         flash("No publications found to download.")
         return redirect(url_for("index"))
 
@@ -136,7 +108,7 @@ def download_results(author_id):
 
     file_path = os.path.join(downloads_dir, f"{author_id}_results.csv")
 
-    publications.to_csv(file_path, index=False)
+    pd.DataFrame(author['publications']).to_csv(file_path, index=False)
 
     return send_file(
         file_path, as_attachment=True, download_name=f"{author_id}_results.csv"
