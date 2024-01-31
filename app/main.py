@@ -121,7 +121,7 @@ def results():
         flash("Google Scholar ID is required.")
         return redirect(url_for("index"))
 
-    author, publications, total_publications, pip_auc_score, pip_auc_percentile, total_publications_percentile, first_year_active = get_author_statistics_by_id(author_id)
+    author, publications, total_publications, pip_auc_score, pip_auc_percentile, total_publications_percentile, first_year_active, years_active = get_author_statistics_by_id(author_id)
 
 
     if publications.empty:
@@ -143,7 +143,8 @@ def results():
         "pip_auc_score": pip_auc_score,
         "pip_auc_percentile": pip_auc_percentile,
         "total_publications_percentile": total_publications_percentile,
-        "first_year_active": first_year_active
+        "first_year_active": first_year_active,
+        "years_active": years_active
     }
     
     return render_template('results.html', author=author)
