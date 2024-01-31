@@ -69,6 +69,9 @@ def results():
         flash("Google Scholar ID is required.")
         return redirect(url_for("index"))
 
+    author = get_author_stats(author_id)
+    
+    '''
     (
         author,
         publications,
@@ -83,14 +86,18 @@ def results():
     if publications.empty:
         flash("Google Scholar ID has no data.")
         return redirect(url_for("index"))
+    '''
 
     try:
-        plot_paths = generate_plot(publications, author["name"])
+        plot_paths = generate_plot(pd.DataFrame(author['publications']), author["name"])
+        author["plot_paths"] = plot_paths
     except Exception as e:
         logging.error(f"Error generating plot for {author_id}: {e}")
         flash(f"An error occurred while generating the plot for {author_id}.", "error")
         plot_paths = []
 
+
+    '''
     author = {
         "author": author,
         "publications": publications,
@@ -102,6 +109,7 @@ def results():
         "first_year_active": first_year_active,
         "years_active": years_active,
     }
+    '''
 
     return render_template("results.html", author=author)
 
