@@ -3,7 +3,7 @@ import numpy as np
 import logging
 import datetime
 from data_access import get_firestore_cache, set_firestore_cache
-from scholar import get_scholar_data, get_author, sanitize_publication
+from scholar import get_scholar_data, get_author
 
 logging.basicConfig(level=logging.INFO)
 
