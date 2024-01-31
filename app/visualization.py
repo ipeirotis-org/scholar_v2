@@ -2,6 +2,8 @@ import matplotlib
 from matplotlib.figure import Figure
 import logging
 import numpy as np
+import os
+
 
 def generate_plot(dataframe, author_name):
     plot_paths = []
@@ -27,7 +29,7 @@ def generate_plot(dataframe, author_name):
         colorbar1.set_label("Years since Publication")
         ax1.set_title(f"Paper Percentile Scores for {author_name}")
         ax1.set_yticks(np.arange(0, 110, step=10))  # Adjust step as needed
-        ax1.grid(True, color='lightgray', linestyle='--')
+        ax1.grid(True, color="lightgray", linestyle="--")
         ax1.set_xlabel("Paper Rank")
         ax1.set_ylabel("Paper Percentile Score")
 
@@ -41,14 +43,15 @@ def generate_plot(dataframe, author_name):
         )
         colorbar2 = fig.colorbar(scatter2, ax=ax2)
         colorbar2.set_label("Years since Publication")
-        ax2.set_title(f"Paper Percentile Scores vs #Papers Percentile for {author_name}")
+        ax2.set_title(
+            f"Paper Percentile Scores vs #Papers Percentile for {author_name}"
+        )
         ax2.set_xlabel("Number of Papers Published Percentile")
         ax2.set_ylabel("Paper Percentile Score")
-        ax2.grid(True, color='lightgray', linestyle='--')
+        ax2.grid(True, color="lightgray", linestyle="--")
         ax2.set_xticks(np.arange(0, 110, step=10))  # Adjust step as needed
         ax2.set_yticks(np.arange(0, 110, step=10))  # Adjust step as needed
 
-        
         fig.tight_layout()
         combined_plot_path = os.path.join("static", f"{cleaned_name}_combined_plot.png")
         fig.savefig(combined_plot_path)
@@ -59,4 +62,3 @@ def generate_plot(dataframe, author_name):
         raise
 
     return plot_paths
-

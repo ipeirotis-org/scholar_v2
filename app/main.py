@@ -26,12 +26,10 @@ from data_analysis import get_author_statistics_by_id
 from visualization import generate_plot
 
 
-
 logging.basicConfig(level=logging.INFO)
 
 app = Flask(__name__)
 app.secret_key = "secret-key"
-
 
 
 @app.route("/")
@@ -66,8 +64,16 @@ def results():
         flash("Google Scholar ID is required.")
         return redirect(url_for("index"))
 
-    author, publications, total_publications, pip_auc_score, pip_auc_percentile, total_publications_percentile, first_year_active, years_active = get_author_statistics_by_id(author_id)
-
+    (
+        author,
+        publications,
+        total_publications,
+        pip_auc_score,
+        pip_auc_percentile,
+        total_publications_percentile,
+        first_year_active,
+        years_active,
+    ) = get_author_statistics_by_id(author_id)
 
     if publications.empty:
         flash("Google Scholar ID has no data.")
@@ -89,17 +95,22 @@ def results():
         "pip_auc_percentile": pip_auc_percentile,
         "total_publications_percentile": total_publications_percentile,
         "first_year_active": first_year_active,
-        "years_active": years_active
+        "years_active": years_active,
     }
-    
-    return render_template('results.html', author=author)
 
+    return render_template("results.html", author=author)
 
 
 @app.route("/download/<author_id>")
 def download_results(author_id):
-    author_info, publications, total_publications, pip_auc, total_publications_percentile, first_year_active = get_author_statistics_by_id(author_id)
-
+    (
+        author_info,
+        publications,
+        total_publications,
+        pip_auc,
+        total_publications_percentile,
+        first_year_active,
+    ) = get_author_statistics_by_id(author_id)
 
     # Check if there is data to download
     if publications.empty:

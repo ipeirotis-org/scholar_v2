@@ -21,8 +21,6 @@ url_pip_auc_percentiles = "../data/pip-auc-percentiles.csv"
 pip_auc_percentiles_df = pd.read_csv(url_pip_auc_percentiles)
 
 
-
-
 def get_numpaper_percentiles(year):
     # If the exact year is in the index, use that year
     if year in author_percentiles.index:
@@ -61,7 +59,6 @@ def find_closest(series, number):
     return float(closest_index.values[0])
 
 
-
 def score_papers(row):
     age, citations = row["age"], row["citations"]
 
@@ -87,64 +84,98 @@ def score_papers(row):
             return below + weight * (above - below)
 
 
-
 def find_closest_pip_percentile(pip_auc_score):
     if pip_auc_percentiles_df.empty:
         return np.nan
 
     # Calculate the absolute differences between the pip_auc_score and the pip_auc_score column in the DataFrame
-    differences = np.abs(pip_auc_percentiles_df['pip_auc_score'] - pip_auc_score)
+    differences = np.abs(pip_auc_percentiles_df["pip_auc_score"] - pip_auc_score)
 
     closest_index = differences.idxmin()
 
-    return pip_auc_percentiles_df.loc[closest_index, 'pip_auc_percentile']
+    return pip_auc_percentiles_df.loc[closest_index, "pip_auc_percentile"]
 
 
 def get_author_statistics_by_id(scholar_id):
     current_year = datetime.datetime.now().year
     cached_data = get_firestore_cache("author_stats", scholar_id)
     if cached_data and cached_data.get("pip_auc", 0) != 0:
-        logging.info(f"Cache hit for author stats for '{scholar_id}'. Data fetched from Firestore.")
+        logging.info(
+            f"Cache hit for author stats for '{scholar_id}'. Data fetched from Firestore."
+        )
         author_info = cached_data.get("author_info", None)
         publications = pd.DataFrame(cached_data.get("publications", []))
         total_publications = cached_data.get("total_publications", 0)
         pip_auc = cached_data.get("pip_auc", 0)
         pip_auc_percentile = cached_data.get("pip_auc_percentile", 0)
-        total_publications_percentile = cached_data.get("total_publications_percentile", 0)
-        first_year_active = cached_data.get("first_year_active", current_year)     
+        total_publications_percentile = cached_data.get(
+            "total_publications_percentile", 0
+        )
+        first_year_active = cached_data.get("first_year_active", current_year)
         years_active = current_year - first_year_active
-        return author_info, publications, total_publications, pip_auc, pip_auc_percentile, total_publications_percentile, first_year_active, years_active
+        return (
+            author_info,
+            publications,
+            total_publications,
+            pip_auc,
+            pip_auc_percentile,
+            total_publications_percentile,
+            first_year_active,
+            years_active,
+        )
     else:
-        logging.info(f"Cache miss or incomplete data for '{scholar_id}'. Fetching data from Google Scholar.")
-        author_info, publications, total_publications, error = get_scholar_data(scholar_id)
+        logging.info(
+            f"Cache miss or incomplete data for '{scholar_id}'. Fetching data from Google Scholar."
+        )
+        author_info, publications, total_publications, error = get_scholar_data(
+            scholar_id
+        )
 
         if error or not publications:
-            logging.error(f"Error fetching data for author with ID {scholar_id}: {error}")
+            logging.error(
+                f"Error fetching data for author with ID {scholar_id}: {error}"
+            )
             return None, pd.DataFrame(), 0, 0, np.nan
 
         publications_df = pd.DataFrame(publications)
-        if 'year' in publications_df.columns:
-            first_year_active = int(publications_df['year'].min())
+        if "year" in publications_df.columns:
+            first_year_active = int(publications_df["year"].min())
             years_active = current_year - first_year_active
         else:
             first_year_active = current_year
             years_active = 0
-        publications_df["percentile_score"] = publications_df.apply(score_papers, axis=1).round(2)
-        publications_df["paper_rank"] = publications_df["percentile_score"].rank(ascending=False, method="first").astype(int)
-        publications_df = publications_df.sort_values("percentile_score", ascending=False)
+        publications_df["percentile_score"] = publications_df.apply(
+            score_papers, axis=1
+        ).round(2)
+        publications_df["paper_rank"] = (
+            publications_df["percentile_score"]
+            .rank(ascending=False, method="first")
+            .astype(int)
+        )
+        publications_df = publications_df.sort_values(
+            "percentile_score", ascending=False
+        )
 
         num_papers_percentile = get_numpaper_percentiles(publications_df["age"].max())
-        publications_df["num_papers_percentile"] = publications_df["paper_rank"].apply(lambda x: find_closest(num_papers_percentile, x))
+        publications_df["num_papers_percentile"] = publications_df["paper_rank"].apply(
+            lambda x: find_closest(num_papers_percentile, x)
+        )
 
         # Calculate AUC score
-        auc_data = publications_df.filter(["num_papers_percentile", "percentile_score"]).drop_duplicates(subset="num_papers_percentile", keep="first")
-        pip_auc_score = np.trapz(auc_data["percentile_score"], auc_data["num_papers_percentile"]) / (100 * 100)
+        auc_data = publications_df.filter(
+            ["num_papers_percentile", "percentile_score"]
+        ).drop_duplicates(subset="num_papers_percentile", keep="first")
+        pip_auc_score = np.trapz(
+            auc_data["percentile_score"], auc_data["num_papers_percentile"]
+        ) / (100 * 100)
         pip_auc_score = round(pip_auc_score, 4)
 
         pip_auc_percentile = find_closest_pip_percentile(pip_auc_score)
 
-        total_publications_percentile = round(publications_df["num_papers_percentile"].values.max(),2)
-        first_year_active = int(publications_df['year'].values.min())
+        total_publications_percentile = round(
+            publications_df["num_papers_percentile"].values.max(), 2
+        )
+        first_year_active = int(publications_df["year"].values.min())
 
         # Cache the new data
         set_firestore_cache(
@@ -152,17 +183,23 @@ def get_author_statistics_by_id(scholar_id):
             scholar_id,
             {
                 "author_info": author_info,
-                "publications": publications_df.to_dict(orient='records'),
+                "publications": publications_df.to_dict(orient="records"),
                 "total_publications": total_publications,
                 "pip_auc": pip_auc_score,
                 "pip_auc_percentile": pip_auc_percentile,
                 "total_publications_percentile": total_publications_percentile,
                 "first_year_active": first_year_active,
-                "years_active": years_active
-                
+                "years_active": years_active,
             },
         )
 
-        return author_info, publications_df, total_publications, pip_auc_score, pip_auc_percentile, total_publications_percentile, first_year_active, years_active
-
-
+        return (
+            author_info,
+            publications_df,
+            total_publications,
+            pip_auc_score,
+            pip_auc_percentile,
+            total_publications_percentile,
+            first_year_active,
+            years_active,
+        )
