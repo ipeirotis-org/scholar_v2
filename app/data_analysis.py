@@ -112,12 +112,10 @@ def get_author_statistics_by_id(scholar_id):
         pip_auc_percentile = cached_data.get("pip_auc_percentile", 0)
         total_publications_percentile = cached_data.get("total_publications_percentile", 0)
         first_year_active = cached_data.get("first_year_active", current_year)     
-        years_active = current_year - first_year_active + 1
+        years_active = current_year - first_year_active
         return author_info, publications, total_publications, pip_auc, pip_auc_percentile, total_publications_percentile, first_year_active, years_active
     else:
         logging.info(f"Cache miss or incomplete data for '{scholar_id}'. Fetching data from Google Scholar.")
-        first_year_active = int(publications_df['year'].values.min())
-        years_active = current_year - first_year_active + 1
         author_info, publications, total_publications, error = get_scholar_data(scholar_id)
 
         if error or not publications:
@@ -125,6 +123,12 @@ def get_author_statistics_by_id(scholar_id):
             return None, pd.DataFrame(), 0, 0, np.nan
 
         publications_df = pd.DataFrame(publications)
+        if 'year' in publications_df.columns:
+            first_year_active = int(publications_df['year'].min())
+            years_active = current_year - first_year_active
+        else:
+            first_year_active = current_year
+            years_active = 0
         publications_df["percentile_score"] = publications_df.apply(score_papers, axis=1).round(2)
         publications_df["paper_rank"] = publications_df["percentile_score"].rank(ascending=False, method="first").astype(int)
         publications_df = publications_df.sort_values("percentile_score", ascending=False)
