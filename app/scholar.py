@@ -70,35 +70,7 @@ def get_publication(author_id, author_pub_id):
     return None
 
 
-def sanitize_publication(pub):
-    try:
-        citations = pub.get("num_citations")
-        if not citations:
-            return None
-        
-        
-        if "bib" not in pub:
-            return None
 
-        for c in pub['bib']: 
-            pub[c] = pub["bib"].get(c)
-
-        pub_year = pub.get("pub_year")
-        if not pub_year:
-            return None
-
-        year = int(pub_year)
-        if year < 1950:
-            return None
-
-        # TODO: Remove this once the rest of the code is clean
-        pub['citations'] = citations 
-        pub['year'] = year
-        return pub
-
-    except Exception as e:
-        logging.error(f"Error sanitizing publication data: {e}")
-        return None  # Return None if there's an error
 
 
 def get_scholar_data(author_id):
