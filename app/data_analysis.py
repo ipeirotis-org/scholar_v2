@@ -113,7 +113,7 @@ def get_author_statistics_by_id(scholar_id):
         total_publications_percentile = cached_data.get("total_publications_percentile", 0)
         first_year_active = cached_data.get("first_year_active", current_year)     
         years_active = current_year - first_year_active + 1
-        return author_info, publications, total_publications, pip_auc, pip_auc_percentile, total_publications_percentile, first_year_active
+        return author_info, publications, total_publications, pip_auc, pip_auc_percentile, total_publications_percentile, first_year_active, years_active
     else:
         logging.info(f"Cache miss or incomplete data for '{scholar_id}'. Fetching data from Google Scholar.")
         first_year_active = int(publications_df['year'].values.min())
