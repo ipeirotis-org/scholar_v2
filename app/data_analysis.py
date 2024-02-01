@@ -205,9 +205,6 @@ def sanitize_publication(pub):
         del pub['filled']
         del pub['source']
 
-        # TODO: Remove this once the rest of the code is clean
-        pub['citations'] = citations 
-        pub['year'] = year
         return pub
 
     except Exception as e:
