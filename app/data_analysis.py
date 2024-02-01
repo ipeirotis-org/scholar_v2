@@ -222,7 +222,7 @@ def get_author_stats(author_id):
         pub = sanitize_publication(p)
         if pub: pubs.append(pub)
         
-    author['publications'] = pubs
+    author['publications'] = calculate_publication_stats(pubs)
     author['stats'] = calculate_author_stats(author['publications'])
 
     set_firestore_cache("author_stats",author_id,author)
