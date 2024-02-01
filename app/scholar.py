@@ -1,10 +1,30 @@
 import logging
-from scholarly import scholarly
+from scholarly import scholarly, ProxyGenerator
 from datetime import datetime
 import pytz
 import json
+
+from google.cloud import secretmanager
+
 from data_access import get_firestore_cache, set_firestore_cache
 
+
+def access_secret_version(project_id, secret_id, version_id = "latest"):
+    """
+    Access the payload of the given secret version and return it.
+
+    Args:
+        project_id (str): Google Cloud project ID.
+        secret_id (str): ID of the secret to access.
+        version_id (str): ID of the version to access.
+    Returns:
+        str: The secret version's payload, or None if
+        the version does not exist.
+    """
+    client = secretmanager.SecretManagerServiceClient()
+    name = f"projects/{project_id}/secrets/{secret_id}/versions/{version_id}"
+    response = client.access_secret_version(name=name)
+    return response.payload.data.decode("UTF-8")
 
 def convert_integers_to_strings(data):
     if isinstance(data, dict):
@@ -25,6 +45,13 @@ def get_author(author_id):
     if cached_data:
         logging.info(f"Cache hit for raw scholar data for author: '{author_id}'.")
         return cached_data
+
+    '''
+    ScraperAPI_key = access_secret_version("scholar-version2", "ScraperAPI_key")
+    pg = ProxyGenerator()
+    pg.ScraperAPI(ScraperAPI_key, country_code='us', premium=True)
+    scholarly.use_proxy(pg)
+    '''
 
     try:
         author = scholarly.search_author_id(author_id)
@@ -60,6 +87,14 @@ def get_publication(author_id, author_pub_id):
 
     pubs = author.get("publications")
 
+    '''
+    ScraperAPI_key = access_secret_version("scholar-version2", "ScraperAPI_key")
+    pg = ProxyGenerator()
+    pg.ScraperAPI(ScraperAPI_key, country_code='us', premium=True)
+    scholarly.use_proxy(pg)
+    '''
+
+    
     for pub in pubs:
         if pub["author_pub_id"] == author_pub_id:
             pub = scholarly.fill(pub)

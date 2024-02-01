@@ -158,6 +158,7 @@
                             <li>Current Affiliation: {{ author.get('affiliation', 'N/A') }}</li>
                             <li>Google Scholar ID: {{ author.get('scholar_id', 'N/A') }}</li>
                             <li>Total Citations: {{ author.get('citedby', 'N/A') }}</li>
+                            <li>H-index: {{ author.get('hindex', 'N/A') }}</li>
                             <li>First Year Active: {{ author.stats.first_year_active }} ({{ author.stats.years_active }} years active)</li>
                             <li>Total Publications: {{ author.stats.total_publications }}
                                 ({{ author.stats.total_publications_percentile }}% percentile)&nbsp;<i class="bi bi-question-circle-fill" data-toggle="tooltip" title="The total number of publications by the author and their percentile rank compared to other authors who have been active for the same number of years."></i>
