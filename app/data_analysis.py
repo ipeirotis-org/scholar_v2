@@ -215,13 +215,14 @@ def get_author_stats(author_id):
 
     current_year = datetime.datetime.now().year
     author = get_author(author_id)
+    if not author: return None
+
     pubs = []
     for p in author['publications']: 
         pub = sanitize_publication(p)
         if pub: pubs.append(pub)
         
     author['publications'] = pubs
-    author['publications'] = calculate_publication_stats(author['publications'])
     author['stats'] = calculate_author_stats(author['publications'])
 
     set_firestore_cache("author_stats",author_id,author)
