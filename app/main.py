@@ -70,15 +70,19 @@ def results():
         return redirect(url_for("index"))
 
     author = get_author_stats(author_id)
+
+    pub_df = pd.DataFrame(author['publications'])
+
+    plot_paths = generate_plot(pub_df, author["name"])
     
     try:
-        plot_paths = generate_plot(pd.DataFrame(author['publications']), author["name"])
-        author["plot_paths"] = plot_paths
+        # plot_paths = generate_plot(pub_df, author["name"])
+        pass
     except Exception as e:
         logging.error(f"Error generating plot for {author_id}: {e}")
         flash(f"An error occurred while generating the plot for {author_id}.", "error")
-        plot_paths = []
 
+    author["plot_paths"] = plot_paths
     return render_template("results.html", author=author)
 
 
