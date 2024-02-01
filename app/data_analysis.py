@@ -153,6 +153,17 @@ def calculate_publication_stats(publications):
 
 def calculate_author_stats(publications):
 
+    if len(publications)==0:
+        return {
+            "total_publications": 0,
+            "total_publications_percentile": 0,
+            "pip_auc": 0,
+            "pip_auc_percentile": 0,
+            "first_year_active": "Unknown",
+            "years_active": "Unknown",
+        }
+
+        
     publications_df = pd.DataFrame(publications)
 
     current_year = datetime.datetime.now().year
@@ -221,9 +232,14 @@ def get_author_stats(author_id):
     for p in author['publications']: 
         pub = sanitize_publication(p)
         if pub: pubs.append(pub)
-        
-    author['publications'] = calculate_publication_stats(pubs)
+
+    if len(pubs)>0:
+        author['publications'] = calculate_publication_stats(pubs)
+    else:
+        author['publications'] = []
+
     author['stats'] = calculate_author_stats(author['publications'])
+    
 
     set_firestore_cache("author_stats",author_id,author)
 
