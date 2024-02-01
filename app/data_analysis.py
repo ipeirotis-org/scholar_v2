@@ -61,7 +61,7 @@ def find_closest(series, number):
 
 
 def score_papers(row):
-    age, citations = row["age"], row["citations"]
+    age, citations = row["age"], row["num_citations"]
 
     if age not in percentile_df.index:
         closest_year = percentile_df.index[np.abs(percentile_df.index - age).argmin()]
@@ -156,7 +156,7 @@ def calculate_author_stats(publications):
     publications_df = pd.DataFrame(publications)
 
     current_year = datetime.datetime.now().year
-    first_year_active = int(publications_df["year"].values.min())
+    first_year_active = int(publications_df["pub_year"].values.min())
     years_active = current_year - first_year_active
     
     # Calculate AUC score
