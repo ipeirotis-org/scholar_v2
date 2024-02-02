@@ -30,6 +30,31 @@ def search_author_id(request):
     
     return response, 200
 
+@functions_framework.http
+def fill_publication(request):
+    """HTTP Cloud Function.
+    Args:
+       request (flask.Request): The request object.
+    Returns:
+       The response text, or any set of values that can be turned into a
+       Response object using `make_response`.
+    """
+    request_json = request.get_json(silent=True)
+    request_args = request.args
+
+    pub = request_json.get("pub", request_args.get("pub"))
+    if not scholar_id:
+        return "Missing pub", 400
+
+    pub = fill_publication(pub)
+    if pub is None:
+        return "Error fill pblication from Google Scholar", 500
+
+    response = make_response(pub)
+    response.headers['Content-Type'] = 'application/json'
+    
+    return response, 200
+
 
 def convert_integers_to_strings(data):
     if isinstance(data, dict):
@@ -48,13 +73,8 @@ def convert_integers_to_strings(data):
 def get_author(author_id):
 
     try:
+        logging.info(f"Fetching author entry for {author_id}")
         author = scholarly.search_author_id(author_id)
-    except Exception as e:
-        logging.error(f"Error fetching raw author data: {e}")
-        return None
-
-    try:
-        logging.info(f"Filling author entry for {author_id}")
         author = scholarly.fill(author)
 
         # We want to keep track of the last time we updated the file
@@ -73,5 +93,26 @@ def get_author(author_id):
         logging.error(f"Error fetching detailed author data: {e}")
         return None
 
+def fill_publication(pub):
+
+    try:
+        logging.info(f"Fetching author entry for {author_id}")
+        pub = scholarly.fill(pub)
+
+        # We want to keep track of the last time we updated the file
+        now = datetime.now()
+        timestamp = int(datetime.timestamp(now))
+        date_str = now.strftime("%Y-%m-%d %H:%M:%S")
+
+        pub["last_updated_ts"] = timestamp
+        pub["last_updated"] = date_str
+        
+        serialized = convert_integers_to_strings(json.loads(json.dumps(pub)))
+
+        return serialized
+
+    except Exception as e:
+        logging.error(f"Error fetching detailed author data: {e}")
+        return None
 
 

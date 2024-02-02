@@ -83,19 +83,17 @@ def get_publication(author_id, author_pub_id):
         # cached_author = get_firestore_cache("scholar_raw_author", author_id)
 
     pubs = author.get("publications")
-
-    '''
-    ScraperAPI_key = access_secret_version("scholar-version2", "ScraperAPI_key")
-    pg = ProxyGenerator()
-    pg.ScraperAPI(ScraperAPI_key, country_code='us', premium=True)
-    scholarly.use_proxy(pg)
-    '''
-
-    
+   
     for pub in pubs:
         if pub["author_pub_id"] == author_pub_id:
-            pub = scholarly.fill(pub)
-            serialized = convert_integers_to_strings(json.loads(json.dumps(pub)))
+            # pub = scholarly.fill(pub)
+            # serialized = convert_integers_to_strings(json.loads(json.dumps(pub)))
+
+            url = 'https://us-central1-scholar-version2.cloudfunctions.net/fill_publication'
+            data = {'pub': pub}
+            response = requests.post(url, data=json.dumps(data), headers={'Content-Type': 'application/json'})
+            serialized = convert_integers_to_strings(response.json())
+            
             set_firestore_cache("scholar_raw_pub", pub["author_pub_id"], serialized)
             return serialized
 
