@@ -96,7 +96,7 @@ def get_author(author_id):
 def fill_publication(pub):
 
     try:
-        logging.info(f"Fetching author entry for {author_id}")
+        logging.info(f"Fetching pub entry for publication {pub['author_pub_id']}")
         pub = scholarly.fill(pub)
 
         # We want to keep track of the last time we updated the file
