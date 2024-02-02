@@ -31,7 +31,7 @@ jobs:
       run: |
         gcloud functions deploy ${{ env.FUNCTION_NAME }} \
           --region ${{ env.REGION }} \
-          --entry-point your_function_name_here \
+          --entry-point search_author_id \
           --runtime python38  \
           --trigger-http \
           --allow-unauthenticated \
