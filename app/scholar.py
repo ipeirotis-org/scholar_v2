@@ -3,6 +3,7 @@ from scholarly import scholarly, ProxyGenerator
 from datetime import datetime
 import pytz
 import json
+import requests
 
 from google.cloud import secretmanager
 
@@ -46,30 +47,26 @@ def get_author(author_id):
         logging.info(f"Cache hit for raw scholar data for author: '{author_id}'.")
         return cached_data
 
-    '''
-    ScraperAPI_key = access_secret_version("scholar-version2", "ScraperAPI_key")
-    pg = ProxyGenerator()
-    pg.ScraperAPI(ScraperAPI_key, country_code='us', premium=True)
-    scholarly.use_proxy(pg)
-    '''
-
     try:
-        author = scholarly.search_author_id(author_id)
-    except Exception as e:
-        logging.error(f"Error fetching raw author data: {e}")
-        return None
-
-    try:
-        logging.info(f"Filling author entry for {author_id}")
-        author = scholarly.fill(author)
-        serialized = convert_integers_to_strings(json.loads(json.dumps(author)))
+        # author = scholarly.search_author_id(author_id)
+        # author = scholarly.fill(author)
+        # serialized = convert_integers_to_strings(json.loads(json.dumps(author)))
+        
+        # The URL to the API endpoint
+        url = 'https://us-central1-scholar-version2.cloudfunctions.net/search_author_id'
+        data = {'scholar_id': author_id}
+        response = requests.post(url, data=json.dumps(data), headers={'Content-Type': 'application/json'})
+        serialized = convert_integers_to_strings(response.json())
+        
         set_firestore_cache("scholar_raw_author", author_id, serialized)
         logging.info(f"Saved raw filled scholar data for {author_id}")
+
+        return serialized
     except Exception as e:
         logging.error(f"Error fetching detailed author data: {e}")
         return None
 
-    return serialized
+    
 
 
 def get_publication(author_id, author_pub_id):
