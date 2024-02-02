@@ -43,10 +43,10 @@ def fill_publication(request):
     request_args = request.args
 
     pub = request_json.get("pub", request_args.get("pub"))
-    if not scholar_id:
+    if not pub:
         return "Missing pub", 400
 
-    pub = fill_publication(pub)
+    pub = fill_pub(pub)
     if pub is None:
         return "Error fill pblication from Google Scholar", 500
 
@@ -93,7 +93,7 @@ def get_author(author_id):
         logging.error(f"Error fetching detailed author data: {e}")
         return None
 
-def fill_publication(pub):
+def fill_pub(pub):
 
     try:
         logging.info(f"Fetching pub entry for publication {pub['author_pub_id']}")
