@@ -1,0 +1,92 @@
+        body {
+            margin: 20px;
+        }
+        .error {
+            color: red;
+            font-weight: bold;
+        }
+        img.plot {
+            width: auto;
+            max-width: 90%;
+            height: auto;
+            display: block;
+            margin-bottom: 20px;
+        }
+        .sortable:hover {
+            cursor: pointer;
+            text-decoration: underline;
+        }
+        .sortable::after {
+            content: ' ⇅';
+        }
+
+        .table {
+            margin-top: 15px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+    
+        thead th {
+            background-color: #f8f9fa;
+            color: #333;
+        }
+    
+        th.sortable:hover {
+            background-color: #e9ecef;
+            cursor: pointer;
+        }
+    
+
+    
+        .author-section {
+            background-color: #f9f9f9;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+    
+        .table {
+            margin-top: 15px;
+        }
+    
+        /* Responsive design for smaller screens */
+        @media (max-width: 768px) {
+            .author-section {
+                padding: 10px;
+            }
+        }
+
+    section {
+        text-align: center;
+    }
+
+    /* Author details styling */
+    .author-details {
+        background-color: #f8f8f8; /* Light gray background */
+        padding: 15px;
+        margin-top: 20px; /* Space between title and box */
+        border-radius: 8px;
+        display: inline-block; /* Allows for text-align to take effect */
+        text-align: left; /* Left align text inside the box */
+        width: 100%; /* Full width for smaller devices */
+    }
+
+    img.plot {
+        
+        margin: 0 auto; /* Center align plots */
+    }
+
+    @media (min-width: 768px) {
+        .author-details {
+            width: 80%; /* Adjust width on larger devices */
+        }
+    }
+
+    /* Left align the title column header */
+    #resultsTable th:first-child {
+        text-align: left;
+    }
+
+    /* Left align the title column data */
+    #resultsTable td:first-child {
+        text-align: left;
+    }
