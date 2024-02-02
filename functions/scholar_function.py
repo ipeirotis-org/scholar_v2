@@ -6,7 +6,7 @@ from scholarly import scholarly
 from flask import make_response
 
 @functions_framework.http
-def update_scholar_profile(request):
+def search_author_id(request):
     """HTTP Cloud Function.
     Args:
        request (flask.Request): The request object.
