@@ -80,9 +80,9 @@ def get_publication(author_id, author_pub_id):
     cached_author = get_firestore_cache("scholar_raw_author", author_id)
     if not cached_author:
         author = get_author(author_id)
-        # cached_author = get_firestore_cache("scholar_raw_author", author_id)
+        cached_author = get_firestore_cache("scholar_raw_author", author_id)
 
-    pubs = author.get("publications")
+    pubs = cached_author.get("publications")
    
     for pub in pubs:
         if pub["author_pub_id"] == author_pub_id:
