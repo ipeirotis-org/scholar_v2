@@ -3,15 +3,12 @@ name: Deploy Google Cloud Functions
 on:
   push:
     branches:
-      - main  # Trigger the workflow on push to the main branch
-
+      - main
 
 env:
   PROJECT_ID: scholar-version2
   REGION: us-central1
-  LOCATION: $REGION
   FUNCTION_NAME: search_author_id
-
 
 jobs:
   deploy-cloud-functions:
@@ -23,8 +20,7 @@ jobs:
     - name: Set up Cloud SDK
       uses: google-github-actions/setup-gcloud@v1.1.0
       with:
-        project_id: ${{ secrets.GCP_PROJECT_ID }}
-        export_default_credentials: true
+        project_id: ${{ env.PROJECT_ID }}
 
     - name: Authenticate with Google Cloud using encoded JSON key
       run: |
@@ -35,9 +31,9 @@ jobs:
       run: |
         gcloud functions deploy ${{ env.FUNCTION_NAME }} \
           --region ${{ env.REGION }} \
-          --entry-point get_ \
+          --entry-point your_function_name_here \
           --runtime python38  \
           --trigger-http \
           --allow-unauthenticated \
           --gen2 \
-          --source ./functions/scholar_function.py
+          --source ./functions/
