@@ -38,5 +38,6 @@ jobs:
           --entry-point get_ \
           --runtime python38  \
           --trigger-http \
-          --allow-unauthenticated
-          --gen2
+          --allow-unauthenticated \
+          --gen2 \
+          --source ./functions/scholar_function.py
