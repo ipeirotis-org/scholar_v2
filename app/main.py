@@ -11,15 +11,9 @@ from flask import (
 
 
 import os
-import json
 import logging
 
 import pandas as pd
-
-import numpy as np
-
-
-from sklearn.metrics import auc
 
 from scholar import get_author, get_similar_authors, get_publication
 from data_analysis import get_author_stats
