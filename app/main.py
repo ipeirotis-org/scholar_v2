@@ -18,6 +18,7 @@ import pandas as pd
 from scholar import get_author, get_similar_authors, get_publication
 from data_analysis import get_author_stats
 from visualization import generate_plot
+from refresh_authors_queue import refresh_authors
 
 
 logging.basicConfig(level=logging.INFO)
@@ -65,6 +66,21 @@ def get_publication_route(author_id, pub_id):
     pub = get_publication(author_id, pub_id)
     if pub:
         return jsonify(pub)
+    else:
+        return jsonify({'message': 'An error occurred'}), 503
+
+
+@app.route("/api/refresh_authors")
+def get_author_stats_route(author_id):
+    num_authors = request.args.get("num_authors")
+    try:
+        num_authors = int(num_authors)
+    except:
+        num_authors = 1
+    
+    result = refresh_authors(num_authors)
+    if result:
+       return jsonify(result)
     else:
         return jsonify({'message': 'An error occurred'}), 503
 
