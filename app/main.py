@@ -40,7 +40,10 @@ def get_similar_authors_route():
 
 @app.route("/api/author/<author_id>")
 def get_author_route(author_id):
-    author = get_author(author_id)
+    use_cache = request.args.get("use_cache")
+    if use_cache: use_cache=True
+    else: use_cache=False
+    author = get_author(author_id,use_cache)
     if author:
         return jsonify(author)
     else:

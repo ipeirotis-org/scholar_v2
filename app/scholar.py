@@ -7,58 +7,21 @@ import requests
 
 from data_access import get_firestore_cache, set_firestore_cache
 
-'''
-def convert_integers_to_strings(data):
-    if isinstance(data, dict):
-        return {key: convert_integers_to_strings(value) for key, value in data.items()}
-    elif isinstance(data, list):
-        return [convert_integers_to_strings(element) for element in data]
-    elif isinstance(data, int):
-        if abs(data) > 2**62:
-            return str(data)
-        else:
-            return data
-    else:
-        return data
-'''
 
 
-def get_author(author_id):
-    # cached_data = get_firestore_cache("scholar_raw_author", author_id)
-    # if cached_data:
-    #    logging.info(f"Cache hit for raw scholar data for author: '{author_id}'.")
-    #    return cached_data
+def get_author(author_id, use_cache=True):
 
     try:
-        # author = scholarly.search_author_id(author_id)
-        # author = scholarly.fill(author)
-        # serialized = convert_integers_to_strings(json.loads(json.dumps(author)))
-        
-        # The URL to the API endpoint
         url = 'https://us-central1-scholar-version2.cloudfunctions.net/search_author_id'
-        data = {'scholar_id': author_id, 'use_cache': True}
+        data = {'scholar_id': author_id, 'use_cache': use_cache}
         response = requests.post(url, data=json.dumps(data), headers={'Content-Type': 'application/json'})
-        #serialized = convert_integers_to_strings(response.json())
-        
-        # set_firestore_cache("scholar_raw_author", author_id, serialized)
-        # logging.info(f"Saved raw filled scholar data for {author_id}")
-
-        #return serialized
         return response.json()
     except Exception as e:
         logging.error(f"Error fetching detailed author data: {e}")
         return None
 
     
-
-
 def get_publication(author_id, author_pub_id):
-    # cached_data = get_firestore_cache("scholar_raw_pub", author_pub_id)
-    # if cached_data:
-    #    logging.info(
-    #        f"Cache hit for raw scholar data for publication: '{author_pub_id}'."
-    #    )
-    #    return cached_data
 
     cached_author = get_firestore_cache("scholar_raw_author", author_id)
     if not cached_author:
@@ -69,16 +32,11 @@ def get_publication(author_id, author_pub_id):
    
     for pub in pubs:
         if pub["author_pub_id"] == author_pub_id:
-            # pub = scholarly.fill(pub)
-            # serialized = convert_integers_to_strings(json.loads(json.dumps(pub)))
 
             url = 'https://us-central1-scholar-version2.cloudfunctions.net/fill_publication'
             data = {'pub': pub, 'use_cache': True}
             response = requests.post(url, data=json.dumps(data), headers={'Content-Type': 'application/json'})
-            # serialized = convert_integers_to_strings(response.json())
-            
-            # set_firestore_cache("scholar_raw_pub", pub["author_pub_id"], serialized)
-            # return serialized
+
             return response.json()
 
     return None
