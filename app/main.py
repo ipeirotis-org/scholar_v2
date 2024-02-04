@@ -71,7 +71,7 @@ def get_publication_route(author_id, pub_id):
 
 
 @app.route("/api/refresh_authors")
-def refresh_authors():
+def refresh_authors_route():
     num_authors = request.args.get("num_authors")
     try:
         num_authors = int(num_authors)
