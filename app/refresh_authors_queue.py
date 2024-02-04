@@ -1,8 +1,6 @@
-from tqdm import tqdm
 import pandas as pd
 from google.cloud import firestore
 from google.cloud import tasks_v2
-import google.auth
 
 # Google Cloud project ID and queue location
 project = "scholar-version2"

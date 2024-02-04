@@ -7,5 +7,6 @@ pytz==2022.1
 matplotlib
 google-cloud-firestore
 google-cloud-secret-manager
+google-cloud-tasks
 
 
