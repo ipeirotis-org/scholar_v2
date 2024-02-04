@@ -1,32 +1,13 @@
 import logging
-from scholarly import scholarly, ProxyGenerator
+from scholarly import scholarly
 from datetime import datetime
 import pytz
 import json
 import requests
 
-from google.cloud import secretmanager
-
 from data_access import get_firestore_cache, set_firestore_cache
 
-
-def access_secret_version(project_id, secret_id, version_id = "latest"):
-    """
-    Access the payload of the given secret version and return it.
-
-    Args:
-        project_id (str): Google Cloud project ID.
-        secret_id (str): ID of the secret to access.
-        version_id (str): ID of the version to access.
-    Returns:
-        str: The secret version's payload, or None if
-        the version does not exist.
-    """
-    client = secretmanager.SecretManagerServiceClient()
-    name = f"projects/{project_id}/secrets/{secret_id}/versions/{version_id}"
-    response = client.access_secret_version(name=name)
-    return response.payload.data.decode("UTF-8")
-
+'''
 def convert_integers_to_strings(data):
     if isinstance(data, dict):
         return {key: convert_integers_to_strings(value) for key, value in data.items()}
@@ -39,13 +20,14 @@ def convert_integers_to_strings(data):
             return data
     else:
         return data
+'''
 
 
 def get_author(author_id):
-    cached_data = get_firestore_cache("scholar_raw_author", author_id)
-    if cached_data:
-        logging.info(f"Cache hit for raw scholar data for author: '{author_id}'.")
-        return cached_data
+    # cached_data = get_firestore_cache("scholar_raw_author", author_id)
+    # if cached_data:
+    #    logging.info(f"Cache hit for raw scholar data for author: '{author_id}'.")
+    #    return cached_data
 
     try:
         # author = scholarly.search_author_id(author_id)
@@ -54,14 +36,15 @@ def get_author(author_id):
         
         # The URL to the API endpoint
         url = 'https://us-central1-scholar-version2.cloudfunctions.net/search_author_id'
-        data = {'scholar_id': author_id}
+        data = {'scholar_id': author_id, 'use_cache': True}
         response = requests.post(url, data=json.dumps(data), headers={'Content-Type': 'application/json'})
-        serialized = convert_integers_to_strings(response.json())
+        #serialized = convert_integers_to_strings(response.json())
         
-        set_firestore_cache("scholar_raw_author", author_id, serialized)
-        logging.info(f"Saved raw filled scholar data for {author_id}")
+        # set_firestore_cache("scholar_raw_author", author_id, serialized)
+        # logging.info(f"Saved raw filled scholar data for {author_id}")
 
-        return serialized
+        #return serialized
+        return response.json()
     except Exception as e:
         logging.error(f"Error fetching detailed author data: {e}")
         return None
@@ -70,12 +53,12 @@ def get_author(author_id):
 
 
 def get_publication(author_id, author_pub_id):
-    cached_data = get_firestore_cache("scholar_raw_pub", author_pub_id)
-    if cached_data:
-        logging.info(
-            f"Cache hit for raw scholar data for publication: '{author_pub_id}'."
-        )
-        return cached_data
+    # cached_data = get_firestore_cache("scholar_raw_pub", author_pub_id)
+    # if cached_data:
+    #    logging.info(
+    #        f"Cache hit for raw scholar data for publication: '{author_pub_id}'."
+    #    )
+    #    return cached_data
 
     cached_author = get_firestore_cache("scholar_raw_author", author_id)
     if not cached_author:
@@ -90,12 +73,13 @@ def get_publication(author_id, author_pub_id):
             # serialized = convert_integers_to_strings(json.loads(json.dumps(pub)))
 
             url = 'https://us-central1-scholar-version2.cloudfunctions.net/fill_publication'
-            data = {'pub': pub}
+            data = {'pub': pub, 'use_cache': True}
             response = requests.post(url, data=json.dumps(data), headers={'Content-Type': 'application/json'})
-            serialized = convert_integers_to_strings(response.json())
+            # serialized = convert_integers_to_strings(response.json())
             
-            set_firestore_cache("scholar_raw_pub", pub["author_pub_id"], serialized)
-            return serialized
+            # set_firestore_cache("scholar_raw_pub", pub["author_pub_id"], serialized)
+            # return serialized
+            return response.json()
 
     return None
 
