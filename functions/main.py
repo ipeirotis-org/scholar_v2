@@ -149,10 +149,10 @@ def get_author(author_id, use_cache):
 def fill_pub(pub, use_cache):
 
     if use_cache:
-        cached_data = get_firestore_cache("scholar_raw_pub", author_pub_id)
+        cached_data = get_firestore_cache("scholar_raw_pub", pub['author_pub_id'])
         if cached_data:
             logging.info(
-                f"Cache hit for raw scholar data for publication: '{author_pub_id}'."
+                f"Cache hit for raw scholar data for publication: '{pub['author_pub_id']}'."
             )
             return cached_data
 
