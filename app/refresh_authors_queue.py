@@ -21,15 +21,23 @@ def refresh_authors(num_authors=1):
 
     total_authors = 0
     total_pubs = 0
+    authors = []
     for doc in query.stream():
         author = doc.to_dict().get("data", None)
         if not author:
             continue
 
-        total_authors +=1
+        total_authors += 1
 
         author_id = author.get("scholar_id")
         publications = author["publications"]
+
+        entry = {
+            "author_id": author_id,
+            "publications": len(publications),
+            "name": author.get("name"),
+        }
+        authors.append(entry)
 
         # print(f'{author_id}: {len(publications)} publications')
         url = f"https://scholar.ipeirotis.org/api/author/{author_id}?no_cache=true"
@@ -45,7 +53,7 @@ def refresh_authors(num_authors=1):
 
         for pub in publications:
             total_pubs += 1
-            
+
             pub_id = pub["author_pub_id"]
             url = f"https://scholar.ipeirotis.org/api/author/{author_id}/publication/{pub_id}"
             # Construct the request body
@@ -60,4 +68,8 @@ def refresh_authors(num_authors=1):
             # Add the task to the queue
             response = client.create_task(request={"parent": pubs_queue, "task": task})
 
-    return {"total_authors": total_authors, "total_publications": total_pubs}
+    return {
+        "total_authors": total_authors,
+        "total_publications": total_pubs,
+        "authors": authors,
+    }
