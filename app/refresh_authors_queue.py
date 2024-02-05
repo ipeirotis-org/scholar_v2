@@ -33,11 +33,14 @@ def refresh_authors(num_authors=1):
         publications = author["publications"]
 
         entry = {
+            "doc_id": doc.id,
             "author_id": author_id,
             "publications": len(publications),
             "name": author.get("name"),
         }
-        authors.append(entry)
+
+        if author_id != doc.id:
+            doc.delete()
 
         # print(f'{author_id}: {len(publications)} publications')
         url = f"https://scholar.ipeirotis.org/api/author/{author_id}?no_cache=true"
@@ -50,6 +53,9 @@ def refresh_authors(num_authors=1):
         }
         # Add the task to the queue
         response = client.create_task(request={"parent": authors_queue, "task": task})
+
+
+
 
         for pub in publications:
             total_pubs += 1
@@ -67,6 +73,8 @@ def refresh_authors(num_authors=1):
             }
             # Add the task to the queue
             response = client.create_task(request={"parent": pubs_queue, "task": task})
+
+        authors.append(entry)
 
     return {
         "total_authors": total_authors,
