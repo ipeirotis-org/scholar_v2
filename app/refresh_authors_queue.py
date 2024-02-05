@@ -17,7 +17,7 @@ collection_ref = db.collection("scholar_raw_author")
 
 
 def refresh_authors(num_authors=1):
-    query = collection_ref.order_by("timestamp", direction=firestore.Query.DESCENDING).limit(num_authors)
+    query = collection_ref.order_by("timestamp", direction=firestore.Query.ASCENDING).limit(num_authors)
 
     total_authors = 0
     total_pubs = 0
