@@ -17,7 +17,9 @@ collection_ref = db.collection("scholar_raw_author")
 
 
 def refresh_authors(num_authors=1):
-    query = collection_ref.order_by("timestamp", direction=firestore.Query.ASCENDING).limit(num_authors)
+    query = collection_ref.order_by(
+        "timestamp", direction=firestore.Query.ASCENDING
+    ).limit(num_authors)
 
     total_authors = 0
     total_pubs = 0
@@ -40,7 +42,7 @@ def refresh_authors(num_authors=1):
         }
 
         if author_id != doc.id:
-            doc.delete()
+            collection_ref.document(doc.id).delete()
 
         # print(f'{author_id}: {len(publications)} publications')
         url = f"https://scholar.ipeirotis.org/api/author/{author_id}?no_cache=true"
@@ -53,9 +55,6 @@ def refresh_authors(num_authors=1):
         }
         # Add the task to the queue
         response = client.create_task(request={"parent": authors_queue, "task": task})
-
-
-
 
         for pub in publications:
             total_pubs += 1
