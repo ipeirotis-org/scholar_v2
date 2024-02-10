@@ -1,1 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+
+</head>
+<body>
+    <section id="publication-details">
+        <h2>{{ publication.title }}</h2>
+        <!-- Display publication details -->
+        <p>Year of Publication: {{ publication.pub_year }}</p>
+        <p>Number of Citations: {{ publication.num_citations }}</p>
+        <!-- Display plots -->
+        {% for path in plot_paths %}
+            <img src="{{ path }}" alt="Plot">
+        {% endfor %}
+    </section>
+</body>
+</html>
 
