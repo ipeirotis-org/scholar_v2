@@ -7,7 +7,7 @@ on:
 
 env:
   PROJECT_ID: scholar-version2
-  REGION: northamerica-northeast1	
+  REGION: northamerica-northeast2	
 
 jobs:
   deploy-cloud-functions:

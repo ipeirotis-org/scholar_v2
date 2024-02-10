@@ -12,7 +12,7 @@ from data_access import get_firestore_cache, set_firestore_cache
 def get_author(author_id, use_cache=True):
 
     try:
-        url = 'https://northamerica-northeast1-scholar-version2.cloudfunctions.net/search_author_id'
+        url = 'https://northamerica-northeast2-scholar-version2.cloudfunctions.net/search_author_id'
         data = {'scholar_id': author_id, 'use_cache': use_cache}
         response = requests.post(url, data=json.dumps(data), headers={'Content-Type': 'application/json'})
         return response.json()
@@ -33,7 +33,7 @@ def get_publication(author_id, author_pub_id):
     for pub in pubs:
         if pub["author_pub_id"] == author_pub_id:
 
-            url = 'https://northamerica-northeast1-scholar-version2.cloudfunctions.net/fill_publication'
+            url = 'https://northamerica-northeast2-scholar-version2.cloudfunctions.net/fill_publication'
             data = {'pub': pub, 'use_cache': True}
             response = requests.post(url, data=json.dumps(data), headers={'Content-Type': 'application/json'})
 
