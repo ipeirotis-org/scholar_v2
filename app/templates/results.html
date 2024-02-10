@@ -40,7 +40,6 @@
                             <img class="plot" src="{{ path }}" alt="Generated Plot">
                         {% endfor %}
 
-
                         <center>
                         <a href="{{ url_for('download_results', author_id=author.get('scholar_id', 'N/A')) }}">
                             Download CSV for {{ author.get('name', 'N/A') }}
@@ -59,7 +58,11 @@
                             <tbody>
                                 {% for item in author.publications %}
                                     <tr>
-                                        <td>{{ item.title }}<br><i>{{ item.citation }}</i></td>
+                                        <td>
+                                            {{ item.title }}<br><i>{{ item.citation }}</i><br>
+                                            <!-- Add link to publication details page -->
+                                            <a href="{{ url_for('get_publication_details', author_id=author.get('scholar_id'), pub_id=item.pub_id) }}">View Details</a>
+                                        </td>
                                         <td>{{ item.pub_year }}</td>
                                         <td>{{ item.num_citations }}</td>
                                         <td>{{ item.percentile_score }}</td>
@@ -90,6 +93,7 @@
     </script>
 </body>
 </html>
+
 
 
 
