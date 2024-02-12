@@ -104,15 +104,16 @@ def refresh_authors(num_authors=1):
         if not author:
             continue
 
-        total_authors += 1
+        
 
         author_id = author.get("scholar_id")
         put_author_in_queue(author_id)
         
         publications = author.get("publications", [])
-        for pub in publications:
-            put_pub_in_queue(pub)
 
+        total_authors += 1
+        total_pubs += len(publications)
+        
         entry = {
             "doc_id": doc.id,
             "author_id": author_id,
