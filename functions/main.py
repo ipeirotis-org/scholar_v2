@@ -155,7 +155,7 @@ def get_author(author_id):
                     "http_method": tasks_v2.HttpMethod.POST,
                     "url": url,
                     'headers': {'Content-type': 'application/json'},
-                    'body': f'{{"pub": "{json.dumps(pub)}"}}'.encode()
+                    'body': json.dumps({"pub": pub}).encode()  # Correctly serialize the dictionary
                 }
             }
             response = client.create_task(request={"parent": pubs_queue, "task": task})
