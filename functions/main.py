@@ -114,7 +114,7 @@ def fill_publication(request):
     if not pub:
         return "Missing pub", 400
 
-    # pub = json.loads(pub)
+    pub = json.loads(pub)
     pub = fill_pub(pub)
     if pub is None:
         return "Error fill publication from Google Scholar", 500
@@ -155,7 +155,7 @@ def get_author(author_id):
                     "http_method": tasks_v2.HttpMethod.POST,
                     "url": url,
                     'headers': {'Content-type': 'application/json'},
-                    'body': json.dumps({"pub": pub}).encode()  # Correctly serialize the dictionary
+                    'body': f'{{"pub": "{json.dumps(pub)}"}}'.encode()
                 }
             }
             response = client.create_task(request={"parent": pubs_queue, "task": task})
@@ -163,11 +163,15 @@ def get_author(author_id):
         # Keep only the IDs and num_citations of the publications, to save space
         author["publications"] = [{"author_pub_id": pub['author_pub_id'], "num_citations": pub['num_citations'], "filled": False} for pub in author["publications"]]
 
-        # We leave the co-authors as-is. They tend to be short and we need names and affiliations
+       
         
         serialized = convert_integers_to_strings(json.loads(json.dumps(author)))
 
-        '''
+         # We leave the co-authors as-is, unless they do not fit in Firestore.
+        if len(json.dumps(serialized)) > 500000:
+            del author['coauthors']
+
+        # In extreme cases, we will truncate publications
         while True:
             serialized = convert_integers_to_strings(json.loads(json.dumps(author)))
             # This is a hack to deal with the fact that cache can only hold 0.5Mb docs
@@ -175,9 +179,10 @@ def get_author(author_id):
                 full = len(author["publications"])
                 half = int(full / 2)
                 author["publications"] = author["publications"][:half]
+                del author['coauthors']
             else:
                 break
-        '''
+
 
         try:
             set_firestore_cache("scholar_raw_author", author_id, serialized)

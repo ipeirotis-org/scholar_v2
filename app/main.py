@@ -41,26 +41,26 @@ def get_similar_authors_route():
 
 @app.route("/api/author/<author_id>")
 def get_author_route(author_id):
-
-    '''
+    """
     no_cache = request.args.get("no_cache")
     if no_cache: use_cache=False
     else: use_cache=True
-    '''
-        
+    """
+
     author = get_author(author_id)
     if author:
         return jsonify(author)
     else:
-        return jsonify({'message': 'Author not in database.'}), 404
+        return jsonify({"message": "Author not in database."}), 404
+
 
 @app.route("/api/author_stats/<author_id>")
 def get_author_stats_route(author_id):
     author_stats = get_author_stats(author_id)
     if author_stats:
-       return jsonify(author_stats)
+        return jsonify(author_stats)
     else:
-        return jsonify({'message': 'An error occurred'}), 503
+        return jsonify({"message": "An error occurred"}), 503
 
 
 @app.route("/api/author/<author_id>/publication/<pub_id>")
@@ -69,7 +69,7 @@ def get_publication_route(author_id, pub_id):
     if pub:
         return jsonify(pub)
     else:
-        return jsonify({'message': 'An error occurred'}), 503
+        return jsonify({"message": "An error occurred"}), 503
 
 
 @app.route("/api/refresh_authors")
@@ -79,12 +79,12 @@ def refresh_authors_route():
         num_authors = int(num_authors)
     except:
         num_authors = 1
-    
+
     result = refresh_authors(num_authors)
     if result:
-       return jsonify(result)
+        return jsonify(result)
     else:
-        return jsonify({'message': 'An error occurred'}), 503
+        return jsonify({"message": "An error occurred"}), 503
 
 
 @app.route("/results", methods=["GET"])
@@ -96,18 +96,17 @@ def results():
         return redirect(url_for("index"))
 
     author = get_author_stats(author_id)
-    plot_paths = generate_plot(pd.DataFrame(author['publications']), author["name"])
+    plot_paths = generate_plot(pd.DataFrame(author["publications"]), author["name"])
     author["plot_paths"] = plot_paths
     return render_template("results.html", author=author)
 
 
 @app.route("/download/<author_id>")
 def download_results(author_id):
-
     author = get_author_stats(author_id)
 
     # Check if there is data to download
-    if len(author['publications'])==0 :
+    if len(author["publications"]) == 0:
         flash("No publications found to download.")
         return redirect(url_for("index"))
 
@@ -117,7 +116,7 @@ def download_results(author_id):
 
     file_path = os.path.join(downloads_dir, f"{author_id}_results.csv")
 
-    pd.DataFrame(author['publications']).to_csv(file_path, index=False)
+    pd.DataFrame(author["publications"]).to_csv(file_path, index=False)
 
     return send_file(
         file_path, as_attachment=True, download_name=f"{author_id}_results.csv"

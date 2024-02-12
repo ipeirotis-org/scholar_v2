@@ -35,6 +35,7 @@ jobs:
           --trigger-http \
           --allow-unauthenticated \
           --gen2 \
+          --timeout=3600s \
           --source ./functions/
 
 
