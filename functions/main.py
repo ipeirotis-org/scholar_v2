@@ -114,7 +114,7 @@ def fill_publication(request):
     if not pub:
         return "Missing pub", 400
 
-    pub = json.loads(pub)
+    # pub = json.loads(pub)
     pub = fill_pub(pub)
     if pub is None:
         return "Error fill publication from Google Scholar", 500
@@ -155,7 +155,7 @@ def get_author(author_id):
                     "http_method": tasks_v2.HttpMethod.POST,
                     "url": url,
                     'headers': {'Content-type': 'application/json'},
-                    'body': f'{{"pub": "{pub}"}}'.encode()
+                    'body': f'{{"pub": "{json.dumps(pub)}"}}'.encode()
                 }
             }
             response = client.create_task(request={"parent": pubs_queue, "task": task})
