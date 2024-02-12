@@ -13,6 +13,12 @@ from google.cloud import tasks_v2
 db = firestore.Client()
 client = tasks_v2.CloudTasksClient()
 
+
+# Google Cloud project ID and queue location
+project = "scholar-version2"
+location = "northamerica-northeast1"
+
+
 # Construct the fully qualified queue name
 authors_queue = client.queue_path(project, location, "process-authors")
 pubs_queue = client.queue_path(project, location, "process-pubs")
