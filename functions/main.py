@@ -147,7 +147,7 @@ def get_author(author_id):
         author = scholarly.search_author_id(author_id)
         author = scholarly.fill(author)
 
-        
+
         for pub in author["publications"]:
             url = 'https://us-east5-scholar-version2.cloudfunctions.net/fill_publication'
             task = {
@@ -155,10 +155,11 @@ def get_author(author_id):
                     "http_method": tasks_v2.HttpMethod.POST,
                     "url": url,
                     'headers': {'Content-type': 'application/json'},
-                    'body': f'{{"pub": "{json.dumps(pub)}"}}'.encode()
+                    'body': json.dumps({"pub": pub}).encode()  # Correctly serialize the dictionary
                 }
             }
             response = client.create_task(request={"parent": pubs_queue, "task": task})
+
 
         # Keep only the IDs and num_citations of the publications, to save space
         abbrv = []
