@@ -17,19 +17,6 @@ def get_author(author_id):
     else:
         return None
     
-'''
-    try:
-        url = 'https://northamerica-northeast2-scholar-version2.cloudfunctions.net/search_author_id'
-        data = {'scholar_id': author_id, 'use_cache': use_cache}
-        response = requests.post(url, data=json.dumps(data), headers={'Content-Type': 'application/json'})
-        return response.json()
-    except Exception as e:
-        logging.error(f"Error fetching detailed author data: {e}")
-        return None
-'''
-
-
-    
 def get_publication(author_pub_id):
 
     cached_pub = get_firestore_cache("scholar_raw_pub", author_pub_id)
@@ -38,26 +25,6 @@ def get_publication(author_pub_id):
     else:
         return None
         
-
-    '''
-    cached_author = get_firestore_cache("scholar_raw_author", author_id)
-    if not cached_author:
-        author = get_author(author_id)
-        cached_author = get_firestore_cache("scholar_raw_author", author_id)
-
-    pubs = cached_author.get("publications")
-   
-    for pub in pubs:
-        if pub["author_pub_id"] == author_pub_id:
-
-            url = 'https://northamerica-northeast2-scholar-version2.cloudfunctions.net/fill_publication'
-            data = {'pub': pub, 'use_cache': True}
-            response = requests.post(url, data=json.dumps(data), headers={'Content-Type': 'application/json'})
-
-            return response.json()
-
-    return None
-    '''
 
 def get_similar_authors(author_name):
     # Check cache first
