@@ -114,6 +114,7 @@ def fill_publication(request):
     if not pub:
         return "Missing pub", 400
 
+    pub = json.loads(pub)
     pub = fill_pub(pub)
     if pub is None:
         return "Error fill publication from Google Scholar", 500
@@ -148,7 +149,7 @@ def get_author(author_id):
 
         
         for pub in author["publications"]:
-            url = 'https://northamerica-northeast2-scholar-version2.cloudfunctions.net/fill_publication'
+            url = 'https://us-central1-scholar-version2.cloudfunctions.net/fill_publication'
             task = {
                 "http_request": {
                     "http_method": tasks_v2.HttpMethod.POST,
