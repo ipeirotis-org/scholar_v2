@@ -82,8 +82,6 @@ def search_author_id(request):
     return response, 200
 
 
-
-
 @functions_framework.http
 def fill_publication(request):
     """HTTP Cloud Function.
@@ -127,34 +125,38 @@ def convert_integers_to_strings(data):
 
 
 def get_author(author_id):
-
     try:
-
         logging.info(f"Fetching author entry for {author_id}")
         author = scholarly.search_author_id(author_id)
         author = scholarly.fill(author)
 
-        
         for pub in author["publications"]:
-            url = 'https://northamerica-northeast2-scholar-version2.cloudfunctions.net/fill_publication'
+            url = "https://northamerica-northeast2-scholar-version2.cloudfunctions.net/fill_publication"
             task = {
                 "http_request": {
                     "http_method": tasks_v2.HttpMethod.POST,
                     "url": url,
-                    'headers': {'Content-type': 'application/json'},
-                    'body': f'{{"pub": "{pub}", "use_cache": {use_cache}}}'.encode()
+                    "headers": {"Content-type": "application/json"},
+                    "body": f'{{"pub": "{pub}", "use_cache": {use_cache}}}'.encode(),
                 }
             }
             response = client.create_task(request={"parent": pubs_queue, "task": task})
 
         # Keep only the IDs and num_citations of the publications, to save space
-        author["publications"] = [{"author_pub_id": pub['author_pub_id'], "num_citations": pub['num_citations'], "filled": False} for pub in author["publications"]]
+        author["publications"] = [
+            {
+                "author_pub_id": pub["author_pub_id"],
+                "num_citations": pub["num_citations"],
+                "filled": False,
+            }
+            for pub in author["publications"]
+        ]
 
         # We leave the co-authors as-is. They tend to be short and we need names and affiliations
-        
+
         serialized = convert_integers_to_strings(json.loads(json.dumps(author)))
 
-        '''
+        """
         while True:
             serialized = convert_integers_to_strings(json.loads(json.dumps(author)))
             # This is a hack to deal with the fact that cache can only hold 0.5Mb docs
@@ -164,16 +166,15 @@ def get_author(author_id):
                 author["publications"] = author["publications"][:half]
             else:
                 break
-        '''
+        """
 
         try:
             set_firestore_cache("scholar_raw_author", author_id, serialized)
-            logging.error(f"Error storing author entry {author_id} in Firebase: {e}")
+
         except:
-            
+            logging.error(f"Error storing author entry {author_id} in Firebase: {e}")
 
         return serialized
-
 
     except Exception as e:
         logging.error(f"Error fetching detailed author data for {author_id}: {e}")
@@ -181,7 +182,6 @@ def get_author(author_id):
 
 
 def fill_pub(pub):
-
     try:
         logging.info(f"Fetching pub entry for publication {pub['author_pub_id']}")
         pub = scholarly.fill(pub)
@@ -191,9 +191,7 @@ def fill_pub(pub):
         return serialized
 
     except Exception as e:
-        logging.error(f"Error fetching detailed data for publication {pub['author_pub_id']}: {e}")
+        logging.error(
+            f"Error fetching detailed data for publication {pub['author_pub_id']}: {e}"
+        )
         return None
-
-
-
-
