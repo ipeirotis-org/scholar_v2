@@ -9,8 +9,15 @@ from data_access import get_firestore_cache, set_firestore_cache
 
 
 
-def get_author(author_id, use_cache=True):
+def get_author(author_id):
 
+    cached_author = get_firestore_cache("scholar_raw_author", author_id)
+    if cached_author:
+        return cached_author
+    else:
+        return None
+    
+'''
     try:
         url = 'https://northamerica-northeast2-scholar-version2.cloudfunctions.net/search_author_id'
         data = {'scholar_id': author_id, 'use_cache': use_cache}
@@ -19,10 +26,20 @@ def get_author(author_id, use_cache=True):
     except Exception as e:
         logging.error(f"Error fetching detailed author data: {e}")
         return None
+'''
+
 
     
-def get_publication(author_id, author_pub_id):
+def get_publication(author_pub_id):
 
+    cached_pub = get_firestore_cache("scholar_raw_pub", author_pub_id)
+    if cached_pub:
+        return cached_pub
+    else:
+        return None
+        
+
+    '''
     cached_author = get_firestore_cache("scholar_raw_author", author_id)
     if not cached_author:
         author = get_author(author_id)
@@ -40,7 +57,7 @@ def get_publication(author_id, author_pub_id):
             return response.json()
 
     return None
-
+    '''
 
 def get_similar_authors(author_name):
     # Check cache first

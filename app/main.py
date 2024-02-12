@@ -41,16 +41,18 @@ def get_similar_authors_route():
 
 @app.route("/api/author/<author_id>")
 def get_author_route(author_id):
-    
+
+    '''
     no_cache = request.args.get("no_cache")
     if no_cache: use_cache=False
     else: use_cache=True
+    '''
         
-    author = get_author(author_id,use_cache)
+    author = get_author(author_id)
     if author:
         return jsonify(author)
     else:
-        return jsonify({'message': 'An error occurred'}), 503
+        return jsonify({'message': 'Author not in database.'}), 404
 
 @app.route("/api/author_stats/<author_id>")
 def get_author_stats_route(author_id):

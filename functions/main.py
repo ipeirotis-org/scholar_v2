@@ -67,12 +67,12 @@ def search_author_id(request):
     request_args = request.args
 
     scholar_id = request_json.get("scholar_id", request_args.get("scholar_id"))
-    use_cache = request_json.get("use_cache", request_args.get("use_cache"))
+    # use_cache = request_json.get("use_cache", request_args.get("use_cache"))
 
     if not scholar_id:
         return "Missing author id", 400
 
-    author = get_author(scholar_id, use_cache)
+    author = get_author(scholar_id)
     if author is None:
         return "Error getting data from Google Scholar", 500
 
@@ -80,6 +80,8 @@ def search_author_id(request):
     response.headers["Content-Type"] = "application/json"
 
     return response, 200
+
+
 
 
 @functions_framework.http
@@ -95,12 +97,12 @@ def fill_publication(request):
     request_args = request.args
 
     pub = request_json.get("pub", request_args.get("pub"))
-    use_cache = request_json.get("use_cache", request_args.get("use_cache"))
+    # use_cache = request_json.get("use_cache", request_args.get("use_cache"))
 
     if not pub:
         return "Missing pub", 400
 
-    pub = fill_pub(pub, use_cache)
+    pub = fill_pub(pub)
     if pub is None:
         return "Error fill pblication from Google Scholar", 500
 
@@ -124,18 +126,35 @@ def convert_integers_to_strings(data):
         return data
 
 
-def get_author(author_id, use_cache):
-    if use_cache:
-        cached_data = get_firestore_cache("scholar_raw_author", author_id)
-        if cached_data:
-            logging.info(f"Cache hit for raw scholar data for author: '{author_id}'.")
-            return cached_data
+def get_author(author_id):
 
     try:
+
         logging.info(f"Fetching author entry for {author_id}")
         author = scholarly.search_author_id(author_id)
         author = scholarly.fill(author)
 
+        
+        for pub in author["publications"]:
+            url = 'https://northamerica-northeast2-scholar-version2.cloudfunctions.net/fill_publication'
+            task = {
+                "http_request": {
+                    "http_method": tasks_v2.HttpMethod.POST,
+                    "url": url,
+                    'headers': {'Content-type': 'application/json'},
+                    'body': f'{{"pub": "{pub}", "use_cache": {use_cache}}}'.encode()
+                }
+            }
+            response = client.create_task(request={"parent": pubs_queue, "task": task})
+
+        # Keep only the IDs and num_citations of the publications, to save space
+        author["publications"] = [{"author_pub_id": pub['author_pub_id'], "num_citations": pub['num_citations'], "filled": False} for pub in author["publications"]]
+
+        # We leave the co-authors as-is. They tend to be short and we need names and affiliations
+        
+        serialized = convert_integers_to_strings(json.loads(json.dumps(author)))
+
+        '''
         while True:
             serialized = convert_integers_to_strings(json.loads(json.dumps(author)))
             # This is a hack to deal with the fact that cache can only hold 0.5Mb docs
@@ -145,23 +164,23 @@ def get_author(author_id, use_cache):
                 author["publications"] = author["publications"][:half]
             else:
                 break
+        '''
 
-        set_firestore_cache("scholar_raw_author", author_id, serialized)
+        try:
+            set_firestore_cache("scholar_raw_author", author_id, serialized)
+            logging.error(f"Error storing author entry {author_id} in Firebase: {e}")
+        except:
+            
+
         return serialized
 
+
     except Exception as e:
-        logging.error(f"Error fetching detailed author data: {e}")
+        logging.error(f"Error fetching detailed author data for {author_id}: {e}")
         return None
 
 
-def fill_pub(pub, use_cache):
-    if use_cache:
-        cached_data = get_firestore_cache("scholar_raw_pub", pub["author_pub_id"])
-        if cached_data:
-            logging.info(
-                f"Cache hit for raw scholar data for publication: '{pub['author_pub_id']}'."
-            )
-            return cached_data
+def fill_pub(pub):
 
     try:
         logging.info(f"Fetching pub entry for publication {pub['author_pub_id']}")
@@ -172,5 +191,9 @@ def fill_pub(pub, use_cache):
         return serialized
 
     except Exception as e:
-        logging.error(f"Error fetching detailed author data: {e}")
+        logging.error(f"Error fetching detailed data for publication {pub['author_pub_id']}: {e}")
         return None
+
+
+
+
