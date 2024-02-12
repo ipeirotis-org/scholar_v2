@@ -18,8 +18,7 @@ import pandas as pd
 from scholar import get_author, get_similar_authors, get_publication
 from data_analysis import get_author_stats
 from visualization import generate_plot
-from refresh_authors_queue import refresh_authors
-
+from queue_handler import refresh_authors
 
 logging.basicConfig(level=logging.INFO)
 
