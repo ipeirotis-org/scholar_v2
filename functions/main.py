@@ -161,9 +161,20 @@ def get_author(author_id):
             response = client.create_task(request={"parent": pubs_queue, "task": task})
 
         # Keep only the IDs and num_citations of the publications, to save space
-        author["publications"] = [{"author_pub_id": pub['author_pub_id'], "num_citations": pub['num_citations'], "filled": False} for pub in author["publications"]]
+        abbrv = []
+        for pub in author["publications"]:
+            if not pub.get('author_pub_id'): continue
+                
+            entry = {
+                "author_pub_id": pub.get('author_pub_id'), 
+                "num_citations": pub.get('num_citations',0), 
+                "filled": False,
+                "bib": None
+            }
+            if "bib" in pub and "year" in pub['bib']:
+                entry['bib']['year'] = pub['bib']['year'] 
 
-       
+        author["publications"] = abbrv
         
         serialized = convert_integers_to_strings(json.loads(json.dumps(author)))
 
@@ -179,7 +190,6 @@ def get_author(author_id):
                 full = len(author["publications"])
                 half = int(full / 2)
                 author["publications"] = author["publications"][:half]
-                del author['coauthors']
             else:
                 break
 
