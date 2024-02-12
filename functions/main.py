@@ -114,7 +114,7 @@ def fill_publication(request):
     if not pub:
         return "Missing pub", 400
 
-    pub = json.loads(pub)
+    # pub = json.loads(pub)
     pub = fill_pub(pub)
     if pub is None:
         return "Error fill publication from Google Scholar", 500
