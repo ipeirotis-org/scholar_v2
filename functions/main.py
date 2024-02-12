@@ -171,8 +171,8 @@ def get_author(author_id):
                 "filled": False,
                 "bib": None
             }
-            if "bib" in pub and "year" in pub['bib']:
-                entry['bib']['year'] = pub['bib']['year']
+            if "bib" in pub and "pub_year" in pub['bib']:
+                entry['bib']['pub_year'] = pub['bib']['pub_year']
 
             abbrv.append(entry)
 
