@@ -11,6 +11,11 @@ from google.cloud import firestore
 from google.cloud import tasks_v2
 
 db = firestore.Client()
+client = tasks_v2.CloudTasksClient()
+
+# Construct the fully qualified queue name
+authors_queue = client.queue_path(project, location, "process-authors")
+pubs_queue = client.queue_path(project, location, "process-pubs")
 
 
 def get_firestore_cache(collection, doc_id):
