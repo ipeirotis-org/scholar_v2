@@ -78,7 +78,7 @@ def refresh_authors_route():
     try:
         scholar_ids = scholar_ids_arg.split(",")
     except:
-        scholar_ids = []
+        scholar_ids = None
     
     num_authors = request.args.get("num_authors")
     try:
