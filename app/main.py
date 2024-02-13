@@ -86,6 +86,7 @@ def refresh_authors_route():
         return jsonify({"message": "An error occurred"}), 503
 
 
+
 @app.route("/results", methods=["GET"])
 def results():
     author_id = request.args.get("author_id", "")

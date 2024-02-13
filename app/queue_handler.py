@@ -90,11 +90,29 @@ def get_authors_to_refresh(num_authors=1):
 
     return author_ids
 
+def get_authors_to_fix(num_authors=10):
+
+    QUERY = f'''
+        SELECT
+          *
+        FROM
+          `scholar-version2.firestore_views.debug_authors_missing_pubs_in_db`
+        WHERE
+          pubs_in_pubsdb = 0
+        LIMIT {num_authors}
+    '''
+    
+    query_job = bq.query(QUERY)
+    results = query_job.result()  # Waits for the query to finish
+    df = results.to_dataframe()
+    refresh = df.scholar_id.values
+    return [r for r in refresh]
+
 
 def refresh_authors(refresh, num_authors=1):
 
     if refresh is None:
-        refresh = get_authors_to_refresh(num_authors)
+        refresh = get_authors_to_fix(num_authors)
     
     total_authors = 0
     total_pubs = 0
