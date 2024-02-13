@@ -28,17 +28,17 @@ def put_author_in_queue(author_id):
     fetch a new copy of the author, we also fetch 
     '''
 
-    url = "https://us-east1-scholar-version2.cloudfunctions.net/search_author_id"
-    # Construct the request body
-    payload = json.dumps({"scholar_id": author_id})
-
     existing_tasks = tasks.list_tasks(request={"parent": authors_queue})
     for task in existing_tasks:
-        if payload == task.payload:
+        if author_id == task.name:
             # If a duplicate task is found, return without enqueueing
             return
 
     
+    url = "https://us-east1-scholar-version2.cloudfunctions.net/search_author_id"
+
+
+    payload = json.dumps({"scholar_id": author_id})
     task = {
         "http_request": {
             "http_method": tasks_v2.HttpMethod.POST,
@@ -48,7 +48,7 @@ def put_author_in_queue(author_id):
         }
     }
     # Add the task to the queue
-    response = tasks.create_task(request={"parent": authors_queue, "task": task})
+    response = tasks.create_task(request={"parent": authors_queue, "task": task, "name": author_id})
 
 
 def put_pub_in_queue(pub_entry):
