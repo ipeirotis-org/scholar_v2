@@ -31,7 +31,7 @@
 
 
                             <li>H-index: {{ author.stats.hindex }}
-                                ({{ (100*author.stats.hindex5y_percentile)|round(2) }}% percentile)</li>&nbsp;<i class="bi bi-question-circle-fill" data-toggle="tooltip" title="The h-index of the author and their percentile rank compared to other authors who started publishing in {{ author.stats.year_of_first_pub }}."></i>                  </li>
+                                ({{ (100*author.stats.hindex5y_percentile)|round(2) }}% percentile)&nbsp;<i class="bi bi-question-circle-fill" data-toggle="tooltip" title="The h-index of the author and their percentile rank compared to other authors who started publishing in {{ author.stats.year_of_first_pub }}."></i>                  </li>
                             
                             <li>Total Publications: {{ author.stats.total_publications_with_citations }}
                                 ({{ (100*author.stats.total_publications_with_citations_percentile)|round(2) }}% percentile)&nbsp;<i class="bi bi-question-circle-fill" data-toggle="tooltip" title="The total number of publications (with at least one citation) by the author, and their percentile rank compared to other authors who started publishing in {{ author.stats.year_of_first_pub }}."></i>
