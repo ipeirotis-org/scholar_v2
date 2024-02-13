@@ -152,10 +152,11 @@ def get_author(author_id):
     try:
         logging.info(f"Putting publications in queue for author {author_id}")
         for pub in author["publications"]:
-            url = (
-                "https://us-east1-scholar-version2.cloudfunctions.net/fill_publication"
-            )
+            url = "https://us-east1-scholar-version2.cloudfunctions.net/fill_publication"
+            task_name = f"projects/{project}/locations/{location}/queues/process-pubs/tasks/{pub['author_pub_id']}"
+    
             task = {
+                "name": task_name,
                 "http_request": {
                     "http_method": tasks_v2.HttpMethod.POST,
                     "url": url,
