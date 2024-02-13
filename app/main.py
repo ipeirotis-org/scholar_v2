@@ -129,7 +129,7 @@ def download_results(author_id):
 
 
 @app.route("/publication")
-def get_publication_details(pub_id):
+def get_publication_details(author_id, pub_id):
     return render_template("error.html")
 
 @app.route("/error")

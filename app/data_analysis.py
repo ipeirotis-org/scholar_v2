@@ -182,9 +182,9 @@ def calculate_author_stats(publications):
     return {
         "total_publications": len(publications),
         "total_publications_percentile": total_publications_percentile,
-        "pip_auc": pip_auc_score,
-        "pip_auc_percentile": pip_auc_percentile,
-        "first_year_active": first_year_active,
+        "pip_auc_score": pip_auc_score,
+        "pip_auc_score_percentile": pip_auc_percentile,
+        "year_of_first_pub": first_year_active,
         "years_active": years_active,
     }
 

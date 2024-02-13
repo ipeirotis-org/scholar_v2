@@ -65,7 +65,7 @@
                                         <td>
                                             {{ item.title }}<br><i>{{ item.citation }}</i><br>
                                             <!-- Add link to publication details page -->
-                                            <a href="{{ url_for('get_publication_details', author_id=author.get('scholar_id'), pub_id=item.pub_id) }}">View Details</a>
+                                            <a href="{{ url_for('get_publication_details', author_id=author.get('scholar_id'), pub_id=item.author_pub_id) }}">View Details</a>
                                         </td>
                                         <td>{{ item.pub_year }}</td>
                                         <td>{{ item.num_citations }}</td>
