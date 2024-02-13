@@ -96,7 +96,8 @@ def get_author_stats(author_id):
 
     author_pub_stats = get_firestore_cache("author_pub_stats",author_id)
     if not author_pub_stats:
-        author_pub_stats= get_author_pub_stats_bg(author_id)
+        author_pub_stats = get_author_pub_stats_bg(author_id)
+        if len(author_pub_stats) == 0: return None
         set_firestore_cache("author_pub_stats",author_id,author_pub_stats)
     author['publications'] = author_pub_stats
 
@@ -104,6 +105,7 @@ def get_author_stats(author_id):
     author_stats = get_firestore_cache("author_stats",author_id)
     if not author_stats:
         author_stats = get_author_stats_bg(author_id)
+        if not author_stats: return None
         set_firestore_cache("author_stats",author_id,author_stats)
     author['stats'] = author_stats
 
