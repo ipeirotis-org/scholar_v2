@@ -62,8 +62,11 @@ def put_pub_in_queue(pub_entry):
     fetch a new copy of the author, we also fetch 
     '''
 
+    task_name = f"projects/{project}/locations/{location}/queues/process-pubs/tasks/{pub_entry['author_pub_id']}"
+    
     url = "https://us-east1-scholar-version2.cloudfunctions.net/fill_publication"
     task = {
+        "name": task_name,
         "http_request": {
             "http_method": tasks_v2.HttpMethod.POST,
             "url": url,
