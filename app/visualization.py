@@ -8,6 +8,8 @@ import os
 def generate_plot(dataframe, author_name):
     plot_paths = []
     pip_auc_score = 0
+
+    dataframe['age'] = 2025 - dataframe['pub_year']
     try:
         cleaned_name = "".join([c if c.isalnum() else "_" for c in author_name])
         fig = Figure(figsize=(20, 10), dpi=100)
@@ -19,8 +21,8 @@ def generate_plot(dataframe, author_name):
 
         # First subplot (Rank vs Percentile Score)
         scatter1 = ax1.scatter(
-            dataframe["paper_rank"],
-            dataframe["percentile_score"],
+            dataframe["publication_rank"],
+            dataframe["num_citations_percentile"],
             c=dataframe["age"],
             cmap="Blues_r",
             s=marker_size,
@@ -36,7 +38,7 @@ def generate_plot(dataframe, author_name):
         # Second subplot (Productivity Percentiles)
         scatter2 = ax2.scatter(
             dataframe["num_papers_percentile"],
-            dataframe["percentile_score"],
+            dataframe["num_citations_percentile"],
             c=dataframe["age"],
             cmap="Blues_r",
             s=marker_size,

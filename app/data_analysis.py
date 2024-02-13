@@ -4,7 +4,7 @@ import logging
 import datetime
 from data_access import get_firestore_cache, set_firestore_cache
 from scholar import get_author, get_publication, get_author_publications
-
+from google.cloud import bigquery
 logging.basicConfig(level=logging.INFO)
 
 # Load the dataframes at the start of the module
@@ -20,6 +20,45 @@ author_percentiles = pd.read_csv(url_author_percentiles).set_index(
 
 url_pip_auc_percentiles = "../data/pip-auc-percentiles.csv"
 pip_auc_percentiles_df = pd.read_csv(url_pip_auc_percentiles)
+
+
+
+def get_author_pub_stats_bg(author_id):
+    SQL = f'''
+        WITH
+          pub_details AS ( (
+            SELECT
+              JSON_EXTRACT_SCALAR(DATA, '$.data.author_pub_id') AS author_pub_id,
+              JSON_EXTRACT_SCALAR(DATA, '$.data.bib.title') AS title,
+              JSON_EXTRACT_SCALAR(DATA, '$.data.bib.citation') AS citation,
+              CAST(JSON_EXTRACT_SCALAR(DATA, '$.data.bib.pub_year') AS INT64) AS pub_year,
+              CAST(JSON_EXTRACT_SCALAR(DATA, '$.data.num_citations') AS INT64) AS num_citations
+            FROM
+              `scholar-version2.firestore_export.scholar_raw_pub_raw_latest` ) )
+        SELECT
+          P.*,
+          S.num_citations_percentile,
+          S.publication_rank,
+          S.num_papers_percentile
+        FROM
+          `scholar-version2.statistics.author_pub_stats` S
+        JOIN
+          pub_details P
+        ON
+          P.author_pub_id = S.author_pub_id
+        WHERE
+          S.scholar_id = '{author_id}'
+        ORDER BY
+          S.publication_rank
+    '''
+
+
+    bq = bigquery.Client()
+    query_job = bq.query(SQL)
+    results = query_job.result()  # Waits for the query to finish
+    df = results.to_dataframe()
+    list_of_dicts = df.to_dict('records')
+    return list_of_dicts
 
 
 def get_numpaper_percentiles(year):
@@ -229,6 +268,7 @@ def get_author_stats(author_id):
     
     if not author: return None
 
+    '''
     pubs = []
     author_pubs = get_author_publications(author_id)
     for p in author_pubs:
@@ -239,6 +279,8 @@ def get_author_stats(author_id):
         author['publications'] = calculate_publication_stats(pubs)
     else:
         author['publications'] = []
+    '''
+    author['publications'] = get_author_pub_stats_bg(author_id)
 
     full_stats = get_firestore_cache("author_stats",author_id)
     if full_stats:
