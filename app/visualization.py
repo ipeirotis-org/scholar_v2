@@ -10,6 +10,9 @@ def generate_plot(dataframe, author_name):
     pip_auc_score = 0
 
     dataframe['age'] = 2025 - dataframe['pub_year']
+    dataframe["num_citations_percentile"] = 100 * dataframe["num_citations_percentile"]
+    dataframe["num_papers_percentile"] = 100 * dataframe["num_papers_percentile"]
+    
     try:
         cleaned_name = "".join([c if c.isalnum() else "_" for c in author_name])
         fig = Figure(figsize=(20, 10), dpi=100)
