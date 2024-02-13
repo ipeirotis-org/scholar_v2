@@ -72,8 +72,6 @@ def get_author_stats_bg(author_id):
           P.scholar_id = S.scholar_id
         WHERE
           S.scholar_id = '{author_id}'
-        ORDER BY
-          S.publication_rank
     '''
 
 
