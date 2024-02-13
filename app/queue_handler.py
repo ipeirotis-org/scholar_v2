@@ -28,9 +28,11 @@ def put_author_in_queue(author_id):
     fetch a new copy of the author, we also fetch 
     '''
 
+    task_name = f"projects/{project}/locations/{location}/queues/process-authors/tasks/{author_id}"
+
     existing_tasks = tasks.list_tasks(request={"parent": authors_queue})
     for task in existing_tasks:
-        if author_id == task.name:
+        if task_name == task.name:
             # If a duplicate task is found, return without enqueueing
             return
 
@@ -40,7 +42,7 @@ def put_author_in_queue(author_id):
 
     payload = json.dumps({"scholar_id": author_id})
     task = {
-        "name": author_id,
+        "name": task_name,
         "http_request": {
             "http_method": tasks_v2.HttpMethod.POST,
             "url": url,
