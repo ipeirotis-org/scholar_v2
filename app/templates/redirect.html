@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Redirecting...</title>
+    <script>
+        // Function to redirect back to /results after a delay
+        function redirect() {
+            // Display a message indicating that the author is in the queue
+            document.getElementById("message").innerText = "Author is in queue for processing. Please wait...";
+            // Wait for 5 seconds before redirecting
+            setTimeout(function() {
+                window.location.href = "/results?author_id={{ author_id }}"; // Replace {{ author_id }} with the actual author_id
+            }, 5000); // 5000 milliseconds = 5 seconds
+        }
+    </script>
+</head>
+<body onload="redirect()">
+    <div id="message"></div>
+</body>
+</html>
