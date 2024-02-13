@@ -21,21 +21,28 @@
                             <li>Author Name: {{ author.get('name', 'N/A') }}</li>
                             <li>Current Affiliation: {{ author.get('affiliation', 'N/A') }}</li>
                             <li>Google Scholar ID: {{ author.get('scholar_id', 'N/A') }}</li>
-                            <li>Total Citations: {{ author.get('citedby', 'N/A') }}</li>
 
-                            <li>First Year Active: {{ author.stats.first_year_active }} ({{ author.stats.years_active }} years active)</li>
-
-
-                            <li>H-index: {{ author.get('hindex', 'N/A') }}
-                                ({{ 100*author.stats.get('hindex5y_percentile', 'N/A') }}% percentile)</li>                            
-                            <li>Total Publications: {{ author.stats.total_publications }}
-                                ({{ 100*author.stats.total_publications_percentile }}% percentile)&nbsp;<i class="bi bi-question-circle-fill" data-toggle="tooltip" title="The total number of publications by the author and their percentile rank compared to other authors who started publishing in {{ author.stats.first_year_active }}."></i>
+                            <li>First Year Active: {{ author.stats.year_of_first_pub }} ({{ 2024 - author.stats.year_of_first_pub + 1 }} years active)</li>
+                            
+                            <li>Total Citations: {{ author.stats.citedby }}
+                                ({{ 100*author.stats.citedby_percentile|round(2) }}% percentile)&nbsp;<i class="bi bi-question-circle-fill" data-toggle="tooltip" title="The total number of citations by the author and their percentile rank compared to other authors who started publishing in {{ author.stats.year_of_first_pub }}."></i>
                             </li>
+
+
+
+                            <li>H-index: {{ author.stats.hindex }}
+                                ({{ 100*author.stats.hindex5y_percentile|round(2) }}% percentile)</li>                            
+                            <li>Total Publications: {{ author.stats.total_publications }}
+                                ({{ 100*author.stats.total_publications_percentile|round(2) }}% percentile)&nbsp;<i class="bi bi-question-circle-fill" data-toggle="tooltip" title="The total number of publications by the author and their percentile rank compared to other authors who started publishing in {{ author.stats.year_of_first_pub }}."></i>
+                            </li>
+
+
+                            
                             <li>
                                 <strong>
-                                PiP-AUC Score: {{ author.stats.pip_auc }} 
-                                ({{ 100*author.stats.pip_auc_score_percentile }}% percentile)
-                                </strong>&nbsp;<i class="bi bi-question-circle-fill" data-toggle="tooltip" title="PiP-AUC Score represents the author's impact and productivity, with its percentile indicating the rank compared to other authors who started publishing in {{ author.stats.first_year_active }}."></i>
+                                PiP-AUC Score: {{ author.stats.pip_auc_score }} 
+                                ({{ 100*author.stats.pip_auc_score_percentile|round(2) }}% percentile)
+                                </strong>&nbsp;<i class="bi bi-question-circle-fill" data-toggle="tooltip" title="PiP-AUC Score represents the author's impact and productivity, with its percentile indicating the rank compared to other authors who started publishing in {{ author.stats.year_of_first_pub }}."></i>
                             </li>
                         </ul>
                         </div>
