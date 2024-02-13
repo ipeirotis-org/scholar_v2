@@ -40,6 +40,7 @@ def put_author_in_queue(author_id):
 
     payload = json.dumps({"scholar_id": author_id})
     task = {
+        "name": author_id,
         "http_request": {
             "http_method": tasks_v2.HttpMethod.POST,
             "url": url,
@@ -48,7 +49,7 @@ def put_author_in_queue(author_id):
         }
     }
     # Add the task to the queue
-    response = tasks.create_task(request={"parent": authors_queue, "task": task, "name": author_id})
+    response = tasks.create_task(request={"parent": authors_queue, "task": task})
 
 
 def put_pub_in_queue(pub_entry):
