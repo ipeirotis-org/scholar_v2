@@ -73,13 +73,24 @@ def get_publication_route(author_id, pub_id):
 
 @app.route("/api/refresh_authors")
 def refresh_authors_route():
+
+    scholar_ids_arg = request.args.get("scholar_ids")
+    try:
+        scholar_ids = scholar_ids_arg.split(",")
+    except:
+        scholar_ids = []
+    
     num_authors = request.args.get("num_authors")
     try:
         num_authors = int(num_authors)
     except:
         num_authors = 1
 
-    result = refresh_authors(num_authors)
+    if scholar_ids:
+        result = refresh_authors(scholar_ids, num_authors=num_authors)
+    else:
+        result = refresh_authors(num_authors=num_authors)
+        
     if result:
         return jsonify(result)
     else:

@@ -109,7 +109,7 @@ def get_authors_to_fix(num_authors=10):
     return [r for r in refresh]
 
 
-def refresh_authors(refresh, num_authors=1):
+def refresh_authors(refresh=[], num_authors=1):
 
     if refresh is None:
         refresh = get_authors_to_fix(num_authors)
