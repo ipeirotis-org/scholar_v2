@@ -30,14 +30,21 @@ def put_author_in_queue(author_id):
 
     url = "https://us-east1-scholar-version2.cloudfunctions.net/search_author_id"
     # Construct the request body
+    payload = json.dumps({"scholar_id": author_id})
+
+    existing_tasks = tasks.list_tasks(request={"parent": authors_queue})
+    for task in existing_tasks:
+        if payload == task.payload:
+            # If a duplicate task is found, return without enqueueing
+            return
+
+    
     task = {
         "http_request": {
             "http_method": tasks_v2.HttpMethod.POST,
             "url": url,
             'headers': {'Content-type': 'application/json'},
-            'body': json.dumps(
-                {"scholar_id": author_id}
-            ).encode(),
+            'body': payload.encode(),
         }
     }
     # Add the task to the queue
@@ -111,7 +118,7 @@ def get_authors_to_fix(num_authors=10):
 
 def refresh_authors(refresh=[], num_authors=1):
 
-    if refresh is None:
+    if len(refresh)==0:
         refresh = get_authors_to_fix(num_authors)
     
     total_authors = 0
