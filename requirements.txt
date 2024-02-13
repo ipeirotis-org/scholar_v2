@@ -6,7 +6,7 @@ Werkzeug==2.0.1
 pytz==2022.1
 matplotlib
 google-cloud-firestore
-google-cloud-bigquery
+google-cloud-bigquery[all]
 google-cloud-secret-manager
 google-cloud-tasks
 
