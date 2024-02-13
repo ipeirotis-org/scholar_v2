@@ -76,7 +76,7 @@
                                         </td>
                                         <td>{{ item.pub_year }}</td>
                                         <td>{{ item.num_citations }}</td>
-                                        <td>{{ item.percentile_score }}</td>
+                                        <td>{{ 100*item.num_citations_percentile|round(2) }}%</td>
                                     </tr>
                                 {% endfor %}
                             </tbody>
