@@ -18,7 +18,7 @@ import pandas as pd
 from scholar import get_author, get_similar_authors, get_publication
 from data_analysis import get_author_stats
 from visualization import generate_plot
-from queue_handler import refresh_authors
+from queue_handler import refresh_authors, put_author_in_queue
 
 logging.basicConfig(level=logging.INFO)
 
@@ -97,15 +97,15 @@ def results():
 
     author = get_author_stats(author_id)
 
-    # If there is no author, we put the author in the 
-    # queue to fetch, and we wait for the data to come back
+    # If there is no author, put the author in the queue and render redirect.html
     if not author:
-        render(f"redirect.html?author_id={author_id}")
+        put_author_in_queue(author_id)
+        return render_template("redirect.html", author_id=author_id)
     
     plot_paths = generate_plot(pd.DataFrame(author["publications"]), author["name"])
     author["plot_paths"] = plot_paths
     return render_template("results.html", author=author)
-
+    
 
 @app.route("/download/<author_id>")
 def download_results(author_id):
