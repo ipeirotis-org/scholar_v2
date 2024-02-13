@@ -95,6 +95,12 @@ def results():
         return redirect(url_for("index"))
 
     author = get_author_stats(author_id)
+
+    # If there is no author, we put the author in the 
+    # queue to fetch, and we wait for the data to come back
+    if not author:
+        render(f"redirect.html?author_id={author_id}")
+    
     plot_paths = generate_plot(pd.DataFrame(author["publications"]), author["name"])
     author["plot_paths"] = plot_paths
     return render_template("results.html", author=author)
@@ -121,6 +127,10 @@ def download_results(author_id):
         file_path, as_attachment=True, download_name=f"{author_id}_results.csv"
     )
 
+
+@app.route("/publication")
+def get_publication_details(pub_id):
+    return render_template("error.html")
 
 @app.route("/error")
 def error():

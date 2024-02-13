@@ -22,16 +22,20 @@
                             <li>Current Affiliation: {{ author.get('affiliation', 'N/A') }}</li>
                             <li>Google Scholar ID: {{ author.get('scholar_id', 'N/A') }}</li>
                             <li>Total Citations: {{ author.get('citedby', 'N/A') }}</li>
-                            <li>H-index: {{ author.get('hindex', 'N/A') }}</li>
+
                             <li>First Year Active: {{ author.stats.first_year_active }} ({{ author.stats.years_active }} years active)</li>
+
+
+                            <li>H-index: {{ author.get('hindex', 'N/A') }}
+                                ({{ 100*author.stats.get('hindex5y_percentile', 'N/A') }}% percentile)</li>                            
                             <li>Total Publications: {{ author.stats.total_publications }}
-                                ({{ author.stats.total_publications_percentile }}% percentile)&nbsp;<i class="bi bi-question-circle-fill" data-toggle="tooltip" title="The total number of publications by the author and their percentile rank compared to other authors who have been active for the same number of years."></i>
+                                ({{ 100*author.stats.total_publications_percentile }}% percentile)&nbsp;<i class="bi bi-question-circle-fill" data-toggle="tooltip" title="The total number of publications by the author and their percentile rank compared to other authors who started publishing in {{ author.stats.first_year_active }}."></i>
                             </li>
                             <li>
                                 <strong>
                                 PiP-AUC Score: {{ author.stats.pip_auc }} 
-                                ({{ 100*author.stats.pip_auc_percentile }}% percentile)
-                                </strong>&nbsp;<i class="bi bi-question-circle-fill" data-toggle="tooltip" title="PiP-AUC Score represents the author's impact and productivity, with its percentile indicating the rank compared to other authors."></i>
+                                ({{ 100*author.stats.pip_auc_score_percentile }}% percentile)
+                                </strong>&nbsp;<i class="bi bi-question-circle-fill" data-toggle="tooltip" title="PiP-AUC Score represents the author's impact and productivity, with its percentile indicating the rank compared to other authors who started publishing in {{ author.stats.first_year_active }}."></i>
                             </li>
                         </ul>
                         </div>
@@ -61,7 +65,7 @@
                                         <td>
                                             {{ item.title }}<br><i>{{ item.citation }}</i><br>
                                             <!-- Add link to publication details page -->
-                                            <!-- a href="{{ url_for('get_publication_details', author_id=author.get('scholar_id'), pub_id=item.pub_id) }}">View Details</a -->
+                                            <a href="{{ url_for('get_publication_details', author_id=author.get('scholar_id'), pub_id=item.pub_id) }}">View Details</a>
                                         </td>
                                         <td>{{ item.pub_year }}</td>
                                         <td>{{ item.num_citations }}</td>

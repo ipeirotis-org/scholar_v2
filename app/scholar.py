@@ -4,6 +4,8 @@ from datetime import datetime
 import pytz
 import json
 import requests
+from google.cloud import firestore
+from google.cloud.firestore_v1.base_query import FieldFilter
 
 from data_access import get_firestore_cache, set_firestore_cache
 
@@ -16,7 +18,27 @@ def get_author(author_id):
         return cached_author
     else:
         return None
-    
+
+def get_author_publications(author_id):
+
+    db = firestore.Client()
+    pubs_db = db.collection('scholar_raw_pub')
+
+    author_pubs = (
+      pubs_db
+      .where(filter=FieldFilter('data.author_pub_id', '>=', author_id))
+      .where(filter=FieldFilter('data.author_pub_id', '<', author_id+'ζ'))
+    )
+
+    publications = []
+    for doc in author_pubs.stream(timeout=3600):
+        pub = doc.to_dict().get('data', {})
+        if pub: 
+            publications.append(pub)
+
+    return publications
+
+
 def get_publication(author_pub_id):
 
     cached_pub = get_firestore_cache("scholar_raw_pub", author_pub_id)

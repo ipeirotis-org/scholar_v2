@@ -3,7 +3,7 @@ import numpy as np
 import logging
 import datetime
 from data_access import get_firestore_cache, set_firestore_cache
-from scholar import get_author, get_publication
+from scholar import get_author, get_publication, get_author_publications
 
 logging.basicConfig(level=logging.INFO)
 
@@ -230,9 +230,9 @@ def get_author_stats(author_id):
     if not author: return None
 
     pubs = []
-    for p in author['publications']:
-        pub = get_publication(p['author_pub_id'])
-        if pub: pub = sanitize_publication(pub)
+    author_pubs = get_author_publications(author_id)
+    for p in author_pubs:
+        pub = sanitize_publication(p)
         if pub: pubs.append(pub)
 
     if len(pubs)>0:
@@ -240,7 +240,11 @@ def get_author_stats(author_id):
     else:
         author['publications'] = []
 
-    author['stats'] = calculate_author_stats(author['publications'])
+    full_stats = get_firestore_cache("author_stats",author_id)
+    if full_stats:
+        author['stats'] = full_stats
+    else:
+        author['stats'] = calculate_author_stats(author['publications'])
 
     # set_firestore_cache("author_stats",author_id,author)
 

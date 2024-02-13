@@ -3,17 +3,19 @@ import json
 import pandas as pd
 from google.cloud import firestore
 from google.cloud import tasks_v2
+from google.cloud import bigquery
 
 # Google Cloud project ID and queue location
 project = "scholar-version2"
 location = "northamerica-northeast1"
 
 db = firestore.Client()
-client = tasks_v2.CloudTasksClient()
+tasks = tasks_v2.CloudTasksClient()
+bq = bigquery.Client()
 
 # Construct the fully qualified queue name
-authors_queue = client.queue_path(project, location, "process-authors")
-pubs_queue = client.queue_path(project, location, "process-pubs")
+authors_queue = tasks.queue_path(project, location, "process-authors")
+pubs_queue = tasks.queue_path(project, location, "process-pubs")
 
 collection_ref = db.collection("scholar_raw_author")
 
@@ -39,7 +41,7 @@ def put_author_in_queue(author_id):
         }
     }
     # Add the task to the queue
-    response = client.create_task(request={"parent": pubs_queue, "task": task})
+    response = tasks.create_task(request={"parent": authors_queue, "task": task})
 
 
 def put_pub_in_queue(pub_entry):
@@ -61,7 +63,7 @@ def put_pub_in_queue(pub_entry):
             ).encode(),  # Correctly serialize the dictionary
         }
     }
-    response = client.create_task(request={"parent": pubs_queue, "task": task})
+    response = tasks.create_task(request={"parent": pubs_queue, "task": task})
 
 def get_authors_to_refresh(num_authors=1):
 
@@ -89,11 +91,13 @@ def get_authors_to_refresh(num_authors=1):
     return author_ids
 
 
-def refresh_authors(num_authors=1):
+def refresh_authors(refresh, num_authors=1):
 
+    if refresh is None:
+        refresh = get_authors_to_refresh(num_authors)
+    
     total_authors = 0
     total_pubs = 0
-    refresh = get_authors_to_refresh(num_authors)
     authors = []
     
     for scholar_id in refresh:
