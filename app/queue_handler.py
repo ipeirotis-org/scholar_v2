@@ -28,7 +28,7 @@ def put_author_in_queue(author_id):
     fetch a new copy of the author, we also fetch 
     '''
 
-    url = "https://us-east5-scholar-version2.cloudfunctions.net/search_author_id"
+    url = "https://us-east1-scholar-version2.cloudfunctions.net/search_author_id"
     # Construct the request body
     task = {
         "http_request": {
@@ -52,7 +52,7 @@ def put_pub_in_queue(pub_entry):
     fetch a new copy of the author, we also fetch 
     '''
 
-    url = "https://us-east5-scholar-version2.cloudfunctions.net/fill_publication"
+    url = "https://us-east1-scholar-version2.cloudfunctions.net/fill_publication"
     task = {
         "http_request": {
             "http_method": tasks_v2.HttpMethod.POST,

@@ -6,16 +6,12 @@ bq = bigquery.Client()
 QUERY = '''
 
 SELECT
-  *,
-  ABS(pubs_in_pubsdb - total_publications) / total_publications AS err
+  *
 FROM
   `scholar-version2.firestore_views.debug_authors_missing_pubs_in_db`
 WHERE
-  -- ABS(pubs_in_pubsdb - total_publications) / total_publications = 1.0
   pubs_in_pubsdb = 0
-ORDER BY
-  ABS(pubs_in_pubsdb - total_publications) / total_publications DESC, total_publications DESC
-LIMIT 100
+LIMIT 10
 
 '''
 query_job = bq.query(QUERY)

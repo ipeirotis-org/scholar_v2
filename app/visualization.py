@@ -3,13 +3,15 @@ from matplotlib.figure import Figure
 import logging
 import numpy as np
 import os
-
+import datetime
 
 def generate_plot(dataframe, author_name):
     plot_paths = []
     pip_auc_score = 0
 
-    dataframe['age'] = 2025 - dataframe['pub_year']
+    current_year = datetime.datetime.now().year
+
+    dataframe['age'] = current_year - dataframe['pub_year'] + 1
     dataframe["num_citations_percentile"] = 100 * dataframe["num_citations_percentile"]
     dataframe["num_papers_percentile"] = 100 * dataframe["num_papers_percentile"]
     
