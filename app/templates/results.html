@@ -25,7 +25,7 @@
                             <li>First Year Active: {{ author.stats.year_of_first_pub }} ({{ 2024 - author.stats.year_of_first_pub + 1 }} years active)</li>
                             
                             <li>Total Citations: {{ author.stats.citedby }}
-                                ({{ (100*author.stats.citedby_percentile)|round(2) }}% percentile)&nbsp;<i class="bi bi-question-circle-fill" data-toggle="tooltip" title="The total number of citations by the author and their percentile rank compared to other authors who started publishing in {{ author.stats.year_of_first_pub }}."></i>
+                                ({{ (100*author.stats.citedby_percentile)|round(2) }}% percentile)&nbsp;<span class="metrics-explanation" data-toggle="tooltip" title="The total number of citations by the author and their percentile rank compared to other authors who started publishing in {{ author.stats.year_of_first_pub }}.">>Metrics Explanation</span></i>
                             </li>
 
 
