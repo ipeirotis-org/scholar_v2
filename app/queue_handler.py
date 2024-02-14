@@ -120,7 +120,7 @@ def get_authors_to_fix(num_authors=10):
           `scholar-version2.firestore_views.debug_authors_missing_pubs_in_db`
         WHERE
           pubs_in_pubsdb = 0
-        LIMIT 50
+        LIMIT 200
     """
 
     query_job = bq.query(QUERY)
