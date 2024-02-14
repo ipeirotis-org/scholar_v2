@@ -37,7 +37,7 @@ def put_author_in_queue(author_id):
             # If a duplicate task is found, return without enqueueing
             return
 
-    url = "https://us-east1-scholar-version2.cloudfunctions.net/search_author_id"
+    url = "https://us-east5-scholar-version2.cloudfunctions.net/search_author_id"
 
     payload = json.dumps({"scholar_id": author_id})
     task = {
@@ -69,7 +69,7 @@ def put_pub_in_queue(pub_entry):
         f"projects/{project}/locations/{location}/queues/process-pubs/tasks/{task_id}"
     )
 
-    url = "https://us-east1-scholar-version2.cloudfunctions.net/fill_publication"
+    url = "https://us-east5-scholar-version2.cloudfunctions.net/fill_publication"
     task = {
         "name": task_name,
         "http_request": {
