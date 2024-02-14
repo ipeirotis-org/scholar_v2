@@ -146,7 +146,7 @@ def refresh_authors(refresh=[], num_authors=1):
         author = doc.get("data", None)
         if not author:
             total_authors += 1
-            put_author_in_queue(author_id)
+            put_author_in_queue(scholar_id)
             entry = {
                 "doc_id": doc.id,
                 "author_id": scholar_id,
