@@ -73,13 +73,12 @@ def get_publication_route(author_id, pub_id):
 
 @app.route("/api/refresh_authors")
 def refresh_authors_route():
-
     scholar_ids_arg = request.args.get("scholar_ids")
     try:
         scholar_ids = scholar_ids_arg.split(",")
     except:
         scholar_ids = None
-    
+
     num_authors = request.args.get("num_authors")
     try:
         num_authors = int(num_authors)
@@ -90,12 +89,11 @@ def refresh_authors_route():
         result = refresh_authors(scholar_ids, num_authors=num_authors)
     else:
         result = refresh_authors(num_authors=num_authors)
-        
+
     if result:
         return jsonify(result)
     else:
         return jsonify({"message": "An error occurred"}), 503
-
 
 
 @app.route("/results", methods=["GET"])
@@ -112,11 +110,11 @@ def results():
     if not author:
         put_author_in_queue(author_id)
         return render_template("redirect.html", author_id=author_id)
-    
+
     plot_paths = generate_plot(pd.DataFrame(author["publications"]), author["name"])
     author["plot_paths"] = plot_paths
     return render_template("results.html", author=author)
-    
+
 
 @app.route("/download/<author_id>")
 def download_results(author_id):
@@ -143,6 +141,7 @@ def download_results(author_id):
 @app.route("/publication")
 def get_publication_details(author_id, pub_id):
     return render_template("error.html")
+
 
 @app.route("/error")
 def error():

@@ -26,19 +26,19 @@ ON
 query_job = bq_client.query(QUERY)
 results = query_job.result()  # Waits for the job to complete
 df = results.to_dataframe()
-list_of_dicts = df.to_dict('records')
+list_of_dicts = df.to_dict("records")
 
 # Firestore collection where the results will be stored
-collection_ref = db.collection('author_stats')
+collection_ref = db.collection("author_stats")
 
 for row in tqdm(list_of_dicts):
     # Convert the row to a dictionary
     # Assume row.to_dict() is available or construct a dict manually if needed
     doc_data = dict(row)
-    
+
     # Optional: Use a specific field as the document ID in Firestore
     # If you don't provide a document ID, Firestore generates one automatically
-    doc_id = doc_data.get('scholar_id', None)
+    doc_id = doc_data.get("scholar_id", None)
 
     # Store the document in Firestore
-    set_firestore_cache('author_stats',doc_id,doc_data)
+    set_firestore_cache("author_stats", doc_id, doc_data)

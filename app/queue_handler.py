@@ -55,6 +55,7 @@ def put_author_in_queue(author_id):
     except:
         logging.error(f"Could not create task {author_id}")
 
+
 def put_pub_in_queue(pub_entry):
     """
     This function places a request to fetch a new copy of the author from Google Scholar
@@ -84,6 +85,7 @@ def put_pub_in_queue(pub_entry):
         response = tasks.create_task(request={"parent": pubs_queue, "task": task})
     except:
         logging.error(f"Could not create task {task_id}")
+
 
 def get_authors_to_refresh(num_authors=1):
     query = collection_ref.order_by(

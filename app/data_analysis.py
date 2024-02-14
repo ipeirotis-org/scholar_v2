@@ -5,6 +5,7 @@ import datetime
 from data_access import get_firestore_cache, set_firestore_cache
 from scholar import get_author, get_publication, get_author_publications
 from google.cloud import bigquery
+
 logging.basicConfig(level=logging.INFO)
 
 # Load the dataframes at the start of the module
@@ -22,9 +23,8 @@ url_pip_auc_percentiles = "../data/pip-auc-percentiles.csv"
 pip_auc_percentiles_df = pd.read_csv(url_pip_auc_percentiles)
 
 
-
 def get_author_pub_stats_bg(author_id):
-    SQL = f'''
+    SQL = f"""
         WITH
           pub_details AS ( (
             SELECT
@@ -50,18 +50,18 @@ def get_author_pub_stats_bg(author_id):
           S.scholar_id = '{author_id}'
         ORDER BY
           S.publication_rank
-    '''
-
+    """
 
     bq = bigquery.Client()
     query_job = bq.query(SQL)
     results = query_job.result()  # Waits for the query to finish
     df = results.to_dataframe()
-    list_of_dicts = df.to_dict('records')
+    list_of_dicts = df.to_dict("records")
     return list_of_dicts
 
+
 def get_author_stats_bg(author_id):
-    SQL = f'''
+    SQL = f"""
         SELECT
           S.*, P.pip_auc_score, P.pip_auc_score_percentile
         FROM
@@ -72,42 +72,38 @@ def get_author_stats_bg(author_id):
           P.scholar_id = S.scholar_id
         WHERE
           S.scholar_id = '{author_id}'
-    '''
-
+    """
 
     bq = bigquery.Client()
     query_job = bq.query(SQL)
     results = query_job.result()  # Waits for the query to finish
     df = results.to_dataframe()
-    list_of_dicts = df.to_dict('records')
-    if len(list_of_dicts)==1:
+    list_of_dicts = df.to_dict("records")
+    if len(list_of_dicts) == 1:
         return list_of_dicts[0]
     else:
         return None
 
 
 def get_author_stats(author_id):
-    
     author = get_author(author_id)
-    if not author: 
+    if not author:
         return None
 
-    #author_pub_stats = get_firestore_cache("author_pub_stats",author_id)
-    #if not author_pub_stats:
+    # author_pub_stats = get_firestore_cache("author_pub_stats",author_id)
+    # if not author_pub_stats:
     author_pub_stats = get_author_pub_stats_bg(author_id)
-    if len(author_pub_stats) == 0: return None
-    set_firestore_cache("author_pub_stats",author_id,author_pub_stats)
-    author['publications'] = author_pub_stats
+    if len(author_pub_stats) == 0:
+        return None
+    set_firestore_cache("author_pub_stats", author_id, author_pub_stats)
+    author["publications"] = author_pub_stats
 
-    
-    #author_stats = get_firestore_cache("author_stats",author_id)
-    #if not author_stats:
+    # author_stats = get_firestore_cache("author_stats",author_id)
+    # if not author_stats:
     author_stats = get_author_stats_bg(author_id)
-    if not author_stats: return None
-    set_firestore_cache("author_stats",author_id,author_stats)
-    author['stats'] = author_stats
-
+    if not author_stats:
+        return None
+    set_firestore_cache("author_stats", author_id, author_stats)
+    author["stats"] = author_stats
 
     return author
-
-        
