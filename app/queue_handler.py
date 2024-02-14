@@ -1,4 +1,5 @@
 import json
+import logging
 
 import pandas as pd
 from google.cloud import firestore
@@ -8,7 +9,7 @@ from google.cloud import bigquery
 # Google Cloud project ID and queue location
 project = "scholar-version2"
 location = "northamerica-northeast1"
-
+logging.basicConfig(level=logging.INFO)
 db = firestore.Client()
 tasks = tasks_v2.CloudTasksClient()
 bq = bigquery.Client()
@@ -49,8 +50,10 @@ def put_author_in_queue(author_id):
         },
     }
     # Add the task to the queue
-    response = tasks.create_task(request={"parent": authors_queue, "task": task})
-
+    try:
+        response = tasks.create_task(request={"parent": authors_queue, "task": task})
+    except:
+        logging.error(f"Could not create task {author_id}")
 
 def put_pub_in_queue(pub_entry):
     """
@@ -77,8 +80,10 @@ def put_pub_in_queue(pub_entry):
             ).encode(),  # Correctly serialize the dictionary
         },
     }
-    response = tasks.create_task(request={"parent": pubs_queue, "task": task})
-
+    try:
+        response = tasks.create_task(request={"parent": pubs_queue, "task": task})
+    except:
+        logging.error(f"Could not create task {task_id}")
 
 def get_authors_to_refresh(num_authors=1):
     query = collection_ref.order_by(
