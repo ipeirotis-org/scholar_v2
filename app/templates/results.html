@@ -9,6 +9,12 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.7.2/font/bootstrap-icons.css">
     <script src="{{url_for('static', filename='tablesort.js')}}"></script>
     <link rel="stylesheet" href="{{url_for('static', filename='style.css')}}">
+    <style>
+        .metrics-explanation {
+            text-decoration: underline;
+            cursor: pointer;
+        }
+    </style>
 </head>
 <body>
 
@@ -25,16 +31,16 @@
                             <li>First Year Active: {{ author.stats.year_of_first_pub }} ({{ 2024 - author.stats.year_of_first_pub + 1 }} years active)</li>
                             
                             <li>Total Citations: {{ author.stats.citedby }}
-                                ({{ (100*author.stats.citedby_percentile)|round(2) }}% percentile)&nbsp;<span class="metrics-explanation" data-toggle="tooltip" title="The total number of citations by the author and their percentile rank compared to other authors who started publishing in {{ author.stats.year_of_first_pub }}."> (Metrics Explanation)</span></i>
+                                ({{ (100*author.stats.citedby_percentile)|round(2) }}% percentile)&nbsp;<span class="metrics-explanation" data-toggle="tooltip" title="The total number of citations by the author and their percentile rank compared to other authors who started publishing in {{ author.stats.year_of_first_pub }}."> (Metrics Explanation)</span>
                             </li>
 
 
 
                             <li>H-index: {{ author.stats.hindex }}
-                                ({{ (100*author.stats.hindex5y_percentile)|round(2) }}% percentile)&nbsp;<span class="metrics-explanation" data-toggle="tooltip" title="The h-index of the author and their percentile rank compared to other authors who started publishing in {{ author.stats.year_of_first_pub }}."> (Metrics Explanation)</span></i>                  </li>
+                                ({{ (100*author.stats.hindex5y_percentile)|round(2) }}% percentile)&nbsp;<span class="metrics-explanation" data-toggle="tooltip" title="The h-index of the author and their percentile rank compared to other authors who started publishing in {{ author.stats.year_of_first_pub }}."> (Metrics Explanation)</span>                  </li>
                             
                             <li>Total Publications: {{ author.stats.total_publications_with_citations }}
-                                ({{ (100*author.stats.total_publications_with_citations_percentile)|round(2) }}% percentile)&nbsp;<span class="metrics-explanation" data-toggle="tooltip" title="The total number of publications (with at least one citation) by the author, and their percentile rank compared to other authors who started publishing in {{ author.stats.year_of_first_pub }}."> (Metrics Explanation)</span></i>
+                                ({{ (100*author.stats.total_publications_with_citations_percentile)|round(2) }}% percentile)&nbsp;<span class="metrics-explanation" data-toggle="tooltip" title="The total number of publications (with at least one citation) by the author, and their percentile rank compared to other authors who started publishing in {{ author.stats.year_of_first_pub }}."> (Metrics Explanation)</span>
                             </li>
 
 
@@ -43,7 +49,7 @@
                                 <strong>
                                 PiP-AUC Score: {{ author.stats.pip_auc_score }} 
                                 ({{ (100*author.stats.pip_auc_score_percentile)|round(2) }}% percentile)
-                                </strong>&nbsp;<span class="metrics-explanation" data-toggle="tooltip" title="PiP-AUC Score represents the author's impact and productivity, with its percentile indicating the rank compared to other authors who started publishing in {{ author.stats.year_of_first_pub }}."> (Metrics Explanation)</span></i>
+                                </strong>&nbsp;<span class="metrics-explanation" data-toggle="tooltip" title="PiP-AUC Score represents the author's impact and productivity, with its percentile indicating the rank compared to other authors who started publishing in {{ author.stats.year_of_first_pub }}."> (Metrics Explanation)</span>
                             </li>
                         </ul>
                         </div>
