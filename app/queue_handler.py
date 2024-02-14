@@ -141,7 +141,6 @@ def refresh_authors(refresh=[], num_authors=1):
                 "author_id": scholar_id,
             }
             authors.append(entry)
-            put_author_in_queue(author_id)
             continue
 
         author = doc.to_dict().get("data", None)
