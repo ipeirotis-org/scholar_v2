@@ -132,8 +132,9 @@ def refresh_authors(refresh=[], num_authors=1):
     authors = []
 
     for scholar_id in refresh:
-        doc = collection_ref.document(scholar_id).get().to_dict()
-        if not doc:
+        doc = collection_ref.document(scholar_id).get()
+        author = doc.to_dict()
+        if not author:
             total_authors += 1
             put_author_in_queue(scholar_id)
             entry = {
@@ -143,7 +144,7 @@ def refresh_authors(refresh=[], num_authors=1):
             put_author_in_queue(author_id)
             continue
 
-        author = doc.get("data", None)
+        author = doc.to_dict().get("data", None)
         if not author:
             total_authors += 1
             put_author_in_queue(scholar_id)
