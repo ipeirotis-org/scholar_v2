@@ -169,7 +169,7 @@ def get_author(author_id):
                 }
             }
             response = client.create_task(request={"parent": pubs_queue, "task": task})
-    except:
+    except  Exception as e:
         logging.error(
             f"Error enqueueing publications for author {author_id} in Firebase: {e}"
         )
@@ -195,7 +195,7 @@ def get_author(author_id):
 
         author["publications"] = abbrv
 
-    except:
+    except  Exception as e:
         logging.error(f"Error bookkeeping pub entries for author {author_id}: {e}")
         return None
 
@@ -217,7 +217,7 @@ def get_author(author_id):
                 author["publications"] = author["publications"][:half]
             else:
                 break
-    except:
+    except  Exception as e:
         logging.error(f"Error serializing {author_id} : {e}")
         return None
 
@@ -225,7 +225,7 @@ def get_author(author_id):
         logging.info(f"Storing author {author_id} in Firebase")
         set_firestore_cache("scholar_raw_author", author_id, serialized)
 
-    except:
+    except  Exception as e:
         logging.error(f"Error storing author entry {author_id} in Firebase: {e}")
         return None
 
