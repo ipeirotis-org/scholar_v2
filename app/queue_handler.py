@@ -37,7 +37,7 @@ def put_author_in_queue(author_id):
             # If a duplicate task is found, return without enqueueing
             return
 
-    url = "https://us-east5-scholar-version2.cloudfunctions.net/search_author_id"
+    url = "https://northamerica-northeast1-scholar-version2.cloudfunctions.net/search_author_id"
 
     payload = json.dumps({"scholar_id": author_id})
     task = {
@@ -52,8 +52,10 @@ def put_author_in_queue(author_id):
     # Add the task to the queue
     try:
         response = tasks.create_task(request={"parent": authors_queue, "task": task})
+        return response
     except Exception as e:
         logging.error(f"Could not create task {author_id}")
+        return None
 
 
 def put_pub_in_queue(pub_entry):
@@ -69,7 +71,7 @@ def put_pub_in_queue(pub_entry):
         f"projects/{project}/locations/{location}/queues/process-pubs/tasks/{task_id}"
     )
 
-    url = "https://us-east5-scholar-version2.cloudfunctions.net/fill_publication"
+    url = "https://northamerica-northeast1-scholar-version2.cloudfunctions.net/fill_publication"
     task = {
         "name": task_name,
         "http_request": {
@@ -83,8 +85,10 @@ def put_pub_in_queue(pub_entry):
     }
     try:
         response = tasks.create_task(request={"parent": pubs_queue, "task": task})
+        return response
     except Exception as e:
         logging.error(f"Could not create task {task_id}")
+        return None
 
 
 def get_authors_to_refresh(num_authors=1):
@@ -142,8 +146,11 @@ def refresh_authors(refresh=[], num_authors=1):
         doc = collection_ref.document(scholar_id).get()
         author = doc.to_dict()
         if not author:
+            
+            resp = put_author_in_queue(scholar_id)
+            if not resp: continue
+
             total_authors += 1
-            put_author_in_queue(scholar_id)
             entry = {
                 "author_id": scholar_id,
             }
@@ -152,8 +159,11 @@ def refresh_authors(refresh=[], num_authors=1):
 
         author = doc.to_dict().get("data", None)
         if not author:
+            
+            resp = put_author_in_queue(scholar_id)
+            if not resp: continue
+
             total_authors += 1
-            put_author_in_queue(scholar_id)
             entry = {
                 "doc_id": doc.id,
                 "author_id": scholar_id,
@@ -162,8 +172,9 @@ def refresh_authors(refresh=[], num_authors=1):
             continue
 
         author_id = author.get("scholar_id")
-        put_author_in_queue(author_id)
-
+        resp = put_author_in_queue(scholar_id)
+        if not resp: continue
+        
         publications = author.get("publications", [])
 
         total_authors += 1
