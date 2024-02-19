@@ -123,7 +123,7 @@ def get_authors_to_fix(num_authors=10):
         FROM
           `scholar-version2.firestore_views.debug_authors_missing_pubs_in_db`
         WHERE
-          err >0.1 
+          err >0.3
         LIMIT 200
     """
 
