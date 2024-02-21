@@ -123,13 +123,18 @@ def get_authors_to_fix(num_authors=10):
         FROM
           `scholar-version2.firestore_views.debug_authors_missing_pubs_in_db`
         WHERE
-          err >0.3
-        LIMIT 200
+          err > 0.05 AND author_last_updated < '2024-02-16'
+        ORDER BY
+          err DESC
     """
 
     query_job = bq.query(QUERY)
     results = query_job.result()  # Waits for the query to finish
-    df = results.to_dataframe().sample(n=num_authors)
+    df = results.to_dataframe()
+    if df.shape[0] > num_authors:
+        df = df.sample(n=num_authors)
+    if df.shape[0] == 0:
+        return []
     refresh = df.scholar_id.values
     return [r for r in refresh]
 
