@@ -11,7 +11,7 @@ from data_access import get_firestore_cache, set_firestore_cache
 
 
 def get_author(author_id):
-    cached_author = get_firestore_cache("scholar_raw_author", author_id)
+    cached_author, timestamp = get_firestore_cache("scholar_raw_author", author_id)
     if cached_author:
         return cached_author
     else:
@@ -35,8 +35,26 @@ def get_author_publications(author_id):
     return publications
 
 
+def get_author_last_modification(author_id):
+    db = firestore.Client()
+    pubs_db = db.collection("scholar_raw_pub")
+
+    author_pubs = (
+        pubs_db
+        .where(filter=FieldFilter("data.author_pub_id", ">=", author_id))
+        .where(filter=FieldFilter("data.author_pub_id", "<", author_id + "ζ"))
+        .select(["timestamp"])
+    )
+
+    latest_pub_change = max([r.to_dict()['timestamp'] for r in author_pubs.get()])
+
+    _, latest_author_change = get_firestore_cache("scholar_raw_author", author_id)
+    
+    return max(latest_pub_change, latest_author_change)
+
+
 def get_publication(author_pub_id):
-    cached_pub = get_firestore_cache("scholar_raw_pub", author_pub_id)
+    cached_pub, timestamp = get_firestore_cache("scholar_raw_pub", author_pub_id)
     if cached_pub:
         return cached_pub
     else:
@@ -45,7 +63,7 @@ def get_publication(author_pub_id):
 
 def get_similar_authors(author_name):
     # Check cache first
-    cached_data = get_firestore_cache("queries", author_name)
+    cached_data, timestamp = get_firestore_cache("queries", author_name)
     if cached_data:
         logging.info(
             f"Cache hit for similar authors of '{author_name}'. Data fetched from Firestore."

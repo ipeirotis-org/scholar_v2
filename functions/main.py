@@ -125,6 +125,61 @@ def fill_publication(request):
     return response, 200
 
 
+@functions_framework.http
+def get_similar(request):
+    request_json = request.get_json(silent=True)
+    request_args = request.args
+
+    author_name = request_json.get("author_name", request_args.get("author_name"))
+
+    authors = get_similar_authors(author_name)
+
+    response = make_response(authors)
+    response.headers["Content-Type"] = "application/json"
+
+    return response, 200
+
+
+def get_similar_authors(author_name):
+    # Check cache first
+    cached_data = get_firestore_cache("queries", author_name)
+    if cached_data:
+        logging.info(
+            f"Cache hit for similar authors of '{author_name}'. Data fetched from Firestore."
+        )
+        return cached_data
+
+    authors = []
+    try:
+        search_query = scholarly.search_author(author_name)
+        for _ in range(10):  # Limit to 10 authors for simplicity
+            try:
+                author = next(search_query)
+                if author:
+                    authors.append(author)
+            except StopIteration:
+                break
+    except Exception as e:
+        logging.error(f"Error fetching similar authors for '{author_name}': {e}")
+        return []
+
+    # Process authors
+    clean_authors = [
+        {
+            "name": author.get("name", ""),
+            "affiliation": author.get("affiliation", ""),
+            "email": author.get("email", ""),
+            "citedby": author.get("citedby", 0),
+            "scholar_id": author.get("scholar_id", ""),
+        }
+        for author in authors
+    ]
+
+    # Cache the results
+    set_firestore_cache("queries", author_name, clean_authors)
+
+    return clean_authors
+
 def convert_integers_to_strings(data):
     if isinstance(data, dict):
         return {key: convert_integers_to_strings(value) for key, value in data.items()}

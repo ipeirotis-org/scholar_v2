@@ -3,24 +3,10 @@ import numpy as np
 import logging
 import datetime
 from data_access import get_firestore_cache, set_firestore_cache
-from scholar import get_author, get_publication, get_author_publications
+from scholar import get_author, get_publication, get_author_publications, get_author_last_modification
 from google.cloud import bigquery
 
 logging.basicConfig(level=logging.INFO)
-
-# Load the dataframes at the start of the module
-paper_percentiles_url = "../data/percentiles.csv"
-percentile_df = pd.read_csv(paper_percentiles_url).set_index("age")
-percentile_df.index = percentile_df.index.astype(float)
-percentile_df.columns = [float(p) for p in percentile_df.columns]
-
-url_author_percentiles = "../data/author_numpapers_percentiles.csv"
-author_percentiles = pd.read_csv(url_author_percentiles).set_index(
-    "years_since_first_pub"
-)
-
-url_pip_auc_percentiles = "../data/pip-auc-percentiles.csv"
-pip_auc_percentiles_df = pd.read_csv(url_pip_auc_percentiles)
 
 
 def get_author_pub_stats_bg(author_id):
@@ -90,17 +76,19 @@ def get_author_stats(author_id):
     if not author:
         return None
 
-    # author_pub_stats = get_firestore_cache("author_pub_stats",author_id)
-    # if not author_pub_stats:
-    author_pub_stats = get_author_pub_stats_bg(author_id)
+    author_last_modified = get_author_last_modification(author_id)
+    
+    author_pub_stats, pub_stats_timestamp = get_firestore_cache("author_pub_stats",author_id)
+    if not author_pub_stats or author_last_modified > pub_stats_timestamp:
+        author_pub_stats = get_author_pub_stats_bg(author_id)
     if len(author_pub_stats) == 0:
         return None
     set_firestore_cache("author_pub_stats", author_id, author_pub_stats)
     author["publications"] = author_pub_stats
 
-    # author_stats = get_firestore_cache("author_stats",author_id)
-    # if not author_stats:
-    author_stats = get_author_stats_bg(author_id)
+    author_stats, stats_timestamp = get_firestore_cache("author_stats",author_id)
+    if not author_stats or author_last_modified > stats_timestamp:
+        author_stats = get_author_stats_bg(author_id)
     if not author_stats:
         return None
     set_firestore_cache("author_stats", author_id, author_stats)

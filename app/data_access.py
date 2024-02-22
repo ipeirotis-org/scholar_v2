@@ -8,7 +8,7 @@ db = firestore.Client()
 
 def get_firestore_cache(collection, doc_id):
     logging.info(
-        f"Trying to fetch from cache for '{doc_id}' in collection {collection}."
+        f"Fetching from Firestore for '{doc_id}' in collection {collection}."
     )
     doc_ref = db.collection(collection).document(doc_id)
     try:
@@ -16,17 +16,17 @@ def get_firestore_cache(collection, doc_id):
         if doc.exists:
             cached_data = doc.to_dict()
             cached_time = cached_data["timestamp"]
-            current_time = datetime.utcnow().replace(tzinfo=pytz.utc)
-            if (current_time - cached_time).days < 30:
-                logging.info(f"Fetched data from cache for '{doc_id}'.")
-                return cached_data["data"]
-            else:
-                logging.info(f"Old data for '{doc_id}'. Going to google scholar")
-                return None
+            # current_time = datetime.utcnow().replace(tzinfo=pytz.utc)
+            # if (current_time - cached_time).days < 30:
+            logging.info(f"Fetched data from Firestore for '{doc_id}'.")
+            return cached_data["data"], cached_data["timestamp"]
+            #else:
+            #    logging.info(f"Old data for '{doc_id}'. Going to google scholar")
+            #    return None
 
     except Exception as e:
         logging.error(f"Error accessing Firestore: {e}")
-    return None
+    return None, None
 
 
 def set_firestore_cache(collection, doc_id, data):
@@ -36,9 +36,13 @@ def set_firestore_cache(collection, doc_id, data):
 
     doc_ref = db.collection(collection).document(doc_id)
 
-    cache_data = {"timestamp": datetime.utcnow().replace(tzinfo=pytz.utc), "data": data}
+    current_time = datetime.utcnow().replace(tzinfo=pytz.utc)
+
+    cache_data = {"timestamp": current_time, "data": data}
 
     try:
         doc_ref.set(cache_data)
+        return True # success
     except Exception as e:
         logging.error(f"Error updating Firestore: {e}")
+        return False # failure

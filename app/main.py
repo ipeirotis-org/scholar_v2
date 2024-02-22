@@ -40,11 +40,6 @@ def get_similar_authors_route():
 
 @app.route("/api/author/<author_id>")
 def get_author_route(author_id):
-    """
-    no_cache = request.args.get("no_cache")
-    if no_cache: use_cache=False
-    else: use_cache=True
-    """
 
     author = get_author(author_id)
     if author:
