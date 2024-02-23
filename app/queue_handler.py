@@ -6,19 +6,18 @@ from google.cloud import firestore
 from google.cloud import tasks_v2
 from google.cloud import bigquery
 
-# Google Cloud project ID and queue location
-project = "scholar-version2"
-location = "northamerica-northeast1"
+from config import Config
+
 logging.basicConfig(level=logging.INFO)
 db = firestore.Client()
 tasks = tasks_v2.CloudTasksClient()
 bq = bigquery.Client()
 
 # Construct the fully qualified queue name
-authors_queue = tasks.queue_path(project, location, "process-authors")
-pubs_queue = tasks.queue_path(project, location, "process-pubs")
+authors_queue = tasks.queue_path(Config.PROJECT_ID, Config.QUEUE_LOCATION, Config.QUEUE_NAME_AUTHORS)
+pubs_queue = tasks.queue_path(Config.PROJECT_ID, Config.QUEUE_LOCATION, Config.QUEUE_NAME_PUBS)
 
-collection_ref = db.collection("scholar_raw_author")
+collection_ref = db.collection(Config.FIRESTORE_COLLECTION_AUTHOR)
 
 
 def put_author_in_queue(author_id):
@@ -29,7 +28,7 @@ def put_author_in_queue(author_id):
     fetch a new copy of the author, we also fetch
     """
 
-    task_name = f"projects/{project}/locations/{location}/queues/process-authors/tasks/{author_id}"
+    task_name = f"{Config.QUEUE_PATH_AUTHORS}/process-authors/tasks/{author_id}"
 
     existing_tasks = tasks.list_tasks(request={"parent": authors_queue})
     for task in existing_tasks:
@@ -37,7 +36,7 @@ def put_author_in_queue(author_id):
             # If a duplicate task is found, return without enqueueing
             return
 
-    url = "https://northamerica-northeast1-scholar-version2.cloudfunctions.net/search_author_id"
+    url = Config.API_SEARCH_AUTHOR_ID
 
     payload = json.dumps({"scholar_id": author_id})
     task = {
@@ -67,11 +66,9 @@ def put_pub_in_queue(pub_entry):
     """
 
     task_id = pub_entry["author_pub_id"].replace(":", "__")
-    task_name = (
-        f"projects/{project}/locations/{location}/queues/process-pubs/tasks/{task_id}"
-    )
+    task_name = f"{Config.QUEUE_PATH_PUBS}/tasks/{task_id}"
 
-    url = "https://northamerica-northeast1-scholar-version2.cloudfunctions.net/fill_publication"
+    url = Config.API_FILL_PUBLICATION
     task = {
         "name": task_name,
         "http_request": {

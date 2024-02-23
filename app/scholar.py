@@ -9,9 +9,11 @@ from google.cloud.firestore_v1.base_query import FieldFilter
 
 from data_access import get_firestore_cache, set_firestore_cache
 
+from config import Config
+
 
 def get_author(author_id):
-    cached_author, timestamp = get_firestore_cache("scholar_raw_author", author_id)
+    cached_author, timestamp = get_firestore_cache(Config.FIRESTORE_COLLECTION_AUTHOR, author_id)
     if cached_author:
         return cached_author
     else:
@@ -20,11 +22,13 @@ def get_author(author_id):
 
 def get_author_publications(author_id):
     db = firestore.Client()
-    pubs_db = db.collection("scholar_raw_pub")
+    pubs_db = db.collection(Config.FIRESTORE_COLLECTION_PUB)
 
-    author_pubs = pubs_db.where(
-        filter=FieldFilter("data.author_pub_id", ">=", author_id)
-    ).where(filter=FieldFilter("data.author_pub_id", "<", author_id + "ζ"))
+    author_pubs = (
+        pubs_db
+        .where(filter=FieldFilter("data.author_pub_id", ">=", author_id))
+        .where(filter=FieldFilter("data.author_pub_id", "<", author_id + "ζ"))
+    )
 
     publications = []
     for doc in author_pubs.stream(timeout=3600):
@@ -37,7 +41,7 @@ def get_author_publications(author_id):
 
 def get_author_last_modification(author_id):
     db = firestore.Client()
-    pubs_db = db.collection("scholar_raw_pub")
+    pubs_db = db.collection(Config.FIRESTORE_COLLECTION_PUB)
 
     author_pubs = (
         pubs_db
@@ -54,7 +58,7 @@ def get_author_last_modification(author_id):
 
 
 def get_publication(author_pub_id):
-    cached_pub, timestamp = get_firestore_cache("scholar_raw_pub", author_pub_id)
+    cached_pub, timestamp = get_firestore_cache(Config.FIRESTORE_COLLECTION_PUB, author_pub_id)
     if cached_pub:
         return cached_pub
     else:

@@ -3,7 +3,7 @@ from datetime import datetime
 import pytz
 from google.cloud import firestore
 
-db = firestore.Client()
+db = firestore.Client(project=Config.PROJECT_ID)
 
 
 def get_firestore_cache(collection, doc_id):
