@@ -1,0 +1,3 @@
+scholarly
+google-cloud-firestore
+google-cloud-tasks
