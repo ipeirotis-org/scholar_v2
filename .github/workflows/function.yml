@@ -61,3 +61,22 @@ jobs:
           --allow-unauthenticated \
           --gen2 \
           --source ./functions/
+
+
+    - name: Prepare shared code for Cloud Function search_author_id
+      run: |
+        mkdir -p ./functions/search_author_id/shared
+        cp app/config.py ./functions/search_author_id/shared/
+        cp app/__init__.py ./functions/search_author_id/shared/
+
+    - name: Deploy Cloud Function search_author
+      run: |
+        gcloud functions deploy search_author \
+          --region ${{ env.REGION }} \
+          --entry-point search_author_id \
+          --runtime python312  \
+          --trigger-http \
+          --allow-unauthenticated \
+          --gen2 \
+          --source ./functions/search_author_id/
+
