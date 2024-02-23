@@ -20,7 +20,9 @@ from scholar import get_author, get_similar_authors, get_publication
 from data_analysis import get_author_stats
 from visualization import generate_plot
 from queue_handler import refresh_authors, put_author_in_queue
-from data_analysis import get_publication_details_data
+
+# No implementation, commenting out
+# from data_analysis import get_publication_details_data
 
 logging.basicConfig(level=logging.INFO)
 
@@ -137,7 +139,9 @@ def download_results(author_id):
 
 @app.route("/publication/<author_id>/<pub_id>")
 def get_publication_details(author_id, pub_id):
-    publication, plot_paths = get_publication_details_data(author_id, pub_id)
+    # No implementation, commenting out
+    # publication, plot_paths = get_publication_details_data(author_id, pub_id)
+    publication = None
     if publication:
         return render_template("publication_detail.html", publication=publication, plot_paths=plot_paths)
     else:
