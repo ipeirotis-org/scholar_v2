@@ -20,6 +20,7 @@ from scholar import get_author, get_similar_authors, get_publication
 from data_analysis import get_author_stats
 from visualization import generate_plot
 from queue_handler import refresh_authors, put_author_in_queue
+from data_analysis import get_publication_details_data
 
 logging.basicConfig(level=logging.INFO)
 
