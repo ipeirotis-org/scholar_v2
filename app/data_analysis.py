@@ -108,10 +108,10 @@ def generate_plots_for_publication(publication):
 
 
 def get_publication_details_data(author_id, pub_id):
-    publication = get_publication(author_id, pub_id)
+    publication = get_publication(pub_id)
     if not publication:
         return None, None
 
     plot_paths = generate_plots_for_publication(publication)
-
     return publication, plot_paths
+
