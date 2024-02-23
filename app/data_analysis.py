@@ -5,6 +5,7 @@ import datetime
 from data_access import get_firestore_cache, set_firestore_cache
 from scholar import get_author, get_publication, get_author_publications, get_author_last_modification
 from google.cloud import bigquery
+from visualization import generate_plot
 
 logging.basicConfig(level=logging.INFO)
 
@@ -95,3 +96,22 @@ def get_author_stats(author_id):
     author["stats"] = author_stats
 
     return author
+
+
+def generate_plots_for_publication(publication):
+
+    publication_df = pd.DataFrame([publication])
+    plot_paths = generate_plot(publication_df, publication.get("title", "Publication Plot"))
+
+    return plot_paths
+
+
+
+def get_publication_details_data(author_id, pub_id):
+    publication = get_publication(author_id, pub_id)
+    if not publication:
+        return None, None
+
+    plot_paths = generate_plots_for_publication(publication)
+
+    return publication, plot_paths
