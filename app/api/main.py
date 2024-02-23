@@ -15,7 +15,7 @@ logging.basicConfig(level=logging.INFO)
 db = firestore.Client()
 client = tasks_v2.CloudTasksClient()
 
-from ..config import Config
+from app.config import Config
 
 # Google Cloud project ID and queue location
 project = Config.PROJECT_ID
