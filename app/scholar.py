@@ -50,7 +50,12 @@ def get_author_last_modification(author_id):
         .select(["timestamp"])
     )
 
-    latest_pub_change = max([r.to_dict()['timestamp'] for r in author_pubs.get()])
+    timestamps = [r.to_dict()['timestamp'] for r in author_pubs.get()]
+
+    if len(timestamps)>0:
+        latest_pub_change = max(timestamps)
+    else:
+        latest_pub_change = 0
 
     _, latest_author_change = get_firestore_cache("scholar_raw_author", author_id)
     
