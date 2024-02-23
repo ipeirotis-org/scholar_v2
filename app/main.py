@@ -134,9 +134,14 @@ def download_results(author_id):
     )
 
 
-@app.route("/publication")
+@app.route("/publication/<author_id>/<pub_id>")
 def get_publication_details(author_id, pub_id):
-    return render_template("error.html")
+    publication, plot_paths = get_publication_details_data(author_id, pub_id)
+    if publication:
+        return render_template("publication_detail.html", publication=publication, plot_paths=plot_paths)
+    else:
+        return render_template("error.html", error_message="Publication not found.")
+
 
 
 @app.route("/error")
