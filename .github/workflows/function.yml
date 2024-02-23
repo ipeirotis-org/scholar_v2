@@ -51,13 +51,13 @@ jobs:
           --source ./functions/
 
 
-    - name: Deploy Cloud Function search_author
+    - name: Deploy Cloud Function get-similar
       run: |
         gcloud functions deploy get_similar\
           --region ${{ env.REGION }} \
-          --entry-point api.main.get_similar \
+          --entry-point app.api.main.get_similar \
           --runtime python38  \
           --trigger-http \
           --allow-unauthenticated \
           --gen2 \
-          --source ./app
+          --source .
