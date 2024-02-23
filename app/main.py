@@ -144,6 +144,7 @@ def get_publication_details(author_id, pub_id):
 
 
 
+
 @app.route("/error")
 def error():
     return render_template("error.html")
