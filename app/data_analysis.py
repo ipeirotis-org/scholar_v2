@@ -107,11 +107,13 @@ def generate_plots_for_publication(publication):
 
 
 
-def get_publication_details_data(author_id, pub_id):
-    publication = get_publication(pub_id)
-    if not publication:
-        return None, None
+def generate_plots_for_publication(publication):
+    if 'pub_year' not in publication:
+        print("Error: 'pub_year' missing in publication data.")
+        return []
 
-    plot_paths = generate_plots_for_publication(publication)
-    return publication, plot_paths
+    publication_df = pd.DataFrame([publication]) 
+    plot_paths = generate_plot(publication_df, publication.get("title", "Publication Plot"))
+    return plot_paths
+
 
