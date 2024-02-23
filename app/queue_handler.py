@@ -28,7 +28,7 @@ def put_author_in_queue(author_id):
     fetch a new copy of the author, we also fetch
     """
 
-    task_name = f"{Config.QUEUE_PATH_AUTHORS}/process-authors/tasks/{author_id}"
+    task_name = f"{Config.QUEUE_PATH_AUTHORS}/tasks/{author_id}"
 
     existing_tasks = tasks.list_tasks(request={"parent": authors_queue})
     for task in existing_tasks:
