@@ -3,6 +3,8 @@ from datetime import datetime
 import pytz
 from google.cloud import firestore
 
+from config import Config
+
 db = firestore.Client(project=Config.PROJECT_ID)
 
 
