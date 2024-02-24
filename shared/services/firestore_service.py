@@ -2,7 +2,7 @@ import logging
 from google.cloud import firestore
 from datetime import datetime
 import pytz
-from ..config import Config  # Adjust the import path based on your project structure
+from ..config import Config  
 
 class FirestoreService:
     def __init__(self):

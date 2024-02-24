@@ -10,6 +10,10 @@ from google.cloud import tasks_v2
 from shared.config import Config
 
 from shared.services.firestore_service import FirestoreService
+from shared.services.task_queue_service import TaskQueueService
+
+# Instantiate the services
+task_queue_service = TaskQueueService()
 firestore_service = FirestoreService()
 
 
@@ -79,9 +83,11 @@ def get_author(author_id):
         logging.error(f"Error fetching detailed author data for {author_id}: {e}")
         return None
 
+
     try:
         logging.info(f"Putting publications in queue for author {author_id}")
         for pub in author["publications"]:
+            '''
             url = "https://northamerica-northeast1-scholar-version2.cloudfunctions.net/fill_publication"
             task_id = pub['author_pub_id'].replace(":", "__")
             task_name = f"projects/{project}/locations/{location}/queues/process-pubs/tasks/{task_id}"
@@ -99,11 +105,16 @@ def get_author(author_id):
                 }
             }
             response = client.create_task(request={"parent": pubs_queue, "task": task})
+            '''
+            response = task_queue_service.enqueue_publication_task(pub)
+
     except  Exception as e:
         logging.error(
             f"Error enqueueing publications for author {author_id} in Firebase: {e}"
         )
         return None
+        
+    
 
     try:
         # Keep only the IDs and num_citations of the publications, to save space
