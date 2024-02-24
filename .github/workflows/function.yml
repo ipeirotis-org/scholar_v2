@@ -26,17 +26,17 @@ jobs:
         echo "${{ secrets.GCP_SA_KEY }}" | base64 --decode > ${HOME}/gcloud-service-key.json
         gcloud auth activate-service-account --key-file=${HOME}/gcloud-service-key.json
 
-    - name: Deploy Cloud Function search_author_id
-      run: |
-        gcloud functions deploy search_author_id \
-          --region ${{ env.REGION }} \
-          --entry-point search_author_id \
-          --runtime python38  \
-          --trigger-http \
-          --allow-unauthenticated \
-          --gen2 \
-          --timeout=3600s \
-          --source ./functions/
+#    - name: Deploy Cloud Function search_author_id
+#      run: |
+#        gcloud functions deploy search_author_id \
+#          --region ${{ env.REGION }} \
+#          --entry-point search_author_id \
+#          --runtime python38  \
+#          --trigger-http \
+#          --allow-unauthenticated \
+#          --gen2 \
+#          --timeout=3600s \
+#          --source ./functions/
 
 
     - name: Deploy Cloud Function fill_publication
@@ -67,14 +67,15 @@ jobs:
       run: |
         cp -r ./shared ./functions/search_author_id/shared/
 
-    - name: Deploy Cloud Function search_author
+    - name: Deploy Cloud Function search_author_id
       run: |
-        gcloud functions deploy search_author \
+        gcloud functions deploy search_author_id \
           --region ${{ env.REGION }} \
           --entry-point search_author_id \
           --runtime python312  \
           --trigger-http \
           --allow-unauthenticated \
+          --timeout=3600s \
           --gen2 \
           --source ./functions/search_author_id/
 
