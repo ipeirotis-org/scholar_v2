@@ -1,21 +1,20 @@
 import functions_framework
 import json
-import logging
-from datetime import datetime
 from scholarly import scholarly
 from flask import make_response
 import logging
 from datetime import datetime
-import pytz
-from google.cloud import firestore
+
 from google.cloud import tasks_v2
-
-logging.basicConfig(level=logging.INFO)
-
 
 from shared.config import Config
 
-db = firestore.Client()
+from shared.services.firestore_service import FirestoreService
+firestore_service = FirestoreService()
+
+
+logging.basicConfig(level=logging.INFO)
+
 client = tasks_v2.CloudTasksClient()
 
 
@@ -25,50 +24,8 @@ location = "northamerica-northeast1"
 
 
 # Construct the fully qualified queue name
-authors_queue = client.queue_path(project, location, "process-authors")
 pubs_queue = client.queue_path(project, location, "process-pubs")
 
-
-def get_firestore_cache(collection, doc_id):
-    logging.info(
-        f"Trying to fetch from cache for '{doc_id}' in collection {collection}."
-    )
-    doc_ref = db.collection(collection).document(doc_id)
-    try:
-        doc = doc_ref.get()
-        if doc.exists:
-            cached_data = doc.to_dict()
-            cached_time = cached_data["timestamp"]
-            current_time = datetime.utcnow().replace(tzinfo=pytz.utc)
-            if (current_time - cached_time).days < 30:
-                logging.info(f"Fetched data from cache for '{doc_id}'.")
-                return cached_data["data"]
-            else:
-                logging.info(f"Old data for '{doc_id}'. Going to google scholar")
-                return None
-
-    except Exception as e:
-        logging.error(
-            f"Error accessing Firestore for collection{collection} and doc {doc_id}: {e}"
-        )
-    return None
-
-
-def set_firestore_cache(collection, doc_id, data):
-    if not doc_id.strip():
-        logging.error("Firestore document ID is empty or invalid.")
-        return
-
-    doc_ref = db.collection(collection).document(doc_id)
-
-    cache_data = {"timestamp": datetime.utcnow().replace(tzinfo=pytz.utc), "data": data}
-
-    try:
-        doc_ref.set(cache_data)
-    except Exception as e:
-        logging.error(
-            f"Error updating Firestore for collection{collection} and doc {doc_id}: {e}"
-        )
 
 
 @functions_framework.http
@@ -84,7 +41,6 @@ def search_author_id(request):
     request_args = request.args
 
     scholar_id = request_json.get("scholar_id", request_args.get("scholar_id"))
-    # use_cache = request_json.get("use_cache", request_args.get("use_cache"))
 
     if not scholar_id:
         return "Missing author id", 400
@@ -98,90 +54,6 @@ def search_author_id(request):
 
     return response, 200
 
-
-@functions_framework.http
-def fill_publication(request):
-    """HTTP Cloud Function.
-    Args:
-       request (flask.Request): The request object.
-    Returns:
-       The response text, or any set of values that can be turned into a
-       Response object using `make_response`.
-    """
-    request_json = request.get_json(silent=True)
-    request_args = request.args
-
-    pub = request_json.get("pub", request_args.get("pub"))
-    # use_cache = request_json.get("use_cache", request_args.get("use_cache"))
-
-    if not pub:
-        return "Missing pub", 400
-
-    # pub = json.loads(pub)
-    pub = fill_pub(pub)
-    if pub is None:
-        return "Error fill publication from Google Scholar", 500
-
-    response = make_response(pub)
-    response.headers["Content-Type"] = "application/json"
-
-    return response, 200
-
-
-@functions_framework.http
-def get_similar(request):
-    request_json = request.get_json(silent=True)
-    request_args = request.args
-
-    author_name = request_json.get("author_name", request_args.get("author_name"))
-
-    authors = get_similar_authors(author_name)
-
-    response = make_response(authors)
-    response.headers["Content-Type"] = "application/json"
-
-    return response, 200
-
-
-def get_similar_authors(author_name):
-    # Check cache first
-    cached_data = get_firestore_cache("queries", author_name)
-    if cached_data:
-        logging.info(
-            f"Cache hit for similar authors of '{author_name}'. Data fetched from Firestore."
-        )
-        return cached_data
-
-    authors = []
-    try:
-        search_query = scholarly.search_author(author_name)
-        for _ in range(10):  # Limit to 10 authors for simplicity
-            try:
-                author = next(search_query)
-                if author:
-                    authors.append(author)
-            except StopIteration:
-                break
-    except Exception as e:
-        logging.error(f"Error fetching similar authors for '{author_name}': {e}")
-        return []
-
-    # Process authors
-    clean_authors = [
-        {
-            "name": author.get("name", ""),
-            "affiliation": author.get("affiliation", ""),
-            "email": author.get("email", ""),
-            "citedby": author.get("citedby", 0),
-            "scholar_id": author.get("scholar_id", ""),
-        }
-        for author in authors
-    ]
-
-    # Cache the results
-    set_firestore_cache("queries", author_name, clean_authors)
-
-    return clean_authors
 
 def convert_integers_to_strings(data):
     if isinstance(data, dict):
@@ -281,7 +153,7 @@ def get_author(author_id):
 
     try:
         logging.info(f"Storing author {author_id} in Firebase")
-        set_firestore_cache("scholar_raw_author", author_id, serialized)
+        firestore_service.set_firestore_cache("scholar_raw_author", author_id, serialized)
 
     except  Exception as e:
         logging.error(f"Error storing author entry {author_id} in Firebase: {e}")
@@ -289,18 +161,3 @@ def get_author(author_id):
 
     return serialized
 
-
-def fill_pub(pub):
-    try:
-        logging.info(f"Fetching pub entry for publication {pub['author_pub_id']}")
-        pub = scholarly.fill(pub)
-
-        serialized = convert_integers_to_strings(json.loads(json.dumps(pub)))
-        set_firestore_cache("scholar_raw_pub", pub["author_pub_id"], serialized)
-        return serialized
-
-    except Exception as e:
-        logging.error(
-            f"Error fetching detailed data for publication {pub['author_pub_id']}: {e}"
-        )
-        return None
