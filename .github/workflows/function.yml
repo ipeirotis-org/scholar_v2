@@ -63,11 +63,11 @@ jobs:
           --source ./functions/
 
 
-    - name: Prepare shared code for Cloud Function search_author_id
-      run: |
-        mkdir -p ./functions/search_author_id/shared
-        cp app/config.py ./functions/search_author_id/shared/
-        cp app/__init__.py ./functions/search_author_id/shared/
+          #    - name: Prepare shared code for Cloud Function search_author_id
+          #      run: |
+          #        mkdir -p ./functions/search_author_id/shared
+          #        cp app/config.py ./functions/search_author_id/shared/
+          #        cp app/__init__.py ./functions/search_author_id/shared/
 
     - name: Deploy Cloud Function search_author
       run: |
