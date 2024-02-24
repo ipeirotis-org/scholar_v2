@@ -10,13 +10,21 @@ COPY requirements.txt /app/
 # Install any needed packages specified in requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Import matplotlib the first time to build the font cache
+# Import matplotlib the first time to build the font cache.
+# Note: This is required only if you are using matplotlib in your project.
 RUN MPLBACKEND=Agg python -c "import matplotlib.pyplot" 
+
+# Copy the shared directory into the container at /app/shared
+# This ensures that your Docker image includes the shared folder and its contents.
+COPY shared/ /app/shared/
 
 # Copy the contents of the app directory into the container at /app
 COPY app/ /app/
 
-COPY data/ /data/
+# Optional: If you have a data directory and it's needed for the application,
+# you can copy it as well. If the data directory is not used at runtime,
+# you might skip this step or adjust it according to your application's needs.
+# COPY data/ /data/
 
 # Make port 8080 available to the world outside this container
 EXPOSE 8080

@@ -38,3 +38,17 @@ class FirestoreService:
         except Exception as e:
             logging.error(f"Error updating Firestore: {e}")
             return False  # failure
+
+    def query_by_prefix(self, collection, field, prefix):
+        """
+        Perform a query in a Firestore collection using a prefix on a specified field.
+        
+        :param collection: The name of the Firestore collection.
+        :param field: The document field to query on.
+        :param prefix: The prefix string to match against.
+        :return: A list of documents matching the prefix query.
+        """
+        end_at = prefix + '\uf8ff'
+        query = self.db.collection(collection).where(field, ">=", prefix).where(field, "<=", end_at)
+        results = query.stream()
+        return [doc.to_dict() for doc in results]
