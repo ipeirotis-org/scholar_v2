@@ -1,174 +1,113 @@
 import functions_framework
 import json
-from scholarly import scholarly
-from flask import make_response
 import logging
-from datetime import datetime
-
-from google.cloud import tasks_v2
+from flask import make_response, jsonify
+from scholarly import scholarly
 
 from shared.config import Config
-
+from shared.utils import convert_integers_to_strings
 from shared.services.firestore_service import FirestoreService
 from shared.services.task_queue_service import TaskQueueService
 
-# Instantiate the services
-task_queue_service = TaskQueueService()
-firestore_service = FirestoreService()
-
-
+# Initialize logging
 logging.basicConfig(level=logging.INFO)
 
-client = tasks_v2.CloudTasksClient()
-
-
-# Google Cloud project ID and queue location
-project = "scholar-version2"
-location = "northamerica-northeast1"
-
-
-# Construct the fully qualified queue name
-pubs_queue = client.queue_path(project, location, "process-pubs")
-
+# Instantiate services
+firestore_service = FirestoreService()
+task_queue_service = TaskQueueService()
 
 
 @functions_framework.http
 def search_author_id(request):
-    """HTTP Cloud Function.
+    """Responds to HTTP requests with author information from Google Scholar.
     Args:
-       request (flask.Request): The request object.
+        request (flask.Request): HTTP request object.
     Returns:
-       The response text, or any set of values that can be turned into a
-       Response object using `make_response`.
+        flask.Response: HTTP response object.
     """
-    request_json = request.get_json(silent=True)
-    request_args = request.args
-
-    scholar_id = request_json.get("scholar_id", request_args.get("scholar_id"))
+    scholar_id = request.args.get('scholar_id') or (request.get_json(silent=True) or {}).get('scholar_id')
 
     if not scholar_id:
-        return "Missing author id", 400
+        return jsonify({"error": "Missing author id"}), 400
 
-    author = get_author(scholar_id)
+    author_info = process_author(scholar_id)
+    if author_info is None:
+        return jsonify({"error": "Failed to fetch or process author data"}), 500
+
+    return jsonify(author_info), 200
+
+
+def process_author(scholar_id):
+    """Fetches and processes an author's information and publications.
+    Args:
+        scholar_id (str): Google Scholar ID of the author.
+    Returns:
+        dict: Serialized author information, or None upon failure.
+    """
+    author = fetch_author(scholar_id)
     if author is None:
-        return "Error getting data from Google Scholar", 500
+        return None
 
-    response = make_response(author)
-    response.headers["Content-Type"] = "application/json"
+    enqueue_publications(author.get('publications', []))
+    serialized_author = serialize_author(author)
+    if not serialized_author:
+        return None
 
-    return response, 200
+    if not firestore_service.set_firestore_cache("scholar_raw_author", scholar_id, serialized_author):
+        logging.error(f"Failed to store author {scholar_id} in Firestore.")
+        return None
 
-
-def convert_integers_to_strings(data):
-    if isinstance(data, dict):
-        return {key: convert_integers_to_strings(value) for key, value in data.items()}
-    elif isinstance(data, list):
-        return [convert_integers_to_strings(element) for element in data]
-    elif isinstance(data, int):
-        if abs(data) > 2**62:
-            return str(data)
-        else:
-            return data
-    else:
-        return data
+    return serialized_author
 
 
-def get_author(author_id):
+def fetch_author(scholar_id):
+    """Fetches detailed author data from Google Scholar.
+    Args:
+        scholar_id (str): The unique identifier for the author.
+    Returns:
+        dict: Author data, or None if an error occurs.
+    """
     try:
-        logging.info(f"Fetching author entry for {author_id}")
-        author = scholarly.search_author_id(author_id)
-        author = scholarly.fill(author)
-
+        logging.info(f"Fetching author entry for {scholar_id}")
+        return scholarly.fill(scholarly.search_author_id(scholar_id))
     except Exception as e:
-        logging.error(f"Error fetching detailed author data for {author_id}: {e}")
+        logging.error(f"Error fetching author data for {scholar_id}: {e}")
         return None
 
 
+def enqueue_publications(publications):
+    """Enqueues tasks for processing each publication.
+    Args:
+        publications (list): A list of publication data dictionaries.
+    """
+    for pub in publications:
+        if not task_queue_service.enqueue_publication_task(pub):
+            logging.error(f"Failed to enqueue publication task for {pub.get('author_pub_id')}")
+
+
+def serialize_author(author):
+    """Serializes author data for storage, handling large data sizes.
+    Args:
+        author (dict): The author data to serialize.
+    Returns:
+        dict: The serialized author data.
+    """
     try:
-        logging.info(f"Putting publications in queue for author {author_id}")
-        for pub in author["publications"]:
-            '''
-            url = "https://northamerica-northeast1-scholar-version2.cloudfunctions.net/fill_publication"
-            task_id = pub['author_pub_id'].replace(":", "__")
-            task_name = f"projects/{project}/locations/{location}/queues/process-pubs/tasks/{task_id}"
-    
-    
-            task = {
-                "name": task_name,
-                "http_request": {
-                    "http_method": tasks_v2.HttpMethod.POST,
-                    "url": url,
-                    "headers": {"Content-type": "application/json"},
-                    "body": json.dumps(
-                        {"pub": pub}
-                    ).encode(),  # Correctly serialize the dictionary
-                }
-            }
-            response = client.create_task(request={"parent": pubs_queue, "task": task})
-            '''
-            response = task_queue_service.enqueue_publication_task(pub)
-
-    except  Exception as e:
-        logging.error(
-            f"Error enqueueing publications for author {author_id} in Firebase: {e}"
-        )
-        return None
-        
-    
-
-    try:
-        # Keep only the IDs and num_citations of the publications, to save space
-        abbrv = []
-        for pub in author["publications"]:
-            if not pub.get("author_pub_id"):
-                continue
-
-            entry = {
+        author['publications'] = [
+            {
                 "author_pub_id": pub.get("author_pub_id"),
                 "num_citations": pub.get("num_citations", 0),
                 "filled": False,
-                "bib": dict(),
-            }
-            if pub.get("bib") and "pub_year" in pub.get("bib"):
-                entry["bib"]["pub_year"] = pub["bib"]["pub_year"]
-
-            abbrv.append(entry)
-
-        author["publications"] = abbrv
-
-    except  Exception as e:
-        logging.error(f"Error bookkeeping pub entries for author {author_id}: {e}")
+                "bib": {key: pub['bib'][key] for key in ['pub_year'] if key in pub.get('bib', {})}
+            } for pub in author.get('publications', []) if pub.get("author_pub_id")
+        ]
+        serialized = convert_integers_to_strings(json.loads(json.dumps(author)))  # Simplified serialization
+        return serialized
+    except Exception as e:
+        logging.error(f"Error serializing author data: {e}")
         return None
 
-    try:
-        logging.info(f"Serializing author {author_id}")
-        serialized = convert_integers_to_strings(json.loads(json.dumps(author)))
 
-        # We leave the co-authors as-is, unless they do not fit in Firestore.
-        if len(json.dumps(serialized)) > 500000:
-            del author["coauthors"]
 
-        # In extreme cases, we will truncate publications
-        while True:
-            serialized = convert_integers_to_strings(json.loads(json.dumps(author)))
-            # This is a hack to deal with the fact that cache can only hold 0.5Mb docs
-            if len(json.dumps(serialized)) > 500000:
-                full = len(author["publications"])
-                half = int(full / 2)
-                author["publications"] = author["publications"][:half]
-            else:
-                break
-    except  Exception as e:
-        logging.error(f"Error serializing {author_id} : {e}")
-        return None
 
-    try:
-        logging.info(f"Storing author {author_id} in Firebase")
-        firestore_service.set_firestore_cache("scholar_raw_author", author_id, serialized)
-
-    except  Exception as e:
-        logging.error(f"Error storing author entry {author_id} in Firebase: {e}")
-        return None
-
-    return serialized
 
