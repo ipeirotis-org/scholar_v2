@@ -8,6 +8,7 @@ logging.basicConfig(level=logging.INFO)
 # Initialize services and repositories
 firestore_service = FirestoreService()
 
+
 def get_similar_authors(author_name):
     # Fetch similar authors with caching logic
     cached_data, _ = firestore_service.get_firestore_cache("queries", author_name)
@@ -20,6 +21,7 @@ def get_similar_authors(author_name):
         # Cache the fetched authors data
         firestore_service.set_firestore_cache("queries", author_name, authors)
     return authors
+
 
 def fetch_authors_from_scholarly(author_name):
     # Fetch authors using the scholarly package
@@ -36,6 +38,7 @@ def fetch_authors_from_scholarly(author_name):
     except Exception as e:
         logging.error(f"Error fetching similar authors for '{author_name}': {e}")
     return authors
+
 
 def process_author(author):
     # Process and return author data in a structured format

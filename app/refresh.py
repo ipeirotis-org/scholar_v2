@@ -14,14 +14,14 @@ logging.basicConfig(level=logging.INFO)
 firestore_service = FirestoreService()
 task_queue_service = TaskQueueService()
 publication_repository = PublicationRepository(firestore_service)
-author_repository = AuthorRepository(firestore_service, publication_repository)  # Assuming publication_repository is None or similarly initialized
-
+author_repository = AuthorRepository(
+    firestore_service, publication_repository
+)  # Assuming publication_repository is None or similarly initialized
 
 
 def get_authors_to_refresh(num_authors=10):
     # Use the AuthorRepository to fetch authors needing refresh
     return author_repository.get_authors_needing_refresh(num_authors)
-
 
 
 def refresh_authors(refresh=[], num_authors=1):
@@ -33,7 +33,11 @@ def refresh_authors(refresh=[], num_authors=1):
     authors = []
 
     for scholar_id in refresh:
-        doc = firestore_service.db.collection(Config.FIRESTORE_COLLECTION_AUTHOR).document(scholar_id).get()
+        doc = (
+            firestore_service.db.collection(Config.FIRESTORE_COLLECTION_AUTHOR)
+            .document(scholar_id)
+            .get()
+        )
         if not doc.exists:
             # Enqueue author task if document does not exist
             if task_queue_service.enqueue_author_task(scholar_id):
@@ -55,12 +59,14 @@ def refresh_authors(refresh=[], num_authors=1):
             publications = author.get("publications", [])
             total_authors += 1
             total_pubs += len(publications)
-            authors.append({
-                "doc_id": doc.id,
-                "author_id": author_id,
-                "publications": len(publications),
-                "name": author.get("name")
-            })
+            authors.append(
+                {
+                    "doc_id": doc.id,
+                    "author_id": author_id,
+                    "publications": len(publications),
+                    "name": author.get("name"),
+                }
+            )
 
         # Additional logic for handling document IDs not matching author IDs could go here
         # For example, deleting or updating records as necessary
@@ -68,5 +74,5 @@ def refresh_authors(refresh=[], num_authors=1):
     return {
         "total_authors": total_authors,
         "total_publications": total_pubs,
-        "authors": authors
+        "authors": authors,
     }

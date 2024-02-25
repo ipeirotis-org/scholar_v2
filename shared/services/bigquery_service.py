@@ -1,6 +1,7 @@
 from google.cloud import bigquery
 from ..config import Config  # Ensure this import matches your project structure
 
+
 class BigQueryService:
     def __init__(self):
         self.client = bigquery.Client(project=Config.PROJECT_ID)
@@ -38,4 +39,3 @@ class BigQueryService:
         """
         df = self.query(sql)
         return df.to_dict("records")[0] if len(df) == 1 else None
-

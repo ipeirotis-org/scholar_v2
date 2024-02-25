@@ -16,7 +16,7 @@ import logging
 import pandas as pd
 
 from shared.config import Config
-from scholar import  get_similar_authors
+from scholar import get_similar_authors
 from data_analysis import get_author_stats
 from visualization import generate_plot
 from queue_handler import put_author_in_queue
@@ -116,11 +116,11 @@ def get_publication_details(author_id, pub_id):
     # publication, plot_paths = get_publication_details_data(author_id, pub_id)
     publication = None
     if publication:
-        return render_template("publication_detail.html", publication=publication, plot_paths=plot_paths)
+        return render_template(
+            "publication_detail.html", publication=publication, plot_paths=plot_paths
+        )
     else:
         return render_template("error.html", error_message="Publication not found.")
-
-
 
 
 @app.route("/error")

@@ -1,7 +1,8 @@
 import json
 import logging
 from google.cloud import tasks_v2
-from ..config import Config 
+from ..config import Config
+
 
 class TaskQueueService:
     def __init__(self):
@@ -10,8 +11,12 @@ class TaskQueueService:
         self.queue_location = Config.QUEUE_LOCATION
         self.authors_queue_name = Config.QUEUE_NAME_AUTHORS
         self.pubs_queue_name = Config.QUEUE_NAME_PUBS
-        self.authors_queue = self.tasks_client.queue_path(self.project_id, self.queue_location, self.authors_queue_name)
-        self.pubs_queue = self.tasks_client.queue_path(self.project_id, self.queue_location, self.pubs_queue_name)
+        self.authors_queue = self.tasks_client.queue_path(
+            self.project_id, self.queue_location, self.authors_queue_name
+        )
+        self.pubs_queue = self.tasks_client.queue_path(
+            self.project_id, self.queue_location, self.pubs_queue_name
+        )
 
     def enqueue_author_task(self, author_id):
         task_name = f"{self.authors_queue}/tasks/{author_id}"
@@ -58,7 +63,9 @@ class TaskQueueService:
 
     def _enqueue_task(self, task, queue):
         try:
-            response = self.tasks_client.create_task(request={"parent": queue, "task": task})
+            response = self.tasks_client.create_task(
+                request={"parent": queue, "task": task}
+            )
             logging.info(f"Task enqueued: {response.name}")
             return response
         except Exception as e:

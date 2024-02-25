@@ -21,11 +21,6 @@ COPY shared/ /app/shared/
 # Copy the contents of the app directory into the container at /app
 COPY app/ /app/
 
-# Optional: If you have a data directory and it's needed for the application,
-# you can copy it as well. If the data directory is not used at runtime,
-# you might skip this step or adjust it according to your application's needs.
-# COPY data/ /data/
-
 # Make port 8080 available to the world outside this container
 EXPOSE 8080
 
