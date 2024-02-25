@@ -32,18 +32,19 @@ def search_author_id(request):
         flask.Response: HTTP response object.
     """
     scholar_id = request.args.get('scholar_id') or (request.get_json(silent=True) or {}).get('scholar_id')
+    skip_pubs = request.args.get('skip_pubs') or (request.get_json(silent=True) or {}).get('skip_pubs')
 
     if not scholar_id:
         return jsonify({"error": "Missing author id"}), 400
 
-    author_info = process_author(scholar_id)
+    author_info = process_author(scholar_id, skip_pubs)
     if author_info is None:
         return jsonify({"error": "Failed to fetch or process author data"}), 500
 
     return jsonify(author_info), 200
 
 
-def process_author(scholar_id):
+def process_author(scholar_id, skip_pubs=None):
     """Fetches and processes an author's information and publications.
     Args:
         scholar_id (str): Google Scholar ID of the author.
@@ -54,7 +55,9 @@ def process_author(scholar_id):
     if author is None:
         return None
 
-    enqueue_publications(author.get('publications', []))
+    if skip_pubs is None:
+        enqueue_publications(author.get('publications', []))
+
     serialized_author = serialize_author(author)
     if not serialized_author:
         logging.error(f"Failed to serialize author {scholar_id}e.")
