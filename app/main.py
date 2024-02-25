@@ -30,6 +30,34 @@ logging.basicConfig(level=logging.INFO)
 app = Flask(__name__)
 app.config.from_object(Config)
 
+# GCS Bucket Name
+BUCKET_NAME = 'scholar_data_share'
+
+# Initialize Google Cloud clients
+storage_client = storage.Client()
+
+def upload_csv_to_gcs(df, destination_blob_name):
+    """Uploads the CSV content to Google Cloud Storage."""
+    bucket = storage_client.bucket(BUCKET_NAME)
+    blob = bucket.blob(destination_blob_name)
+    
+    # Convert DataFrame to a CSV string
+    csv_string = df.to_csv(index=False)
+    blob.upload_from_string(csv_string, content_type='text/csv')
+    # print(f"Uploaded {destination_blob_name} to {BUCKET_NAME}.")
+
+def generate_signed_url(blob_name):
+    """Generates a signed URL for the blob."""
+    bucket = storage_client.bucket(BUCKET_NAME)
+    blob = bucket.blob(blob_name)
+    
+    url = blob.generate_signed_url(version="v4",
+                                   expiration=datetime.timedelta(minutes=15),  # URL expires in 15 minutes
+                                   method="GET")
+    return url
+
+
+
 
 @app.route("/")
 def index():
@@ -43,18 +71,20 @@ def get_similar_authors_route():
     return jsonify(authors)
 
 @app.route('/download_all_authors_stats')
-def download_all_authors_stats():
+def download_all_authors_stats_route():
     df = download_all_authors_stats()
 
-    # Convert DataFrame to CSV
-    csv = df.to_csv(index=False)
+    destination_blob_name = 'all_authors_stats.csv'
+    upload_csv_to_gcs(df, destination_blob_name)
+    # Construct the URL to the file in the GCS bucket
+    # file_url = f"https://storage.googleapis.com/{BUCKET_NAME}/{destination_blob_name}"
 
-    # Create a response with the CSV data
-    response = Response(csv, mimetype='text/csv')
-    # Add header to force download in the browser
-    response.headers.set("Content-Disposition", "attachment", filename="all_authors_stats.csv")
+    # Use this function to get a signed URL and redirect the user to it
+    file_url = generate_signed_url(destination_blob_name)
+    # Redirect the user to the file URL for download
+    return redirect(file_url)    
 
-    return response
+
 
 
 @app.route("/api/refresh_authors")
