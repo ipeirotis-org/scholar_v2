@@ -53,10 +53,10 @@ def download_all_authors_stats_route():
     destination_blob_name = 'all_authors_stats.csv'
     storage_service.upload_csv_to_gcs(df, destination_blob_name)
     # Construct the URL to the file in the GCS bucket
-    # file_url = f"https://storage.googleapis.com/{BUCKET_NAME}/{destination_blob_name}"
+    file_url = f"https://storage.googleapis.com/{Config.BUCKET_NAME}/{destination_blob_name}"
 
     # Use this function to get a signed URL and redirect the user to it
-    file_url = storage_service.generate_signed_url(destination_blob_name)
+    # file_url = storage_service.generate_signed_url(destination_blob_name)
     # Redirect the user to the file URL for download
     return redirect(file_url)   
 
