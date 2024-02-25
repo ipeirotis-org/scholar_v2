@@ -1,6 +1,7 @@
 import functions_framework
 import json
 import logging
+import time
 from flask import make_response, jsonify
 from scholarly import scholarly
 
@@ -89,6 +90,7 @@ def enqueue_publications(publications):
         publications (list): A list of publication data dictionaries.
     """
     for pub in publications:
+        time.sleep(0.1) # avoid overloading the queue service
         if not task_queue_service.enqueue_publication_task(pub):
             logging.error(f"Failed to enqueue publication task for {pub.get('author_pub_id')}")
 
