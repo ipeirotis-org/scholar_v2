@@ -42,34 +42,6 @@ def get_similar_authors_route():
     return jsonify(authors)
 
 
-@app.route("/api/author/<author_id>")
-def get_author_route(author_id):
-
-    author = get_author(author_id)
-    if author:
-        return jsonify(author)
-    else:
-        return jsonify({"message": "Author not in database."}), 404
-
-
-@app.route("/api/author_stats/<author_id>")
-def get_author_stats_route(author_id):
-    author_stats = get_author_stats(author_id)
-    if author_stats:
-        return jsonify(author_stats)
-    else:
-        return jsonify({"message": "An error occurred"}), 503
-
-
-@app.route("/api/author/<author_id>/publication/<pub_id>")
-def get_publication_route(author_id, pub_id):
-    pub = get_publication(author_id, pub_id)
-    if pub:
-        return jsonify(pub)
-    else:
-        return jsonify({"message": "An error occurred"}), 503
-
-
 @app.route("/api/refresh_authors")
 def refresh_authors_route():
     scholar_ids_arg = request.args.get("scholar_ids")
