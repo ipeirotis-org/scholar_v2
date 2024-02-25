@@ -52,3 +52,25 @@ class FirestoreService:
         query = self.db.collection(collection).where(field, ">=", prefix).where(field, "<=", end_at)
         results = query.stream()
         return [doc.to_dict() for doc in results]
+
+
+    def objects_needing_refresh(self, collection, days_since_last_update, limit, key_attr):
+        """
+        Fetch objects from a collection that have not been updated recently.
+
+        Parameters:
+        - collection: The Firestore collection name.
+        - days_since_last_update: Number of days to consider for an object being outdated.
+        - limit: Maximum number of objects to fetch.
+        - key_attr: The key attribute in the document to return.
+        
+        Returns:
+        A list of values for the key attribute from documents that match the criteria.
+        """
+        cutoff_date = datetime.utcnow().replace(tzinfo=pytz.utc) - timedelta(days=days_since_last_update)
+        query = self.db.collection(collection)\
+            .where("timestamp", "<", cutoff_date)\
+            .order_by("timestamp", direction=firestore.Query.ASCENDING)\
+            .limit(limit)
+        
+        return [doc.to_dict().get(key_attr) for doc in query.stream() if key_attr in doc.to_dict()]

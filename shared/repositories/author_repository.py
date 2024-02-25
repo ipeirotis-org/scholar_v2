@@ -1,3 +1,5 @@
+from datetime import datetime, timedelta
+
 from ..config import Config
 
 class AuthorRepository:
@@ -26,3 +28,21 @@ class AuthorRepository:
         
         # Compare and return the latest of the two timestamps
         return max(filter(None, [latest_author_change, latest_pub_change]))
+
+
+    def get_authors_needing_refresh(self, num_authors=1):
+        """
+        Fetch author IDs that need refreshing based on their last update timestamp.
+
+        Parameters:
+        - num_authors: The number of author IDs to fetch.
+
+        Returns:
+        A list of author IDs.
+        """
+        return self.firestore_service.objects_needing_refresh(
+            collection=Config.FIRESTORE_COLLECTION_AUTHOR,
+            days_since_last_update=90,  # Considering authors not updated in the last 90 days
+            limit=num_authors,
+            key_attr="scholar_id"
+        )
