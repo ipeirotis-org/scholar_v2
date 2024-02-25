@@ -56,10 +56,17 @@
                                 PiP-AUC Score: {{ author.stats.pip_auc_score }} 
                                 ({{ (100*author.stats.pip_auc_score_percentile)|round(2) }}% percentile)
                                 </strong>&nbsp;<span class="metrics-explanation" data-toggle="tooltip" title="PiP-AUC Score represents the author's impact and productivity, with its percentile indicating the rank compared to other authors who started publishing in {{ author.stats.year_of_first_pub }}.">(Metrics Explanation)</span>
-                            </li>
+                                <a class="btn btn-info btn-sm" data-toggle="collapse" href="#pipAucExplanation" role="button" aria-expanded="false" aria-controls="pipAucExplanation">
+    Learn more about PiP-AUC Score
+</a>
+<div class="collapse" id="pipAucExplanation">
                             <p>
 The PiP-AUC score evaluates research impact and productivity by plotting papers' citation percentiles against all papers published in the same year on the y-axis, and the quantity of an author's work on the x-axis. The y-axis ranks papers from highest to lowest citation percentile. On the x-axis, the number of papers published is normalized to show an author's percentile against peers who started publishing in the same year. The maximum value on the x-axis represents the author's total number of publications. Moving backwards along the x-axis corresponds to sequentially removing the author's lowest percentile papers, which in turn, can increase the position on the y-axis if the removed papers are of lower citation percentile. This method calculates the area under the curve, capturing both the impact (citation percentile) and quantity (publication percentile) of a researcher's work. Each point on the curve reflects the balance between keeping all papers (maximum quantity) and the increased average impact when excluding lower-performing papers. The overall score, ranging from 0 to 1, combines these aspects to reflect a researcher's contributions.
                             </p>
+</div>                
+                            </li>
+            
+
                         </ul>
                             
                         </div>
