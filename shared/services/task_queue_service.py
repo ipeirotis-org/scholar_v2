@@ -43,6 +43,20 @@ class TaskQueueService:
         task = self._create_http_task(task_name, url, payload)
         return self._enqueue_task(task, self.pubs_queue)
 
+    def check_pending_tasks(self, author_id):
+
+        author_tasks = self.tasks_client.list_tasks(request={"parent": self.authors_queue})
+        for task in author_tasks:
+            if author_id in task.name:  # Assuming task names include the author_id
+                return True  # There are pending tasks for this author
+        
+        pub_tasks = self.tasks_client.list_tasks(request={"parent": self.pubs_queue})
+        for task in pub_tasks:
+            if author_id in task.name:  # Assuming task names include the author_id
+                return True  # There are pending tasks for this author
+        return False  # No pending tasks for this author
+
+    
     def _check_duplicate_task(self, task_name, queue):
         existing_tasks = self.tasks_client.list_tasks(request={"parent": queue})
         for task in existing_tasks:

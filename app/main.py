@@ -19,7 +19,7 @@ from shared.config import Config
 from scholar import get_similar_authors
 from data_analysis import get_author_stats
 from visualization import generate_plot
-from queue_handler import put_author_in_queue
+from queue_handler import put_author_in_queue, pending_tasks
 from refresh import refresh_authors
 
 # No implementation, commenting out
@@ -76,12 +76,17 @@ def results():
         flash("Google Scholar ID is required.")
         return redirect(url_for("index"))
 
+    # Check if there are any tasks about the author in the queue
+    if pending_tasks(author_id):
+        return render_template("redirect.html", author_id=author_id)
+    
     author = get_author_stats(author_id)
 
     # If there is no author, put the author in the queue and render redirect.html
     if not author:
         put_author_in_queue(author_id)
         return render_template("redirect.html", author_id=author_id)
+        
 
     plot_paths = generate_plot(pd.DataFrame(author["publications"]), author["name"])
     author["plot_paths"] = plot_paths

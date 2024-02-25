@@ -17,3 +17,6 @@ def put_author_in_queue(author_id):
     if response is None:
         logging.error(f"Could not create task for author ID: {author_id}")
     return response
+
+def pending_tasks(author_id):
+    return task_queue_service.check_pending_tasks(author_id)
