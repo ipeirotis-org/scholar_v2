@@ -13,7 +13,7 @@ logging.basicConfig(level=logging.INFO)
 # Initialize services
 firestore_service = FirestoreService()
 task_queue_service = TaskQueueService()
-publication_repository = PublicationRepository(firestore_service_
+publication_repository = PublicationRepository(firestore_service)
 author_repository = AuthorRepository(firestore_service, publication_repository)  # Assuming publication_repository is None or similarly initialized
 
 
