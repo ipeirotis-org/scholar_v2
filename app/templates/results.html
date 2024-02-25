@@ -27,8 +27,8 @@
                                 ({{ (100*author.stats.citedby_percentile)|round(2) }}% percentile)&nbsp;<span class="metrics-explanation" data-toggle="tooltip" title="This is the number of citations to all publications; the percentile shows how the author ranks against other authors who started publishing in {{ author.stats.year_of_first_pub }}.">(Metrics Explanation)</span>
                             </li>
                             
-                            <li>Recent Citations (last 5 years): {{ author.stats.cited5y }}
-                                ({{ (100*author.stats.cited5y_percentile)|round(2) }}% percentile)&nbsp;<span class="metrics-explanation" data-toggle="tooltip" title="This is the number of new citations in the last 5 years to all publications; the percentile shows how the author ranks against other authors who started publishing in {{ author.stats.year_of_first_pub }}.">(Metrics Explanation)</span>
+                            <li>Recent Citations (last 5 years): {{ author.stats.citedby5y }}
+                                ({{ (100*author.stats.citedby5y_percentile)|round(2) }}% percentile)&nbsp;<span class="metrics-explanation" data-toggle="tooltip" title="This is the number of new citations in the last 5 years to all publications; the percentile shows how the author ranks against other authors who started publishing in {{ author.stats.year_of_first_pub }}.">(Metrics Explanation)</span>
                             </li>                            
 
                             <li>H-index: {{ author.stats.hindex }}
