@@ -68,33 +68,6 @@ def set_firestore_cache(collection, doc_id, data):
         )
 
 
-@functions_framework.http
-def search_author_id(request):
-    """HTTP Cloud Function.
-    Args:
-       request (flask.Request): The request object.
-    Returns:
-       The response text, or any set of values that can be turned into a
-       Response object using `make_response`.
-    """
-    request_json = request.get_json(silent=True)
-    request_args = request.args
-
-    scholar_id = request_json.get("scholar_id", request_args.get("scholar_id"))
-    # use_cache = request_json.get("use_cache", request_args.get("use_cache"))
-
-    if not scholar_id:
-        return "Missing author id", 400
-
-    author = get_author(scholar_id)
-    if author is None:
-        return "Error getting data from Google Scholar", 500
-
-    response = make_response(author)
-    response.headers["Content-Type"] = "application/json"
-
-    return response, 200
-
 
 @functions_framework.http
 def fill_publication(request):
@@ -125,60 +98,6 @@ def fill_publication(request):
     return response, 200
 
 
-@functions_framework.http
-def get_similar(request):
-    request_json = request.get_json(silent=True)
-    request_args = request.args
-
-    author_name = request_json.get("author_name", request_args.get("author_name"))
-
-    authors = get_similar_authors(author_name)
-
-    response = make_response(authors)
-    response.headers["Content-Type"] = "application/json"
-
-    return response, 200
-
-
-def get_similar_authors(author_name):
-    # Check cache first
-    cached_data = get_firestore_cache("queries", author_name)
-    if cached_data:
-        logging.info(
-            f"Cache hit for similar authors of '{author_name}'. Data fetched from Firestore."
-        )
-        return cached_data
-
-    authors = []
-    try:
-        search_query = scholarly.search_author(author_name)
-        for _ in range(10):  # Limit to 10 authors for simplicity
-            try:
-                author = next(search_query)
-                if author:
-                    authors.append(author)
-            except StopIteration:
-                break
-    except Exception as e:
-        logging.error(f"Error fetching similar authors for '{author_name}': {e}")
-        return []
-
-    # Process authors
-    clean_authors = [
-        {
-            "name": author.get("name", ""),
-            "affiliation": author.get("affiliation", ""),
-            "email": author.get("email", ""),
-            "citedby": author.get("citedby", 0),
-            "scholar_id": author.get("scholar_id", ""),
-        }
-        for author in authors
-    ]
-
-    # Cache the results
-    set_firestore_cache("queries", author_name, clean_authors)
-
-    return clean_authors
 
 def convert_integers_to_strings(data):
     if isinstance(data, dict):
@@ -193,98 +112,6 @@ def convert_integers_to_strings(data):
     else:
         return data
 
-
-def get_author(author_id):
-    try:
-        logging.info(f"Fetching author entry for {author_id}")
-        author = scholarly.search_author_id(author_id)
-        author = scholarly.fill(author)
-
-    except Exception as e:
-        logging.error(f"Error fetching detailed author data for {author_id}: {e}")
-        return None
-
-    try:
-        logging.info(f"Putting publications in queue for author {author_id}")
-        for pub in author["publications"]:
-            url = "https://northamerica-northeast1-scholar-version2.cloudfunctions.net/fill_publication"
-            task_id = pub['author_pub_id'].replace(":", "__")
-            task_name = f"projects/{project}/locations/{location}/queues/process-pubs/tasks/{task_id}"
-    
-    
-            task = {
-                "name": task_name,
-                "http_request": {
-                    "http_method": tasks_v2.HttpMethod.POST,
-                    "url": url,
-                    "headers": {"Content-type": "application/json"},
-                    "body": json.dumps(
-                        {"pub": pub}
-                    ).encode(),  # Correctly serialize the dictionary
-                }
-            }
-            response = client.create_task(request={"parent": pubs_queue, "task": task})
-    except  Exception as e:
-        logging.error(
-            f"Error enqueueing publications for author {author_id} in Firebase: {e}"
-        )
-        return None
-
-    try:
-        # Keep only the IDs and num_citations of the publications, to save space
-        abbrv = []
-        for pub in author["publications"]:
-            if not pub.get("author_pub_id"):
-                continue
-
-            entry = {
-                "author_pub_id": pub.get("author_pub_id"),
-                "num_citations": pub.get("num_citations", 0),
-                "filled": False,
-                "bib": dict(),
-            }
-            if pub.get("bib") and "pub_year" in pub.get("bib"):
-                entry["bib"]["pub_year"] = pub["bib"]["pub_year"]
-
-            abbrv.append(entry)
-
-        author["publications"] = abbrv
-
-    except  Exception as e:
-        logging.error(f"Error bookkeeping pub entries for author {author_id}: {e}")
-        return None
-
-    try:
-        logging.info(f"Serializing author {author_id}")
-        serialized = convert_integers_to_strings(json.loads(json.dumps(author)))
-
-        # We leave the co-authors as-is, unless they do not fit in Firestore.
-        if len(json.dumps(serialized)) > 500000:
-            del author["coauthors"]
-
-        # In extreme cases, we will truncate publications
-        while True:
-            serialized = convert_integers_to_strings(json.loads(json.dumps(author)))
-            # This is a hack to deal with the fact that cache can only hold 0.5Mb docs
-            if len(json.dumps(serialized)) > 500000:
-                full = len(author["publications"])
-                half = int(full / 2)
-                author["publications"] = author["publications"][:half]
-            else:
-                break
-    except  Exception as e:
-        logging.error(f"Error serializing {author_id} : {e}")
-        return None
-
-    try:
-        logging.info(f"Storing author {author_id} in Firebase")
-        set_firestore_cache("scholar_raw_author", author_id, serialized)
-
-    except  Exception as e:
-        logging.error(f"Error storing author entry {author_id} in Firebase: {e}")
-        return None
-
-    return serialized
 
 
 def fill_pub(pub):

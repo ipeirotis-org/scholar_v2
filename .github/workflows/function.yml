@@ -26,17 +26,10 @@ jobs:
         echo "${{ secrets.GCP_SA_KEY }}" | base64 --decode > ${HOME}/gcloud-service-key.json
         gcloud auth activate-service-account --key-file=${HOME}/gcloud-service-key.json
 
-#    - name: Deploy Cloud Function search_author_id
-#      run: |
-#        gcloud functions deploy search_author_id \
-#          --region ${{ env.REGION }} \
-#          --entry-point search_author_id \
-#          --runtime python38  \
-#          --trigger-http \
-#          --allow-unauthenticated \
-#          --gen2 \
-#          --timeout=3600s \
-#          --source ./functions/
+
+    - name: Prepare shared code for Cloud Function search_author_id
+      run: |
+        cp -r ./shared ./functions/fill_publication/shared/
 
 
     - name: Deploy Cloud Function fill_publication
@@ -44,23 +37,11 @@ jobs:
         gcloud functions deploy fill_publication \
           --region ${{ env.REGION }} \
           --entry-point fill_publication \
-          --runtime python38  \
-          --trigger-http \
-          --allow-unauthenticated \
-          --gen2 \
-          --source ./functions/
-
-
-    - name: Deploy Cloud Function get-similar
-      run: |
-        gcloud functions deploy get_similar\
-          --region ${{ env.REGION }} \
-          --entry-point get_similar \
           --runtime python312  \
           --trigger-http \
           --allow-unauthenticated \
           --gen2 \
-          --source ./functions/
+          --source ./functions/fill_publication
 
 
     - name: Prepare shared code for Cloud Function search_author_id
