@@ -24,28 +24,30 @@
                             First Year Active: {{ author.stats.year_of_first_pub }} ({{ 2024 - author.stats.year_of_first_pub + 1 }} years active)
                         </li>
                         <li>
-                            Total Citations: {{ author.stats.citedby }}
-                            ({{ (100*author.stats.citedby_percentile)|round(2) }}% percentile)&nbsp;<span class="metrics-explanation"
-      data-toggle="tooltip"
-      title="This is the number of citations to all publications; the percentile shows how the author ranks against other authors who started publishing in {{ author.stats.year_of_first_pub }}.">(Metrics Explanation)</span>
+                            <span class="metrics-explanation" data-toggle="tooltip"
+                              title="This is the number of citations to all publications; the percentile shows how the author ranks 
+                                against other authors who started publishing in {{ author.stats.year_of_first_pub }}.">
+                                Total Citations</span>: {{ author.stats.citedby }}
+                            ({{ (100*author.stats.citedby_percentile)|round(2) }}% percentile)
+                        </li>
+                        <li><span class="metrics-explanation" data-toggle="tooltip" 
+                                title="This is the number of new citations in the last 5 years to all publications; the percentile 
+                                shows how the author ranks against other authors who started publishing in {{ author.stats.year_of_first_pub }}.">
+                                Recent Citations (last 5 years)</span>: {{ author.stats.citedby5y }}
+                            ({{ (100*author.stats.citedby5y_percentile)|round(2) }}% percentile)
+                        </li>
+                        <li><span class="metrics-explanation" data-toggle="tooltip" title="The h-index of the author is the largest 
+                                number h such that h publications have at least h citations; the percentile shows how the author ranks 
+                                against other authors who started publishing in {{ author.stats.year_of_first_pub }}.">
+                                H-index</span>: {{ author.stats.hindex }}
+                            ({{ (100*author.stats.hindex_percentile)|round(2) }}% percentile)
                         </li>
                         <li>
-                            Recent Citations (last 5 years): {{ author.stats.citedby5y }}
-                            ({{ (100*author.stats.citedby5y_percentile)|round(2) }}% percentile)&nbsp;<span class="metrics-explanation"
-      data-toggle="tooltip"
-      title="This is the number of new citations in the last 5 years to all publications; the percentile shows how the author ranks against other authors who started publishing in {{ author.stats.year_of_first_pub }}.">(Metrics Explanation)</span>
-                        </li>
-                        <li>
-                            H-index: {{ author.stats.hindex }}
-                            ({{ (100*author.stats.hindex_percentile)|round(2) }}% percentile)&nbsp;<span class="metrics-explanation"
-      data-toggle="tooltip"
-      title="The h-index of the author is the largest number h such that h publications have at least h citations; the percentile shows how the author ranks against other authors who started publishing in {{ author.stats.year_of_first_pub }}.">(Metrics Explanation)</span>
-                        </li>
-                        <li>
-                            H-index (last 5 years): {{ author.stats.hindex5y }}
-                            ({{ (100*author.stats.hindex5y_percentile)|round(2) }}% percentile)&nbsp;<span class="metrics-explanation"
-      data-toggle="tooltip"
-      title="The is the 'recent' version of the h-index, which is the largest number h such that h publications have at least h new citations in the last 5 years; the percentile shows how the author ranks against other authors who started publishing in {{ author.stats.year_of_first_pub }}.">(Metrics Explanation)</span>
+                            <span class="metrics-explanation" data-toggle="tooltip" title="The is the 'recent' version of the h-index, 
+                                which is the largest number h such that h publications have at least h new citations in the last 5 years; 
+                                the percentile shows how the author ranks against other authors who started publishing in {{ author.stats.year_of_first_pub }}.">
+                                H-index (last 5 years)</span>: {{ author.stats.hindex5y }}
+                            ({{ (100*author.stats.hindex5y_percentile)|round(2) }}% percentile)
                         </li>
                         <li>
                             Total Publications: {{ author.stats.total_publications_with_citations }}
