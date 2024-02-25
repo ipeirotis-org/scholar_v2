@@ -15,7 +15,7 @@ import logging
 
 import pandas as pd
 
-from config import Config
+from shared.config import Config
 from scholar import get_author, get_similar_authors, get_publication
 from data_analysis import get_author_stats
 from visualization import generate_plot

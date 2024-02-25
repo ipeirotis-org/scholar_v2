@@ -19,7 +19,7 @@ class AuthorRepository:
 
     def get_author_last_modification(self, author_id):
         # Fetch the last modification time of the author itself
-        _, latest_author_change = self.firestore_service.get_firestore_cache("scholar_raw_author", author_id)
+        _, latest_author_change = self.firestore_service.get_firestore_cache(Config.FIRESTORE_COLLECTION_AUTHOR, author_id)
         
         # Use PublicationRepository to find the latest publication timestamp
         latest_pub_change = self.publication_repository.get_latest_publication_timestamp(author_id)

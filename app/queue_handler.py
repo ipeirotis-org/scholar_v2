@@ -6,7 +6,7 @@ from google.cloud import firestore
 from google.cloud import tasks_v2
 from google.cloud import bigquery
 
-from config import Config
+from shared.config import Config
 
 logging.basicConfig(level=logging.INFO)
 db = firestore.Client()
