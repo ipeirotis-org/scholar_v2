@@ -90,3 +90,8 @@
     #resultsTable td:first-child {
         text-align: left;
     }
+
+        .metrics-explanation {
+            text-decoration: underline;
+            cursor: pointer;
+        }

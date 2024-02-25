@@ -7,18 +7,11 @@
     <title>{{ author.get('name', 'N/A') }} -- Age-normalized Google Scholar Analysis</title>
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.7.2/font/bootstrap-icons.css">
-    <script src="{{url_for('static', filename='tablesort.js')}}"></script>
     <link rel="stylesheet" href="{{url_for('static', filename='style.css')}}">
-    <style>
-        .metrics-explanation {
-            text-decoration: underline;
-            cursor: pointer;
-        }
-    </style>
 </head>
 <body>
-
-    <section id="results">
+    
+    <main id="results">
         
                     <section>
                         <h2>Author: {{ author.get('name', 'N/A') }}</h2>
@@ -31,27 +24,44 @@
                             <li>First Year Active: {{ author.stats.year_of_first_pub }} ({{ 2024 - author.stats.year_of_first_pub + 1 }} years active)</li>
                             
                             <li>Total Citations: {{ author.stats.citedby }}
-                                ({{ (100*author.stats.citedby_percentile)|round(2) }}% percentile)&nbsp;<span class="metrics-explanation" data-toggle="tooltip" title="The total number of citations by the author and their percentile rank compared to other authors who started publishing in {{ author.stats.year_of_first_pub }}."> (Metrics Explanation)</span>
+                                ({{ (100*author.stats.citedby_percentile)|round(2) }}% percentile)&nbsp;<span class="metrics-explanation" data-toggle="tooltip" title="This is the number of citations to all publications; the percentile shows how the author ranks against other authors who started publishing in {{ author.stats.year_of_first_pub }}.">(Metrics Explanation)</span>
                             </li>
-
-
+                            
+                            <li>Recent Citations (last 5 years): {{ author.stats.cited5y }}
+                                ({{ (100*author.stats.cited5y_percentile)|round(2) }}% percentile)&nbsp;<span class="metrics-explanation" data-toggle="tooltip" title="This is the number of new citations in the last 5 years to all publications; the percentile shows how the author ranks against other authors who started publishing in {{ author.stats.year_of_first_pub }}.">(Metrics Explanation)</span>
+                            </li>                            
 
                             <li>H-index: {{ author.stats.hindex }}
-                                ({{ (100*author.stats.hindex5y_percentile)|round(2) }}% percentile)&nbsp;<span class="metrics-explanation" data-toggle="tooltip" title="The h-index of the author and their percentile rank compared to other authors who started publishing in {{ author.stats.year_of_first_pub }}."> (Metrics Explanation)</span>                  </li>
+                                ({{ (100*author.stats.hindex_percentile)|round(2) }}% percentile)&nbsp;<span class="metrics-explanation" data-toggle="tooltip" title="The h-index of the author is the largest number h such that h publications have at least h citations; the percentile shows how the author ranks against other authors who started publishing in {{ author.stats.year_of_first_pub }}.">(Metrics Explanation)</span>                  </li>
+
+                            <li>H-index (last 5 years): {{ author.stats.hindex5y }}
+                                ({{ (100*author.stats.hindex5y_percentile)|round(2) }}% percentile)&nbsp;<span class="metrics-explanation" data-toggle="tooltip" title="The is the 'recent' version of the h-index, which is the largest number h such that h publications have at least h new citations in the last 5 years; the percentile shows how the author ranks against other authors who started publishing in {{ author.stats.year_of_first_pub }}.">(Metrics Explanation)</span>                  </li>                            
+
+
                             
                             <li>Total Publications: {{ author.stats.total_publications_with_citations }}
-                                ({{ (100*author.stats.total_publications_with_citations_percentile)|round(2) }}% percentile)&nbsp;<span class="metrics-explanation" data-toggle="tooltip" title="The total number of publications (with at least one citation) by the author, and their percentile rank compared to other authors who started publishing in {{ author.stats.year_of_first_pub }}."> (Metrics Explanation)</span>
+                                ({{ (100*author.stats.total_publications_with_citations_percentile)|round(2) }}% percentile)&nbsp;<span class="metrics-explanation" data-toggle="tooltip" title="The total number of publications (with at least one citation) by the author, and their percentile rank compared to other authors who started publishing in {{ author.stats.year_of_first_pub }}.">(Metrics Explanation)</span>
                             </li>
 
+                            <li>i10-index: {{ author.stats.i10index }}
+                                ({{ (100*author.stats.i10index_percentile)|round(2) }}% percentile)&nbsp;<span class="metrics-explanation" data-toggle="tooltip" title="i10-index is the number of publications with at least 10 citations; the percentile shows how the author ranks against other authors who started publishing in {{ author.stats.year_of_first_pub }}.">(Metrics Explanation)</span>
+                            </li>                            
 
+                            <li>i10-index (last 5 years): {{ author.stats.i10index5y }}
+                                ({{ (100*author.stats.i10index5y_percentile)|round(2) }}% percentile)&nbsp;<span class="metrics-explanation" data-toggle="tooltip" title="The number of publications that have received at least 10 new citations in the last 5 years; the percentile shows how the author ranks against other authors who started publishing in {{ author.stats.year_of_first_pub }}.">(Metrics Explanation)</span>
+                            </li>                            
                             
                             <li>
                                 <strong>
                                 PiP-AUC Score: {{ author.stats.pip_auc_score }} 
                                 ({{ (100*author.stats.pip_auc_score_percentile)|round(2) }}% percentile)
-                                </strong>&nbsp;<span class="metrics-explanation" data-toggle="tooltip" title="PiP-AUC Score represents the author's impact and productivity, with its percentile indicating the rank compared to other authors who started publishing in {{ author.stats.year_of_first_pub }}."> (Metrics Explanation)</span>
+                                </strong>&nbsp;<span class="metrics-explanation" data-toggle="tooltip" title="PiP-AUC Score represents the author's impact and productivity, with its percentile indicating the rank compared to other authors who started publishing in {{ author.stats.year_of_first_pub }}.">(Metrics Explanation)</span>
                             </li>
+                            <p>
+The PiP-AUC score evaluates research impact and productivity by plotting papers' citation percentiles against all papers published in the same year on the y-axis, and the quantity of an author's work on the x-axis. The y-axis ranks papers from highest to lowest citation percentile. On the x-axis, the number of papers published is normalized to show an author's percentile against peers who started publishing in the same year. The maximum value on the x-axis represents the author's total number of publications. Moving backwards along the x-axis corresponds to sequentially removing the author's lowest percentile papers, which in turn, can increase the position on the y-axis if the removed papers are of lower citation percentile. This method calculates the area under the curve, capturing both the impact (citation percentile) and quantity (publication percentile) of a researcher's work. Each point on the curve reflects the balance between keeping all papers (maximum quantity) and the increased average impact when excluding lower-performing papers. The overall score, ranging from 0 to 1, combines these aspects to reflect a researcher's contributions.
+                            </p>
                         </ul>
+                            
                         </div>
 
                         {% for path in author.plot_paths %}
@@ -92,7 +102,7 @@
                     </section>
 
 
-    </section>
+    </main>
 
     <footer>
        <p>
@@ -102,16 +112,15 @@
        </p>
     </footer>
 
-    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.3.1/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
-        $(document).ready(function(){
-            $('[data-toggle="tooltip"]').tooltip(); 
-        });
-    </script>
+<script src="https://code.jquery.com/jquery-3.3.1.slim.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@4.3.1/dist/js/bootstrap.bundle.min.js" defer></script>
+<script src="{{url_for('static', filename='tablesort.js')}}" defer></script>
+<script>
+    $(document).ready(function(){
+        $('[data-toggle="tooltip"]').tooltip(); 
+    });
+</script>
 </body>
 </html>
-
-
 
 
