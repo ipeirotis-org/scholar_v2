@@ -51,6 +51,7 @@ def process_author(scholar_id):
     enqueue_publications(author.get('publications', []))
     serialized_author = serialize_author(author)
     if not serialized_author:
+        logging.error(f"Failed to serialize author {scholar_id}e.")
         return None
 
     if not firestore_service.set_firestore_cache("scholar_raw_author", scholar_id, serialized_author):
