@@ -1,6 +1,7 @@
-import datetime
 
 from google.cloud import storage
+from datetime import datetime, timedelta, timezone
+import os
 
 from ..config import Config
 
@@ -26,8 +27,19 @@ class StorageService:
         blob = self.bucket.blob(blob_name)
         
         url = blob.generate_signed_url(version="v4",
-                                       expiration=datetime.timedelta(minutes=15),  # URL expires in 15 minutes
+                                       expiration=timedelta(minutes=15),  # URL expires in 15 minutes
                                        method="GET")
         return url
 
 
+    def file_updated_within_24_hours(self, file_name):
+
+        blob = self.bucket.blob(file_name)
+    
+        if not blob.exists():
+            return False
+    
+        blob.reload()  # Reload the blob's metadata
+        last_modified = blob.updated  # 'updated' is a datetime object in UTC
+    
+        return (datetime.now(timezone.utc) - last_modified) < timedelta(hours=24)

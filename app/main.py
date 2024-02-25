@@ -48,15 +48,18 @@ def get_similar_authors_route():
 
 @app.route('/download_all_authors_stats')
 def download_all_authors_stats_route():
-    df = download_all_authors_stats()
-
-    destination_blob_name = 'all_authors_stats.csv'
-    storage_service.upload_csv_to_gcs(df, destination_blob_name)
+    
     # Construct the URL to the file in the GCS bucket
+    destination_blob_name = 'all_authors_stats.csv'
     file_url = f"https://storage.googleapis.com/{Config.BUCKET_NAME}/{destination_blob_name}"
 
+    if not storage_service.file_updated_within_24_hours(destination_blob_name):
+        df = download_all_authors_stats()
+        storage_service.upload_csv_to_gcs(df, destination_blob_name)
+
+
     # Use this function to get a signed URL and redirect the user to it
-    #  file_url = storage_service.generate_signed_url(destination_blob_name)
+    # file_url = storage_service.generate_signed_url(destination_blob_name)
     # Redirect the user to the file URL for download
     return redirect(file_url)   
 
