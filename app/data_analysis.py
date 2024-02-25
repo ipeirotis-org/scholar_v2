@@ -64,6 +64,14 @@ def get_author_stats(author_id):
     return author
 
 
+
+def download_all_authors_stats():
+    # Assuming bigquery_service is an instance of your BigQueryService class
+    df = bigquery_service.get_all_authors_stats()
+    return df
+
+
+
 def generate_plots_for_publications(publications):
     """
     Generate plots for a list of publications.

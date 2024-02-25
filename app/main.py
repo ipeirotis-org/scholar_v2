@@ -17,7 +17,7 @@ import pandas as pd
 
 from shared.config import Config
 from scholar import get_similar_authors
-from data_analysis import get_author_stats
+from data_analysis import get_author_stats, download_all_authors_stats
 from visualization import generate_plot
 from queue_handler import put_author_in_queue, pending_tasks
 from refresh import refresh_authors
@@ -41,6 +41,20 @@ def get_similar_authors_route():
     author_name = request.args.get("author_name")
     authors = get_similar_authors(author_name)
     return jsonify(authors)
+
+@app.route('/download_all_authors_stats')
+def download_all_authors_stats():
+    df = download_all_authors_stats()
+
+    # Convert DataFrame to CSV
+    csv = df.to_csv(index=False)
+
+    # Create a response with the CSV data
+    response = Response(csv, mimetype='text/csv')
+    # Add header to force download in the browser
+    response.headers.set("Content-Disposition", "attachment", filename="all_authors_stats.csv")
+
+    return response
 
 
 @app.route("/api/refresh_authors")
