@@ -26,5 +26,7 @@ class Config:
         f"https://{FUNCTION_LOCATION}-{PROJECT_ID}.cloudfunctions.net/fill_publication"
     )
 
+    BUCKET_NAME = 'scholar_data_share'
+    
     DOWNLOADS_DIR = os.getenv("DOWNLOADS_DIR", "downloads")
     STATIC_DIR = os.getenv("STATIC_DIR", "static")

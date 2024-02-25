@@ -22,6 +22,8 @@ from visualization import generate_plot
 from queue_handler import put_author_in_queue, pending_tasks
 from refresh import refresh_authors
 
+from shared.services.storage_service import StorageService
+
 # No implementation, commenting out
 # from data_analysis import get_publication_details_data
 
@@ -30,33 +32,7 @@ logging.basicConfig(level=logging.INFO)
 app = Flask(__name__)
 app.config.from_object(Config)
 
-# GCS Bucket Name
-BUCKET_NAME = 'scholar_data_share'
-
-# Initialize Google Cloud clients
-storage_client = storage.Client()
-
-def upload_csv_to_gcs(df, destination_blob_name):
-    """Uploads the CSV content to Google Cloud Storage."""
-    bucket = storage_client.bucket(BUCKET_NAME)
-    blob = bucket.blob(destination_blob_name)
-    
-    # Convert DataFrame to a CSV string
-    csv_string = df.to_csv(index=False)
-    blob.upload_from_string(csv_string, content_type='text/csv')
-    # print(f"Uploaded {destination_blob_name} to {BUCKET_NAME}.")
-
-def generate_signed_url(blob_name):
-    """Generates a signed URL for the blob."""
-    bucket = storage_client.bucket(BUCKET_NAME)
-    blob = bucket.blob(blob_name)
-    
-    url = blob.generate_signed_url(version="v4",
-                                   expiration=datetime.timedelta(minutes=15),  # URL expires in 15 minutes
-                                   method="GET")
-    return url
-
-
+storage_service = StorageService()
 
 
 @app.route("/")
@@ -75,16 +51,14 @@ def download_all_authors_stats_route():
     df = download_all_authors_stats()
 
     destination_blob_name = 'all_authors_stats.csv'
-    upload_csv_to_gcs(df, destination_blob_name)
+    storage_service.upload_csv_to_gcs(df, destination_blob_name)
     # Construct the URL to the file in the GCS bucket
     # file_url = f"https://storage.googleapis.com/{BUCKET_NAME}/{destination_blob_name}"
 
     # Use this function to get a signed URL and redirect the user to it
-    file_url = generate_signed_url(destination_blob_name)
+    file_url = storage_service.generate_signed_url(destination_blob_name)
     # Redirect the user to the file URL for download
-    return redirect(file_url)    
-
-
+    return redirect(file_url)   
 
 
 @app.route("/api/refresh_authors")

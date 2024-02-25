@@ -55,9 +55,6 @@ def process_author(scholar_id, skip_pubs=None):
     if author is None:
         return None
 
-    if skip_pubs is None:
-        enqueue_publications(author.get('publications', []))
-
     serialized_author = serialize_author(author)
     if not serialized_author:
         logging.error(f"Failed to serialize author {scholar_id}e.")
@@ -69,6 +66,11 @@ def process_author(scholar_id, skip_pubs=None):
         logging.error(f"Failed to store author {scholar_id} in Firestore.")
         return None
 
+    # TODO: When the number of publications are large, the app
+    # does not work well. We should consider refactoring this.
+    if skip_pubs is None:
+        enqueue_publications(author.get('publications', []))
+    
     return serialized_author
 
 
