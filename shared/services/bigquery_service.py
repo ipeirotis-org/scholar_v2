@@ -48,4 +48,4 @@ class BigQueryService:
             LEFT JOIN `scholar-version2.statistics.author_pip_scores` P ON P.scholar_id = S.scholar_id
         """
         df = self.query(sql)
-        return df.to_dataframe()
+        return df
