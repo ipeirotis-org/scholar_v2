@@ -8,6 +8,8 @@ from shared.config import Config
 from shared.utils import convert_integers_to_strings
 from shared.services.firestore_service import FirestoreService
 from shared.services.task_queue_service import TaskQueueService
+from shared.repositories.author_repository import AuthorRepository
+from shared.repositories.publication_repository import PublicationRepository
 
 # Initialize logging
 logging.basicConfig(level=logging.INFO)
@@ -15,6 +17,9 @@ logging.basicConfig(level=logging.INFO)
 # Instantiate services
 firestore_service = FirestoreService()
 task_queue_service = TaskQueueService()
+
+publication_repository = PublicationRepository(firestore_service)
+author_repository = AuthorRepository(firestore_service, publication_repository)
 
 
 @functions_framework.http
@@ -54,7 +59,9 @@ def process_author(scholar_id):
         logging.error(f"Failed to serialize author {scholar_id}e.")
         return None
 
-    if not firestore_service.set_firestore_cache("scholar_raw_author", scholar_id, serialized_author):
+    success = author_repository.save_author(scholar_id, serialized_author)
+
+    if not success:
         logging.error(f"Failed to store author {scholar_id} in Firestore.")
         return None
 
@@ -69,10 +76,10 @@ def fetch_author(scholar_id):
         dict: Author data, or None if an error occurs.
     """
     try:
-        logging.info(f"Fetching author entry for {scholar_id}")
+        logging.info(f"Fetching author entry from Google Scholar for {scholar_id}")
         return scholarly.fill(scholarly.search_author_id(scholar_id))
     except Exception as e:
-        logging.error(f"Error fetching author data for {scholar_id}: {e}")
+        logging.error(f"Error fetching author data from Google Scholar for {scholar_id}: {e}")
         return None
 
 

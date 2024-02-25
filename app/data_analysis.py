@@ -11,9 +11,8 @@ logging.basicConfig(level=logging.INFO)
 # Initialize services and repositories
 firestore_service = FirestoreService()
 bigquery_service = BigQueryService()
-author_repository = AuthorRepository(
-    firestore_service, PublicationRepository(firestore_service)
-)
+publication_repository = PublicationRepository(firestore_service)
+author_repository = AuthorRepository(firestore_service, publication_repository)
 
 
 def get_author_stats(author_id):
@@ -41,6 +40,7 @@ def get_author_stats(author_id):
     if author_pub_stats:
         author["publications"] = author_pub_stats
     else:
+        logging.warning(f"No publication stats found for author ID: {author_id}")
         author["publications"] = []
 
     # Fetch and cache author stats
@@ -58,7 +58,7 @@ def get_author_stats(author_id):
     if author_stats:
         author["stats"] = author_stats
     else:
-        logging.info(f"No stats found for author ID: {author_id}")
+        logging.warning(f"No author stats found for author ID: {author_id}")
         author["stats"] = {}
 
     return author

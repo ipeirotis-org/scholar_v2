@@ -14,10 +14,11 @@ class AuthorRepository:
         )[0]
 
     def save_author(self, author_id, author_data):
-        self.firestore_service.set_firestore_cache(
+        return self.firestore_service.set_firestore_cache(
             Config.FIRESTORE_COLLECTION_AUTHOR, author_id, author_data
         )
 
+    '''
     def get_author_last_modification(self, author_id):
         # Assuming you have a method or logic to determine the last modification timestamp
         # This is an example and might need to be adjusted based on your actual data structure
@@ -25,6 +26,7 @@ class AuthorRepository:
             Config.FIRESTORE_COLLECTION_AUTHOR, author_id
         )
         return latest_author_change
+    '''
 
     def get_author_last_modification(self, author_id):
         # Fetch the last modification time of the author itself
