@@ -1,6 +1,7 @@
 import functions_framework
 import json
 import logging
+import copy
 import time
 from flask import make_response, jsonify
 from scholarly import scholarly
@@ -108,6 +109,7 @@ def serialize_author(author):
         dict: The serialized author data.
     """
     try:
+        author = copy.deepcopy(author)
         author['publications'] = [
             {
                 "author_pub_id": pub.get("author_pub_id"),
