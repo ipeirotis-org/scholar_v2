@@ -4,6 +4,8 @@ import logging
 from flask import make_response, jsonify
 
 from scholarly import scholarly
+from scholarly.data_types import PublicationSource
+
 from shared.config import Config
 from shared.utils import convert_integers_to_strings
 from shared.services.firestore_service import FirestoreService
@@ -36,7 +38,10 @@ def process_publication(pub):
     """Fetches, serializes, and caches publication details."""
     author_pub_id = pub['author_pub_id']
     logging.info(f"Fetching publication details for {author_pub_id}")
-    
+
+    pub["source"] = PublicationSource.AUTHOR_PUBLICATION_ENTRY
+    pub["container_type"] = 'Publication'
+
     # Fetch publication details
     detailed_pub = scholarly.fill(pub)
     

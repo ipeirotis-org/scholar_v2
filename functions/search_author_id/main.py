@@ -113,7 +113,9 @@ def serialize_author(author):
                 "author_pub_id": pub.get("author_pub_id"),
                 "num_citations": pub.get("num_citations", 0),
                 "filled": False,
-                "bib": {key: pub['bib'][key] for key in ['pub_year'] if key in pub.get('bib', {})}
+                "bib": {key: pub['bib'][key] for key in ['pub_year'] if key in pub.get('bib', {})},
+                # "source" : pub.get("source"),
+                # "container_type" : pub.get("container_type")      
             } for pub in author.get('publications', []) if pub.get("author_pub_id")
         ]
         serialized = convert_integers_to_strings(json.loads(json.dumps(author)))  # Simplified serialization
