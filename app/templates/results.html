@@ -20,7 +20,10 @@
                         <li>Author Name: {{ author.get('name', 'N/A') }}</li>
                         <li>Current Affiliation: {{ author.get('affiliation', 'N/A') }}</li>
                         <li>Google Scholar ID: {{ author.get('scholar_id', 'N/A') }}</li>
-                        <li>Last Modified: {{ author.get('last_modified', 'N/A') }} (<a id="refreshButton" data-author-id="{{ author.scholar_id }}">Refresh</a>)</li>
+                        <li>
+                            Last Modified: {{ author.get('last_modified', 'N/A').strftime('%Y-%m-%d %H:%M') }} 
+                            (<a id="refreshButton" href="javascript:void(0);" data-author-id="{{ author.scholar_id }}" style="text-decoration: underline; cursor: pointer;">Refresh</a>)
+                        </li>
                         <li>
                             First Year Active: {{ author.stats.year_of_first_pub }} ({{ 2024 - author.stats.year_of_first_pub + 1 }} years active)
                         </li>

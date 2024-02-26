@@ -95,3 +95,13 @@
             text-decoration: underline;
             cursor: pointer;
         }
+
+#refreshButton {
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+.clickable-link {
+    text-decoration: underline;
+    cursor: pointer;
+}
