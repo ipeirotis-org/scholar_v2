@@ -19,7 +19,7 @@ jobs:
       uses: google-github-actions/setup-gcloud@v2
       with:
         project_id: ${{ secrets.GCP_PROJECT_ID }}
-    
+
     - name: Authenticate with service account
       uses: google-github-actions/auth@v2
       with:
@@ -27,7 +27,7 @@ jobs:
 
 
       - name: Set up credentials
-        run: | 
+        run: |
           echo "${{ secrets.GCP_SA_KEY }}" | base64 --decode > $HOME/gcloud-service-key.json
           export GOOGLE_APPLICATION_CREDENTIALS=$HOME/gcloud-service-key.json
 
