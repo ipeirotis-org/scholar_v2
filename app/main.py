@@ -59,7 +59,7 @@ def download_all_authors_stats_route():
 
 
     # Use this function to get a signed URL and redirect the user to it
-    # file_url = storage_service.generate_signed_url(destination_blob_name)
+    file_url = storage_service.generate_signed_url(destination_blob_name)
     # Redirect the user to the file URL for download
     return redirect(file_url)   
 
