@@ -25,6 +25,8 @@ def get_author_stats(author_id):
     # Check for last modification to determine if cache needs refresh
     author_last_modified = author_repository.get_author_last_modification(author_id)
 
+    author['last_modified'] = author_last_modified
+
     # Fetch and cache author publication stats
     author_pub_stats, pub_stats_timestamp = firestore_service.get_firestore_cache(
         "author_pub_stats", author_id

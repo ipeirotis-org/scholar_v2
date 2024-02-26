@@ -20,6 +20,7 @@
                         <li>Author Name: {{ author.get('name', 'N/A') }}</li>
                         <li>Current Affiliation: {{ author.get('affiliation', 'N/A') }}</li>
                         <li>Google Scholar ID: {{ author.get('scholar_id', 'N/A') }}</li>
+                        <li>Last Modified: {{ author.get('last_modified', 'N/A') }} (<a id="refreshButton" data-author-id="{{ author.scholar_id }}">Refresh</a>)</li>
                         <li>
                             First Year Active: {{ author.stats.year_of_first_pub }} ({{ 2024 - author.stats.year_of_first_pub + 1 }} years active)
                         </li>
@@ -138,5 +139,32 @@
         $('[data-toggle="tooltip"]').tooltip(); 
     });
         </script>
+
+    <script>
+    document.getElementById('refreshButton').addEventListener('click', function(event) {
+        event.preventDefault(); // Prevent the default link behavior
+        var authorId = this.getAttribute('data-author-id');
+        var link = this; // Reference to the link
+        link.textContent = 'Queuing...'; // Change link text to indicate processing
+        link.style.pointerEvents = 'none'; // Prevent further clicks
+    
+        // Adjust the fetch call to use a GET request
+        fetch(`/api/refresh_authors?scholar_ids=${authorId}`, {
+            method: 'GET',
+        })
+        .then(response => response.json())
+        .then(data => {
+            console.log('Success:', data);
+            link.textContent = 'Queued for Refresh'; // Update link text to show completion
+        })
+        .catch((error) => {
+            console.error('Error:', error);
+            link.textContent = 'Error'; // Optionally reset link or show error
+            link.style.pointerEvents = 'auto'; // Re-enable clicking in case of error
+        });
+    });
+    </script>
+
+        
     </body>
 </html>
