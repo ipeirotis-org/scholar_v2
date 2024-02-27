@@ -66,6 +66,7 @@ class BigQueryService:
               author_pub_id = '{author_pub_id}'
               AND citation_year >= pub_year
               AND citation_year <= {current_year}
+            ORDER BY citation_year
         """
         df = self.query(sql).to_dict("records")
         return df

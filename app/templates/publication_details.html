@@ -12,10 +12,10 @@
 <body>
 <main id="publicationDetails">
     <section class="publication-stats">
-        <h2>Publication: {{ pub.get('bib').get('title', 'N/A') }}</h2>
-        <p>Authors: {{ pub.get('bib').get('author', 'N/A') }}</p>p>
-        <p>Publication year: {{ pub.get('bib').get('pub_year') }}</p>p>
-        <p>Last Modified: {{ pub.get('last_modified', 'N/A').strftime('%Y-%m-%d %H:%M') }}</p>
+        <h2>{{ pub.get('bib').get('title', 'N/A') }}</h2>
+        <h3>{{ pub.get('bib').get('author', 'N/A') }}</h3>
+        <p>Publication year: {{ pub.get('bib').get('pub_year') }}</p>
+        <p>Citation data last modified: {{ pub.get('last_modified', 'N/A').strftime('%Y-%m-%d %H:%M') }}</p>
         <table class="table table-bordered">
             <thead>
                 <tr>
@@ -23,8 +23,8 @@
                     <th>Age</th>
                     <th>Yearly Citations</th>
                     <th>Cumulative Citations</th>
-                    <th>% Yearly Citations</th>
-                    <th>% Cumulative Citations</th>
+                    <th>Percentile<br>Yearly Citations</th>
+                    <th>Percentile<br>Cumulative Citations</th>
                 </tr>
             </thead>
             <tbody>
