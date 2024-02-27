@@ -63,7 +63,7 @@ class BigQueryService:
             FROM
               `scholar-version2.statistics.publication_citations`
             WHERE
-              author_pub_id = {author_pub_id}
+              author_pub_id = '{author_pub_id}'
               AND citation_year >= pub_year
               AND citation_year <= {current_year}
         """
