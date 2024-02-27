@@ -142,7 +142,7 @@ def get_publication_details(author_id, pub_id):
     pub_stats = get_publication_stats(author_id, pub_id)
     if pub_stats:
         return render_template(
-            "publication_detail.html",
+            "publication_details.html",
             pub=pub_stats,
             # plot_paths=plot_paths
         )
