@@ -17,15 +17,18 @@ import pandas as pd
 
 from shared.config import Config
 from scholar import get_similar_authors
-from data_analysis import get_author_stats, download_all_authors_stats
+from data_analysis import (
+    get_author_stats,
+    download_all_authors_stats,
+    get_publication_stats,
+)
 from visualization import generate_plot
 from queue_handler import put_author_in_queue, pending_tasks
 from refresh import refresh_authors
 
+
 from shared.services.storage_service import StorageService
 
-# No implementation, commenting out
-# from data_analysis import get_publication_details_data
 
 logging.basicConfig(level=logging.INFO)
 
@@ -136,11 +139,11 @@ def download_results(author_id):
 def get_publication_details(author_id, pub_id):
     # No implementation, commenting out
     # publication, plot_paths = get_publication_details_data(author_id, pub_id)
-    publication = None
-    if publication:
+    pub_stats = get_publication_stats(author_id, pub_id)
+    if pub_stats:
         return render_template(
             "publication_detail.html",
-            publication=publication,
+            pub=pub_stats,
             # plot_paths=plot_paths
         )
     else:

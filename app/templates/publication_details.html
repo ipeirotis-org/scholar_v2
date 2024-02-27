@@ -1,19 +1,58 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ pub.get('title', 'Publication Statistics') }}</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.7.2/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-    <section id="publication-details">
-        <h2>{{ publication.title }}</h2>
-        <!-- Display publication details -->
-        <p>Year of Publication: {{ publication.pub_year }}</p>
-        <p>Number of Citations: {{ publication.num_citations }}</p>
-        <!-- Display plots -->
-        {% for path in plot_paths %}
-            <img src="{{ path }}" alt="Plot">
-        {% endfor %}
+<main id="publicationDetails">
+    <section class="publication-stats">
+        <h2>Publication: {{ pub.get('bib').get('title'), 'N/A') }}</h2>
+        <p>Authors: {{ pub.get('bib').get('author'), 'N/A') }}</p>p>
+        <p>Publication year: {{ pub.get('bib').get('pub_year'), 'N/A') }}</p>p>
+        <p>Last Modified: {{ pub.get('last_modified', 'N/A').strftime('%Y-%m-%d %H:%M') }}</p>
+        <table class="table table-bordered">
+            <thead>
+                <tr>
+                    <th>Citation Year</th>
+                    <th>Age</th>
+                    <th>Yearly Citations</th>
+                    <th>Cumulative Citations</th>
+                    <th>% Yearly Citations</th>
+                    <th>% Cumulative Citations</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for stat in pub.get('stats', []) %}
+                <tr>
+                    <td>{{ stat.citation_year }}</td>
+                    <td>{{ stat.age }}</td>
+                    <td>{{ stat.yearly_citations }}</td>
+                    <td>{{ stat.cumulative_citations }}</td>
+                    <td>{{ (100*stat.perc_yearly_citations)|round(2) }}%</td>
+                    <td>{{ (100*stat.perc_cumulative_citations)|round(2) }}%</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="6">No statistics available.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </section>
+</main>
+<footer>
+    <p>
+        <a href="https://github.com/ipeirotis-org/scholar_v2">Code</a>
+        and <a href="https://arxiv.org/abs/2103.16025">Paper</a>.
+        For any issues, please contact <a href="mailto:panos@nyu.edu">Panos Ipeirotis</a>.
+    </p>
+</footer>
+<script src="https://code.jquery.com/jquery-3.3.1.slim.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@4.3.1/dist/js/bootstrap.bundle.min.js"
+        defer></script>
 </body>
 </html>
-

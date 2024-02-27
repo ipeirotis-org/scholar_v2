@@ -21,7 +21,7 @@ def get_author_stats(author_id):
     # Fetch author details
     author = author_repository.get_author(author_id)
     if not author:
-        logging.info(f"No author found with ID: {author_id}")
+        logging.warning(f"No author found with ID: {author_id}")
         return None
 
     # Check for last modification to determine if cache needs refresh
@@ -58,6 +58,32 @@ def get_author_stats(author_id):
         author["stats"] = {}
 
     return author
+
+
+def get_publication_stats(author_id, author_pub_id):
+    pub = publication_repository.get_publication(author_pub_id)
+    if not pub:
+        logging.warning(f"No publication found with ID: {author_pub_id}")
+        return None
+
+    author_last_modified = author_repository.get_author_last_modification(author_id)
+
+    pub["last_modified"] = author_last_modified
+
+    pub_stats, pub_stats_timestamp = firestore_service.get_firestore_cache("pub_stats", author_pub_id)
+    if not pub_stats or author_last_modified > pub_stats_timestamp:
+        pub_stats = bigquery_service.get_publication_stats(author_pub_id)
+        if pub_stats:
+            firestore_service.set_firestore_cache("pub_stats", author_pub_id, pub_stats)
+
+    # Append stats to author object
+    if pub_stats:
+        pub["stats"] = pub_stats
+    else:
+        logging.warning(f"No pub stats found for pub ID: {author_pub_id}")
+        pub["stats"] = {}
+
+    return pub
 
 
 def download_all_authors_stats():

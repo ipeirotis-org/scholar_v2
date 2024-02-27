@@ -1,4 +1,5 @@
 from google.cloud import bigquery
+from datetime import datetime
 from ..config import Config  # Ensure this import matches your project structure
 
 
@@ -47,4 +48,24 @@ class BigQueryService:
             LEFT JOIN `scholar-version2.statistics.author_pip_scores` P ON P.scholar_id = S.scholar_id
         """
         df = self.query(sql)
+        return df
+
+    def get_publication_stats(self, author_pub_id):
+        current_year = datetime.now().year
+        sql = f"""
+            SELECT
+              citation_year,
+              age,
+              yearly_citations,
+              cumulative_citations,
+              perc_pub_year_yearly_citations AS perc_yearly_citations,
+              perc_pub_year_cumulative_citations AS perc_cumulative_citations
+            FROM
+              `scholar-version2.statistics.publication_citations`
+            WHERE
+              author_pub_id = {author_pub_id}
+              AND citation_year >= pub_year
+              AND citation_year <= {current_year}
+        """
+        df = self.query(sql).to_dict("records")
         return df
