@@ -46,22 +46,21 @@ def get_similar_authors_route():
     authors = get_similar_authors(author_name)
     return jsonify(authors)
 
-@app.route('/download_all_authors_stats')
+
+@app.route("/download_all_authors_stats")
 def download_all_authors_stats_route():
-    
     # Construct the URL to the file in the GCS bucket
-    destination_blob_name = 'all_authors_stats.csv'
+    destination_blob_name = "all_authors_stats.csv"
     file_url = f"https://storage.googleapis.com/{Config.BUCKET_NAME}/{destination_blob_name}"
 
     if not storage_service.file_updated_within_24_hours(destination_blob_name):
         df = download_all_authors_stats()
         storage_service.upload_csv_to_gcs(df, destination_blob_name)
 
-
     # Use this function to get a signed URL and redirect the user to it
     # file_url = storage_service.generate_signed_url(destination_blob_name)
     # Redirect the user to the file URL for download
-    return redirect(file_url)   
+    return redirect(file_url)
 
 
 @app.route("/api/refresh_authors")
@@ -69,13 +68,13 @@ def refresh_authors_route():
     scholar_ids_arg = request.args.get("scholar_ids")
     try:
         scholar_ids = scholar_ids_arg.split(",")
-    except:
+    except Exception as e:
         scholar_ids = None
 
     num_authors = request.args.get("num_authors")
     try:
         num_authors = int(num_authors)
-    except:
+    except Exception as e:
         num_authors = 1
 
     if scholar_ids:
@@ -100,14 +99,13 @@ def results():
     # Check if there are any tasks about the author in the queue
     if pending_tasks(author_id):
         return render_template("redirect.html", author_id=author_id)
-    
+
     author = get_author_stats(author_id)
 
     # If there is no author, put the author in the queue and render redirect.html
     if not author:
         put_author_in_queue(author_id)
         return render_template("redirect.html", author_id=author_id)
-        
 
     plot_paths = generate_plot(pd.DataFrame(author["publications"]), author["name"])
     author["plot_paths"] = plot_paths
@@ -131,9 +129,7 @@ def download_results(author_id):
 
     pd.DataFrame(author["publications"]).to_csv(file_path, index=False)
 
-    return send_file(
-        file_path, as_attachment=True, download_name=f"{author_id}_results.csv"
-    )
+    return send_file(file_path, as_attachment=True, download_name=f"{author_id}_results.csv")
 
 
 @app.route("/publication/<author_id>/<pub_id>")
@@ -143,7 +139,9 @@ def get_publication_details(author_id, pub_id):
     publication = None
     if publication:
         return render_template(
-            "publication_detail.html", publication=publication, plot_paths=plot_paths
+            "publication_detail.html",
+            publication=publication,
+            # plot_paths=plot_paths
         )
     else:
         return render_template("error.html", error_message="Publication not found.")

@@ -1,4 +1,3 @@
-import json
 import logging
 from shared.config import Config
 from shared.services.firestore_service import FirestoreService
@@ -33,11 +32,7 @@ def refresh_authors(refresh=[], num_authors=1):
     authors = []
 
     for scholar_id in refresh:
-        doc = (
-            firestore_service.db.collection(Config.FIRESTORE_COLLECTION_AUTHOR)
-            .document(scholar_id)
-            .get()
-        )
+        doc = firestore_service.db.collection(Config.FIRESTORE_COLLECTION_AUTHOR).document(scholar_id).get()
         if not doc.exists:
             # Enqueue author task if document does not exist
             if task_queue_service.enqueue_author_task(scholar_id):

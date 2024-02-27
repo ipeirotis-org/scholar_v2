@@ -40,9 +40,8 @@ class BigQueryService:
         df = self.query(sql)
         return df.to_dict("records")[0] if len(df) == 1 else None
 
-    
     def get_all_authors_stats(self):
-        sql = f"""
+        sql = """
             SELECT S.*, P.pip_auc_score, P.pip_auc_score_percentile
             FROM `scholar-version2.statistics.author_stats` S
             LEFT JOIN `scholar-version2.statistics.author_pip_scores` P ON P.scholar_id = S.scholar_id

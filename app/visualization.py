@@ -8,7 +8,6 @@ import datetime
 
 def generate_plot(dataframe, author_name):
     plot_paths = []
-    pip_auc_score = 0
 
     current_year = datetime.datetime.now().year
 
@@ -51,9 +50,7 @@ def generate_plot(dataframe, author_name):
         )
         colorbar2 = fig.colorbar(scatter2, ax=ax2)
         colorbar2.set_label("Years since Publication")
-        ax2.set_title(
-            f"Paper Percentile Scores vs #Papers Percentile for {author_name}"
-        )
+        ax2.set_title(f"Paper Percentile Scores vs #Papers Percentile for {author_name}")
         ax2.set_xlabel("Number of Papers Published Percentile")
         ax2.set_ylabel("Paper Percentile Score")
         ax2.grid(True, color="lightgray", linestyle="--")

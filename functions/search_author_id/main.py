@@ -3,10 +3,10 @@ import json
 import logging
 import copy
 import time
-from flask import make_response, jsonify
+from flask import jsonify
 from scholarly import scholarly
 
-from shared.config import Config
+
 from shared.utils import convert_integers_to_strings
 from shared.services.firestore_service import FirestoreService
 from shared.services.task_queue_service import TaskQueueService
@@ -32,8 +32,8 @@ def search_author_id(request):
     Returns:
         flask.Response: HTTP response object.
     """
-    scholar_id = request.args.get('scholar_id') or (request.get_json(silent=True) or {}).get('scholar_id')
-    skip_pubs = request.args.get('skip_pubs') or (request.get_json(silent=True) or {}).get('skip_pubs')
+    scholar_id = request.args.get("scholar_id") or (request.get_json(silent=True) or {}).get("scholar_id")
+    skip_pubs = request.args.get("skip_pubs") or (request.get_json(silent=True) or {}).get("skip_pubs")
 
     if not scholar_id:
         return jsonify({"error": "Missing author id"}), 400
@@ -70,8 +70,8 @@ def process_author(scholar_id, skip_pubs=None):
     # TODO: When the number of publications are large, the app
     # does not work well. We should consider refactoring this.
     if skip_pubs is None:
-        enqueue_publications(author.get('publications', []))
-    
+        enqueue_publications(author.get("publications", []))
+
     return serialized_author
 
 
@@ -96,7 +96,7 @@ def enqueue_publications(publications):
         publications (list): A list of publication data dictionaries.
     """
     for pub in publications:
-        time.sleep(0.1) # avoid overloading the queue service
+        time.sleep(0.1)  # avoid overloading the queue service
         if not task_queue_service.enqueue_publication_task(pub):
             logging.error(f"Failed to enqueue publication task for {pub.get('author_pub_id')}")
 
@@ -110,23 +110,20 @@ def serialize_author(author):
     """
     try:
         author = copy.deepcopy(author)
-        author['publications'] = [
+        author["publications"] = [
             {
                 "author_pub_id": pub.get("author_pub_id"),
                 "num_citations": pub.get("num_citations", 0),
                 "filled": False,
-                "bib": {key: pub['bib'][key] for key in ['pub_year'] if key in pub.get('bib', {})},
+                "bib": {key: pub["bib"][key] for key in ["pub_year"] if key in pub.get("bib", {})},
                 # "source" : pub.get("source"),
-                # "container_type" : pub.get("container_type")      
-            } for pub in author.get('publications', []) if pub.get("author_pub_id")
+                # "container_type" : pub.get("container_type")
+            }
+            for pub in author.get("publications", [])
+            if pub.get("author_pub_id")
         ]
         serialized = convert_integers_to_strings(json.loads(json.dumps(author)))  # Simplified serialization
         return serialized
     except Exception as e:
         logging.error(f"Error serializing author data: {e}")
         return None
-
-
-
-
-
