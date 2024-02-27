@@ -12,9 +12,9 @@
 <body>
 <main id="publicationDetails">
     <section class="publication-stats">
-        <h2>Publication: {{ pub.get('bib').get('title'), 'N/A') }}</h2>
-        <p>Authors: {{ pub.get('bib').get('author'), 'N/A') }}</p>p>
-        <p>Publication year: {{ pub.get('bib').get('pub_year'), 'N/A') }}</p>p>
+        <h2>Publication: {{ pub.get('bib').get('title', 'N/A') }}</h2>
+        <p>Authors: {{ pub.get('bib').get('author', 'N/A') }}</p>p>
+        <p>Publication year: {{ pub.get('bib').get('pub_year') }}</p>p>
         <p>Last Modified: {{ pub.get('last_modified', 'N/A').strftime('%Y-%m-%d %H:%M') }}</p>
         <table class="table table-bordered">
             <thead>
