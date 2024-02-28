@@ -16,6 +16,13 @@
         <h3>{{ pub.get('bib').get('author', 'N/A') }}</h3>
         <p>Publication year: {{ pub.get('bib').get('pub_year') }}</p>
         <p>Citation data last modified: {{ pub.get('last_modified', 'N/A').strftime('%Y-%m-%d %H:%M') }}</p>
+                <table id="plots">
+                    <tbody>
+                    <tr>
+                        <td><img class="plot" src="{{ citations_plot }}" alt="Paper percentiles vs paper rank"></td>
+                    </tr>
+                    </tbody>
+                </table>
         <table class="table table-bordered">
             <thead>
                 <tr>

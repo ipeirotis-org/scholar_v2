@@ -81,6 +81,62 @@ def generate_pip_plot(dataframe, author_name):
 
     return f"data:image/png;base64,{data}"
 
+def generate_pub_citation_plot(dataframe):
+
+    try:
+
+        df['pub_year'] = pd.to_datetime(df['pub_year'], format='%Y')
+        df['citation_year'] = pd.to_datetime(df['citation_year'], format='%Y')
+        
+        corrected_df = (
+            df.
+            .query('citation_year >= pub_year')
+            .query('citation_year <= 2024')
+            .set_index("citation_year")
+            .filter(
+                [
+                    "perc_pub_year_yearly_citations",
+                    "perc_pub_year_cumulative_citations",
+                    'yearly_citations'
+                ]
+            )
+        )
+        
+        fig = Figure(figsize=(10, 5), dpi=100)
+        ax1 = fig.subplots(1, 1)  # Adjusted for better resolution
+        matplotlib.rcParams.update({"font.size": 16})
+        # Plotting yearly_citations as a bar plot
+        color = 'tab:blue'
+        ax1.set_xlabel('Citation Year')
+        ax1.set_ylabel('Yearly Citations', color=color)
+        ax1.bar(corrected_df.index, corrected_df['yearly_citations'], color=color, width=200)
+        ax1.tick_params(axis='y', labelcolor=color)
+        ax1.grid(which='major', linestyle='--', linewidth='0.5', color='gray')  # Gray dotted grid
+        
+        # Secondary y-axis
+        ax2 = ax1.twinx()
+        color = 'tab:red'
+        ax2.set_ylabel('% Citations', color=color)
+        ax2.plot(corrected_df.index, corrected_df['perc_pub_year_yearly_citations'], color='tab:orange', label='Yearly Citations Percentile', marker='o')
+        ax2.plot(corrected_df.index, corrected_df['perc_pub_year_cumulative_citations'], color='tab:red', label='Cumulative Citations Percentile', marker='o')
+        ax2.tick_params(axis='y', labelcolor=color)
+        ax2.set_ylim(0, 1)
+        
+        # Merge legends
+        lines, labels = ax1.get_legend_handles_labels()
+        lines2, labels2 = ax2.get_legend_handles_labels()
+        ax2.legend(lines + lines2, labels + labels2, loc='lower left', bbox_to_anchor=(0, 1))
+        
+        fig.suptitle('Citations over time')
+        fig.tight_layout()
+        buf = BytesIO()
+        fig.savefig(buf, format='png')
+        data = base64.b64encode(buf.getbuffer()).decode('ascii')
+
+    except Exception as e:
+        logging.error(f"Error generating publication citations plot: {e}")
+        return ""
+    return f"data:image/png;base64,{data}"
 
 
 def generate_citations_over_time_plot(dataframe, publication_title):
