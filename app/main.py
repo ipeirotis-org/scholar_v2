@@ -12,7 +12,7 @@ from flask import (
 
 import os
 import logging
-
+import datetime
 import pandas as pd
 
 from shared.config import Config
@@ -22,7 +22,10 @@ from data_analysis import (
     download_all_authors_stats,
     get_publication_stats,
 )
-from visualization import generate_plot, generate_percentile_rank_plot, generate_pip_plot
+from visualization import (
+    generate_percentile_rank_plot,
+    generate_pip_plot,
+)
 from queue_handler import put_author_in_queue, pending_tasks
 from refresh import refresh_authors
 
@@ -115,7 +118,7 @@ def results():
     current_year = datetime.datetime.now().year
     df["age"] = current_year - df["pub_year"] + 1
     df["num_citations_percentile"] = 100 * df["num_citations_percentile"]
-    df["num_papers_percentile"] = 100 * df["num_papers_percentile"]    
+    df["num_papers_percentile"] = 100 * df["num_papers_percentile"]
 
     plot1 = generate_percentile_rank_plot(df, author_name)
     plot2 = generate_pip_plot(df, author_name)

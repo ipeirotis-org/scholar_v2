@@ -2,17 +2,13 @@ import matplotlib
 from matplotlib.figure import Figure
 import logging
 import numpy as np
-import os
-import datetime
+
 import base64
 from io import BytesIO
 
 
-
 def generate_percentile_rank_plot(dataframe, author_name):
-
     try:
-        
         fig = Figure(figsize=(10, 10), dpi=100)
         ax = fig.subplots(1, 1)  # Adjusted for better resolution
 
@@ -48,9 +44,7 @@ def generate_percentile_rank_plot(dataframe, author_name):
     return f"data:image/png;base64,{data}"
 
 
-
 def generate_pip_plot(dataframe, author_name):
-
     try:
         fig = Figure(figsize=(10, 10), dpi=100)
         ax = fig.subplots(1, 1)
@@ -58,7 +52,6 @@ def generate_pip_plot(dataframe, author_name):
         matplotlib.rcParams.update({"font.size": 16})
 
         marker_size = 40
-
 
         # Second subplot (Productivity Percentiles)
         scatter = ax.scatter(
@@ -81,11 +74,9 @@ def generate_pip_plot(dataframe, author_name):
         fig.tight_layout()
         fig.savefig(buf, format="png")
         data = base64.b64encode(buf.getbuffer()).decode("ascii")
-        
+
     except Exception as e:
         logging.error(f"Error in generate_plot for {author_name}: {e}")
         raise
 
     return f"data:image/png;base64,{data}"
-
-
