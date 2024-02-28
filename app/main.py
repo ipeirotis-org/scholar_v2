@@ -112,10 +112,14 @@ def results():
 
     df = pd.DataFrame(author["publications"])
     author_name = author["name"]
+    current_year = datetime.datetime.now().year
+    df["age"] = current_year - df["pub_year"] + 1
+    df["num_citations_percentile"] = 100 * df["num_citations_percentile"]
+    df["num_papers_percentile"] = 100 * df["num_papers_percentile"]    
 
     plot1 = generate_percentile_rank_plot(df, author_name)
     plot2 = generate_pip_plot(df, author_name)
-    plot_paths = generate_plot(df, author_name)
+    # plot_paths = generate_plot(df, author_name)
     author["plot_paths"] = plot_paths
     return render_template("results.html", author=author, plot1=plot1, plot2=plot2)
 
