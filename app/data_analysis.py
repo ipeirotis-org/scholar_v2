@@ -1,11 +1,9 @@
 import logging
-import pandas as pd
 
 from shared.services.firestore_service import FirestoreService
 from shared.services.bigquery_service import BigQueryService
 from shared.repositories.author_repository import AuthorRepository
 from shared.repositories.publication_repository import PublicationRepository
-from visualization import generate_plot
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -79,15 +77,3 @@ def download_all_authors_stats():
     # Assuming bigquery_service is an instance of your BigQueryService class
     df = bigquery_service.get_all_authors_stats()
     return df
-
-
-def generate_plots_for_publications(publications):
-    """
-    Generate plots for a list of publications.
-    """
-    plot_paths = []
-    for publication in publications:
-        publication_df = pd.DataFrame([publication])
-        plot_path = generate_plot(publication_df, publication.get("title", "Publication Plot"))
-        plot_paths.append(plot_path)
-    return plot_paths
