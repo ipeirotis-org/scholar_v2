@@ -4,6 +4,8 @@ import logging
 import numpy as np
 import os
 import datetime
+import base64
+from io import BytesIO
 
 
 def generate_plot(dataframe, author_name):
