@@ -36,13 +36,6 @@ def get_author_stats(author_id):
         if author_pub_stats:
             firestore_service.set_firestore_cache("author_pub_stats", author_id, author_pub_stats)
 
-    # Append publications to author object
-    if author_pub_stats:
-        author["publications"] = author_pub_stats
-    else:
-        logging.warning(f"No publication stats found for author ID: {author_id}")
-        author["publications"] = []
-
     # Fetch and cache author stats
     author_stats, stats_timestamp = firestore_service.get_firestore_cache("author_stats", author_id)
     if not author_stats or author_last_modified > stats_timestamp:
@@ -50,12 +43,8 @@ def get_author_stats(author_id):
         if author_stats:
             firestore_service.set_firestore_cache("author_stats", author_id, author_stats)
 
-    # Append stats to author object
-    if author_stats:
-        author["stats"] = author_stats
-    else:
-        logging.warning(f"No author stats found for author ID: {author_id}")
-        author["stats"] = {}
+    author["publications"] = author_pub_stats or []
+    author["stats"] = author_stats or {}
 
     return author
 

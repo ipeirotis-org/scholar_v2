@@ -22,7 +22,7 @@ from data_analysis import (
     download_all_authors_stats,
     get_publication_stats,
 )
-from visualization import generate_plot
+from visualization import generate_plot, generate_percentile_rank_plot, generate_pip_plot
 from queue_handler import put_author_in_queue, pending_tasks
 from refresh import refresh_authors
 
@@ -110,9 +110,14 @@ def results():
         put_author_in_queue(author_id)
         return render_template("redirect.html", author_id=author_id)
 
-    plot_paths = generate_plot(pd.DataFrame(author["publications"]), author["name"])
+    df = pd.DataFrame(author["publications"])
+    author_name = author["name"]
+
+    plot1 = generate_percentile_rank_plot(df, author_name)
+    plor2 = generate_pip_plot(df, author_name)
+    plot_paths = generate_plot(df, author_name)
     author["plot_paths"] = plot_paths
-    return render_template("results.html", author=author)
+    return render_template("results.html", author=author, plot1=plot1, plot2=plot2)
 
 
 @app.route("/download/<author_id>")
