@@ -90,10 +90,15 @@
                         
                     </ul>
                 </div>
-                {% for path in author.plot_paths %}<img class="plot" src="{{ path }}" alt="Generated Plot">{% endfor %}
+                <table id="plots">
+                    <tbody>
+                    <tr>
+                        <td><img class="plot" src="{{ plot1 }}" alt="Paper percentiles vs paper rank"></td>
+                        <td><img class="plot" src="{{ plot2 }}" alt="Paper percentiles vs productivity percentile"></td>
+                    </tr>
+                    </tbody>
+                </table>
 
-                <img class="plot" src="{{ plot1 }}" alt="Paper percentiles vs paper rank">
-                <img class="plot" src="{{ plot2 }}" alt="Paper percentiles vs productivity percentile">
                 <center>
                     <a href="{{ url_for('download_results', author_id=author.get('scholar_id', 'N/A') ) }}">
                         Download CSV for {{ author.get('name', 'N/A') }}
