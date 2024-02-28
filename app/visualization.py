@@ -80,3 +80,53 @@ def generate_pip_plot(dataframe, author_name):
         raise
 
     return f"data:image/png;base64,{data}"
+
+
+
+def generate_citations_over_time_plot(dataframe, publication_title):
+    """
+    Generate a plot showing the number of citations over time for a publication.
+    """
+    try:
+        fig = Figure(figsize=(10, 6), dpi=100)
+        ax = fig.subplots(1, 1)
+
+        ax.plot(dataframe["citation_year"], dataframe["cumulative_citations"], marker='o', linestyle='-', color='blue')
+        ax.set_title(f'Citations Over Time: {publication_title}')
+        ax.set_xlabel('Year')
+        ax.set_ylabel('Cumulative Citations')
+        ax.grid(True, which='both', linestyle='--', linewidth=0.5)
+
+        buf = BytesIO()
+        fig.tight_layout()
+        fig.savefig(buf, format='png')
+        data = base64.b64encode(buf.getbuffer()).decode('ascii')
+    except Exception as e:
+        logging.error(f"Error generating citations over time plot: {e}")
+        return ""
+    return f"data:image/png;base64,{data}"
+
+
+def generate_percentiles_over_time_plot(dataframe, publication_title):
+    """
+    Generate a plot showing the percentile of citations over time for a publication.
+    """
+    try:
+        fig = Figure(figsize=(10, 6), dpi=100)
+        ax = fig.subplots(1, 1)
+
+        ax.plot(dataframe["citation_year"], dataframe["perc_cumulative_citations"], marker='o', linestyle='-', color='green')
+        ax.set_title(f'Percentiles Over Time: {publication_title}')
+        ax.set_xlabel('Year')
+        ax.set_ylabel('Percentile of Cumulative Citations')
+        ax.grid(True, which='both', linestyle='--', linewidth=0.5)
+
+        buf = BytesIO()
+        fig.tight_layout()
+        fig.savefig(buf, format='png')
+        data = base64.b64encode(buf.getbuffer()).decode('ascii')
+    except Exception as e:
+        logging.error(f"Error generating percentiles over time plot: {e}")
+        return ""
+    return f"data:image/png;base64,{data}"
+
