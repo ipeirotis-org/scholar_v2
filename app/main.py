@@ -114,7 +114,7 @@ def results():
     author_name = author["name"]
 
     plot1 = generate_percentile_rank_plot(df, author_name)
-    plor2 = generate_pip_plot(df, author_name)
+    plot2 = generate_pip_plot(df, author_name)
     plot_paths = generate_plot(df, author_name)
     author["plot_paths"] = plot_paths
     return render_template("results.html", author=author, plot1=plot1, plot2=plot2)
