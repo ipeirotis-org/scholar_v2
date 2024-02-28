@@ -146,7 +146,7 @@ def download_results(author_id):
 @app.route("/publication/<author_id>/<pub_id>")
 def get_publication_details(author_id, pub_id):
     pub_stats = get_publication_stats(author_id, pub_id)
-    citations_plot = generate_pub_citation_plot(pd.DataFrame(pub_stats))
+    citations_plot = generate_pub_citation_plot(pd.DataFrame(pub_stats["stats"]))
     if pub_stats:
         return render_template(
             "publication_details.html",
