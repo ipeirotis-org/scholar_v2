@@ -22,11 +22,7 @@ from data_analysis import (
     download_all_authors_stats,
     get_publication_stats,
 )
-from visualization import (
-    generate_percentile_rank_plot,
-    generate_pip_plot,
-    generate_pub_citation_plot
-)
+from visualization import generate_percentile_rank_plot, generate_pip_plot, generate_pub_citation_plot
 from queue_handler import put_author_in_queue, pending_tasks
 from refresh import refresh_authors
 
@@ -149,9 +145,8 @@ def download_results(author_id):
 
 @app.route("/publication/<author_id>/<pub_id>")
 def get_publication_details(author_id, pub_id):
-
     pub_stats = get_publication_stats(author_id, pub_id)
-    citations_plot = generate_pip_plot(pd.DataFrame(pub_stats))
+    citations_plot = generate_pub_citation_plot(pd.DataFrame(pub_stats))
     if pub_stats:
         return render_template(
             "publication_details.html",
