@@ -84,14 +84,13 @@ def generate_pip_plot(dataframe, author_name):
 
 def generate_pub_citation_plot(df):
     try:
-        df["pub_year"] = pd.to_datetime(df["pub_year"], format="%Y")
+
         df["citation_year"] = pd.to_datetime(df["citation_year"], format="%Y")
 
         corrected_df = (
-            df.query("citation_year >= pub_year")
-            .query("citation_year <= 2024")
+            df
             .set_index("citation_year")
-            .filter(["perc_pub_year_yearly_citations", "perc_pub_year_cumulative_citations", "yearly_citations"])
+            .filter(["perc_yearly_citations", "perc_cumulative_citations", "yearly_citations"])
         )
 
         fig = Figure(figsize=(10, 5), dpi=100)
@@ -111,14 +110,14 @@ def generate_pub_citation_plot(df):
         ax2.set_ylabel("% Citations", color=color)
         ax2.plot(
             corrected_df.index,
-            corrected_df["perc_pub_year_yearly_citations"],
+            corrected_df["perc_yearly_citations"],
             color="tab:orange",
             label="Yearly Citations Percentile",
             marker="o",
         )
         ax2.plot(
             corrected_df.index,
-            corrected_df["perc_pub_year_cumulative_citations"],
+            corrected_df["perc_cumulative_citations"],
             color="tab:red",
             label="Cumulative Citations Percentile",
             marker="o",
