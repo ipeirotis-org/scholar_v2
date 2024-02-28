@@ -155,6 +155,8 @@ def get_publication_details(author_id, pub_id):
         return render_template(
             "publication_details.html",
             pub=pub_stats,
+            citations_plot=citations_plot,
+            percentiles_plot=percentiles_plot
             # plot_paths=plot_paths
         )
     else:
