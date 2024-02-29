@@ -101,14 +101,16 @@ def results():
 
     # Check if there are any tasks about the author in the queue
     if pending_tasks(author_id):
-        return render_template("redirect.html", author_id=author_id)
+        queue_tasks = number_of_tasks_in_queue()
+        return render_template("redirect.html", author_id=author_id, queue_tasks=queue_tasks)
 
     author = get_author_stats(author_id)
 
     # If there is no author, put the author in the queue and render redirect.html
     if not author:
         put_author_in_queue(author_id)
-        return render_template("redirect.html", author_id=author_id, queue_tasks=number_of_tasks_in_queue)
+        queue_tasks = number_of_tasks_in_queue()
+        return render_template("redirect.html", author_id=author_id, queue_tasks=queue_tasks)
 
     df = pd.DataFrame(author["publications"])
     author_name = author["name"]
