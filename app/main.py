@@ -23,7 +23,7 @@ from data_analysis import (
     get_publication_stats,
 )
 from visualization import generate_percentile_rank_plot, generate_pip_plot, generate_pub_citation_plot
-from queue_handler import put_author_in_queue, pending_tasks
+from queue_handler import put_author_in_queue, pending_tasks, number_of_tasks_in_queue
 from refresh import refresh_authors
 
 
@@ -108,7 +108,7 @@ def results():
     # If there is no author, put the author in the queue and render redirect.html
     if not author:
         put_author_in_queue(author_id)
-        return render_template("redirect.html", author_id=author_id)
+        return render_template("redirect.html", author_id=author_id, queue_tasks=number_of_tasks_in_queue)
 
     df = pd.DataFrame(author["publications"])
     author_name = author["name"]

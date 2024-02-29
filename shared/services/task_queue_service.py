@@ -51,6 +51,19 @@ class TaskQueueService:
                 return True  # There are pending tasks for this author
         return False  # No pending tasks for this author
 
+    def get_number_of_tasks_in_queue(self):
+        total_tasks = 0
+        for queue in [self.authors_queue, self.pubs_queue]:
+            try:
+                tasks_iterator = self.tasks_client.list_tasks(request={"parent": queue})
+                for _ in tasks_iterator:
+                    total_tasks += 1
+            except Exception as e:
+                print(f"Error listing tasks for queue {queue}: {e}")
+                # Optionally, handle the error by retrying, logging, or returning an error state.
+        return total_tasks
+
+
     def _check_duplicate_task(self, task_name, queue):
         existing_tasks = self.tasks_client.list_tasks(request={"parent": queue})
         for task in existing_tasks:

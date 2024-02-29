@@ -8,7 +8,7 @@
         // Function to redirect back to /results after a delay
         function redirect() {
             // Display a message indicating that the author is in the queue
-            document.getElementById("message").innerText = "Author is in queue for processing. Please wait...";
+            document.getElementById("message").innerText = "Author id {{author_id}} is in queue for processing. Currently {{queue_tasks}} tasks for fetching authors and publications in queue. Please wait...";
             // Wait for 5 seconds before redirecting
             setTimeout(function() {
                 window.location.href = "/results?author_id={{ author_id }}"; // Replace {{ author_id }} with the actual author_id
