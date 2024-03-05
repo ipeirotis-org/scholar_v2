@@ -67,7 +67,7 @@ def download_all_authors_stats_route():
 
 
 @app.route('/api')
-def data():
+def api():
     return render_template('api.html')
 
 @app.route('/help')
