@@ -71,7 +71,7 @@ def api():
     return render_template('api.html')
 
 @app.route('/help')
-def data():
+def help():
     return render_template('help.html')
 
 
