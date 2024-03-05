@@ -10,16 +10,21 @@
     --border-radius: 8px;
 }
 
-html, body {
-    height: 100%;
+html {
     margin: 20px;
     font-family: Arial, sans-serif;
 }
 
-.wrapper {
-    min-height: 100%;
-    /* Equal to footer height */
-    margin-bottom: -50px; 
+body {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    margin: 20px;
+    font-family: Arial, sans-serif;
+}
+
+main {
+    flex: 1;
 }
 
 .error {
@@ -90,19 +95,10 @@ th.sortable:hover {
     background-color: var(--background-hover);
 }
 
-.push {
-    height: 50px;
-}
-
 footer {
     display: flex;
     justify-content: center;
     align-items: center;
-    position: absolute;
-    height: 50px;
-    left: 0;
-    bottom: 0;
-    width: 100%;
     background-color: var(--background-light);
     padding: 10px 0;
     box-shadow: var(--box-shadow-footer);
