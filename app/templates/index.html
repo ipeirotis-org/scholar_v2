@@ -1,122 +1,21 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Google Scholar Productivity Search Engine</title>
-    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
-    <style>
-        body {
-            margin: 20px;
-        }
-        .error {
-            color: red;
-            font-weight: bold;
-        }
-        .autocomplete-dropdown {
-            border: 1px solid #ddd;
-            max-height: 150px;
-            overflow-y: auto;
-            display: none;
-            position: absolute;
-            width: calc(100% - 10px);
-            z-index: 1000;
-            background: white;
-        }
-        .author-option {
-            padding: 5px;
-            cursor: pointer;
-        }
-        .author-option:hover {
-            background-color: #eee;
-        }
-        header {
-            margin-bottom: 40px; /* Adjust this value as needed */
-        }    
-        #content {
-            background-color: #f8f8f8; /* Light gray background */
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-            margin-bottom: 40px; /* Increased bottom margin */
-        }
-    
-        /* Footer Styling */
-        footer {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            position: absolute;
-            left: 0;
-            bottom: 0;
-            width: 100%;
-            background-color: #f8f8f8; /* Optional: match with the form background */
-            padding: 10px 0;
-        }
-            
-        .autocomplete-dropdown {
-            border: 1px solid #ddd;
-            max-height: 150px;
-            overflow-y: auto;
-            display: none;
-            position: absolute;
-            z-index: 1000;
-            background: white;
-            left: 50%; /* Align center to the parent element */
-            transform: translateX(-50%); /* Shift left by half of its own width */
-            text-align: left; /* Align text to the left */
-        }
-        .author-option {
-            padding: 5px;
-            cursor: pointer;
-            white-space: nowrap; /* Prevent text from wrapping */
-        }
-        .author-option:hover {
-            background-color: #eee;
-        }
-    </style>
-</head>
+{% extends "base.html" %}
 
-<!-- Google tag (gtag.js) -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-P3R50RQS24"></script>
-<script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
+{% block title %}Scholar Analytics{% endblock %}
 
-  gtag('config', 'G-P3R50RQS24');
-</script>
-    
-<body>
-    <header align="center">
-        <h1>Age-normalized Google Scholar Analysis</h1>
-    </header>
+{% block content %}
+<section id="content">
+    <div align="center">
+        <label for="author_name">Author Name:</label>
+        <input type="text" id="author_name" name="author_name" autocomplete="off" required>
+        <button type="button" id="findAuthorButton" onclick="findAuthor()">Find Author</button>
+        <button type="button" id="analyzeAuthorButton" onclick="analyzeAuthor()" disabled>Analyze Author</button>
+        <div class="autocomplete-dropdown" id="autocomplete-dropdown"></div>
+    </div>
+</section>
+{% endblock %}
 
-    <section id="content">
-        <div align="center">
-            <label for="author_name">Author Name:</label>
-            <input type="text" id="author_name" name="author_name" autocomplete="off" required>
-            <button type="button" id="findAuthorButton" onclick="findAuthor()">Find Author</button>
-            <button type="button" id="analyzeAuthorButton" onclick="analyzeAuthor()" disabled>Analyze Author</button>
-            <div class="autocomplete-dropdown" id="autocomplete-dropdown"></div>
-        </div>
-    </section>
 
-    <section id="download">
-        <div align="center">
-            <a href="{{ url_for('download_all_authors_stats_route') }}" class="btn btn-primary">Download Statistics for all Authors in the Database</a>
-        </div>
-    </section>
-
-    
-    <footer>
-        <p>
-           <a href="https://github.com/ipeirotis-org/scholar_v2">Code</a> 
-           and <a href="https://arxiv.org/abs/2103.16025">Paper</a>. 
-           For any issues, please contact <a href="mailto:panos@nyu.edu">Panos Ipeirotis</a>. 
-       </p>
-    </footer>
-
+{% block scripts %}
     <script>
         const authorInput = document.getElementById("author_name");
         const analyzeAuthorButton = document.getElementById("analyzeAuthorButton");
@@ -173,7 +72,5 @@
             }
         }
     </script>
+{% endblock %}
 
-
-</body>
-</html>

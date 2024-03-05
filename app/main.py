@@ -39,16 +39,15 @@ storage_service = StorageService()
 
 
 @app.route("/")
+@app.route("/index")
 def index():
     return render_template("index.html")
 
 
-@app.route("/get_similar_authors")
-def get_similar_authors_route():
-    author_name = request.args.get("author_name")
-    authors = get_similar_authors(author_name)
-    return jsonify(authors)
 
+@app.route('/data')
+def data():
+    return render_template('data.html')
 
 @app.route("/download_all_authors_stats")
 def download_all_authors_stats_route():
@@ -64,6 +63,28 @@ def download_all_authors_stats_route():
     # file_url = storage_service.generate_signed_url(destination_blob_name)
     # Redirect the user to the file URL for download
     return redirect(file_url)
+
+
+
+@app.route('/api')
+def data():
+    return render_template('api.html')
+
+@app.route('/help')
+def data():
+    return render_template('help.html')
+
+
+@app.route("/get_similar_authors")
+def get_similar_authors_route():
+    author_name = request.args.get("author_name")
+    authors = get_similar_authors(author_name)
+    return jsonify(authors)
+
+
+
+
+
 
 
 @app.route("/api/refresh_authors")

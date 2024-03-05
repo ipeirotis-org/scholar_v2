@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+
+{% block title %}Data{% endblock %}
+
+{% block content %}
+<section id="download">
+    <div align="center">
+        <a href="{{ url_for('download_all_authors_stats_route') }}" class="btn btn-primary">Download Statistics for all Authors in the Database</a>
+    </div>
+</section>
+{% endblock %}
