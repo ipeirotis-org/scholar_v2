@@ -10,9 +10,16 @@
     --border-radius: 8px;
 }
 
-body {
+html, body {
+    height: 100%;
     margin: 20px;
     font-family: Arial, sans-serif;
+}
+
+.wrapper {
+    min-height: 100%;
+    /* Equal to footer height */
+    margin-bottom: -50px; 
 }
 
 .error {
@@ -57,7 +64,7 @@ th.sortable:hover {
     cursor: pointer;
 }
 
-.author-details, .metrics-explanation, #refreshButton, .clickable-link {
+.metrics-explanation, #refreshButton, .clickable-link {
     text-decoration: underline;
     cursor: pointer;
 }
@@ -83,11 +90,16 @@ th.sortable:hover {
     background-color: var(--background-hover);
 }
 
+.push {
+    height: 50px;
+}
+
 footer {
     display: flex;
     justify-content: center;
     align-items: center;
     position: absolute;
+    height: 50px;
     left: 0;
     bottom: 0;
     width: 100%;
