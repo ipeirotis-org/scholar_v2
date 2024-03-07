@@ -9,8 +9,6 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.7.2/font/bootstrap-icons.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
-
-
 <!-- Google tag (gtag.js) -->
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-P3R50RQS24"></script>
 <script>
@@ -20,22 +18,20 @@
 
   gtag('config', 'G-P3R50RQS24');
 </script>
-    
-    
 <body>
 <main id="publicationDetails">
     <section class="publication-stats">
-        <h2>{{ pub.get('bib').get('title', 'N/A') }}</h2>
-        <h3>{{ pub.get('bib').get('author', 'N/A') }}</h3>
+        <h2>Publication name: {{ pub.get('bib').get('title', 'N/A') }}</h2>
+        <h3>Authors: {{ pub.get('bib').get('author', 'N/A') }}</h3>
         <p>Publication year: {{ pub.get('bib').get('pub_year') }}</p>
         <p>Citation data last modified: {{ pub.get('last_modified', 'N/A').strftime('%Y-%m-%d %H:%M') }}</p>
-                <table id="plots">
-                    <tbody>
-                    <tr>
-                        <td><img class="plot" src="{{ citations_plot }}" alt="Paper percentiles vs paper rank"></td>
-                    </tr>
-                    </tbody>
-                </table>
+        <table id="plots">
+            <tbody>
+            <tr>
+                <td><img class="plot" src="{{ citations_plot }}" alt="Paper percentiles vs paper rank"></td>
+            </tr>
+            </tbody>
+        </table>
         <table class="table table-bordered">
             <thead>
                 <tr>
