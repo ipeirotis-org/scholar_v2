@@ -21,10 +21,10 @@
 <body>
 <main id="publicationDetails">
     <section class="publication-stats">
-        <h2>Publication name: {{ pub.get('bib').get('title', 'N/A') }}</h2>
-        <h3>Authors: {{ pub.get('bib').get('author', 'N/A') }}</h3>
-        <p>Publication year: {{ pub.get('bib').get('pub_year') }}</p>
-        <p>Citation data last modified: {{ pub.get('last_modified', 'N/A').strftime('%Y-%m-%d %H:%M') }}</p>
+        <h2><b>Publication name:</b> {{ pub.get('bib').get('title', 'N/A') }}</h2>
+        <h3><b>Authors:</b> {{ pub.get('bib').get('author', 'N/A') }}</h3>
+        <p><b>Publication year:</b> {{ pub.get('bib').get('pub_year') }}</p>
+        <p><b>Citation data last modified:</b> {{ pub.get('last_modified', 'N/A').strftime('%Y-%m-%d %H:%M') }}</p>
         <table id="plots">
             <tbody>
             <tr>
@@ -72,3 +72,4 @@
         defer></script>
 </body>
 </html>
+
