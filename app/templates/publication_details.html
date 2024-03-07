@@ -4,10 +4,10 @@
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Publication Statistics</title>
+    <title>{{ pub.get('title', 'Publication Statistics') }}</title>
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.7.2/font/bootstrap-icons.css">
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <!-- Google tag (gtag.js) -->
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-P3R50RQS24"></script>
@@ -21,14 +21,14 @@
 <body>
 <main id="publicationDetails">
     <section class="publication-stats">
-        <p><b>Publication name:</b> Estimating the helpfulness and economic impact of product reviews: Mining text and reviewer characteristics</p>
-        <p><b>Authors:</b> Anindya Ghose and Panagiotis G Ipeirotis</p>
-        <p><b>Publication year:</b> 2011</p>
-        <p><b>Citation data last modified:</b> 2024-02-26 19:01</p>
+        <h2><b>Publication name:</b> {{ pub.get('bib').get('title', 'N/A') }}</h2>
+        <h3><b>Authors:</b> {{ pub.get('bib').get('author', 'N/A') }}</h3>
+        <p><b>Publication year:</b> {{ pub.get('bib').get('pub_year') }}</p>
+        <p><b>Citation data last modified:</b> {{ pub.get('last_modified', 'N/A').strftime('%Y-%m-%d %H:%M') }}</p>
         <table id="plots">
             <tbody>
             <tr>
-                <td><img class="plot" src="citations_plot.png" alt="Paper percentiles vs paper rank"></td>
+                <td><img class="plot" src="{{ citations_plot }}" alt="Paper percentiles vs paper rank"></td>
             </tr>
             </tbody>
         </table>
@@ -39,13 +39,23 @@
                     <th>Age</th>
                     <th>Yearly Citations</th>
                     <th>Cumulative Citations</th>
-                    <th>Percentile Yearly Citations</th>
-                    <th>Percentile Cumulative Citations</th>
+                    <th>Percentile<br>Yearly Citations</th>
+                    <th>Percentile<br>Cumulative Citations</th>
                 </tr>
             </thead>
             <tbody>
-                <!-- Your data rows here -->
+                {% for stat in pub.get('stats', []) %}
+                <tr>
+                    <td>{{ stat.citation_year }}</td>
+                    <td>{{ stat.age }}</td>
+                    <td>{{ stat.yearly_citations }}</td>
+                    <td>{{ stat.cumulative_citations }}</td>
+                    <td>{{ (100*stat.perc_yearly_citations)|round(2) }}%</td>
+                    <td>{{ (100*stat.perc_cumulative_citations)|round(2) }}%</td>
+                </tr>
+                {% else %}
                 <tr><td colspan="6">No statistics available.</td></tr>
+                {% endfor %}
             </tbody>
         </table>
     </section>
@@ -62,5 +72,6 @@
         defer></script>
 </body>
 </html>
+
 
 
