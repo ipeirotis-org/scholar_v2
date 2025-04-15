@@ -75,8 +75,12 @@ class FirestoreService:
             .limit(limit)
         )
 
-        return [
+        result = [
             doc.to_dict().get(key_attr) 
             for doc in query.stream() 
             if key_attr in doc.to_dict()
         ]
+
+        logging.info(f"Objects needing refresh: '{result}' for query: {query}.")
+
+        return result
