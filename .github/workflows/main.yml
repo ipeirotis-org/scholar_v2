@@ -1,43 +1,94 @@
+# .github/workflows/google-cloud-run-deploy.yaml
+
 name: Build and Deploy to Google Cloud Run
 
 on:
   push:
     branches:
-      - main  # Trigger the workflow on push to the main branch
+      - main # Trigger the workflow on push to the main branch
 
+# Environment variables available to all jobs and steps in this workflow
+env:
+  GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  GCP_REGION: us-central1 # Specify your Cloud Run service region
+  SERVICE_NAME: scholar-service # Specify your Cloud Run service name
+  GAR_LOCATION: us-central1 # region of your Artifact Registry repository
+  REPOSITORY_NAME: scholar-repo # Artifact Registry repository name
+  IMAGE_NAME: scholar_v2 # Name of the image to build
 
 jobs:
   setup-build-publish-deploy:
     name: Setup, Build, Publish, and Deploy
     runs-on: ubuntu-latest
 
+    # Grant permissions for the workflow to authenticate with Google Cloud.
+    # id-token: write is generally needed for Workload Identity Federation,
+    # but it's good practice to include permissions explicitly.
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+
     steps:
     - name: Checkout code
-      uses: actions/checkout@v2
+      # Use the latest major version of the checkout action
+      uses: actions/checkout@v4
 
-    - name: Set up Cloud SDK
-      uses: google-github-actions/setup-gcloud@v2
-      with:
-        project_id: ${{ secrets.GCP_PROJECT_ID }}
-        
-    - name: Authenticate with service account
+    # Authenticate to Google Cloud using Service Account Key JSON
+    # Note: While this works, Google strongly recommends using Workload Identity Federation
+    # for keyless authentication instead of exporting service account keys.
+    # See: https://github.com/google-github-actions/auth#authenticating-via-workload-identity-federation
+    - name: Authenticate to Google Cloud
+      # Use the latest major version of the auth action
       uses: google-github-actions/auth@v2
       with:
         credentials_json: '${{ secrets.GCP_SA_KEY }}'
+        # Note: The 'setup-gcloud' action is not strictly necessary here
+        # as the 'auth' action configures gcloud authentication context
+        # automatically for subsequent gcloud commands executed via 'run'.
+        # However, explicitly including setup-gcloud can be clearer and
+        # ensures the latest gcloud components if needed.
 
-    - name: Set up credentials
-      run: |
-          echo "${{ secrets.GCP_SA_KEY }}" | base64 --decode > $HOME/gcloud-service-key.json
-          export GOOGLE_APPLICATION_CREDENTIALS=$HOME/gcloud-service-key.json
+    - name: Set up Cloud SDK
+      # Ensures gcloud CLI is available for the next steps
+      # Use the latest major version of the setup-gcloud action
+      uses: google-github-actions/setup-gcloud@v2
+      with:
+        project_id: ${{ env.GCP_PROJECT_ID }}
 
-    - name: Build and push image to Google Container Registry
-      run: |
-        gcloud builds submit --tag gcr.io/${{ secrets.GCP_PROJECT_ID }}/scholar_v2 .
+    # Configure Docker to authenticate with Google Artifact Registry (GAR)
+    # This step is needed if you build locally (docker build/push)
+    # or use tools that interact with the registry directly.
+    # For `gcloud builds submit`, gcloud handles auth implicitly using ADC.
+    # However, it's good practice to include if future steps might use docker directly.
+    # If using ONLY `gcloud builds submit`, this step can sometimes be omitted,
+    # but it's safer to include it.
+    - name: Configure Docker for Artifact Registry
+      run: gcloud auth configure-docker ${{ env.GAR_LOCATION }}-docker.pkg.dev
 
+    # Build and push image to Google Artifact Registry using Cloud Build
+    # This uses Google Cloud Build to perform the build remotely.
+    - name: Build and Push Image to Artifact Registry
+      env:
+        # Define the full image path using environment variables and github.sha for unique tagging
+        IMAGE_PATH: ${{ env.GAR_LOCATION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.REPOSITORY_NAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+      run: |-
+        gcloud builds submit --tag "$IMAGE_PATH" .
+        echo "Built and pushed image: $IMAGE_PATH" # Log the image path for verification
+
+    # Deploy image to Cloud Run
     - name: Deploy to Cloud Run
-      run: |
-        gcloud run deploy scholar-service \
-          --image gcr.io/${{ secrets.GCP_PROJECT_ID }}/scholar_v2 \
+      env:
+         # Re-define the image path for clarity in this step
+        IMAGE_PATH: ${{ env.GAR_LOCATION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.REPOSITORY_NAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+      run: |-
+        gcloud run deploy ${{ env.SERVICE_NAME }} \
+          --image "$IMAGE_PATH" \
           --platform managed \
-          --region us-central1 \
+          --region ${{ env.GCP_REGION }} \
           --allow-unauthenticated
+          # Add any other necessary flags below:
+          # --memory=512Mi
+          # --cpu=1
+          # --set-env-vars=KEY1=VALUE1,KEY2=VALUE2
+          # --service-account=YOUR_RUNTIME_SERVICE_ACCOUNT@...
+          # --quiet # Suppress interactive prompts if needed
