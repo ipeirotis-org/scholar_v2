@@ -67,7 +67,7 @@ class FirestoreService:
         Returns:
         A list of values for the key attribute from documents that match the criteria.
         """
-        cutoff_date = datetime.utcnow().replace(tzinfo=pytz.utc) - timedelta(days=days_since_last_update)
+        cutoff_date = datetime.now(pytz.utc) - timedelta(days=days_since_last_update)
         query = (
             self.db.collection(collection)
             .where("timestamp", "<", cutoff_date)
@@ -75,4 +75,8 @@ class FirestoreService:
             .limit(limit)
         )
 
-        return [doc.to_dict().get(key_attr) for doc in query.stream() if key_attr in doc.to_dict()]
+        return [
+            doc.to_dict().get(key_attr) 
+            for doc in query.stream() 
+            if key_attr in doc.to_dict()
+        ]
