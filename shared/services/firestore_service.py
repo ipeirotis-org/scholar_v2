@@ -51,7 +51,7 @@ class FirestoreService:
         :return: A list of documents matching the prefix query.
         """
         end_at = prefix + "\uf8ff"
-        query = self.db.collection(collection).where(field, ">=", prefix).where(field, "<=", end_at)
+        query = self.db.collection(collection).where(filter=FieldFilter(field, ">=", prefix)).where(filter=FieldFilter(field, "<=", end_at))
         results = query.stream()
         return [doc.to_dict() for doc in results]
 
