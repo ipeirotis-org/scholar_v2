@@ -82,7 +82,7 @@ class FirestoreService:
             if key_attr in doc.to_dict()
         ]
 
-        logging.info(f"Objects needing refresh: '{result}'.")
+        logging.info(f"Objects needing refresh: '{result}'")
         logging.debug(query._query_proto)
 
         return result
