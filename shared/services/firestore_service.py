@@ -71,7 +71,7 @@ class FirestoreService:
         cutoff_date = datetime.now(pytz.utc) - timedelta(days=days_since_last_update)
         query = (
             self.db.collection(collection)
-            .where(filter=FieldFilter("timestamp", "<", cutoff_date))
+            # .where(filter=FieldFilter("timestamp", "<", cutoff_date))
             .order_by("timestamp", direction=firestore.Query.ASCENDING)
             .limit(limit)
         )
