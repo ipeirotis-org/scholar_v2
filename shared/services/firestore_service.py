@@ -77,7 +77,7 @@ class FirestoreService:
         )
 
         result = [
-            doc.to_dict()# .get(key_attr) 
+            doc.to_dict().get("data").get(key_attr) 
             for doc in query.stream() 
             # if key_attr in doc.to_dict()
         ]
