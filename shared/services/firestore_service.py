@@ -77,11 +77,11 @@ class FirestoreService:
         )
 
         result = [
-            doc.to_dict().get(key_attr) 
+            doc.to_dict()# .get(key_attr) 
             for doc in query.stream() 
-            if key_attr in doc.to_dict()
+            # if key_attr in doc.to_dict()
         ]
 
-        logging.info(f"Objects needing refresh: '{result}' for '{collection}' with key_attr '{key_attr}'")
+        logging.info(f"Objects needing refresh: '{result}' for '{collection}'")
 
         return result
