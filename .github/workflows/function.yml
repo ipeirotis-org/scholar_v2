@@ -41,6 +41,7 @@ jobs:
           --trigger-http \
           --allow-unauthenticated \
           --gen2 \
+          --memory=512MB \
           --source ./functions/fill_publication
 
 
@@ -57,6 +58,7 @@ jobs:
           --trigger-http \
           --allow-unauthenticated \
           --timeout=3600s \
+          --memory=512MB \
           --gen2 \
           --source ./functions/search_author_id/
 
