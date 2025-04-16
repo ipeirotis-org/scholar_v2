@@ -54,14 +54,16 @@ def process_author(scholar_id, skip_pubs=None):
     """
     author = fetch_author(scholar_id)
     if author is None:
+        logging.error(f"No information returned for author {scholar_id}.")
         return None
 
     serialized_author = serialize_author(author)
     if not serialized_author:
-        logging.error(f"Failed to serialize author {scholar_id}e.")
+        logging.error(f"Failed to serialize author {scholar_id}.")
         return None
 
     success = author_repository.save_author(scholar_id, serialized_author)
+    logging.info(f"Saved author {scholar_id}.")
 
     if not success:
         logging.error(f"Failed to store author {scholar_id} in Firestore.")
