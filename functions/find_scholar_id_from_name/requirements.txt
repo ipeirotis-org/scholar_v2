@@ -1,0 +1,2 @@
+scholarly
+google-cloud-firestore

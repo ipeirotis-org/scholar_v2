@@ -12,7 +12,7 @@ import logging
 from datetime import datetime, timedelta
 
 import pytz
-from serpapi import GoogleSearch  # pip install serpapi :contentReference[oaicite:0]{index=0}
+from serpapi import GoogleSearch 
 from google.cloud import firestore
 
 # Logging setup

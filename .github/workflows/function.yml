@@ -62,3 +62,20 @@ jobs:
           --gen2 \
           --source ./functions/search_author_id/
 
+    - name: Prepare shared code for Cloud Function find_scholar_id_from_name
+      run: |
+        cp -r ./shared ./functions/find_scholar_id_from_name/shared/
+
+    - name: Deploy Cloud Function find_scholar_id_from_name
+      run: |
+        gcloud functions deploy find_scholar_id_from_name \
+          --region ${{ env.REGION }} \
+          --entry-point find_scholar_id_from_name \
+          --runtime python312  \
+          --trigger-http \
+          --allow-unauthenticated \
+          --timeout=3600s \
+          --memory=512MB \
+          --gen2 \
+          --source ./functions/find_scholar_id_from_name/
+
