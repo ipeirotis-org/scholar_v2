@@ -1,5 +1,5 @@
 from ..config import Config
-
+from random import sample
 
 class AuthorRepository:
     def __init__(self, firestore_service, publication_repository):
@@ -32,9 +32,11 @@ class AuthorRepository:
         Returns:
         A list of author IDs.
         """
-        return self.firestore_service.objects_needing_refresh(
+        authors = self.firestore_service.objects_needing_refresh(
             collection=Config.FIRESTORE_COLLECTION_AUTHOR,
             days_since_last_update=90,  # Considering authors not updated in the last 90 days
-            limit=num_authors,
+            limit=num_authors*10, # overfetch to avoid fetching the same authors
             key_attr="scholar_id",
         )
+
+        return sample(authors, num_authors)
