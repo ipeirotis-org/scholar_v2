@@ -60,7 +60,7 @@ def process_author(author: dict) -> dict:
 
 
 @functions_framework.http
-def find_scholar_id_using_name(request):
+def find_scholar_id_from_name(request):
     """
     HTTP Cloud Function entry point.
 
