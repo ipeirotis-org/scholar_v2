@@ -29,11 +29,6 @@ PROJECT_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, '..'))
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
-from app.scholar import fetch_authors_from_scholarly
-
-# Read SerpAPI key
-SERPAPI_API_KEY = "f868d1fd7a6407c1624292adb1bd7ef16563d8541ee6c698321ff00be21f34fe"
-
 # Firestore collection names
 PUB_COLLECTION = 'scholar_raw_pub'
 AUTHOR_COLLECTION = 'scholar_raw_author'
@@ -41,30 +36,6 @@ AUTHOR_COLLECTION = 'scholar_raw_author'
 # Initialize Firestore client
 db = firestore.Client()
 
-def is_profile_active(author_id, api_key, no_cache=False):
-    """
-    Returns True if SerpAPI returns a valid 'author' dict.
-    Preserves True on SerpAPI error.
-    """
-    params = {
-        'engine': 'google_scholar_author',
-        'author_id': author_id,
-        'api_key': api_key,
-    }
-    if no_cache:
-        params['no_cache'] = 'true'
-    try:
-        search = GoogleSearch(params)
-        result = search.get_dict()
-        status = result.get('search_metadata', {}).get('status')
-        if status != 'Success':
-            logging.warning('SerpAPI status %s for %s', status, author_id)
-            return True
-        author = result.get('author') or {}
-        return bool(author.get('name'))
-    except Exception as e:
-        logging.error('Error checking profile active for %s: %s', author_id, e)
-        return True
 
 
 def resolve_author(name, resolved_ids):
@@ -79,27 +50,16 @@ def resolve_author(name, resolved_ids):
     """
     # Step 1: Exact name match
     author_ref = db.collection(AUTHOR_COLLECTION)
-    matches = author_ref.where('name', '==', name).get()
+    matches = author_ref.where('data.name', '==', name).get()
     if matches:
         # Single exact
         if len(matches) == 1:
-            sid = matches[0].to_dict().get('scholar_id')
+            sid = matches[0].to_dict().get('data').get('scholar_id')
             if is_profile_active(sid, SERPAPI_API_KEY):
                 return {'name': name, 'scholar_id': sid, 'method': 'local_exact'}
             logging.warning('Inactive profile for %s (%s), skipping local_exact', name, sid)
-        # Alias match
-        alias_matches = []
-        for doc in matches:
-            data = doc.to_dict()
-            for alias in data.get('aliases', []):
-                if alias == name:
-                    alias_matches.append(doc)
-                    break
-        if len(alias_matches) == 1:
-            sid = alias_matches[0].to_dict().get('scholar_id')
-            if is_profile_active(sid, SERPAPI_API_KEY):
-                return {'name': name, 'scholar_id': sid, 'method': 'local_alias'}
-            logging.warning('Inactive profile for %s (%s), skipping local_alias', name, sid)
+
+
         # Step 2: Co-author graph
         coauthor_matches = []
         for doc in matches:

@@ -35,7 +35,7 @@ class AuthorRepository:
         authors = self.firestore_service.objects_needing_refresh(
             collection=Config.FIRESTORE_COLLECTION_AUTHOR,
             days_since_last_update=90,  # Considering authors not updated in the last 90 days
-            limit=num_authors*10, # overfetch to avoid fetching the same authors
+            limit=num_authors*100, # overfetch to avoid fetching the same authors
             key_attr="scholar_id",
         )
 

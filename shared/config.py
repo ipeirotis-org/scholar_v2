@@ -25,6 +25,9 @@ class Config:
     API_FILL_PUBLICATION = (
         f"https://{FUNCTION_LOCATION}-{PROJECT_ID}.cloudfunctions.net/fill_publication"
     )
+    API_FIND_SCHOLAR_ID = (
+        f"https://{FUNCTION_LOCATION}-{PROJECT_ID}.cloudfunctions.net/find_scholar_id_from_name"
+    )
 
     BUCKET_NAME = "scholar_data_share"
 
