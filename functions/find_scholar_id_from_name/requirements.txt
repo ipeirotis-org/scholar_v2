@@ -2,3 +2,4 @@ functions-framework
 Flask
 scholarly                
 google-cloud-firestore  
+pytz
