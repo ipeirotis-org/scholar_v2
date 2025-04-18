@@ -1,2 +1,4 @@
-scholarly
-google-cloud-firestore
+functions-framework 
+Flask
+scholarly                
+google-cloud-firestore  
