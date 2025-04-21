@@ -22,7 +22,11 @@ from data_analysis import (
     download_all_authors_stats,
     get_publication_stats,
 )
-from visualization import generate_percentile_rank_plot, generate_pip_plot, generate_pub_citation_plot
+from visualization import (
+    generate_percentile_rank_plot,
+    generate_pip_plot,
+    generate_pub_citation_plot,
+)
 from queue_handler import put_author_in_queue, pending_tasks, number_of_tasks_in_queue
 from refresh import refresh_authors
 
@@ -44,16 +48,18 @@ def index():
     return render_template("index.html")
 
 
-
-@app.route('/data')
+@app.route("/data")
 def data():
-    return render_template('data.html')
+    return render_template("data.html")
+
 
 @app.route("/download_all_authors_stats")
 def download_all_authors_stats_route():
     # Construct the URL to the file in the GCS bucket
     destination_blob_name = "all_authors_stats.csv"
-    file_url = f"https://storage.googleapis.com/{Config.BUCKET_NAME}/{destination_blob_name}"
+    file_url = (
+        f"https://storage.googleapis.com/{Config.BUCKET_NAME}/{destination_blob_name}"
+    )
 
     if not storage_service.file_updated_within_24_hours(destination_blob_name):
         df = download_all_authors_stats()
@@ -65,14 +71,14 @@ def download_all_authors_stats_route():
     return redirect(file_url)
 
 
-
-@app.route('/api')
+@app.route("/api")
 def api():
-    return render_template('api.html')
+    return render_template("api.html")
 
-@app.route('/help')
+
+@app.route("/help")
 def help():
-    return render_template('help.html')
+    return render_template("help.html")
 
 
 @app.route("/get_similar_authors")
@@ -80,11 +86,6 @@ def get_similar_authors_route():
     author_name = request.args.get("author_name")
     authors = get_similar_authors(author_name)
     return jsonify(authors)
-
-
-
-
-
 
 
 @app.route("/api/refresh_authors")
@@ -123,7 +124,9 @@ def results():
     # Check if there are any tasks about the author in the queue
     if pending_tasks(author_id):
         queue_tasks = number_of_tasks_in_queue()
-        return render_template("redirect.html", author_id=author_id, queue_tasks=queue_tasks)
+        return render_template(
+            "redirect.html", author_id=author_id, queue_tasks=queue_tasks
+        )
 
     author = get_author_stats(author_id)
 
@@ -131,7 +134,9 @@ def results():
     if not author:
         put_author_in_queue(author_id)
         queue_tasks = number_of_tasks_in_queue()
-        return render_template("redirect.html", author_id=author_id, queue_tasks=queue_tasks)
+        return render_template(
+            "redirect.html", author_id=author_id, queue_tasks=queue_tasks
+        )
 
     df = pd.DataFrame(author["publications"])
     author_name = author["name"]
@@ -163,7 +168,9 @@ def download_results(author_id):
 
     pd.DataFrame(author["publications"]).to_csv(file_path, index=False)
 
-    return send_file(file_path, as_attachment=True, download_name=f"{author_id}_results.csv")
+    return send_file(
+        file_path, as_attachment=True, download_name=f"{author_id}_results.csv"
+    )
 
 
 @app.route("/publication/<author_id>/<pub_id>")

@@ -11,7 +11,9 @@ class FirestoreService:
         self.db = firestore.Client(project=Config.PROJECT_ID)
 
     def get_firestore_cache(self, collection, doc_id):
-        logging.info(f"Fetching from Firestore for '{doc_id}' in collection {collection}.")
+        logging.info(
+            f"Fetching from Firestore for '{doc_id}' in collection {collection}."
+        )
         doc_ref = self.db.collection(collection).document(doc_id)
         try:
             doc = doc_ref.get()
@@ -51,11 +53,17 @@ class FirestoreService:
         :return: A list of documents matching the prefix query.
         """
         end_at = prefix + "\uf8ff"
-        query = self.db.collection(collection).where(filter=FieldFilter(field, ">=", prefix)).where(filter=FieldFilter(field, "<=", end_at))
+        query = (
+            self.db.collection(collection)
+            .where(filter=FieldFilter(field, ">=", prefix))
+            .where(filter=FieldFilter(field, "<=", end_at))
+        )
         results = query.stream()
         return [doc.to_dict() for doc in results]
 
-    def objects_needing_refresh(self, collection, days_since_last_update, limit, key_attr):
+    def objects_needing_refresh(
+        self, collection, days_since_last_update, limit, key_attr
+    ):
         """
         Fetch objects from a collection that have not been updated recently.
 
@@ -77,8 +85,8 @@ class FirestoreService:
         )
 
         result = [
-            doc.to_dict().get("data").get(key_attr) 
-            for doc in query.stream() 
+            doc.to_dict().get("data").get(key_attr)
+            for doc in query.stream()
             if key_attr in doc.to_dict().get("data")
         ]
 

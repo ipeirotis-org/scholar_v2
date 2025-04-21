@@ -22,5 +22,6 @@ def put_author_in_queue(author_id):
 def pending_tasks(author_id):
     return task_queue_service.check_pending_tasks(author_id)
 
+
 def number_of_tasks_in_queue():
     return task_queue_service.get_number_of_tasks_in_queue()
