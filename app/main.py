@@ -90,27 +90,20 @@ def get_similar_authors_route():
 
 @app.route("/api/refresh_authors")
 def refresh_authors_route():
-    scholar_ids_arg = request.args.get("scholar_ids")
-    try:
-        scholar_ids = scholar_ids_arg.split(",")
-    except Exception as e:
-        scholar_ids = None
+    scholar_ids_arg = request.args.get("scholar_ids", "")
+    include_new = request.args.get("include_new_coauthors", "0") == "1"
+    num_authors = int(request.args.get("num_authors", 1))
 
-    num_authors = request.args.get("num_authors")
-    try:
-        num_authors = int(num_authors)
-    except Exception as e:
-        num_authors = 1
+    scholar_ids = [s for s in scholar_ids_arg.split(",") if s]
 
-    if scholar_ids:
-        result = refresh_authors(scholar_ids, num_authors=num_authors)
-    else:
-        result = refresh_authors(num_authors=num_authors)
+    result = refresh_authors(
+        refresh=scholar_ids,
+        num_authors=num_authors,
+        include_new_coauthors=include_new,
+    )
+    return jsonify(result)
 
-    if result:
-        return jsonify(result)
-    else:
-        return jsonify({"message": "An error occurred"}), 503
+
 
 
 @app.route("/results", methods=["GET"])
@@ -171,6 +164,9 @@ def download_results(author_id):
     return send_file(
         file_path, as_attachment=True, download_name=f"{author_id}_results.csv"
     )
+
+
+
 
 
 @app.route("/publication/<author_id>/<pub_id>")
