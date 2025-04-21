@@ -104,8 +104,6 @@ def refresh_authors_route():
     return jsonify(result)
 
 
-
-
 @app.route("/results", methods=["GET"])
 def results():
     author_id = request.args.get("author_id", "")
@@ -164,9 +162,6 @@ def download_results(author_id):
     return send_file(
         file_path, as_attachment=True, download_name=f"{author_id}_results.csv"
     )
-
-
-
 
 
 @app.route("/publication/<author_id>/<pub_id>")

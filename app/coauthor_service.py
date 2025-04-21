@@ -43,12 +43,7 @@ def new_coauthors(count: int, oversample_factor: int = 100) -> List[str]:
         LIMIT {rows_needed}
     """
     df = _BQ.query(sql)
-    ids = (
-        df["coauthor_scholar_id"]
-        .dropna()
-        .drop_duplicates()
-        .tolist()
-    )
+    ids = df["coauthor_scholar_id"].dropna().drop_duplicates().tolist()
 
     if len(ids) <= count:
         return ids

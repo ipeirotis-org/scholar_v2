@@ -5,7 +5,7 @@ from shared.services.task_queue_service import TaskQueueService
 from shared.repositories.author_repository import AuthorRepository
 from shared.repositories.publication_repository import PublicationRepository
 
-from app.coauthor_service import new_coauthors
+from coauthor_service import new_coauthors
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -28,7 +28,7 @@ def refresh_authors(
     refresh: list[str] | None = None,
     *,
     num_authors: int = 1,
-    include_new_coauthors: bool = False,          # <-- new flag
+    include_new_coauthors: bool = False,  # <-- new flag
 ):
     """
     Queue authors—and optionally new co‑authors—for update.
@@ -37,7 +37,7 @@ def refresh_authors(
     ids: set[str] = set(refresh or [])
 
     if include_new_coauthors:
-        ids.update(new_coauthors(num_authors))    # <-- add sampled co‑authors
+        ids.update(new_coauthors(num_authors))  # <-- add sampled co‑authors
 
     if not ids:
         ids.update(get_authors_to_refresh(num_authors))
@@ -47,14 +47,17 @@ def refresh_authors(
     authors = []
 
     for scholar_id in ids:
-        doc = firestore_service.db.collection(Config.FIRESTORE_COLLECTION_AUTHOR).document(scholar_id).get()
+        doc = (
+            firestore_service.db.collection(Config.FIRESTORE_COLLECTION_AUTHOR)
+            .document(scholar_id)
+            .get()
+        )
 
         if not doc.exists:
             if task_queue_service.enqueue_author_task(scholar_id):
                 total_authors += 1
                 authors.append({"author_id": scholar_id})
             continue
-
 
         author = doc.to_dict().get("data")
         if not author:
