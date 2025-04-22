@@ -37,9 +37,16 @@ def new_coauthors(count: int, oversample_factor: int = 100) -> List[str]:
     rows_needed = max(count * oversample_factor, 1)
     sql = f"""
         SELECT
-          coauthor_scholar_id
+          coauthor_scholar_id,
+          coauthor_name,
+          SUM(cnt) AS total
         FROM
           `scholar-version2.firestore_views.coauthors_to_add`
+        GROUP BY
+          coauthor_scholar_id,
+          coauthor_name
+        ORDER BY
+          total DESC
         LIMIT {rows_needed}
     """
     df = _BQ.query(sql)
