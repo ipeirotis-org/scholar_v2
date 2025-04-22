@@ -8,7 +8,8 @@ WORKDIR /app
 COPY requirements.txt /app/
 
 # Install any needed packages specified in requirements.txt
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --upgrade pip \
+ && pip install --no-cache-dir -r requirements.txt
 
 # Import matplotlib the first time to build the font cache.
 # Note: This is required only if you are using matplotlib in your project.
