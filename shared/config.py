@@ -18,7 +18,7 @@ class Config:
     FIRESTORE_COLLECTION_AUTHOR = "scholar_raw_author"
     FIRESTORE_COLLECTION_PUB = "scholar_raw_pub"
 
-    FUNCTION_LOCATION = "us-west1"
+    FUNCTION_LOCATION = "us-east1"
     API_SEARCH_AUTHOR_ID = (
         f"https://{FUNCTION_LOCATION}-{PROJECT_ID}.cloudfunctions.net/search_author_id"
     )
