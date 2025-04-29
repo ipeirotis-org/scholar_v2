@@ -32,8 +32,17 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v3
 
+    # Authenticate to Google Cloud FIRST
+    - name: Authenticate to Google Cloud
+      id: auth # Optional: give the step an ID if needed
+      # Use the official Google Cloud Auth action
+      uses: google-github-actions/auth@v2 # Use version v2 or later
+      with:
+        # Use credentials_json if you are using a service account key stored in secrets
+        credentials_json: ${{ secrets.GCP_SA_KEY }}
+
     - name: Set up Cloud SDK
-      uses: google-github-actions/setup-gcloud@v1.1.0
+      uses: google-github-actions/setup-gcloud@v2
       with:
         project_id: ${{ env.PROJECT_ID }}
 
