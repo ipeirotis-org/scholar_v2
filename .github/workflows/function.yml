@@ -7,11 +7,27 @@ on:
 
 env:
   PROJECT_ID: scholar-version2
-  REGION: us-central1
+  # REGION is now defined in the matrix
 
 jobs:
   deploy-cloud-functions:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false # Set to true if you want the whole workflow to fail if one deployment fails
+      matrix:
+        region: [us-central1, us-east1, us-east4, us-south1, us-west1, europe-west1, europe-west8, europe-west9, northamerica-south1] #
+        function_details:
+          # Define each function with its specific details
+          - name: fill_publication
+            timeout: "60s" 
+            memory: 512MB
+          - name: search_author_id
+            timeout: "3600s"
+            memory: 512MB
+          - name: find_scholar_id_from_name
+            timeout: "3600s"
+            memory: 512MB
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v3
@@ -26,57 +42,38 @@ jobs:
         echo "${{ secrets.GCP_SA_KEY }}" | base64 --decode > ${HOME}/gcloud-service-key.json
         gcloud auth activate-service-account --key-file=${HOME}/gcloud-service-key.json
 
-
-    - name: Prepare shared code for Cloud Function search_author_id
+    - name: Prepare shared code for Cloud Function ${{ matrix.function_details.name }}
       run: |
-        cp -r ./shared ./functions/fill_publication/shared/
+        # Ensure the target shared directory exists before copying
+        mkdir -p ./functions/${{ matrix.function_details.name }}/shared/
+        cp -r ./shared/* ./functions/${{ matrix.function_details.name }}/shared/
 
-
-    - name: Deploy Cloud Function fill_publication
+    - name: Deploy Cloud Function ${{ matrix.function_details.name }} to ${{ matrix.region }}
       run: |
-        gcloud functions deploy fill_publication \
-          --region ${{ env.REGION }} \
-          --entry-point fill_publication \
-          --runtime python312  \
+        FUNCTION_NAME="${{ matrix.function_details.name }}"
+        REGION="${{ matrix.region }}"
+        SOURCE_DIR="./functions/${FUNCTION_NAME}/"
+        ENTRY_POINT="${FUNCTION_NAME}"
+        RUNTIME="python312"
+        MEMORY="${{ matrix.function_details.memory }}" # Use memory from matrix
+        
+        # Base command
+        CMD="gcloud functions deploy ${FUNCTION_NAME} \
+          --region ${REGION} \
+          --entry-point ${ENTRY_POINT} \
+          --runtime ${RUNTIME} \
           --trigger-http \
           --allow-unauthenticated \
+          --memory=${MEMORY} \
           --gen2 \
-          --memory=512MB \
-          --source ./functions/fill_publication
+          --source ${SOURCE_DIR}"
 
+        # Add timeout flag only if specified in the matrix
+        TIMEOUT="${{ matrix.function_details.timeout }}"
+        if [[ -n "$TIMEOUT" ]]; then
+          CMD="${CMD} --timeout=${TIMEOUT}"
+        fi
 
-    - name: Prepare shared code for Cloud Function search_author_id
-      run: |
-        cp -r ./shared ./functions/search_author_id/shared/
-
-    - name: Deploy Cloud Function search_author_id
-      run: |
-        gcloud functions deploy search_author_id \
-          --region ${{ env.REGION }} \
-          --entry-point search_author_id \
-          --runtime python312  \
-          --trigger-http \
-          --allow-unauthenticated \
-          --timeout=3600s \
-          --memory=512MB \
-          --gen2 \
-          --source ./functions/search_author_id/
-
-    - name: Prepare shared code for Cloud Function find_scholar_id_from_name
-      run: |
-        cp -r ./shared ./functions/find_scholar_id_from_name/shared/
-
-    - name: Deploy Cloud Function find_scholar_id_from_name
-      run: |
-        gcloud functions deploy find_scholar_id_from_name \
-          --region ${{ env.REGION }} \
-          --entry-point find_scholar_id_from_name \
-          --runtime python312  \
-          --trigger-http \
-          --allow-unauthenticated \
-          --timeout=3600s \
-          --memory=512MB \
-          --gen2 \
-          --source ./functions/find_scholar_id_from_name/
-
-
+        echo "Executing deployment for $FUNCTION_NAME in $REGION..."
+        echo "$CMD"
+        eval $CMD # Use eval to execute the constructed command string
