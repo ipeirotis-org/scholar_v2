@@ -12,7 +12,6 @@ AVAILABLE_FUNCTION_REGIONS = [
     "europe-west1", 
     "europe-west8", 
     "europe-west9", 
-    "northamerica-south1", 
     "northamerica-northeast1", 
     "northamerica-northeast2"
 ]
