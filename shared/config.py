@@ -8,10 +8,7 @@ AVAILABLE_FUNCTION_REGIONS = [
     "us-east1", 
     "us-east4", 
     "us-south1", 
-    "us-west1", 
-    "europe-west1", 
-    "europe-west8", 
-    "europe-west9"
+    "us-west1"
 ]
 
 
