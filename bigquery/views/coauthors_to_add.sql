@@ -1,3 +1,4 @@
+CREATE OR REPLACE VIEW `scholar-version2.statistics.coauthors_to_add` AS
 SELECT
   coauthor_scholar_id,
   coauthor_name,

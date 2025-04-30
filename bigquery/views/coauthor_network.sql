@@ -1,3 +1,4 @@
+CREATE OR REPLACE VIEW `scholar-version2.statistics.coauthor_network` AS
 SELECT
   JSON_EXTRACT_SCALAR(DATA, '$.data.scholar_id') AS primary_scholar_id,
   JSON_EXTRACT_SCALAR(DATA, '$.data.name') AS primary_name,
