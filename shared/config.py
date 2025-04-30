@@ -1,5 +1,6 @@
 import os
 import datetime
+import pytz
 
 # Define the pool of regions where functions are deployed
 # IMPORTANT: This list should match the regions to in the functions.yml GitHub Action!
@@ -33,7 +34,7 @@ class Config:
     FIRESTORE_COLLECTION_PUB = "scholar_raw_pub"
 
     @staticmethod
-    def get_hourly_region(): # Renamed for clarity
+    def get_hourly_region():
         """
         Selects a region cyclically based on the current UTC hour.
 
