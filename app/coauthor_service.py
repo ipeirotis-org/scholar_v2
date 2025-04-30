@@ -41,7 +41,7 @@ def new_coauthors(count: int, oversample_factor: int = 100) -> List[str]:
           coauthor_name,
           SUM(cnt) AS total
         FROM
-          `scholar-version2.firestore_views.coauthors_to_add`
+          `scholar-version2.statistics.coauthors_to_add`
         GROUP BY
           coauthor_scholar_id,
           coauthor_name
