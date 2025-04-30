@@ -1,4 +1,6 @@
-CREATE OR REPLACE VIEW `scholar-version2.statistics.publication_citations` AS
+CREATE OR REPLACE VIEW `scholar-version2.statistics.stats_publication_citations_temporal` 
+
+    AS
 WITH
   ExtractedData AS (
   SELECT
@@ -9,30 +11,38 @@ WITH
     JSON_QUERY(DATA, '$.data.cites_per_year') AS cites_per_year
   FROM
     `scholar-version2.firestore_export.scholar_raw_pub_raw_latest`),
-  ExplodedData AS (
+ExplodedData AS (
   SELECT
-    scholar_id,
-    author_pub_id,
-    CAST(pub_year AS int) AS pub_year,
-    total_citations,
-    CAST(kv.key AS int) AS citation_year,
-    CAST(kv.key AS int) - CAST(pub_year AS int) AS age,
-    kv.value AS yearly_citations,
-
+    ed.scholar_id,
+    ed.author_pub_id,
+    CAST(ed.pub_year AS INT64) AS pub_year,
+    ed.total_citations,
+    -- Attempt to cast the extracted JSON key (year) to INT64
+    SAFE_CAST(json_key AS INT64) AS citation_year,
+    SAFE_CAST(json_key AS INT64) - CAST(ed.pub_year AS INT64) AS age,
+    -- 1. Parse the string to JSON type
+    -- 2. Access the value using the dynamic key `json_key` via the [] operator
+    -- 3. Use JSON_VALUE() to extract the scalar value as a STRING from the resulting JSON
+    -- 4. Cast the resulting STRING to INT64
+    CAST(JSON_VALUE( PARSE_JSON(ed.cites_per_year)[json_key] ) AS INT64) AS yearly_citations
   FROM
-    ExtractedData
+    ExtractedData ed
   CROSS JOIN
-    UNNEST(statistics.JsonExplode(cites_per_year)) AS kv
+    -- Use JSON_KEYS with PARSE_JSON to get the keys
+    UNNEST(JSON_KEYS(PARSE_JSON(ed.cites_per_year))) AS json_key
   WHERE
-    pub_year IS NOT NULL ),
+    ed.pub_year IS NOT NULL
+    -- Ensure the key is actually a number representing a year
+    AND SAFE_CAST(json_key AS INT64) IS NOT NULL
+    -- Optional but recommended: Handle potential invalid JSON strings
+    AND SAFE.PARSE_JSON(ed.cites_per_year) IS NOT NULL
+),
   YearSeries AS (
   SELECT
     scholar_id,
     author_pub_id,
     pub_year,
-    GENERATE_ARRAY(pub_year, EXTRACT(YEAR
-      FROM
-        CURRENT_DATE())) AS year_series
+    GENERATE_ARRAY(pub_year, 2025) AS year_series
   FROM
     ExtractedData ),
   ExplodedYearSeries AS (

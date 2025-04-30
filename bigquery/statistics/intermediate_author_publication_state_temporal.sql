@@ -1,4 +1,4 @@
-CREATE OR REPLACE VIEW `scholar-version2.statistics.author_publication_state_temporal` AS
+CREATE OR REPLACE VIEW `scholar-version2.statistics.intermediate_author_publication_state_temporal` AS
 
 WITH AuthorPublications AS (
   -- Extract author_id and their list of publications (author_pub_id and pub_year)
@@ -18,16 +18,16 @@ WITH AuthorPublications AS (
 ),
 
 YearlyPublicationCitations AS (
-  -- Use the existing view that calculates yearly and cumulative citations per publication per year
+  -- *** CORRECTED HERE: Use the view that contains the necessary temporal columns ***
   SELECT
-    scholar_id, -- Included in the source view
+    scholar_id,
     author_pub_id,
     pub_year,
-    citation_year,      -- This represents the year 'Y' for which we want the state
-    cumulative_citations,
-    yearly_citations
+    citation_year,          -- Exists in stats_publication_citations_temporal
+    cumulative_citations,   -- Exists in stats_publication_citations_temporal
+    yearly_citations        -- Exists in stats_publication_citations_temporal
   FROM
-    `scholar-version2.statistics.publication_citations`
+    `scholar-version2.statistics.stats_publication_citations_temporal` -- Correct source view
 )
 
 -- Combine author's publications with their yearly citation state
@@ -35,17 +35,13 @@ SELECT
   ap.scholar_id,
   ap.author_pub_id,
   ap.pub_year,
-  ypc.citation_year AS state_year, -- Renaming for clarity (this is the year 'Y' the state represents)
+  ypc.citation_year AS state_year, -- Renaming for clarity
   ypc.cumulative_citations AS cumulative_citations_at_state_year,
   ypc.yearly_citations AS yearly_citations_at_state_year
 FROM
   AuthorPublications ap
 JOIN
   YearlyPublicationCitations ypc ON ap.author_pub_id = ypc.author_pub_id AND ap.scholar_id = ypc.scholar_id
--- The join ensures we only get citation data for publications associated with the author.
--- The publication_citations view inherently ensures citation_year >= pub_year,
--- so we only get states for years at or after publication.
-
 ORDER BY
   ap.scholar_id,
   ap.author_pub_id,

@@ -1,4 +1,4 @@
-CREATE OR REPLACE VIEW `scholar-version2.statistics.author_pub_stats` AS
+CREATE OR REPLACE VIEW `scholar-version2.statistics.stats_author_publication_pip_inputs_current` AS
 WITH
   num_papers_percentile AS (
   SELECT
@@ -6,7 +6,7 @@ WITH
     total_publications_with_citations,
     total_publications_with_citations_percentile
   FROM
-    `scholar-version2.statistics.author_stats` ),
+    `scholar-version2.statistics.stats_author_current` ),
   RankedPublications AS (
   SELECT
     p.scholar_id,
@@ -17,9 +17,9 @@ WITH
     a.year_of_first_pub,
     a.total_publications_with_citations
   FROM
-    `scholar-version2.statistics.publication_stats` p
+    `scholar-version2.statistics.stats_publication_current` p
   JOIN
-    `scholar-version2.statistics.author_stats` a
+    `scholar-version2.statistics.stats_author_current` a
   ON
     p.scholar_id = a.scholar_id ),
   Distances AS (

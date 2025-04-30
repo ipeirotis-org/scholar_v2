@@ -1,8 +1,6 @@
-CREATE OR REPLACE VIEW `scholar-version2.statistics.author_metrics_temporal_percentiles` AS
-
 WITH TemporalMetrics AS (
   -- Reference the view created in Step 3, which contains the historical metric *values*
-  SELECT * FROM `scholar-version2.statistics.author_metrics_temporal`
+  SELECT * FROM `scholar-version2.statistics.stats_author_metrics_temporal`
 )
 
 SELECT

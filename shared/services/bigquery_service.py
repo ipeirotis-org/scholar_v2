@@ -24,7 +24,7 @@ class BigQueryService:
                 FROM `scholar-version2.firestore_export.scholar_raw_pub_raw_latest`
             ))
             SELECT P.*, S.num_citations_percentile, S.publication_rank, S.num_papers_percentile
-            FROM `scholar-version2.statistics.author_pub_stats` S
+            FROM `scholar-version2.statistics.stats_author_publication_pip_inputs_current` S
             JOIN pub_details P ON P.author_pub_id = S.author_pub_id
             WHERE S.scholar_id = '{author_id}'
             ORDER BY S.publication_rank
@@ -34,18 +34,18 @@ class BigQueryService:
     def get_author_stats(self, author_id):
         sql = f"""
             SELECT S.*, P.pip_auc_score, P.pip_auc_score_percentile
-            FROM `scholar-version2.statistics.author_stats` S
-            LEFT JOIN `scholar-version2.statistics.author_pip_scores` P ON P.scholar_id = S.scholar_id
+            FROM `scholar-version2.statistics.stats_author_current` S
+            LEFT JOIN `scholar-version2.statistics.stats_author_pip_scores_current` P ON P.scholar_id = S.scholar_id
             WHERE S.scholar_id = '{author_id}'
         """
         df = self.query(sql)
         return df.to_dict("records")[0] if len(df) == 1 else None
 
     def get_all_authors_stats(self):
-        sql = """
+        sql = f"""
             SELECT S.*, P.pip_auc_score, P.pip_auc_score_percentile
-            FROM `scholar-version2.statistics.author_stats` S
-            LEFT JOIN `scholar-version2.statistics.author_pip_scores` P ON P.scholar_id = S.scholar_id
+            FROM `scholar-version2.statistics.stats_author_current` S
+            LEFT JOIN `scholar-version2.statistics.stats_author_pip_scores_current` P ON P.scholar_id = S.scholar_id
         """
         df = self.query(sql)
         return df
@@ -61,7 +61,7 @@ class BigQueryService:
               perc_pub_year_yearly_citations AS perc_yearly_citations,
               perc_pub_year_cumulative_citations AS perc_cumulative_citations
             FROM
-              `scholar-version2.statistics.publication_citations`
+              `scholar-version2.statistics.stats_publication_citations_temporal`
             WHERE
               author_pub_id = '{author_pub_id}'
               AND citation_year >= pub_year
@@ -79,7 +79,7 @@ class BigQueryService:
 
         sql = f"""
             SELECT *
-            FROM `scholar-version2.statistics.author_metrics_temporal_percentiles`
+            FROM `scholar-version2.statistics.stats_author_metrics_temporal`
             WHERE scholar_id = '{author_id}'
             ORDER BY state_year ASC
         """
