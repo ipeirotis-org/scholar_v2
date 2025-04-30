@@ -1,8 +1,8 @@
-Flask==2.0.1
+Flask
 pandas
 numpy
 scholarly
-Werkzeug==2.0.1
+Werkzeug
 pytz
 matplotlib
 google-cloud-firestore
