@@ -92,6 +92,51 @@
                     </tbody>
                 </table>
 
+<section id="temporal-results"> 
+            <h3>Metric Evolution Over Time</h3>
+            {% if temporal_plots %}
+                <table id="temporalPlotsTable" class="table" style="width: 100%;">
+                    <tbody>
+                        {% if temporal_plots.h_index %}
+                        <tr>
+                            <td>
+                                <h4>H-Index</h4>
+                                <img class="plot" src="{{ temporal_plots.h_index }}" alt="H-Index over time" style="max-width: 90%; height: auto;">
+                             </td>
+                        </tr>
+                        {% endif %}
+                         {% if temporal_plots.h_index_5y %}
+                        <tr>
+                            <td>
+                                <h4>H-Index (Last 5 Years)</h4>
+                                <img class="plot" src="{{ temporal_plots.h_index_5y }}" alt="H-Index (5y) over time" style="max-width: 90%; height: auto;">
+                             </td>
+                        </tr>
+                        {% endif %}
+                        {% if temporal_plots.total_citations %}
+                        <tr>
+                            <td>
+                                <h4>Total Citations</h4>
+                                 <img class="plot" src="{{ temporal_plots.total_citations }}" alt="Total Citations over time" style="max-width: 90%; height: auto;">
+                            </td>
+                        </tr>
+                        {% endif %}
+                        {% if temporal_plots.i10_index %}
+                        <tr>
+                            <td>
+                                <h4>i10-Index</h4>
+                                <img class="plot" src="{{ temporal_plots.i10_index }}" alt="i10-Index over time" style="max-width: 90%; height: auto;">
+                            </td>
+                        </tr>
+                        {% endif %}
+                        </tbody>
+                </table>
+            {% else %}
+                <p>Temporal metric data is not available for this author.</p>
+            {% endif %}
+        </section>
+
+                
                 <center>
                     <a href="{{ url_for('download_results', author_id=author.get('scholar_id', 'N/A') ) }}">
                         Download CSV for {{ author.get('name', 'N/A') }}

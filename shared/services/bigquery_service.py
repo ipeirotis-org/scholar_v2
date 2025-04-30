@@ -70,3 +70,24 @@ class BigQueryService:
         """
         df = self.query(sql).to_dict("records")
         return df
+    
+    def get_author_temporal_stats(self, author_id):
+        """Fetches the temporal evolution of metrics and percentiles for an author."""
+        if not author_id:
+            logging.error("Author ID is required to fetch temporal stats.")
+            return [] # Return empty list or None
+    
+        sql = f"""
+            SELECT *
+            FROM `scholar-version2.statistics.author_metrics_temporal_percentiles`
+            WHERE scholar_id = '{author_id}'
+            ORDER BY state_year ASC
+        """
+        try:
+            df = self.query(sql)
+            # Convert integer years to strings or datetime objects if needed downstream
+            # Ensure data types are suitable for JSON serialization if caching
+            return df.to_dict("records")
+        except Exception as e:
+            logging.error(f"Error fetching temporal stats for author {author_id}: {e}")
+            return [] # Return empty list on error
