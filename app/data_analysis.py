@@ -52,8 +52,10 @@ def get_author_stats(author_id):
     author["publications"] = author_pub_stats or []
     author["stats"] = author_stats or {}
 
+    '''
     temporal_stats = bigquery_service.get_author_temporal_stats(author_id)
     author["temporal_stats"] = temporal_stats
+    '''
 
     return author
 

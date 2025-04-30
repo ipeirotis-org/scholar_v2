@@ -154,7 +154,9 @@ def results():
         plot1 = generate_percentile_rank_plot(df, author_name)
         plot2 = generate_pip_plot(df, author_name)
 
+    
     temporal_plots = {}
+    '''
     if author.get("temporal_stats"):
         temporal_df = pd.DataFrame(author["temporal_stats"])
         # Ensure 'state_year' is numeric for plotting
@@ -170,6 +172,7 @@ def results():
             )
             temporal_plots["i10_index"] = generate_author_i10_index_plot(temporal_df)
             temporal_plots["h_index_5y"] = generate_author_h_index_5y_plot(temporal_df)
+    '''
 
     return render_template(
         "results.html",
