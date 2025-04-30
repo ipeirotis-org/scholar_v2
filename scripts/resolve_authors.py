@@ -3,10 +3,10 @@ resolve_authors.py
 
 Prerequisites:
 - Python 3.7+
-- Install dependencies: pip install google-cloud-firestore serpapi
+
 - Ensure your project root contains both `scripts/resolve_authors.py` and the `app/` directory with `scholar.py` exposing `fetch_authors_from_scholarly`
 - Ensure Google Cloud credentials are configured (e.g., via GOOGLE_APPLICATION_CREDENTIALS)
-- Set your SerpAPI key in the environment: export SERPAPI_API_KEY=<your_key>
+
 
 Usage:
     From your project root (one level above scripts and app directories):
@@ -20,7 +20,7 @@ import logging
 import os
 import sys
 from google.cloud import firestore
-from serpapi import GoogleSearch
+
 from google.cloud.firestore import Query
 
 # Ensure project root is on sys.path (so `app` package is importable)
@@ -55,9 +55,7 @@ def resolve_author(name, resolved_ids):
         # Single exact
         if len(matches) == 1:
             sid = matches[0].to_dict().get('data').get('scholar_id')
-            if is_profile_active(sid, SERPAPI_API_KEY):
-                return {'name': name, 'scholar_id': sid, 'method': 'local_exact'}
-            logging.warning('Inactive profile for %s (%s), skipping local_exact', name, sid)
+            return {'name': name, 'scholar_id': sid, 'method': 'local_exact'}
 
 
         # Step 2: Co-author graph
@@ -70,9 +68,6 @@ def resolve_author(name, resolved_ids):
                     break
         if len(coauthor_matches) == 1:
             sid = coauthor_matches[0].to_dict().get('scholar_id')
-            if is_profile_active(sid, SERPAPI_API_KEY):
-                return {'name': name, 'scholar_id': sid, 'method': 'coauthor_graph'}
-            logging.warning('Inactive profile for %s (%s), skipping coauthor_graph', name, sid)
 
     # Fallback: unresolved
     logging.warning(f"Unresolved author: {name}")
