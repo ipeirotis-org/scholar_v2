@@ -71,10 +71,10 @@ def find_scholar_id_from_name(request):
     request_json = request.get_json(silent=True)
 
     # Check query parameters first
-    if request.args and 'name' in request.args:
-        author_name = request.args.get('name')
-    elif request_json and 'name' in request_json:
-        author_name = request_json['name']
+    if request.args and "name" in request.args:
+        author_name = request.args.get("name")
+    elif request_json and "name" in request_json:
+        author_name = request_json["name"]
     else:
         return jsonify({"error": "Missing 'name' parameter"}), 400
 

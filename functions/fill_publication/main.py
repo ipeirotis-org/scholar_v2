@@ -51,7 +51,11 @@ def process_publication(pub):
     serialized_pub = convert_integers_to_strings(json.loads(json.dumps(detailed_pub)))
 
     # Cache publication details
-    firestore_service.set_firestore_cache(Config.FIRESTORE_COLLECTION_PUB, author_pub_id, serialized_pub)
+    firestore_service.set_firestore_cache(
+        Config.FIRESTORE_COLLECTION_PUB, author_pub_id, serialized_pub
+    )
 
-    logging.info(f"Publication details for {author_pub_id} have been updated and cached.")
+    logging.info(
+        f"Publication details for {author_pub_id} have been updated and cached."
+    )
     return serialized_pub

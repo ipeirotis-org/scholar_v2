@@ -1,4 +1,4 @@
-'''
+"""
 resolve_authors.py
 
 Prerequisites:
@@ -13,7 +13,7 @@ Usage:
         python3 scripts/resolve_authors.py --batch-size 500
 
 This script auto-adjusts its import path, so you can run it without manually setting PYTHONPATH.
-'''
+"""
 
 import argparse
 import logging
@@ -25,17 +25,16 @@ from google.cloud.firestore import Query
 
 # Ensure project root is on sys.path (so `app` package is importable)
 SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
-PROJECT_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, '..'))
+PROJECT_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, ".."))
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
 # Firestore collection names
-PUB_COLLECTION = 'scholar_raw_pub'
-AUTHOR_COLLECTION = 'scholar_raw_author'
+PUB_COLLECTION = "scholar_raw_pub"
+AUTHOR_COLLECTION = "scholar_raw_author"
 
 # Initialize Firestore client
 db = firestore.Client()
-
 
 
 def resolve_author(name, resolved_ids):
@@ -50,40 +49,38 @@ def resolve_author(name, resolved_ids):
     """
     # Step 1: Exact name match
     author_ref = db.collection(AUTHOR_COLLECTION)
-    matches = author_ref.where('data.name', '==', name).get()
+    matches = author_ref.where("data.name", "==", name).get()
     if matches:
         # Single exact
         if len(matches) == 1:
-            sid = matches[0].to_dict().get('data').get('scholar_id')
-            return {'name': name, 'scholar_id': sid, 'method': 'local_exact'}
-
+            sid = matches[0].to_dict().get("data").get("scholar_id")
+            return {"name": name, "scholar_id": sid, "method": "local_exact"}
 
         # Step 2: Co-author graph
         coauthor_matches = []
         for doc in matches:
             data = doc.to_dict()
-            for co in data.get('coauthors', []):
-                if co.get('scholar_id') in resolved_ids:
+            for co in data.get("coauthors", []):
+                if co.get("scholar_id") in resolved_ids:
                     coauthor_matches.append(doc)
                     break
         if len(coauthor_matches) == 1:
-            sid = coauthor_matches[0].to_dict().get('scholar_id')
+            sid = coauthor_matches[0].to_dict().get("scholar_id")
 
     # Fallback: unresolved
     logging.warning(f"Unresolved author: {name}")
-    return {'name': name, 'scholar_id': None, 'method': 'unresolved'}
+    return {"name": name, "scholar_id": None, "method": "unresolved"}
 
 
 def update_publication(doc_ref, resolutions, batch):
-    batch.update(doc_ref, {'author_resolutions': resolutions})
+    batch.update(doc_ref, {"author_resolutions": resolutions})
 
 
 def main():
     parser = argparse.ArgumentParser(
-        description='Resolve Scholar IDs for Firestore publications.'
+        description="Resolve Scholar IDs for Firestore publications."
     )
-    parser.add_argument('--batch-size', type=int, default=500,
-                        help='Batch commit size')
+    parser.add_argument("--batch-size", type=int, default=500, help="Batch commit size")
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.INFO)
@@ -91,12 +88,16 @@ def main():
     total_pubs = total_authors = resolved = unresolved = 0
     batch_count = 0
 
-    for doc in db.collection(PUB_COLLECTION).order_by("data.url_related_articles", direction=Query.ASCENDING).stream():
+    for doc in (
+        db.collection(PUB_COLLECTION)
+        .order_by("data.url_related_articles", direction=Query.ASCENDING)
+        .stream()
+    ):
         total_pubs += 1
         pub = doc.to_dict()
-        pub_id = pub.get('data', {}).get('author_pub_id', {})
-        authors = pub.get('data', {}).get('bib', {}).get('author', '')
-        names = [a.strip() for a in authors.split(' and ') if a.strip()]
+        pub_id = pub.get("data", {}).get("author_pub_id", {})
+        authors = pub.get("data", {}).get("bib", {}).get("author", "")
+        names = [a.strip() for a in authors.split(" and ") if a.strip()]
         print(f"{pub_id} ==> [{authors}]")
 
         resolutions = []
@@ -105,9 +106,9 @@ def main():
             total_authors += 1
             res = resolve_author(name, resolved_ids)
             resolutions.append(res)
-            if res['scholar_id']:
+            if res["scholar_id"]:
                 resolved += 1
-                resolved_ids.add(res['scholar_id'])
+                resolved_ids.add(res["scholar_id"])
             else:
                 unresolved += 1
 
@@ -129,5 +130,5 @@ def main():
     print(f"Resolved: {resolved} ({pct:.1f}%), Unresolved: {unresolved}")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

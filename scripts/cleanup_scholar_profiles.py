@@ -12,7 +12,7 @@ import logging
 from datetime import datetime, timedelta
 
 import pytz
-from serpapi import GoogleSearch 
+from serpapi import GoogleSearch
 from google.cloud import firestore
 
 # Logging setup
@@ -21,13 +21,14 @@ logging.basicConfig(
     level=logging.INFO,
 )
 
+
 def get_stale_docs(client, collection, days, limit, key_attr):
     cutoff = datetime.now(pytz.utc) - timedelta(days=days)
     query = (
         client.collection(collection)
-              .where("timestamp", "<", cutoff)
-              .order_by("timestamp")
-              .limit(limit)
+        .where("timestamp", "<", cutoff)
+        .order_by("timestamp")
+        .limit(limit)
     )
     docs = []
     for doc in query.stream():
@@ -37,6 +38,7 @@ def get_stale_docs(client, collection, days, limit, key_attr):
             docs.append((doc.id, author_id))
     logging.info("Found %d stale docs.", len(docs))
     return docs
+
 
 def is_profile_active(author_id, api_key, no_cache=False):
     """
@@ -58,6 +60,7 @@ def is_profile_active(author_id, api_key, no_cache=False):
     author = result.get("author") or {}
     return bool(author.get("name"))  # no name → profile missing
 
+
 def clean_inactive_with_serpapi(collection, days, limit, key_attr, api_key, no_cache):
     client = firestore.Client()
     stale = get_stale_docs(client, collection, days, limit, key_attr)
@@ -69,6 +72,7 @@ def clean_inactive_with_serpapi(collection, days, limit, key_attr, api_key, no_c
         else:
             logging.info("Kept %s (author %s).", doc_id, author_id)
 
+
 def main():
     p = argparse.ArgumentParser(
         description="Cleanup Firestore entries via SerpAPI Google Scholar Author."
@@ -77,11 +81,14 @@ def main():
     p.add_argument("--days", type=int, default=30)
     p.add_argument("--limit", type=int, default=100)
     p.add_argument("--key-attr", required=True)
-    p.add_argument("--api-key",
-                   default=os.getenv("SERPAPI_API_KEY"),
-                   help="SerpAPI API key")
-    p.add_argument("--no-cache", action="store_true",
-                   help="Force fresh SerpAPI fetch (no cached results)")
+    p.add_argument(
+        "--api-key", default=os.getenv("SERPAPI_API_KEY"), help="SerpAPI API key"
+    )
+    p.add_argument(
+        "--no-cache",
+        action="store_true",
+        help="Force fresh SerpAPI fetch (no cached results)",
+    )
     args = p.parse_args()
 
     if not args.api_key:
@@ -93,8 +100,9 @@ def main():
         args.limit,
         args.key_attr,
         args.api_key,
-        args.no_cache
+        args.no_cache,
     )
+
 
 if __name__ == "__main__":
     main()
