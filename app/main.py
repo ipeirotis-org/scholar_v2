@@ -117,22 +117,15 @@ def results():
         flash("Google Scholar ID is required.")
         return redirect(url_for("index"))
 
-    # Check if there are any tasks about the author in the queue
-    if pending_tasks(author_id):
-        queue_tasks = number_of_tasks_in_queue()
-        return render_template(
-            "redirect.html", author_id=author_id, queue_tasks=queue_tasks
-        )
-
     author = get_author_stats(author_id)
 
     # If there is no author, put the author in the queue and render redirect.html
-    if not author:
-        put_author_in_queue(author_id)
-        queue_tasks = number_of_tasks_in_queue()
-        return render_template(
-            "redirect.html", author_id=author_id, queue_tasks=queue_tasks
-        )
+    if not author or pending_tasks(author_id): # Keep pending_tasks call for now, though it returns False
+        if not author: # If author data truly missing, enqueue
+             put_author_in_queue(author_id)
+        # queue_tasks = number_of_tasks_in_queue() # Old line
+        # Render redirect template without the task count
+        return render_template("redirect.html", author_id=author_id)
 
     # Generate existing plots (PiP-AUC related)
     plot1 = ""
