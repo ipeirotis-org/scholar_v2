@@ -35,7 +35,7 @@ class Config:
     FIRESTORE_COLLECTION_PUB = "scholar_raw_pub"
 
     @staticmethod
-    def get_hourly_region():
+    def get_rotating_region():
         """
         Selects a region cyclically based on the current UTC hour.
 
@@ -56,10 +56,10 @@ class Config:
                 "AVAILABLE_FUNCTION_REGIONS cannot be empty."
             )  # Added error handling
 
-        region_index = total_hours_since_epoch % num_regions
+        region_index = (total_hours_since_epoch // 24) % num_regions
         return AVAILABLE_FUNCTION_REGIONS[region_index]
 
-    FUNCTION_LOCATION = get_hourly_region()
+    FUNCTION_LOCATION = get_rotating_region()
     print(
         f"Config: Using Function Location: {FUNCTION_LOCATION}"
     )  # for logging/debugging

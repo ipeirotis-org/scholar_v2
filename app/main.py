@@ -120,9 +120,8 @@ def results():
     author = get_author_stats(author_id)
 
     # If there is no author, put the author in the queue and render redirect.html
-    if not author or pending_tasks(author_id): # Keep pending_tasks call for now, though it returns False
-        if not author: # If author data truly missing, enqueue
-             put_author_in_queue(author_id)
+    if not author: # If author data truly missing, enqueue
+        put_author_in_queue(author_id)
         # queue_tasks = number_of_tasks_in_queue() # Old line
         # Render redirect template without the task count
         return render_template("redirect.html", author_id=author_id)
@@ -136,9 +135,8 @@ def results():
         current_year = datetime.datetime.now().year
         # Ensure pub_year is numeric before calculation
         df["pub_year"] = pd.to_numeric(df["pub_year"], errors="coerce")
-        df.dropna(
-            subset=["pub_year"], inplace=True
-        )  # Drop rows where pub_year couldn't be converted
+        # Drop rows where pub_year couldn't be converted
+        df.dropna(subset=["pub_year"], inplace=True)  
         df["pub_year"] = df["pub_year"].astype(int)
 
         df["age"] = current_year - df["pub_year"] + 1
