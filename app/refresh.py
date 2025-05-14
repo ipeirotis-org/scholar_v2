@@ -19,16 +19,17 @@ author_repository = AuthorRepository(
 )  # Assuming publication_repository is None or similarly initialized
 
 
-def get_authors_to_refresh(num_authors=10):
+def get_stale_authors(num_authors=10):
     # Use the AuthorRepository to fetch authors needing refresh
     return author_repository.get_authors_needing_refresh(num_authors)
 
+def get_coauthors_not_in_db(num_authors=10):
+    # Use the AuthorRepository to fetch authors needing refresh
+    return new_coauthors(num_authors)(num_authors)
 
-def refresh_authors(
+
+def fetch_authors(
     refresh: list[str] | None = None,
-    *,
-    num_authors: int = 1,
-    include_new_coauthors: bool = False,  # <-- new flag
 ):
     """
     Queue authors—and optionally new co‑authors—for update.
@@ -36,57 +37,19 @@ def refresh_authors(
     """
     ids: set[str] = set(refresh or [])
 
-    if include_new_coauthors:
-        ids.update(new_coauthors(num_authors))  # <-- add sampled co‑authors
-
-    if not ids:
-        ids.update(get_authors_to_refresh(num_authors))
-
     total_authors = 0
-    total_pubs = 0
     authors = []
 
     for scholar_id in ids:
-        doc = (
-            firestore_service.db.collection(Config.FIRESTORE_COLLECTION_AUTHOR)
-            .document(scholar_id)
-            .get()
-        )
 
-        if not doc.exists:
-            if task_queue_service.enqueue_author_task(scholar_id):
-                total_authors += 1
-                authors.append({"author_id": scholar_id})
-            continue
-
-        author = doc.to_dict().get("data")
-        if not author:
-            # Handle the case where the document exists but has no relevant data
-            if task_queue_service.enqueue_author_task(scholar_id):
-                total_authors += 1
-                authors.append({"doc_id": doc.id, "author_id": scholar_id})
-            continue
-
-        author_id = author.get("scholar_id")
-        # Enqueue the author for updating
         if task_queue_service.enqueue_author_task(scholar_id):
-            publications = author.get("publications", [])
             total_authors += 1
-            total_pubs += len(publications)
-            authors.append(
-                {
-                    "doc_id": doc.id,
-                    "author_id": author_id,
-                    "publications": len(publications),
-                    "name": author.get("name"),
-                }
-            )
-
-        # Additional logic for handling document IDs not matching author IDs could go here
-        # For example, deleting or updating records as necessary
+            authors.append({"author_id": scholar_id})
+        continue
 
     return {
         "total_authors": total_authors,
-        "total_publications": total_pubs,
         "authors": authors,
     }
+
+

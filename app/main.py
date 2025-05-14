@@ -33,7 +33,7 @@ from visualization import (
     # Add imports for other temporal plots as created
 )
 from queue_handler import put_author_in_queue, pending_tasks, number_of_tasks_in_queue
-from refresh import refresh_authors
+from refresh import fetch_authors, get_stale_authors, get_coauthors_not_in_db
 
 
 from shared.services.storage_service import StorageService
@@ -93,19 +93,26 @@ def get_similar_authors_route():
     return jsonify(authors)
 
 
-@app.route("/api/refresh_authors")
-def refresh_authors_route():
+@app.route("/api/add_coauthors")
+def add_coauthors_route():
+    num_authors = int(request.args.get("num_authors", 5))
+    scholar_ids = get_coauthors_not_in_db(num_authors)
+    result = fetch_authors(scholar_ids)
+    return jsonify(result)
+
+
+@app.route("/api/refresh_stale_authors")
+def refresh_stale_authors_route():
+    num_authors = int(request.args.get("num_authors", 5))
+    scholar_ids = get_stale_authors(num_authors)
+    result = fetch_authors(scholar_ids)
+    return jsonify(result)
+
+@app.route("/api/fetch_authors")
+def fetch_authors_route():
     scholar_ids_arg = request.args.get("scholar_ids", "")
-    include_new = request.args.get("include_new_coauthors", "0") == "1"
-    num_authors = int(request.args.get("num_authors", 1))
-
     scholar_ids = [s for s in scholar_ids_arg.split(",") if s]
-
-    result = refresh_authors(
-        refresh=scholar_ids,
-        num_authors=num_authors,
-        include_new_coauthors=include_new,
-    )
+    result = fetch_authors(scholar_ids)
     return jsonify(result)
 
 
