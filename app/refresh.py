@@ -25,7 +25,7 @@ def get_stale_authors(num_authors=10):
 
 def get_coauthors_not_in_db(num_authors=10):
     # Use the AuthorRepository to fetch authors needing refresh
-    return new_coauthors(num_authors)(num_authors)
+    return new_coauthors(num_authors)
 
 
 def fetch_authors(
