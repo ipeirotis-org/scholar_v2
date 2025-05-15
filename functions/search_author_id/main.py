@@ -89,7 +89,7 @@ def process_author(scholar_id, skip_pubs=None):
 
         merge_sql_author = f"""
         MERGE `{author_table_id}` T
-        USING (SELECT '{document_id}' as document_id, TIMESTAMP('{timestamp_val}') as timestamp, JSON '{data_json_str}' as data) S
+        USING (SELECT '{document_id}' as document_id, TIMESTAMP('{timestamp_val}') as timestamp, '{data_json_str}' as data) S
         ON T.document_id = S.document_id
         WHEN MATCHED THEN
           UPDATE SET T.timestamp = S.timestamp, T.data = S.data
