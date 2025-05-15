@@ -6,6 +6,9 @@ import time
 from flask import jsonify
 from scholarly import scholarly
 
+# NEW IMPORTS for BigQuery
+from google.cloud import bigquery
+import datetime # For timestamp
 
 from shared.utils import convert_integers_to_strings
 from shared.services.firestore_service import FirestoreService
@@ -22,6 +25,10 @@ task_queue_service = TaskQueueService()
 
 publication_repository = PublicationRepository(firestore_service)
 author_repository = AuthorRepository(firestore_service, publication_repository)
+
+# NEW: Initialize BigQuery client and define table ID
+bigquery_client = bigquery.Client()
+author_table_id = "scholar-version2.scholar_raw_data.author"
 
 
 @functions_framework.http
@@ -66,15 +73,40 @@ def process_author(scholar_id, skip_pubs=None):
         logging.error(f"Failed to serialize author {scholar_id}.")
         return None
 
-    success = author_repository.save_author(scholar_id, serialized_author)
-    logging.info(f"Saved author {scholar_id}.")
-
-    if not success:
+    # Save to Firestore (existing logic)
+    success_firestore = author_repository.save_author(scholar_id, serialized_author)
+    if success_firestore:
+        logging.info(f"Saved author {scholar_id} to Firestore.")
+    else:
         logging.error(f"Failed to store author {scholar_id} in Firestore.")
-        return None
+        # Decide if you want to return None or continue to BigQuery write
 
-    # TODO: When the number of publications are large, the app
-    # does not work well. We should consider refactoring this.
+    # NEW: Save to BigQuery
+    try:
+        document_id = scholar_id
+        timestamp_val = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        data_json_str = json.dumps(serialized_author)
+
+        merge_sql_author = f"""
+        MERGE `{author_table_id}` T
+        USING (SELECT '{document_id}' as document_id, TIMESTAMP('{timestamp_val}') as timestamp, JSON '{data_json_str}' as data) S
+        ON T.document_id = S.document_id
+        WHEN MATCHED THEN
+          UPDATE SET T.timestamp = S.timestamp, T.data = S.data
+        WHEN NOT MATCHED THEN
+          INSERT (document_id, timestamp, data) VALUES(S.document_id, S.timestamp, S.data)
+        """
+        query_job = bigquery_client.query(merge_sql_author)
+        query_job.result()  # Wait for the job to complete
+        logging.info(f"Author {scholar_id} data merged into BigQuery table {author_table_id}.")
+    except Exception as e:
+        logging.error(f"Error merging author {scholar_id} data into BigQuery: {e}")
+        # Optional: handle BigQuery write failure (e.g., if Firestore succeeded, this might be a partial failure)
+
+    if not success_firestore: # If Firestore save failed initially
+         return None
+
+
     if skip_pubs is None:
         enqueue_publications(author.get("publications", []))
 
@@ -90,7 +122,8 @@ def fetch_author(scholar_id):
     """
     try:
         logging.info(f"Fetching author entry from Google Scholar for {scholar_id}")
-        return scholarly.fill(scholarly.search_author_id(scholar_id))
+        # Ensure sections are filled, especially publications for enqueuing
+        return scholarly.fill(scholarly.search_author_id(scholar_id), sections=['basics', 'indices', 'counts', 'coauthors', 'publications'])
     except Exception as e:
         logging.error(
             f"Error fetching author data from Google Scholar for {scholar_id}: {e}"
@@ -105,6 +138,8 @@ def enqueue_publications(publications):
     """
     for pub in publications:
         time.sleep(0.1)  # avoid overloading the queue service
+        # Ensure the pub object passed to the task queue contains necessary fields
+        # The default 'pub' from author['publications'] by scholarly.fill should be sufficient
         if not task_queue_service.enqueue_publication_task(pub):
             logging.error(
                 f"Failed to enqueue publication task for {pub.get('author_pub_id')}"
@@ -119,26 +154,28 @@ def serialize_author(author):
         dict: The serialized author data.
     """
     try:
-        author = copy.deepcopy(author)
-        author["publications"] = [
-            {
-                "author_pub_id": pub.get("author_pub_id"),
-                "num_citations": pub.get("num_citations", 0),
-                "filled": False,
-                "bib": {
-                    key: pub["bib"][key]
-                    for key in ["pub_year"]
-                    if key in pub.get("bib", {})
-                },
-                # "source" : pub.get("source"),
-                # "container_type" : pub.get("container_type")
-            }
-            for pub in author.get("publications", [])
-            if pub.get("author_pub_id")
-        ]
+        author_copy = copy.deepcopy(author) # Use a copy to avoid modifying the original 'author' object
+        # Simplify publications array for author document, actual pub details are filled by fill_publication
+        if 'publications' in author_copy:
+            author_copy["publications"] = [
+                {
+                    "author_pub_id": p.get("author_pub_id"),
+                    "num_citations": p.get("num_citations", 0),
+                    "filled": False, # Indicates that full details are not in this author doc
+                    "bib": {
+                        "title": p.get("bib", {}).get("title"), # Keep title for quick reference
+                        "pub_year": p.get("bib", {}).get("pub_year") # Keep pub_year
+                    }
+                }
+                for p in author_copy.get("publications", []) if p.get("author_pub_id")
+            ]
+        # Remove other potentially large fields if not needed in the 'author' document itself
+        # e.g. author_copy.pop('coauthors', None) # if coauthor details are very large and stored separately
+
+        # Convert large integers to strings (already does this)
         serialized = convert_integers_to_strings(
-            json.loads(json.dumps(author))
-        )  # Simplified serialization
+            json.loads(json.dumps(author_copy))
+        )
         return serialized
     except Exception as e:
         logging.error(f"Error serializing author data: {e}")

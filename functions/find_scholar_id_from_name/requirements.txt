@@ -3,3 +3,4 @@ Flask
 scholarly                
 google-cloud-firestore  
 pytz
+google-cloud-bigquery
