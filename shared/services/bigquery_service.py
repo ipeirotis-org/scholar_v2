@@ -53,7 +53,7 @@ class BigQueryService:
     def get_author_stats(self, author_id):
         sql = """
             SELECT S.*, P.pip_auc_score, P.pip_auc_score_percentile
-            FROM `scholar-version2.statistics.stats_author_current_percentile` S
+            FROM `scholar-version2.statistics.stats_author_current_percentiles` S
             LEFT JOIN `scholar-version2.statistics.stats_author_pip_scores_current` P ON P.scholar_id = S.scholar_id
             WHERE S.scholar_id = @author_id
         """
@@ -77,7 +77,7 @@ class BigQueryService:
         # This query doesn't have external parameters, so no injection risk here.
         sql = """
             SELECT S.*, P.pip_auc_score, P.pip_auc_score_percentile
-            FROM `scholar-version2.statistics.stats_author_current_percentile` S
+            FROM `scholar-version2.statistics.stats_author_current_percentiles` S
             LEFT JOIN `scholar-version2.statistics.stats_author_pip_scores_current` P ON P.scholar_id = S.scholar_id
         """
         df = self.query(sql) # No query_params needed
