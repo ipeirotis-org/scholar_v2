@@ -40,3 +40,12 @@ class StorageService:
         last_modified = blob.updated  # 'updated' is a datetime object in UTC
 
         return (datetime.now(timezone.utc) - last_modified) < timedelta(hours=24)
+
+
+
+    def upload_string_to_gcs(self, data_string, destination_blob_name, content_type="text/plain"):
+        """Uploads a string to Google Cloud Storage."""
+        blob = self.bucket.blob(destination_blob_name)
+        blob.upload_from_string(data_string, content_type=content_type)
+        logging.info(f"String uploaded to {destination_blob_name} in bucket {self.bucket_name}.")
+        

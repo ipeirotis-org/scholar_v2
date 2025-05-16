@@ -64,13 +64,9 @@ class Config:
         f"Config: Using Function Location: {FUNCTION_LOCATION}"
     )  # for logging/debugging
 
-    API_SEARCH_AUTHOR_ID = (
-        f"https://{FUNCTION_LOCATION}-{PROJECT_ID}.cloudfunctions.net/search_author_id"
-    )
-    API_FILL_PUBLICATION = (
-        f"https://{FUNCTION_LOCATION}-{PROJECT_ID}.cloudfunctions.net/fill_publication"
-    )
-    API_FIND_SCHOLAR_ID = f"https://{FUNCTION_LOCATION}-{PROJECT_ID}.cloudfunctions.net/find_scholar_id_from_name"
+    API_SEARCH_AUTHOR_ID = f"https://{FUNCTION_LOCATION}-{PROJECT_ID}.cloudfunctions.net/fetch_author"
+    API_FILL_PUBLICATION = f"https://{FUNCTION_LOCATION}-{PROJECT_ID}.cloudfunctions.net/fetch_publication"
+    API_FIND_SCHOLAR_ID  = f"https://{FUNCTION_LOCATION}-{PROJECT_ID}.cloudfunctions.net/find_scholar_id_from_name"
 
     BUCKET_NAME = "scholar_data_share"
 
