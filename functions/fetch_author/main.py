@@ -32,7 +32,7 @@ author_table_id = "scholar-version2.scholar_raw_data.author"
 
 
 @functions_framework.http
-def search_author_id(request):
+def fetch_author(request):
     """Responds to HTTP requests with author information from Google Scholar.
     Args:
         request (flask.Request): HTTP request object.
@@ -63,7 +63,7 @@ def process_author(scholar_id, skip_pubs=None):
     Returns:
         dict: Serialized author information, or None upon failure.
     """
-    author = fetch_author(scholar_id)
+    author = fetch_author_from_scholar(scholar_id)
     if author is None:
         logging.error(f"No information returned for author {scholar_id}.")
         return None
@@ -113,7 +113,7 @@ def process_author(scholar_id, skip_pubs=None):
     return serialized_author
 
 
-def fetch_author(scholar_id):
+def fetch_author_from_scholar(scholar_id):
     """Fetches detailed author data from Google Scholar.
     Args:
         scholar_id (str): The unique identifier for the author.

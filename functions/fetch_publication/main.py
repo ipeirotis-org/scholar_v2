@@ -26,7 +26,7 @@ storage_service = StorageService() # MODIFIED: Initialize StorageService
 # pub_table_id = "scholar-version2.scholar_raw_data.pub" # REMOVED
 
 @functions_framework.http
-def fill_publication(request):
+def fetch_publication(request):
     """HTTP Cloud Function to fill publication details from Google Scholar,
     cache them in Firestore, and save JSON to GCS."""
     request_json = request.get_json(silent=True)
