@@ -19,10 +19,10 @@ jobs:
 
         function_details:
           # Define each function with its specific details
-          - name: fill_publication
+          - name: fetch_publication
             timeout: "60s" 
             memory: 512MB
-          - name: search_author_id
+          - name: fetch_author
             timeout: "3600s"
             memory: 512MB
           - name: find_scholar_id_from_name
