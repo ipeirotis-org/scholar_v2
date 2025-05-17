@@ -18,7 +18,7 @@ import datetime # MODIFIED
 logging.basicConfig(level=logging.INFO)
 
 # Instantiate services
-firestore_service = FirestoreService()
+# firestore_service = FirestoreService()
 storage_service = StorageService() # MODIFIED: Initialize StorageService
 
 # BigQuery client and pub_table_id are no longer directly needed here for individual inserts
@@ -74,6 +74,7 @@ def process_publication(pub_data_from_author):
         logging.error(f"Failed to serialize detailed publication {author_pub_id}: {e}")
         return None # Indicate failure
 
+    '''
     # Save to Firestore (existing logic)
     success_firestore = firestore_service.set_firestore_cache(
         Config.FIRESTORE_COLLECTION_PUB, author_pub_id, serialized_pub
@@ -85,6 +86,7 @@ def process_publication(pub_data_from_author):
     else:
         logging.error(f"Failed to store publication {author_pub_id} in Firestore.")
         # Depending on requirements, you might return None here if Firestore save is critical
+    '''
 
     # MODIFIED: Save serialized_pub to Google Cloud Storage
     try:
@@ -107,15 +109,12 @@ def process_publication(pub_data_from_author):
     except Exception as e:
         logging.error(f"Error saving publication {author_pub_id} JSON data to GCS: {e}")
         # If Firestore save failed and GCS save also fails, definitely return None
-        if not success_firestore:
-            return None
+        #if not success_firestore:
+        
+        return None
         # If Firestore succeeded but GCS failed, you might still want to return serialized_pub
         # or handle this as a partial success/failure based on your application's needs.
         # For now, we assume if Firestore succeeded, we still return the pub details.
         # However, logging the error is important for monitoring.
-
-    # If Firestore save failed initially, and we decided not to proceed, this ensures None is returned.
-    if not success_firestore:
-        return None
 
     return serialized_pub

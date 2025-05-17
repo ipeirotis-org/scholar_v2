@@ -14,8 +14,8 @@ from shared.services.firestore_service import FirestoreService
 from shared.services.task_queue_service import TaskQueueService
 # Import StorageService for GCS operations
 from shared.services.storage_service import StorageService # ADDED
-from shared.repositories.author_repository import AuthorRepository
-from shared.repositories.publication_repository import PublicationRepository
+# from shared.repositories.author_repository import AuthorRepository
+# from shared.repositories.publication_repository import PublicationRepository
 from shared.config import Config # ADDED for BUCKET_NAME
 
 # Initialize logging
@@ -26,8 +26,8 @@ firestore_service = FirestoreService()
 task_queue_service = TaskQueueService()
 storage_service = StorageService() # ADDED: Initialize StorageService
 
-publication_repository = PublicationRepository(firestore_service)
-author_repository = AuthorRepository(firestore_service, publication_repository)
+# publication_repository = PublicationRepository(firestore_service)
+# author_repository = AuthorRepository(firestore_service, publication_repository)
 
 # BigQuery client and author_table_id are no longer directly needed here for individual inserts
 # from google.cloud import bigquery # REMOVED
@@ -68,6 +68,7 @@ def process_author(scholar_id, skip_pubs=None):
         logging.error(f"Failed to serialize author {scholar_id}.")
         return None
 
+    '''
     # Save to Firestore (existing logic)
     success_firestore = author_repository.save_author(scholar_id, serialized_author)
     if success_firestore:
@@ -75,6 +76,7 @@ def process_author(scholar_id, skip_pubs=None):
     else:
         logging.error(f"Failed to store author {scholar_id} in Firestore.")
         # Depending on requirements, you might return None here
+    '''
 
     # MODIFIED: Save serialized_author to Google Cloud Storage
     # This block replaces the direct BigQuery MERGE
