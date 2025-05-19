@@ -4,6 +4,7 @@ import logging
 import copy
 import time
 import datetime # Already present
+from flask import jsonify
 
 from shared.utils import convert_integers_to_strings
 from shared.services.firestore_service import FirestoreService

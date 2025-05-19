@@ -3,6 +3,7 @@ import json
 import logging
 import time # For duration
 import datetime # Already present
+from flask import jsonify
 
 from scholarly import scholarly
 from scholarly.data_types import PublicationSource
