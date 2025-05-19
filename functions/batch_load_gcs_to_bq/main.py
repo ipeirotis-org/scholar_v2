@@ -196,7 +196,7 @@ def process_source_path(source_prefix, archive_prefix, bq_table_id_full, entity_
 
 
 @functions_framework.http
-def batch_gcs_to_bq(request):
+def batch_load_gcs_to_bq(request):
     """
     Orchestrates the batch loading of all GCS JSON files to BigQuery and archives them.
     Triggered by Cloud Scheduler.
