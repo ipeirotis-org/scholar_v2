@@ -97,8 +97,8 @@ def process_author(scholar_id, skip_pubs=None):
     except Exception as e:
         logging.error(f"Error saving author {scholar_id} JSON data to GCS: {e}")
         # If Firestore save failed and GCS save also fails, definitely return None
-        if not success_firestore:
-            return None
+        # if not success_firestore:
+        return None
         # Handle GCS write failure. If Firestore succeeded, this is a partial failure.
 
     if not success_firestore: # If Firestore save failed initially
