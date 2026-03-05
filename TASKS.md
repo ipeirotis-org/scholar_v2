@@ -59,13 +59,13 @@
 
 - [ ] **Evaluate coauthor query oversample_factor**
   - `app/coauthor_service.py:37`: `oversample_factor=100` fetches 100x requested rows from BigQuery
-  - Same pattern in `shared/repositories/author_repository.py:47` for stale author selection
+  - Same pattern in `shared/repositories/author_repository.py:47` (hardcoded `* 100` multiplier for stale author selection)
   - May have unnecessary BigQuery cost; assess whether a smaller factor suffices
 
-- [ ] **Document the region rotation strategy**
+- [ ] **Document the region rotation strategy in README**
   - 9-region deployment with daily rotation is a key architectural decision for avoiding Scholar rate-limiting
-  - Currently only documented in code comments in `shared/config.py:38-60`
-  - Add explanation to README for maintainability
+  - Documented in CLAUDE.md and code comments in `shared/config.py:38-60`, but not in README
+  - Note: `get_rotating_region()` docstring says "hourly" but code actually rotates daily — fix the docstring
 
 - [ ] **Improve batch_load_gcs_to_bq robustness**
   - No retry on BigQuery load failures
