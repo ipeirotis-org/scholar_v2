@@ -46,7 +46,7 @@ scholar_v2/
 │   ├── repositories/             # Author + Publication CRUD (Firestore-backed)
 │   └── utils.py                  # Integer overflow handling for BigQuery JSON
 ├── bigquery/                     # SQL view definitions
-│   ├── statistics/               # 7 SQL views (PiP-AUC, percentiles, temporal metrics)
+│   ├── statistics/               # 8 SQL views (PiP-AUC, percentiles, temporal metrics)
 │   └── coauthor_network/         # Co-author graph views
 ├── scripts/                      # One-off utility scripts
 ├── .github/workflows/            # CI/CD (Cloud Run + multi-region Functions)
