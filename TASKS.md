@@ -16,6 +16,12 @@
   - Draft reply mentions PNAS paper on co-citation analysis + Google Scholar blocking crawlers
   - Next step: send draft reply, then schedule a call to discuss collaboration
 
+- [ ] **Read and analyze papers on citation credit allocation**
+  - [ ] Shen & Barabási (2014) "Collective credit allocation in science" -- https://www.pnas.org/doi/10.1073/pnas.1401992111
+    - Uses co-citation patterns to infer per-author contribution to a paper's impact
+  - [ ] Hasan & King (2019) "Spillover effects of intellectual property protection in the inter-war period" -- https://www.nature.com/articles/s41467-019-13130-4
+    - Shared by Florian Ederer; relevant to citation attribution methodology
+
 ---
 
 ## Bugs / Reliability
