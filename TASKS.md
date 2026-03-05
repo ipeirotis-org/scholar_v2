@@ -6,6 +6,18 @@
 
 ---
 
+## Collaboration
+
+- [ ] **Reply to Florian Ederer re Shapley value citation attribution**
+  - Email thread started by John Horton intro (April 2025)
+  - Florian (economist at BU) wants per-author citation adjustment for tenure committees
+  - Proposed Shapley values for citations on scholar-analytics.org
+  - Florian shared Nature paper: https://www.nature.com/articles/s41467-019-13130-4
+  - Draft reply mentions PNAS paper on co-citation analysis + Google Scholar blocking crawlers
+  - Next step: send draft reply, then schedule a call to discuss collaboration
+
+---
+
 ## Bugs / Reliability
 
 - [ ] **Re-enable temporal stats visualization**
