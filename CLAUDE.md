@@ -124,3 +124,50 @@ scholar_v2/
 - **Task idempotency**: Task names include the scholar/pub ID, so Cloud Tasks deduplicates naturally (AlreadyExists is caught gracefully)
 - **BigQuery schema**: Raw data stored as `{document_id, timestamp, data}` where `data` is a JSON string — views parse this with JSON functions
 - **Large integers**: `shared/utils.py` converts integers > 2^62 to strings before JSON serialization to avoid BigQuery overflow
+
+## GCP
+
+- **Project ID**: `scholar-version2`
+- **Service Account**: `claude-agent@scholar-version2.iam.gserviceaccount.com`
+
+### Roles Granted
+
+| Role | Reason |
+|------|--------|
+| `roles/bigquery.dataEditor` | Read/write/update BigQuery tables and views |
+| `roles/bigquery.jobUser` | Execute BigQuery queries and load jobs |
+| `roles/cloudfunctions.developer` | Deploy/manage Cloud Functions across 9 regions |
+| `roles/storage.objectAdmin` | Full read/write/delete on GCS objects |
+| `roles/datastore.user` | Read/write Firestore documents (cache + repositories) |
+| `roles/cloudtasks.admin` | Full task queue management for debugging |
+| `roles/run.developer` | Deploy/manage Cloud Run Flask app |
+| `roles/iam.serviceAccountUser` | Act as service accounts for Cloud Run/Functions deploys |
+| `roles/secretmanager.admin` | Create, update, and read secrets |
+| `roles/logging.viewer` | Read Cloud Logging for debugging |
+| `roles/monitoring.viewer` | Read Cloud Monitoring metrics |
+| `roles/errorreporting.viewer` | View error reports |
+
+### How to Authenticate
+
+```bash
+# 1. Decrypt the service account key
+openssl enc -d -aes-256-cbc -pbkdf2 \
+  -pass env:GCP_CREDENTIALS_KEY \
+  -in .gcp-sa-key.enc -out /tmp/sa-key.json
+
+# 2. Activate the service account
+gcloud auth activate-service-account --key-file=/tmp/sa-key.json
+
+# 3. Set the project
+gcloud config set project $(jq -r .project_id .gcp-config.json)
+
+# 4. Delete the plaintext key immediately
+rm /tmp/sa-key.json
+```
+
+### Permission Escalation
+
+If you hit a 403 error:
+1. Stop and report the exact error, the role needed, and why
+2. Ask the user for a new bootstrap token (`gcloud auth print-access-token`)
+3. Use the token to update IAM bindings (never modify IAM policies without approval)
