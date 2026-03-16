@@ -24,6 +24,38 @@
 
 ---
 
+## Architecture — Key Context
+
+### Storage migration (Firestore → GCS + BigQuery batch)
+
+**History:** The system originally used Firestore as the primary data store, with Google's automatic Firestore-to-BigQuery streaming extension syncing data for analytics. This was very expensive due to continuous per-record streaming costs.
+
+**Current state (incomplete migration):** We stopped the Firestore→BigQuery streaming and switched to a GCS-based pipeline:
+1. Cloud Functions (`fetch_author`, `fetch_publication`) write JSON to GCS buckets (`authors_json/`, `publications_json/`)
+2. `batch_load_gcs_to_bq` Cloud Function reads GCS files, converts to NDJSON, and loads into BigQuery in batch mode
+3. After successful load, source files are archived (`authors_json/` → `authors_archive/`)
+
+**What's broken:** The batch load function (`functions/batch_load_gcs_to_bq/main.py`) is triggered manually (no scheduling), and it times out for authors with very long publication lists. There is no systematic, automated way to move data from GCS to BigQuery. The old Firestore saves in the Cloud Functions are commented out (lines 111-117 in `fetch_author`, lines 92-100 in `fetch_publication`).
+
+**What we need:** A reliable, automated GCS→BigQuery batch pipeline that handles large authors without timeout, runs on a schedule (e.g., daily or hourly), and doesn't require manual intervention.
+
+### Percentile computation cost
+
+**History:** All percentile calculations (publication citations, author metrics, PiP-AUC scores) are computed as live BigQuery SQL views using `PERCENT_RANK()` window functions. Every time a user views an author profile, the app queries these views, triggering expensive full-table scans and window computations across the entire dataset.
+
+**Current state:** The view dependency chain is:
+```
+stats_publication_current (pub citation percentiles — MODERATE-HIGH cost)
+  → stats_author_current (author metric percentiles — HIGH cost)
+    → stats_author_publication_pip_inputs_current (PiP interpolation — VERY HIGH cost, 6-CTE pipeline)
+      → stats_author_pip_scores_current (PiP-AUC score — MODERATE cost)
+```
+Only `stats_author_metrics_temporal` is materialized (daily refresh). All other views recompute on every query.
+
+**What we need:** Materialize the expensive percentile tables (publication percentiles, author percentiles, PiP scores) on a schedule (daily or monthly). The live app would then do simple lookups against pre-computed tables instead of running expensive window functions. For publications not yet in the materialized table (newly fetched), use an approximate lookup ("find the closest percentile number" from the same pub_year cohort).
+
+---
+
 ## Critical — Data Correctness (actively wrong in production)
 
 - [ ] **Fix hardcoded year 2025 in temporal citations view — losing 2026 data NOW**
@@ -75,13 +107,6 @@
   - `stats_author_metrics_temporal` materialized view refreshes daily
   - Decision needed: re-enable as-is, or redesign the temporal UI
 
-- [ ] **Fix or remove disabled Firestore saves in Cloud Functions**
-  - `functions/fetch_author/main.py:111-117`: `save_author()` commented out
-  - `functions/fetch_publication/main.py:92-100`: `save_publication()` / Firestore writes commented out
-  - Current flow: data goes only to GCS -> async BigQuery ETL via `batch_load_gcs_to_bq`
-  - Impact: newly fetched authors/pubs don't appear in Firestore cache until batch ETL runs
-  - Decision needed: is real-time Firestore still needed, or is async-only acceptable?
-
 - [ ] **Add retry logic for GCS upload failures**
   - `functions/fetch_author/main.py:130-133`: GCS upload returns None on failure, no retry
   - `functions/fetch_publication/main.py:114-117`: same issue
@@ -123,6 +148,30 @@
 
 ## High Priority
 
+- [ ] **Complete the GCS → BigQuery batch loading pipeline**
+  - **Problem:** `functions/batch_load_gcs_to_bq/main.py` is triggered manually and times out for authors with long publication lists. No automated scheduling exists.
+  - **Current flow:** fetch functions write JSON to GCS → batch_load reads GCS → wraps in NDJSON → loads to BQ tables (`scholar_raw_data.author`, `scholar_raw_data.pub`) → archives source files
+  - Sub-tasks:
+  - [ ] Fix timeout for large authors: process files individually or in small batches instead of all-at-once per date folder. Consider streaming inserts or breaking NDJSON into chunks.
+  - [ ] Add automated scheduling: use Cloud Scheduler to trigger the batch load function on a regular cadence (e.g., hourly or daily)
+  - [ ] Add per-file error handling: a single bad JSON file should not block the entire batch. Move bad files to a dead-letter prefix instead of failing the whole folder.
+  - [ ] Add idempotency: track which files have been loaded (e.g., via a manifest in GCS or a BQ metadata table) so retries don't duplicate data
+  - [ ] Remove commented-out Firestore saves from Cloud Functions (`fetch_author/main.py:111-117`, `fetch_publication/main.py:92-100`) — the migration to GCS-only is the intended direction
+  - Related: "Improve batch_load_gcs_to_bq robustness" in Enhancements (merge with this task)
+
+- [ ] **Materialize percentile tables to reduce BigQuery costs**
+  - **Problem:** All percentile views (`stats_publication_current`, `stats_author_current`, `stats_author_publication_pip_inputs_current`, `stats_author_pip_scores_current`) are computed live on every query via expensive `PERCENT_RANK()` window functions. This causes high BigQuery costs and slow page loads.
+  - **Reference pattern:** `stats_author_metrics_temporal` is already a materialized view with daily refresh — use the same approach
+  - Sub-tasks:
+  - [ ] Convert `stats_publication_current` to a materialized view (or scheduled query writing to a table) with daily/monthly refresh. This is the foundation — all other views depend on it.
+  - [ ] Convert `stats_author_current` to a materialized table (depends on publication percentiles)
+  - [ ] Convert `stats_author_publication_pip_inputs_current` to a materialized table — this is the most expensive view (6-CTE interpolation pipeline)
+  - [ ] Convert `stats_author_pip_scores_current` to a materialized table (depends on PiP inputs)
+  - [ ] Implement approximate percentile lookup for newly fetched publications not yet in the materialized table: given a publication's citation count and pub_year, find the closest percentile from the pre-computed table for that cohort
+  - [ ] Update `shared/services/bigquery_service.py` to query the materialized tables instead of the live views
+  - [ ] Set up refresh schedule: daily refresh is likely sufficient since citation data changes slowly. Monthly may also be acceptable for cost savings.
+  - [ ] Verify: `bigquery_service.py:56` references `stats_author_current_percentiles` which doesn't exist in the codebase — fix this reference as part of the materialization work
+
 - [ ] **Add environment variable overrides for hardcoded config**
   - `shared/config.py`: `PROJECT_ID`, `BUCKET_NAME`, Firestore collection names, queue names all hardcoded
   - `functions/batch_load_gcs_to_bq/main.py` duplicates project/dataset/bucket IDs
@@ -163,11 +212,6 @@
   - 9-region deployment with daily rotation is a key architectural decision for avoiding Scholar rate-limiting
   - Documented in CLAUDE.md and code comments in `shared/config.py:38-60`, but not in README
 
-- [ ] **Improve batch_load_gcs_to_bq robustness**
-  - No retry on BigQuery load failures
-  - Archive happens per-folder; a single bad file in a folder blocks the whole batch
-  - Consider: per-file processing, dead-letter handling for malformed JSON
-
 - [ ] **Pin dependency versions in requirements.txt**
   - `requirements.txt`: all 13 packages have no `==` version constraints
   - Builds are not reproducible; risk of breaking changes on redeploy
@@ -195,8 +239,6 @@
 
 - [ ] **Add author comparison feature**
   - Side-by-side PiP-AUC and percentile plots for multiple authors
-
-- [ ] **Explore BigQuery scheduled queries** to replace manual `batch_load_gcs_to_bq` triggers
 
 - [ ] **Make region rotation dynamic per-request** instead of fixed at import time
   - Currently `Config.FUNCTION_LOCATION` is set once when the module loads
