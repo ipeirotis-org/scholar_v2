@@ -69,5 +69,10 @@ jobs:
       run: bq query --project_id=${{ env.PROJECT_ID }} --use_legacy_sql=false < bigquery/statistics/stats_author_pip_scores_current.sql
 
     # Tier 5: Materialized view (depends on Tier 2)
+    # Note: This view depends on stats_publication_citations_temporal which uses
+    # CURRENT_DATE(). BigQuery prohibits time-dependent functions in materialized
+    # view dependency chains. The view is created manually and auto-refreshes daily.
+    # We attempt to deploy but allow failure for this known limitation.
     - name: 'Tier 5: stats_author_metrics_temporal (materialized)'
       run: bq query --project_id=${{ env.PROJECT_ID }} --use_legacy_sql=false < bigquery/statistics/stats_author_metrics_temporal.sql
+      continue-on-error: true
