@@ -50,9 +50,9 @@ stats_publication_current (pub citation percentiles — MODERATE-HIGH cost)
     → stats_author_publication_pip_inputs_current (PiP interpolation — VERY HIGH cost, 6-CTE pipeline)
       → stats_author_pip_scores_current (PiP-AUC score — MODERATE cost)
 ```
-Only `stats_author_metrics_temporal` is materialized (daily refresh). All other views recompute on every query.
+**Current state (fixed):** All expensive views are materialized daily into `_table` suffixed tables via `bigquery-materialize.yml`. The app queries these pre-computed tables. The old MATERIALIZED VIEW has been replaced with a regular view + periodic table creation.
 
-**What we need:** Materialize the expensive percentile tables (publication percentiles, author percentiles, PiP scores) on a schedule (daily or monthly). The live app would then do simple lookups against pre-computed tables instead of running expensive window functions. For publications not yet in the materialized table (newly fetched), use an approximate lookup ("find the closest percentile number" from the same pub_year cohort).
+**Remaining:** Implement approximate percentile lookup for newly fetched publications not yet in the materialized table.
 
 ---
 
@@ -99,7 +99,7 @@ Only `stats_author_metrics_temporal` is materialized (daily refresh). All other 
   - `app/main.py:157-173`: temporal stats block is commented out
   - Plot functions exist in `app/visualization.py` (`generate_author_h_index_plot`, `generate_author_total_citations_plot`, `generate_author_i10_index_plot`, `generate_author_h_index_5y_plot`)
   - `bigquery_service.get_author_temporal_stats()` is implemented and working
-  - `stats_author_metrics_temporal` materialized view refreshes daily
+  - `stats_author_metrics_temporal` table is materialized daily via `bigquery-materialize.yml`
   - Decision needed: re-enable as-is, or redesign the temporal UI
 
 - [ ] **Add retry logic for GCS upload failures**
@@ -154,18 +154,16 @@ Only `stats_author_metrics_temporal` is materialized (daily refresh). All other 
   - [x] Idempotency: archive-after-load pattern ensures files are only archived on BQ success; re-runs safely skip already-archived files
   - [x] Remove commented-out Firestore saves from Cloud Functions — removed from both `fetch_author` and `fetch_publication`, plus unused FirestoreService imports
 
-- [ ] **Materialize percentile tables to reduce BigQuery costs**
-  - **Problem:** All percentile views (`stats_publication_current`, `stats_author_current`, `stats_author_publication_pip_inputs_current`, `stats_author_pip_scores_current`) are computed live on every query via expensive `PERCENT_RANK()` window functions. This causes high BigQuery costs and slow page loads.
-  - **Reference pattern:** `stats_author_metrics_temporal` is already a materialized view with daily refresh — use the same approach
+- [x] **Materialize percentile tables to reduce BigQuery costs**
+  - **Problem:** All percentile views were computed live on every query via expensive `PERCENT_RANK()` window functions. `stats_author_metrics_temporal` used a BigQuery MATERIALIZED VIEW which has limitations (no `CURRENT_DATE()` in dependency chains).
+  - **Solution:** Replaced the materialized view with a regular view (`_view` suffix) + periodic table materialization. All expensive views are materialized into `_table` suffixed tables daily via `bigquery-materialize.yml`. The app queries the pre-computed tables.
   - Sub-tasks:
-  - [ ] Convert `stats_publication_current` to a materialized view (or scheduled query writing to a table) with daily/monthly refresh. This is the foundation — all other views depend on it.
-  - [ ] Convert `stats_author_current` to a materialized table (depends on publication percentiles)
-  - [ ] Convert `stats_author_publication_pip_inputs_current` to a materialized table — this is the most expensive view (6-CTE interpolation pipeline)
-  - [ ] Convert `stats_author_pip_scores_current` to a materialized table (depends on PiP inputs)
+  - [x] Converted `stats_author_metrics_temporal` from MATERIALIZED VIEW to regular VIEW (`stats_author_metrics_temporal_view`); table `stats_author_metrics_temporal` is now created by periodic materialization
+  - [x] Created `bigquery/statistics/materialize_stats.sql` that materializes all 5 expensive views into clustered tables: `stats_publication_current_table`, `stats_author_current_table`, `stats_author_publication_pip_inputs_current_table`, `stats_author_pip_scores_current_table`, `stats_author_metrics_temporal`
+  - [x] Created `.github/workflows/bigquery-materialize.yml` — scheduled daily at 06:00 UTC + manual dispatch
+  - [x] Updated `bigquery_service.py` to query `_table` tables instead of live views; fixed broken `stats_author_current_percentiles` reference
+  - [x] Updated `bigquery-views.yml` CI/CD — removed `continue-on-error` hack, deploys regular view
   - [ ] Implement approximate percentile lookup for newly fetched publications not yet in the materialized table: given a publication's citation count and pub_year, find the closest percentile from the pre-computed table for that cohort
-  - [ ] Update `shared/services/bigquery_service.py` to query the materialized tables instead of the live views
-  - [ ] Set up refresh schedule: daily refresh is likely sufficient since citation data changes slowly. Monthly may also be acceptable for cost savings.
-  - [ ] Verify: `bigquery_service.py:56` references `stats_author_current_percentiles` which doesn't exist in the codebase — fix this reference as part of the materialization work
 
 - [ ] **Add environment variable overrides for hardcoded config**
   - `shared/config.py`: `PROJECT_ID`, `BUCKET_NAME`, Firestore collection names, queue names all hardcoded
