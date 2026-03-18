@@ -36,13 +36,18 @@ jobs:
       with:
         project_id: ${{ env.PROJECT_ID }}
 
-    # NOTE: views in Tier 1+ reference dist_* distribution tables
-    # (dist_publication_citations, dist_author_metrics, dist_pip_auc_scores).
-    # These tables are created by bigquery-materialize.yml, not here.
-    # After a first deploy, run bigquery-materialize.yml manually to create them.
+    # Tier 0: Distribution tables — must exist before views that reference them.
+    # These are small precomputed (value → percentile) lookup tables.
+    # Creating them here ensures views can always be deployed cleanly.
+    # They are also refreshed daily by bigquery-materialize.yml.
+    - name: 'Tier 0: dist_publication_citations'
+      run: bq query --project_id=${{ env.PROJECT_ID }} --use_legacy_sql=false < bigquery/statistics/dist_publication_citations.sql
+
+    - name: 'Tier 0: dist_author_metrics'
+      run: bq query --project_id=${{ env.PROJECT_ID }} --use_legacy_sql=false < bigquery/statistics/dist_author_metrics.sql
 
     # Deploy views in dependency order.
-    # Tier 1: No view dependencies (read from raw Firestore tables only)
+    # Tier 1: No view dependencies (read from raw Firestore tables + dist tables)
     - name: 'Tier 1: base_author_publications'
       run: bq query --project_id=${{ env.PROJECT_ID }} --use_legacy_sql=false < bigquery/statistics/base_author_publications.sql
 
@@ -72,6 +77,10 @@ jobs:
     # Tier 4: Depends on Tier 3 views
     - name: 'Tier 4: stats_author_pip_scores_current'
       run: bq query --project_id=${{ env.PROJECT_ID }} --use_legacy_sql=false < bigquery/statistics/stats_author_pip_scores_current.sql
+
+    # Tier 4b: PiP score distribution (depends on Tier 3+4 views)
+    - name: 'Tier 4b: dist_pip_auc_scores'
+      run: bq query --project_id=${{ env.PROJECT_ID }} --use_legacy_sql=false < bigquery/statistics/dist_pip_auc_scores.sql
 
     # Tier 5: Temporal metrics view (depends on Tier 2)
     # This is a regular view that defines the temporal metrics logic.
