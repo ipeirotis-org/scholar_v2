@@ -36,6 +36,11 @@ jobs:
       with:
         project_id: ${{ env.PROJECT_ID }}
 
+    # NOTE: views in Tier 1+ reference dist_* distribution tables
+    # (dist_publication_citations, dist_author_metrics, dist_pip_auc_scores).
+    # These tables are created by bigquery-materialize.yml, not here.
+    # After a first deploy, run bigquery-materialize.yml manually to create them.
+
     # Deploy views in dependency order.
     # Tier 1: No view dependencies (read from raw Firestore tables only)
     - name: 'Tier 1: base_author_publications'

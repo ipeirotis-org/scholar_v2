@@ -163,7 +163,7 @@ stats_publication_current (pub citation percentiles — MODERATE-HIGH cost)
   - [x] Created `.github/workflows/bigquery-materialize.yml` — scheduled daily at 06:00 UTC + manual dispatch
   - [x] Updated `bigquery_service.py` to query `_table` tables instead of live views; fixed broken `stats_author_current_percentiles` reference
   - [x] Updated `bigquery-views.yml` CI/CD — removed `continue-on-error` hack, deploys regular view
-  - [ ] Implement approximate percentile lookup for newly fetched publications not yet in the materialized table: given a publication's citation count and pub_year, find the closest percentile from the pre-computed table for that cohort
+  - [x] Implement distribution-based percentile lookup: created `dist_publication_citations`, `dist_author_metrics`, `dist_pip_auc_scores` tables; rewrote all 4 percentile views to use floor-based lookups (exact match or nearest-lower approximation for newly fetched data not yet in the distribution); updated `bigquery-materialize.yml` to run 6 ordered steps; per-author queries now use views directly (cheap), all-authors list uses pre-materialized tables
 
 - [ ] **Add environment variable overrides for hardcoded config**
   - `shared/config.py`: `PROJECT_ID`, `BUCKET_NAME`, Firestore collection names, queue names all hardcoded

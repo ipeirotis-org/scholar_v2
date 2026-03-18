@@ -1,9 +1,9 @@
-import logging 
+import logging
 from google.cloud import bigquery
-from google.cloud.bigquery import ScalarQueryParameter 
+from google.cloud.bigquery import ScalarQueryParameter
 from datetime import datetime
 import pandas as pd
-from ..config import Config  
+from ..config import Config
 
 
 class BigQueryService:
@@ -22,12 +22,16 @@ class BigQueryService:
             return results.to_dataframe()
         except Exception as e:
             logging.error(f"BigQuery query failed: {e}")
-            # We may want to raise the exception. 
+            # We may want to raise the exception.
             # Returning empty DF for now.
             return pd.DataFrame()
 
 
     def get_author_pub_stats(self, author_id):
+        # Queries the VIEW directly — cheap because stats_publication_current and
+        # stats_author_current now use distribution lookups (no live PERCENT_RANK).
+        # The num_papers_percentile CTE in the view reads from the small
+        # dist_author_metrics table instead of scanning all authors.
         sql = """
             WITH pub_details AS ((
                 SELECT
@@ -39,7 +43,7 @@ class BigQueryService:
                 FROM `scholar-version2.scholar_raw_data.pub`
             ))
             SELECT P.*, S.num_citations_percentile, S.publication_rank, S.num_papers_percentile
-            FROM `scholar-version2.statistics.stats_author_publication_pip_inputs_current_table` S
+            FROM `scholar-version2.statistics.stats_author_publication_pip_inputs_current` S
             JOIN pub_details P ON P.author_pub_id = S.author_pub_id
             WHERE S.scholar_id = @author_id
             ORDER BY S.publication_rank
@@ -51,18 +55,19 @@ class BigQueryService:
         return df.to_dict("records")
 
     def get_author_stats(self, author_id):
+        # Queries the VIEWs directly — cheap because both views use distribution
+        # lookups (dist_author_metrics, dist_pip_auc_scores) instead of live
+        # PERCENT_RANK() over all authors.
         sql = """
             SELECT S.*, P.pip_auc_score, P.pip_auc_score_percentile
-            FROM `scholar-version2.statistics.stats_author_current_table` S
-            LEFT JOIN `scholar-version2.statistics.stats_author_pip_scores_current_table` P ON P.scholar_id = S.scholar_id
+            FROM `scholar-version2.statistics.stats_author_current` S
+            LEFT JOIN `scholar-version2.statistics.stats_author_pip_scores_current` P ON P.scholar_id = S.scholar_id
             WHERE S.scholar_id = @author_id
         """
         query_params = [
             ScalarQueryParameter("author_id", "STRING", author_id)
         ]
         df = self.query(sql, query_params=query_params)
-        # Original logic: return df.to_dict("records")[0] if len(df) == 1 else None
-        # Safer logic:
         records = df.to_dict("records")
         if len(records) == 1:
             return records[0]
@@ -74,13 +79,14 @@ class BigQueryService:
             return None
 
     def get_all_authors_stats(self):
-        # This query doesn't have external parameters, so no injection risk here.
+        # Uses the pre-materialized _table snapshots for full-dataset scans.
+        # These tables are refreshed daily by bigquery-materialize.yml.
         sql = """
             SELECT S.*, P.pip_auc_score, P.pip_auc_score_percentile
             FROM `scholar-version2.statistics.stats_author_current_table` S
             LEFT JOIN `scholar-version2.statistics.stats_author_pip_scores_current_table` P ON P.scholar_id = S.scholar_id
         """
-        df = self.query(sql) # No query_params needed
+        df = self.query(sql)
         return df
 
     def get_publication_stats(self, author_pub_id):
@@ -112,7 +118,7 @@ class BigQueryService:
         """Fetches the temporal evolution of metrics and percentiles for an author."""
         if not author_id:
             logging.error("Author ID is required to fetch temporal stats.")
-            return []  # Return empty list or None
+            return []
 
         sql = """
             SELECT *
@@ -125,10 +131,6 @@ class BigQueryService:
         ]
         try:
             df = self.query(sql, query_params=query_params)
-            # Convert integer years to strings or datetime objects if needed downstream
-            # Ensure data types are suitable for JSON serialization if caching
             return df.to_dict("records")
         except Exception as e:
-            # Query function now logs the error, so just return empty list
-            # logging.error(f"Error fetching temporal stats for author {author_id}: {e}")
-            return []  # Return empty list on error
+            return []
