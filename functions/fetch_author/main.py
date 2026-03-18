@@ -8,7 +8,6 @@ from flask import jsonify
 from scholarly import scholarly
 
 from shared.utils import convert_integers_to_strings
-from shared.services.firestore_service import FirestoreService
 from shared.services.task_queue_service import TaskQueueService
 from shared.services.storage_service import StorageService
 from shared.config import Config
@@ -55,7 +54,6 @@ class JsonFormatter(logging.Formatter):
 
 
 # Instantiate services
-firestore_service = FirestoreService()
 task_queue_service = TaskQueueService()
 storage_service = StorageService()
 
@@ -108,14 +106,6 @@ def process_author(scholar_id, skip_pubs=None, parent_log_extra=None): # Accept 
         logger.error(f"Failed to serialize author {scholar_id}.", extra={"custom_extra_fields": {**log_extra, "detail": "serialize_author_failed"}})
         return None
 
-    # Firestore saving was commented out in the original, uncomment if used
-    # success_firestore = author_repository.save_author(scholar_id, serialized_author)
-    # if success_firestore:
-    #     logger.info(f"Saved author {scholar_id} to Firestore.", extra={"custom_extra_fields": log_extra})
-    # else:
-    #     logger.error(f"Failed to store author {scholar_id} in Firestore.", extra={"custom_extra_fields": log_extra})
-    #     # Depending on requirements, you might return None here
-
     # Save to Google Cloud Storage
     try:
         now = datetime.datetime.now(datetime.timezone.utc)
@@ -129,11 +119,7 @@ def process_author(scholar_id, skip_pubs=None, parent_log_extra=None): # Accept 
         logger.info(f"Author {scholar_id} JSON data saved to GCS bucket {Config.BUCKET_NAME} at {destination_blob_name}.", extra={"custom_extra_fields": {**log_extra, "gcs_path": destination_blob_name}})
     except Exception as e:
         logger.error(f"Error saving author {scholar_id} JSON data to GCS: {e}", extra={"custom_extra_fields": {**log_extra, "error_message": str(e)}})
-        # if not success_firestore: # If Firestore save also failed
         return None
-
-    # if not success_firestore: # If Firestore save failed initially
-    #      return None
 
     if skip_pubs is None:
         publications_to_enqueue = author.get("publications", [])
