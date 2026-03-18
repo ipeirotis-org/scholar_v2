@@ -1,0 +1,73 @@
+name: Deploy BigQuery Views
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'bigquery/**/*.sql'
+
+  # Allow manual trigger for deploying all views on demand
+  workflow_dispatch:
+
+env:
+  PROJECT_ID: scholar-version2
+
+jobs:
+  deploy-bigquery-views:
+    name: Deploy BigQuery Views
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Authenticate to Google Cloud
+      uses: google-github-actions/auth@v2
+      with:
+        credentials_json: '${{ secrets.GCP_SA_KEY }}'
+
+    - name: Set up Cloud SDK
+      uses: google-github-actions/setup-gcloud@v2
+      with:
+        project_id: ${{ env.PROJECT_ID }}
+
+    # Deploy views in dependency order.
+    # Tier 1: No view dependencies (read from raw Firestore tables only)
+    - name: 'Tier 1: base_author_publications'
+      run: bq query --project_id=${{ env.PROJECT_ID }} --use_legacy_sql=false < bigquery/statistics/base_author_publications.sql
+
+    - name: 'Tier 1: stats_publication_current'
+      run: bq query --project_id=${{ env.PROJECT_ID }} --use_legacy_sql=false < bigquery/statistics/stats_publication_current.sql
+
+    - name: 'Tier 1: stats_publication_citations_temporal'
+      run: bq query --project_id=${{ env.PROJECT_ID }} --use_legacy_sql=false < bigquery/statistics/stats_publication_citations_temporal.sql
+
+    - name: 'Tier 1: coauthor_network'
+      run: bq query --project_id=${{ env.PROJECT_ID }} --use_legacy_sql=false < bigquery/coauthor_network/coauthor_network.sql
+
+    # Tier 2: Depends on Tier 1 views
+    - name: 'Tier 2: stats_author_current'
+      run: bq query --project_id=${{ env.PROJECT_ID }} --use_legacy_sql=false < bigquery/statistics/stats_author_current.sql
+
+    - name: 'Tier 2: coauthors_to_add'
+      run: bq query --project_id=${{ env.PROJECT_ID }} --use_legacy_sql=false < bigquery/coauthor_network/coauthors_to_add.sql
+
+    - name: 'Tier 2: intermediate_author_publication_state_temporal'
+      run: bq query --project_id=${{ env.PROJECT_ID }} --use_legacy_sql=false < bigquery/statistics/intermediate_author_publication_state_temporal.sql
+
+    # Tier 3: Depends on Tier 2 views
+    - name: 'Tier 3: stats_author_publication_pip_inputs_current'
+      run: bq query --project_id=${{ env.PROJECT_ID }} --use_legacy_sql=false < bigquery/statistics/stats_author_publication_pip_inputs_current.sql
+
+    # Tier 4: Depends on Tier 3 views
+    - name: 'Tier 4: stats_author_pip_scores_current'
+      run: bq query --project_id=${{ env.PROJECT_ID }} --use_legacy_sql=false < bigquery/statistics/stats_author_pip_scores_current.sql
+
+    # Tier 5: Materialized view (depends on Tier 2)
+    - name: 'Tier 5: stats_author_metrics_temporal (materialized)'
+      run: bq query --project_id=${{ env.PROJECT_ID }} --use_legacy_sql=false < bigquery/statistics/stats_author_metrics_temporal.sql
