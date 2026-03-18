@@ -172,6 +172,15 @@ Only `stats_author_metrics_temporal` is materialized (daily refresh). All other 
   - `functions/batch_load_gcs_to_bq/main.py` duplicates project/dataset/bucket IDs
   - Blocks: local development, testing, multi-environment deployment
 
+- [ ] **Add BigQuery view deployment to CI/CD**
+  - **Problem:** BigQuery SQL views (`bigquery/statistics/*.sql`, `bigquery/coauthor_network/*.sql`) are not deployed by any CI/CD workflow. Changes to view definitions (e.g., the fixes in this PR) require manual execution against BigQuery.
+  - **Current state:** `main.yml` deploys Cloud Run; `function.yml` deploys Cloud Functions. Neither touches BigQuery.
+  - Sub-tasks:
+  - [ ] Add a CI/CD step (in `main.yml` or a new workflow) that runs `bq query --use_legacy_sql=false < file.sql` for each view in `bigquery/statistics/` and `bigquery/coauthor_network/`
+  - [ ] Ensure views are deployed in dependency order (e.g., `base_author_publications` before `stats_author_current`, `stats_publication_current` before `stats_author_publication_pip_inputs_current`)
+  - [ ] Only trigger on changes to `bigquery/**/*.sql` files (use `paths` filter in workflow)
+  - [ ] Use the existing service account for authentication (`gcloud auth` in CI)
+
 - [ ] **Add CI/CD tests**
   - Both workflows deploy without running any tests
   - At minimum: unit tests for shared services, integration tests for BigQuery views
@@ -259,4 +268,4 @@ Only `stats_author_metrics_temporal` is materialized (daily refresh). All other 
 
 ---
 
-_Last updated: 2026-03-16_
+_Last updated: 2026-03-18_
