@@ -18,7 +18,7 @@
                             (<a id="refreshButton" href="javascript:void(0);" data-author-id="{{ author.scholar_id }}" style="text-decoration: underline; cursor: pointer;">Refresh</a>)
                         </li>
                         <li>
-                            First Year Active: {{ author.stats.year_of_first_pub }} ({{ 2024 - author.stats.year_of_first_pub + 1 }} years active)
+                            First Year Active: {{ author.stats.year_of_first_pub }} ({{ current_year - author.stats.year_of_first_pub + 1 }} years active)
                         </li>
                         <li>
                             <span class="metrics-explanation" data-toggle="tooltip"

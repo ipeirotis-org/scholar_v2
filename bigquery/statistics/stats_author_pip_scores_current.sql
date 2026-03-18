@@ -6,8 +6,8 @@ WITH
     author_pub_id,
     num_citations_percentile,
     num_papers_percentile,
-    LAG(num_citations_percentile) OVER(PARTITION BY scholar_id ORDER BY num_papers_percentile) AS prev_num_citations_percentile,
-    LAG(num_papers_percentile) OVER(PARTITION BY scholar_id ORDER BY num_papers_percentile) AS prev_num_papers_percentile
+    COALESCE(LAG(num_citations_percentile) OVER(PARTITION BY scholar_id ORDER BY num_papers_percentile), num_citations_percentile) AS prev_num_citations_percentile,
+    COALESCE(LAG(num_papers_percentile) OVER(PARTITION BY scholar_id ORDER BY num_papers_percentile), 0) AS prev_num_papers_percentile
   FROM
     `scholar-version2.statistics.stats_author_publication_pip_inputs_current`
    ),
@@ -17,9 +17,6 @@ WITH
     (num_papers_percentile - prev_num_papers_percentile) * (num_citations_percentile + prev_num_citations_percentile) / 2 AS area
   FROM
     RankedPublications
-  WHERE
-    -- Need to check prev_num_papers_percentile as well in case the first point has null prev_num_citations_percentile
-    prev_num_citations_percentile IS NOT NULL AND prev_num_papers_percentile IS NOT NULL
    ),
   AUC AS (
   SELECT

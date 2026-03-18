@@ -47,6 +47,11 @@ app.config.from_object(Config)
 storage_service = StorageService()
 
 
+@app.context_processor
+def inject_current_year():
+    return {"current_year": datetime.datetime.now().year}
+
+
 @app.route("/")
 @app.route("/index")
 def index():

@@ -42,7 +42,7 @@ ExplodedData AS (
     scholar_id,
     author_pub_id,
     pub_year,
-    GENERATE_ARRAY(pub_year, 2025) AS year_series
+    GENERATE_ARRAY(pub_year, EXTRACT(YEAR FROM CURRENT_DATE())) AS year_series
   FROM
     ExtractedData ),
   ExplodedYearSeries AS (
