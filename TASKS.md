@@ -149,7 +149,7 @@ Only `stats_author_metrics_temporal` is materialized (daily refresh). All other 
   - **Solution:** Rewrote batch_load to process files in configurable chunks (default 50, controllable via `?batch_size=N`), added dead-letter handling for bad files, cleaned up dead Firestore code
   - Sub-tasks:
   - [x] Fix timeout for large authors: files now processed in batches of 50 (configurable) instead of all-at-once per date folder
-  - [ ] Add automated scheduling: use Cloud Scheduler to trigger the batch load function on a regular cadence (e.g., hourly or daily) — requires infrastructure setup
+  - [x] Add automated scheduling: Cloud Scheduler job (`batch-load-gcs-to-bq`, hourly) deployed via CI/CD in `function.yml`
   - [x] Add per-file error handling: bad JSON files are moved to `dead_letter/` prefix instead of blocking the batch
   - [x] Idempotency: archive-after-load pattern ensures files are only archived on BQ success; re-runs safely skip already-archived files
   - [x] Remove commented-out Firestore saves from Cloud Functions — removed from both `fetch_author` and `fetch_publication`, plus unused FirestoreService imports

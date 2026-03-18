@@ -7,20 +7,18 @@ on:
 
 env:
   PROJECT_ID: scholar-version2
-  # REGION is now defined in the matrix
 
 jobs:
   deploy-cloud-functions:
     runs-on: ubuntu-latest
     strategy:
-      fail-fast: false # Set to true if you want the whole workflow to fail if one deployment fails
+      fail-fast: false
       matrix:
         region:  [ "us-central1",  "us-east1",  "us-east4", "us-east5", "us-south1",  "us-west1", "us-west2", "us-west3", "us-west4"]
 
         function_details:
-          # Define each function with its specific details
           - name: fetch_publication
-            timeout: "60s" 
+            timeout: "60s"
             memory: 512MB
           - name: fetch_author
             timeout: "3600s"
@@ -34,15 +32,11 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
-    # Authenticate to Google Cloud FIRST
     - name: Authenticate to Google Cloud
-      id: auth # Optional: give the step an ID if needed
-      # Use the official Google Cloud Auth action
-      uses: google-github-actions/auth@v2 # Use version v2 or later
+      uses: google-github-actions/auth@v2
       with:
-        # Use credentials_json if you are using a service account key stored in secrets
         credentials_json: ${{ secrets.GCP_SA_KEY }}
 
     - name: Set up Cloud SDK
@@ -50,43 +44,66 @@ jobs:
       with:
         project_id: ${{ env.PROJECT_ID }}
 
-    - name: Authenticate with Google Cloud using encoded JSON key
-      run: |
-        echo "${{ secrets.GCP_SA_KEY }}" | base64 --decode > ${HOME}/gcloud-service-key.json
-        gcloud auth activate-service-account --key-file=${HOME}/gcloud-service-key.json
-
     - name: Prepare shared code for Cloud Function ${{ matrix.function_details.name }}
       run: |
-        # Ensure the target shared directory exists before copying
         mkdir -p ./functions/${{ matrix.function_details.name }}/shared/
         cp -r ./shared/* ./functions/${{ matrix.function_details.name }}/shared/
 
     - name: Deploy Cloud Function ${{ matrix.function_details.name }} to ${{ matrix.region }}
       run: |
-        FUNCTION_NAME="${{ matrix.function_details.name }}"
-        REGION="${{ matrix.region }}"
-        SOURCE_DIR="./functions/${FUNCTION_NAME}/"
-        ENTRY_POINT="${FUNCTION_NAME}"
-        RUNTIME="python312"
-        MEMORY="${{ matrix.function_details.memory }}" # Use memory from matrix
-        
-        # Base command
-        CMD="gcloud functions deploy ${FUNCTION_NAME} \
-          --region ${REGION} \
-          --entry-point ${ENTRY_POINT} \
-          --runtime ${RUNTIME} \
+        gcloud functions deploy "${{ matrix.function_details.name }}" \
+          --region "${{ matrix.region }}" \
+          --entry-point "${{ matrix.function_details.name }}" \
+          --runtime python312 \
           --trigger-http \
           --allow-unauthenticated \
-          --memory=${MEMORY} \
+          --memory="${{ matrix.function_details.memory }}" \
+          --timeout="${{ matrix.function_details.timeout }}" \
           --gen2 \
-          --source ${SOURCE_DIR}"
+          --source "./functions/${{ matrix.function_details.name }}/"
 
-        # Add timeout flag only if specified in the matrix
-        TIMEOUT="${{ matrix.function_details.timeout }}"
-        if [[ -n "$TIMEOUT" ]]; then
-          CMD="${CMD} --timeout=${TIMEOUT}"
+  # Deploy Cloud Scheduler job to trigger batch_load_gcs_to_bq hourly.
+  # Runs after function deployment so the target URL exists.
+  deploy-batch-load-scheduler:
+    needs: deploy-cloud-functions
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Authenticate to Google Cloud
+      uses: google-github-actions/auth@v2
+      with:
+        credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+    - name: Set up Cloud SDK
+      uses: google-github-actions/setup-gcloud@v2
+      with:
+        project_id: ${{ env.PROJECT_ID }}
+
+    - name: Create or update Cloud Scheduler job for batch loading
+      run: |
+        JOB_NAME="batch-load-gcs-to-bq"
+        LOCATION="us-central1"
+        SCHEDULE="0 * * * *"  # Every hour
+        TARGET_URL="https://${LOCATION}-${{ env.PROJECT_ID }}.cloudfunctions.net/batch_load_gcs_to_bq"
+        TIME_ZONE="UTC"
+
+        # Try to update existing job; create if it doesn't exist yet
+        if gcloud scheduler jobs describe "$JOB_NAME" --location="$LOCATION" --project="${{ env.PROJECT_ID }}" > /dev/null 2>&1; then
+          echo "Updating existing scheduler job: $JOB_NAME"
+          gcloud scheduler jobs update http "$JOB_NAME" \
+            --location="$LOCATION" \
+            --schedule="$SCHEDULE" \
+            --uri="$TARGET_URL" \
+            --http-method=GET \
+            --time-zone="$TIME_ZONE" \
+            --attempt-deadline=1800s
+        else
+          echo "Creating new scheduler job: $JOB_NAME"
+          gcloud scheduler jobs create http "$JOB_NAME" \
+            --location="$LOCATION" \
+            --schedule="$SCHEDULE" \
+            --uri="$TARGET_URL" \
+            --http-method=GET \
+            --time-zone="$TIME_ZONE" \
+            --attempt-deadline=1800s
         fi
-
-        echo "Executing deployment for $FUNCTION_NAME in $REGION..."
-        echo "$CMD"
-        eval $CMD # Use eval to execute the constructed command string
