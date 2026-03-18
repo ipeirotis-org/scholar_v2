@@ -4,15 +4,15 @@ from google.cloud import bigquery
 import os
 import json
 from datetime import datetime, timezone
-import re # For parsing YYYY/MM/DD from paths
-import traceback # For detailed exception logging
+import re
+import traceback
 
 # Configuration
 PROJECT_ID = os.environ.get("GCP_PROJECT", "scholar-version2")
 BQ_DATASET_ID = "scholar_raw_data"
 BQ_AUTHOR_TABLE_NAME = "author"
 BQ_PUB_TABLE_NAME = "pub"
-GCS_BUCKET_NAME = "scholar_data_share" # Source and Archive bucket
+GCS_BUCKET_NAME = "scholar_data_share"
 TEMP_GCS_BUCKET_NAME = os.environ.get("TEMP_GCS_BUCKET", GCS_BUCKET_NAME)
 TEMP_GCS_PREFIX = "bq_load_temp/"
 
@@ -20,6 +20,10 @@ SOURCE_AUTHORS_PREFIX = "authors_json/"
 ARCHIVE_AUTHORS_PREFIX = "authors_archive/"
 SOURCE_PUBLICATIONS_PREFIX = "publications_json/"
 ARCHIVE_PUBLICATIONS_PREFIX = "publications_archive/"
+DEAD_LETTER_PREFIX = "dead_letter/"
+
+# Max files to process in a single NDJSON batch to avoid timeouts
+DEFAULT_BATCH_SIZE = 50
 
 # Initialize clients globally
 try:
@@ -31,130 +35,98 @@ except Exception as e:
         "error": str(e),
         "severity": "CRITICAL"
     }))
-    raise  # Stop execution if clients can't be initialized
+    raise
 
-def list_gcs_files_by_folder(bucket_name, source_prefix):
-    files_by_folder = {}
+
+def _log(message, severity="INFO", **extra):
+    """Helper to emit structured JSON logs."""
+    payload = {"message": message, "severity": severity}
+    payload.update(extra)
+    print(json.dumps(payload))
+
+
+def list_gcs_files(bucket_name, source_prefix):
+    """List all JSON files under source_prefix, returned as a flat list."""
     blobs = storage_client.list_blobs(bucket_name, prefix=source_prefix)
-    date_folder_pattern = re.compile(r"(\d{4}/\d{2}/\d{2})/")
-    processed_files_count = 0
+    files = []
 
     for blob in blobs:
         if not blob.name.endswith(".json"):
             continue
-        processed_files_count += 1
-        match = date_folder_pattern.search(blob.name[len(source_prefix):])
-        if match:
-            date_folder = match.group(1)
-            if date_folder not in files_by_folder:
-                files_by_folder[date_folder] = []
-            
-            files_by_folder[date_folder].append({
-                "gcs_uri": f"gs://{bucket_name}/{blob.name}",
-                "name": blob.name,
-                "blob_object": blob,
-                "updated_time": blob.updated.isoformat() if blob.updated else datetime.now(timezone.utc).isoformat(),
-            })
-    print(json.dumps({
-        "message": f"Total .json files scanned under gs://{bucket_name}/{source_prefix}: {processed_files_count}. Grouped into {len(files_by_folder)} date folders.",
-        "severity": "INFO"
-    }))
-    return files_by_folder
-def generate_ndjson_and_upload(files_info_list, temp_ndjson_filename_suffix, entity_type_name, date_folder):
-    ndjson_lines = []
-    successfully_prepped_files_info = []
+        files.append({
+            "gcs_uri": f"gs://{bucket_name}/{blob.name}",
+            "name": blob.name,
+            "blob_object": blob,
+            "updated_time": blob.updated.isoformat() if blob.updated else datetime.now(timezone.utc).isoformat(),
+        })
 
-    log_payload_gen = {
-        "message": f"Starting NDJSON generation for {entity_type_name}, folder {date_folder}",
-        "file_count": len(files_info_list),
-        "severity": "INFO"
-    }
-    print(json.dumps(log_payload_gen))
+    _log(f"Found {len(files)} .json files under gs://{bucket_name}/{source_prefix}")
+    return files
 
-    for file_info in files_info_list:
-        try:
-            original_json_content_str = file_info["blob_object"].download_as_text()
-            
-            if not original_json_content_str.strip() or \
-               not (original_json_content_str.startswith('{') and original_json_content_str.endswith('}')):
-                print(json.dumps({
-                    "message": f"Skipping empty or non-object JSON file: {file_info['gcs_uri']}",
-                    "severity": "WARNING"
-                }))
-                continue
 
-            # --- Modification Start ---
-            # Parse the original JSON content
-            original_json_dict = json.loads(original_json_content_str)
-            # Create the new structure with the original content nested under "data"
-            wrapped_json_dict = {"data": original_json_dict}
-            # Convert the new wrapped dictionary back to a JSON string for the 'DATA' field
-            new_data_field_as_string = json.dumps(wrapped_json_dict)
-            # --- Modification End ---
+def move_to_dead_letter(file_info, source_prefix, reason):
+    """Move a bad file to the dead_letter/ prefix so it is not retried."""
+    bucket = storage_client.bucket(GCS_BUCKET_NAME)
+    original_blob = file_info["blob_object"]
+    dead_letter_name = file_info["name"].replace(source_prefix, DEAD_LETTER_PREFIX, 1)
 
-            row_data = {
-                "document_id": os.path.basename(file_info["name"]),
-                "timestamp": file_info["updated_time"],
-                "DATA": new_data_field_as_string, # Use the new wrapped JSON string
-            }
-            ndjson_lines.append(json.dumps(row_data)) # This line becomes an NDJSON line
-            successfully_prepped_files_info.append(file_info)
-        except json.JSONDecodeError as jde:
-            print(json.dumps({
-                "message": f"JSONDecodeError processing file {file_info['gcs_uri']}. Invalid JSON content.",
-                "error": str(jde),
-                "file_uri": file_info['gcs_uri'],
-                "severity": "ERROR"
-            }))
-        except Exception as e:
-            print(json.dumps({
-                "message": f"Error processing file {file_info['gcs_uri']} for NDJSON generation.",
-                "error": str(e),
-                "file_uri": file_info['gcs_uri'],
-                "severity": "ERROR"
-            }))
+    try:
+        bucket.copy_blob(original_blob, bucket, dead_letter_name)
+        original_blob.delete()
+        _log(f"Moved bad file to dead letter: {file_info['gcs_uri']}",
+             severity="WARNING", reason=reason,
+             dead_letter_path=f"gs://{GCS_BUCKET_NAME}/{dead_letter_name}")
+    except Exception as e:
+        _log(f"Failed to move file to dead letter: {file_info['gcs_uri']}",
+             severity="ERROR", error=str(e))
 
-    if not ndjson_lines:
-        print(json.dumps({
-            "message": f"No valid data to upload for {temp_ndjson_filename_suffix} from folder {date_folder}.",
-            "severity": "WARNING"
-        }))
-        return None, []
 
-    if ndjson_lines:
-        print(json.dumps({
-            "message": "Sample NDJSON line being generated (first line if multiple) - after nesting",
-            "sample_line": ndjson_lines[0], # This is a string representing a BQ row
-            "total_lines": len(ndjson_lines),
-            "severity": "DEBUG" 
-        }))
-    
-    ndjson_content = "\n".join(ndjson_lines) # Each item in ndjson_lines is already a JSON string for a row
+def prepare_ndjson_line(file_info, source_prefix):
+    """Download a single JSON file and convert it to an NDJSON line.
+
+    Returns (ndjson_line_str, file_info) on success, or (None, reason) on failure.
+    """
+    try:
+        content = file_info["blob_object"].download_as_text()
+
+        if not content.strip():
+            return None, "empty_file"
+
+        original = json.loads(content)
+        wrapped = {"data": original}
+
+        row = {
+            "document_id": os.path.basename(file_info["name"]),
+            "timestamp": file_info["updated_time"],
+            "DATA": json.dumps(wrapped),
+        }
+        return json.dumps(row), None
+    except json.JSONDecodeError as e:
+        return None, f"invalid_json: {e}"
+    except Exception as e:
+        return None, f"download_error: {e}"
+
+
+def generate_ndjson_and_upload(ndjson_lines, suffix):
+    """Upload a list of NDJSON line strings to a temp GCS location.
+
+    Returns the gs:// URI of the uploaded file.
+    """
+    ndjson_content = "\n".join(ndjson_lines)
     timestamp_str = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S%f")
-    temp_blob_name = f"{TEMP_GCS_PREFIX}{timestamp_str}_{temp_ndjson_filename_suffix}"
-    
+    temp_blob_name = f"{TEMP_GCS_PREFIX}{timestamp_str}_{suffix}"
+
     temp_bucket = storage_client.bucket(TEMP_GCS_BUCKET_NAME)
     temp_blob = temp_bucket.blob(temp_blob_name)
     temp_blob.upload_from_string(ndjson_content, content_type="application/jsonl")
-    uploaded_uri = f"gs://{TEMP_GCS_BUCKET_NAME}/{temp_blob_name}"
-    
-    print(json.dumps({
-        "message": f"NDJSON data for {entity_type_name}, folder {date_folder} uploaded to {uploaded_uri}",
-        "source_file_count": len(successfully_prepped_files_info),
-        "ndjson_lines": len(ndjson_lines),
-        "severity": "INFO"
-    }))
-    return uploaded_uri, successfully_prepped_files_info
+
+    uri = f"gs://{TEMP_GCS_BUCKET_NAME}/{temp_blob_name}"
+    _log(f"Uploaded NDJSON ({len(ndjson_lines)} rows) to {uri}")
+    return uri
 
 
 def load_ndjson_to_bigquery(ndjson_gcs_uri, bq_table_id):
-    if not ndjson_gcs_uri:
-        print(json.dumps({
-            "message": f"No NDJSON URI provided for BigQuery table {bq_table_id}, skipping load.",
-            "severity": "WARNING"
-        }))
-        return False
-
+    """Load an NDJSON file from GCS into BigQuery. Returns True on success."""
     job_config = bigquery.LoadJobConfig(
         source_format=bigquery.SourceFormat.NEWLINE_DELIMITED_JSON,
         schema=[
@@ -165,237 +137,154 @@ def load_ndjson_to_bigquery(ndjson_gcs_uri, bq_table_id):
         write_disposition=bigquery.WriteDisposition.WRITE_APPEND,
     )
 
-    load_job = None # Initialize to None
+    load_job = None
     try:
         load_job = bigquery_client.load_table_from_uri(
             ndjson_gcs_uri, bq_table_id, job_config=job_config
         )
-        print(json.dumps({
-            "message": "BigQuery load job submitted.",
-            "job_id": load_job.job_id,
-            "table_id": bq_table_id,
-            "source_uri": ndjson_gcs_uri,
-            "severity": "INFO"
-        }))
-        
-        load_job.result()  # Waits for the job to complete.
+        _log("BigQuery load job submitted.",
+             job_id=load_job.job_id, table_id=bq_table_id, source_uri=ndjson_gcs_uri)
 
-        # After job.result(), check job properties for errors
+        load_job.result()  # Wait for completion
+
         if load_job.error_result:
-            print(json.dumps({
-                "message": f"BigQuery job {load_job.job_id} for table {bq_table_id} FAILED.",
-                "job_id": load_job.job_id,
-                "error_result": load_job.error_result, # This is a dict
-                "errors": load_job.errors, # This is a list of dicts
-                "severity": "ERROR"
-            }))
-            # The "SELECT list must not be empty" error might be buried in error_result or errors.
-            if "SELECT list must not be empty" in json.dumps(load_job.error_result):
-                 print(json.dumps({"message": "FOUND 'SELECT list must not be empty' in BQ job error_result.", "severity": "ERROR"}))
-            return False
-        
-        # Even if no error_result, job.errors might contain non-fatal issues or warnings
-        if load_job.errors and len(load_job.errors) > 0:
-            print(json.dumps({
-                "message": f"BigQuery job {load_job.job_id} for table {bq_table_id} completed but with some errors/warnings.",
-                "job_id": load_job.job_id,
-                "errors": load_job.errors,
-                "severity": "WARNING"
-            }))
-            # Depending on policy, you might still treat this as a failure for archival purposes.
-            # For now, let's be strict: any errors means it's not a clean success.
+            _log(f"BigQuery job {load_job.job_id} FAILED.",
+                 severity="ERROR", job_id=load_job.job_id,
+                 error_result=load_job.error_result, errors=load_job.errors)
             return False
 
-        # Check if rows were actually loaded - useful for empty source files or all-error scenarios
-        destination_table = bigquery_client.get_table(bq_table_id)
-        print(json.dumps({
-            "message": f"BigQuery job {load_job.job_id} for table {bq_table_id} completed successfully.",
-            "job_id": load_job.job_id,
-            "output_rows": load_job.output_rows, # Rows written by this job
-            "total_rows_in_table_after_job": destination_table.num_rows,
-            "severity": "INFO"
-        }))
-        return True # Success only if no error_result and no errors array
+        if load_job.errors:
+            _log(f"BigQuery job {load_job.job_id} completed with warnings.",
+                 severity="WARNING", job_id=load_job.job_id, errors=load_job.errors)
+            return False
+
+        _log(f"BigQuery job {load_job.job_id} completed successfully.",
+             job_id=load_job.job_id, output_rows=load_job.output_rows)
+        return True
 
     except Exception as e:
-        # This will catch exceptions from job.result() if the job failed fundamentally,
-        # or from the initial submission if that failed.
-        tb_str = traceback.format_exc()
-        error_payload = {
-            "message": f"Exception during BigQuery load for table {bq_table_id} from {ndjson_gcs_uri}.",
-            "job_id": load_job.job_id if load_job else "Not available (submission might have failed)",
-            "exception_type": type(e).__name__,
-            "error": str(e),
-            "traceback": tb_str,
-            "severity": "ERROR"
-        }
-        print(json.dumps(error_payload))
-        if "SELECT list must not be empty" in str(e) or "SELECT list must not be empty" in tb_str:
-             print(json.dumps({"message": "FOUND 'SELECT list must not be empty' in BQ job exception.", "severity": "ERROR"}))
+        _log(f"Exception during BigQuery load from {ndjson_gcs_uri}.",
+             severity="ERROR",
+             job_id=load_job.job_id if load_job else "N/A",
+             error=str(e), traceback=traceback.format_exc())
         return False
 
 
-def archive_gcs_files(bucket_name, files_to_archive_info, source_prefix, archive_prefix):
-    source_bucket = storage_client.bucket(bucket_name)
-    archived_count = 0
-    failed_to_archive = []
+def archive_gcs_files(files_to_archive, source_prefix, archive_prefix):
+    """Move successfully loaded files from source to archive prefix."""
+    bucket = storage_client.bucket(GCS_BUCKET_NAME)
+    archived = 0
+    failed = []
 
-    log_payload_archive_start = {
-        "message": "Starting archival process.",
-        "file_count_to_archive": len(files_to_archive_info),
-        "source_prefix": source_prefix,
-        "archive_prefix": archive_prefix,
-        "severity": "INFO"
-    }
-    print(json.dumps(log_payload_archive_start))
-
-    for file_info in files_to_archive_info:
+    for file_info in files_to_archive:
         original_blob = file_info["blob_object"]
-        archive_blob_name = file_info["name"].replace(source_prefix, archive_prefix, 1)
-        
+        archive_name = file_info["name"].replace(source_prefix, archive_prefix, 1)
         try:
-            # It's a move: copy then delete original
-            new_blob = source_bucket.copy_blob(original_blob, source_bucket, archive_blob_name)
+            bucket.copy_blob(original_blob, bucket, archive_name)
             original_blob.delete()
-            # print(f"Successfully archived gs://{bucket_name}/{original_blob.name} to gs://{bucket_name}/{new_blob.name}")
-            archived_count +=1
+            archived += 1
         except Exception as e:
-            log_payload_archive_error = {
-                "message": "Error archiving file.",
-                "source_file": f"gs://{bucket_name}/{original_blob.name}",
-                "target_archive_file": f"gs://{bucket_name}/{archive_blob_name}",
-                "error": str(e),
-                "severity": "ERROR"
-            }
-            print(json.dumps(log_payload_archive_error))
-            failed_to_archive.append(file_info["name"])
-            
-    print(json.dumps({
-        "message": "Archival process summary.",
-        "archived_count": archived_count,
-        "attempted_count": len(files_to_archive_info),
-        "failed_count": len(failed_to_archive),
-        "failed_files_sample": failed_to_archive[:5], # Log a sample of failed files
-        "severity": "INFO" if not failed_to_archive else "WARNING"
-    }))
+            _log(f"Error archiving {original_blob.name}",
+                 severity="ERROR", error=str(e))
+            failed.append(file_info["name"])
+
+    _log(f"Archived {archived}/{len(files_to_archive)} files.",
+         severity="INFO" if not failed else "WARNING",
+         failed_count=len(failed))
 
 
 def cleanup_temp_gcs_file(gcs_uri):
-    if not gcs_uri: return
+    """Delete a temporary NDJSON file from GCS."""
+    if not gcs_uri:
+        return
     try:
         bucket_name, blob_name = gcs_uri.replace("gs://", "").split("/", 1)
-        blob = storage_client.bucket(bucket_name).blob(blob_name)
-        blob.delete()
-        print(json.dumps({
-            "message": "Successfully deleted temporary NDJSON file.",
-            "file_uri": gcs_uri,
-            "severity": "INFO"
-        }))
+        storage_client.bucket(bucket_name).blob(blob_name).delete()
     except Exception as e:
-        print(json.dumps({
-            "message": "Error deleting temporary NDJSON file.",
-            "file_uri": gcs_uri,
-            "error": str(e),
-            "severity": "WARNING"
-        }))
+        _log(f"Error deleting temp file {gcs_uri}", severity="WARNING", error=str(e))
 
-def process_source_path(source_prefix, archive_prefix, bq_table_id_full, entity_type_name):
-    print(json.dumps({
-        "message": f"Starting processing for entity type: {entity_type_name}",
-        "source_prefix": f"gs://{GCS_BUCKET_NAME}/{source_prefix}",
-        "archive_prefix": f"gs://{GCS_BUCKET_NAME}/{archive_prefix}",
-        "bigquery_table": bq_table_id_full,
-        "severity": "INFO"
-    }))
-    
-    files_by_folder = list_gcs_files_by_folder(GCS_BUCKET_NAME, source_prefix)
 
-    if not files_by_folder:
-        print(json.dumps({
-            "message": f"No {entity_type_name} files found in any YYYY/MM/DD subdirectories under {source_prefix}.",
-            "severity": "INFO"
-        }))
+def process_batch(files_batch, source_prefix, archive_prefix, bq_table_id, entity_type, batch_num):
+    """Process a single batch of files: prepare NDJSON, load to BQ, archive.
+
+    Bad files are moved to dead_letter/ individually so they don't block future runs.
+    Returns the number of files successfully loaded and archived.
+    """
+    ndjson_lines = []
+    good_files = []
+
+    for file_info in files_batch:
+        line, error_reason = prepare_ndjson_line(file_info, source_prefix)
+        if line is not None:
+            ndjson_lines.append(line)
+            good_files.append(file_info)
+        else:
+            move_to_dead_letter(file_info, source_prefix, error_reason)
+
+    if not ndjson_lines:
+        _log(f"Batch {batch_num}: No valid files for {entity_type}.", severity="WARNING")
+        return 0
+
+    suffix = f"{entity_type.lower()}_batch{batch_num}.ndjson"
+    ndjson_uri = generate_ndjson_and_upload(ndjson_lines, suffix)
+
+    try:
+        if load_ndjson_to_bigquery(ndjson_uri, bq_table_id):
+            _log(f"Batch {batch_num}: BQ load succeeded for {len(good_files)} {entity_type} files. Archiving.")
+            archive_gcs_files(good_files, source_prefix, archive_prefix)
+            return len(good_files)
+        else:
+            _log(f"Batch {batch_num}: BQ load FAILED for {entity_type}. Files NOT archived.",
+                 severity="ERROR")
+            return 0
+    finally:
+        cleanup_temp_gcs_file(ndjson_uri)
+
+
+def process_source_path(source_prefix, archive_prefix, bq_table_id, entity_type, batch_size):
+    """Process all files under a source prefix in batches."""
+    _log(f"Starting processing for {entity_type}",
+         source=f"gs://{GCS_BUCKET_NAME}/{source_prefix}",
+         bigquery_table=bq_table_id, batch_size=batch_size)
+
+    all_files = list_gcs_files(GCS_BUCKET_NAME, source_prefix)
+    if not all_files:
+        _log(f"No {entity_type} files to process.")
         return
 
-    total_folders_processed = 0
-    total_files_archived_for_entity = 0
+    total_archived = 0
+    num_batches = (len(all_files) + batch_size - 1) // batch_size
 
-    for date_folder, files_in_folder in files_by_folder.items():
-        total_folders_processed += 1
-        log_payload_folder = {
-            "message": f"Processing folder for {entity_type_name}.",
-            "date_folder": date_folder,
-            "file_count_in_folder": len(files_in_folder),
-            "source_path_prefix": f"{source_prefix}{date_folder}",
-            "severity": "INFO"
-        }
-        print(json.dumps(log_payload_folder))
-
-        if not files_in_folder:
-            continue
-
-        safe_date_folder = date_folder.replace("/", "")
-        ndjson_gcs_uri, successfully_prepped_files_info = generate_ndjson_and_upload(
-            files_in_folder, f"{entity_type_name.lower()}_{safe_date_folder}.ndjson",
-            entity_type_name, date_folder
+    for i in range(num_batches):
+        batch = all_files[i * batch_size : (i + 1) * batch_size]
+        _log(f"Processing batch {i + 1}/{num_batches} ({len(batch)} files) for {entity_type}")
+        total_archived += process_batch(
+            batch, source_prefix, archive_prefix, bq_table_id, entity_type, i + 1
         )
 
-        if ndjson_gcs_uri and successfully_prepped_files_info:
-            bq_load_successful = load_ndjson_to_bigquery(ndjson_gcs_uri, bq_table_id_full)
-            
-            if bq_load_successful:
-                print(json.dumps({
-                    "message": f"BigQuery load successful for {entity_type_name} from folder {date_folder}. Archiving original files.",
-                    "severity": "INFO"
-                }))
-                archive_gcs_files(GCS_BUCKET_NAME, successfully_prepped_files_info, source_prefix, archive_prefix)
-                total_files_archived_for_entity += len(successfully_prepped_files_info)
-            else:
-                # Critical: If BQ load failed, do NOT archive the source files for this batch.
-                print(json.dumps({
-                    "message": f"BigQuery load FAILED for {entity_type_name} from folder {date_folder}. Original files for this batch will NOT be archived.",
-                    "ndjson_uri_problematic": ndjson_gcs_uri,
-                    "severity": "ERROR"
-                }))
-            
-            cleanup_temp_gcs_file(ndjson_gcs_uri) # Clean up temp NDJSON regardless of BQ success
-        elif ndjson_gcs_uri: 
-             cleanup_temp_gcs_file(ndjson_gcs_uri)
-        else:
-            print(json.dumps({
-                "message": f"NDJSON generation failed or no files to process for {entity_type_name} in folder {date_folder}.",
-                "severity": "WARNING"
-            }))
-    
-    print(json.dumps({
-        "message": f"Finished processing for entity: {entity_type_name}.",
-        "folders_processed_count": total_folders_processed,
-        "total_files_archived_for_entity": total_files_archived_for_entity,
-        "severity": "INFO"
-    }))
+    _log(f"Finished {entity_type}: {total_archived}/{len(all_files)} files loaded and archived.",
+         batches_processed=num_batches)
 
 
 @functions_framework.http
 def batch_load_gcs_to_bq(request):
+    """HTTP entry point. Accepts optional ?batch_size=N query parameter."""
     try:
-        print(json.dumps({"message": "Batch GCS to BigQuery processing and archival run V3 STARTING.", "severity": "NOTICE"}))
+        batch_size = int(request.args.get("batch_size", DEFAULT_BATCH_SIZE))
+        batch_size = max(1, min(batch_size, 500))  # Clamp to [1, 500]
 
-        author_table_id_full = f"{PROJECT_ID}.{BQ_DATASET_ID}.{BQ_AUTHOR_TABLE_NAME}"
-        process_source_path(SOURCE_AUTHORS_PREFIX, ARCHIVE_AUTHORS_PREFIX, author_table_id_full, "Author")
+        _log("Batch GCS to BigQuery run STARTING.", severity="NOTICE", batch_size=batch_size)
 
-        pub_table_id_full = f"{PROJECT_ID}.{BQ_DATASET_ID}.{BQ_PUB_TABLE_NAME}"
-        process_source_path(SOURCE_PUBLICATIONS_PREFIX, ARCHIVE_PUBLICATIONS_PREFIX, pub_table_id_full, "Publication")
+        author_table = f"{PROJECT_ID}.{BQ_DATASET_ID}.{BQ_AUTHOR_TABLE_NAME}"
+        process_source_path(SOURCE_AUTHORS_PREFIX, ARCHIVE_AUTHORS_PREFIX, author_table, "Author", batch_size)
 
-        print(json.dumps({"message": "Batch GCS to BigQuery processing and archival run V3 FINISHED.", "severity": "NOTICE"}))
+        pub_table = f"{PROJECT_ID}.{BQ_DATASET_ID}.{BQ_PUB_TABLE_NAME}"
+        process_source_path(SOURCE_PUBLICATIONS_PREFIX, ARCHIVE_PUBLICATIONS_PREFIX, pub_table, "Publication", batch_size)
+
+        _log("Batch GCS to BigQuery run FINISHED.", severity="NOTICE")
         return ("Batch processing and archival finished successfully.", 200)
 
     except Exception as e:
-        tb_str = traceback.format_exc()
-        print(json.dumps({
-            "message": "Critical error in orchestrator_v3 HTTP handler.",
-            "exception_type": type(e).__name__,
-            "error": str(e),
-            "traceback": tb_str,
-            "severity": "CRITICAL"
-        }))
+        _log("Critical error in batch_load_gcs_to_bq handler.",
+             severity="CRITICAL", error=str(e), traceback=traceback.format_exc())
         return (f"Critical Error: {e}", 500)

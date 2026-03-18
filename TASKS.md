@@ -74,13 +74,13 @@ Only `stats_author_metrics_temporal` is materialized (daily refresh). All other 
 
 ## Critical — Security
 
-- [ ] **Fix SQL injection pattern in coauthor query**
-  - `app/coauthor_service.py:50`: `LIMIT {rows_needed}` uses f-string interpolation instead of parameterized query
-  - Fix: use `LIMIT @rows_needed` with `ScalarQueryParameter("rows_needed", "INT64", rows_needed)`
+- [x] **Fix SQL injection pattern in coauthor query**
+  - `app/coauthor_service.py:50`: `LIMIT {rows_needed}` used f-string interpolation instead of parameterized query
+  - Fixed: uses `LIMIT @rows_needed` with `ScalarQueryParameter("rows_needed", "INT64", rows_needed)`
 
-- [ ] **Fix insecure default SECRET_KEY**
-  - `shared/config.py:21`: `SECRET_KEY = os.getenv("SECRET_KEY", "default-secret-key")` allows Flask session forgery
-  - Fix: raise error if env var not set, or generate random key at startup with `os.urandom(32).hex()`
+- [x] **Fix insecure default SECRET_KEY**
+  - `shared/config.py:21`: `SECRET_KEY = os.getenv("SECRET_KEY", "default-secret-key")` allowed Flask session forgery
+  - Fixed: falls back to `os.urandom(32).hex()` when env var is not set
 
 - [ ] **Add input validation on URL parameters**
   - `app/main.py:98, 106`: `int()` conversion without try/except — crashes on bad input
@@ -143,16 +143,16 @@ Only `stats_author_metrics_temporal` is materialized (daily refresh). All other 
 
 ## High Priority
 
-- [ ] **Complete the GCS → BigQuery batch loading pipeline**
-  - **Problem:** `functions/batch_load_gcs_to_bq/main.py` is triggered manually and times out for authors with long publication lists. No automated scheduling exists.
+- [x] **Complete the GCS → BigQuery batch loading pipeline**
+  - **Problem:** `functions/batch_load_gcs_to_bq/main.py` was triggered manually and timed out for authors with long publication lists. No automated scheduling exists.
   - **Current flow:** fetch functions write JSON to GCS → batch_load reads GCS → wraps in NDJSON → loads to BQ tables (`scholar_raw_data.author`, `scholar_raw_data.pub`) → archives source files
+  - **Solution:** Rewrote batch_load to process files in configurable chunks (default 50, controllable via `?batch_size=N`), added dead-letter handling for bad files, cleaned up dead Firestore code
   - Sub-tasks:
-  - [ ] Fix timeout for large authors: process files individually or in small batches instead of all-at-once per date folder. Consider streaming inserts or breaking NDJSON into chunks.
-  - [ ] Add automated scheduling: use Cloud Scheduler to trigger the batch load function on a regular cadence (e.g., hourly or daily)
-  - [ ] Add per-file error handling: a single bad JSON file should not block the entire batch. Move bad files to a dead-letter prefix instead of failing the whole folder.
-  - [ ] Add idempotency: track which files have been loaded (e.g., via a manifest in GCS or a BQ metadata table) so retries don't duplicate data
-  - [ ] Remove commented-out Firestore saves from Cloud Functions (`fetch_author/main.py:111-117`, `fetch_publication/main.py:92-100`) — the migration to GCS-only is the intended direction
-  - Related: "Improve batch_load_gcs_to_bq robustness" in Enhancements (merge with this task)
+  - [x] Fix timeout for large authors: files now processed in batches of 50 (configurable) instead of all-at-once per date folder
+  - [x] Add automated scheduling: Cloud Scheduler job (`batch-load-gcs-to-bq`, hourly) deployed via CI/CD in `function.yml`
+  - [x] Add per-file error handling: bad JSON files are moved to `dead_letter/` prefix instead of blocking the batch
+  - [x] Idempotency: archive-after-load pattern ensures files are only archived on BQ success; re-runs safely skip already-archived files
+  - [x] Remove commented-out Firestore saves from Cloud Functions — removed from both `fetch_author` and `fetch_publication`, plus unused FirestoreService imports
 
 - [ ] **Materialize percentile tables to reduce BigQuery costs**
   - **Problem:** All percentile views (`stats_publication_current`, `stats_author_current`, `stats_author_publication_pip_inputs_current`, `stats_author_pip_scores_current`) are computed live on every query via expensive `PERCENT_RANK()` window functions. This causes high BigQuery costs and slow page loads.
@@ -172,14 +172,15 @@ Only `stats_author_metrics_temporal` is materialized (daily refresh). All other 
   - `functions/batch_load_gcs_to_bq/main.py` duplicates project/dataset/bucket IDs
   - Blocks: local development, testing, multi-environment deployment
 
-- [ ] **Add BigQuery view deployment to CI/CD**
+- [x] **Add BigQuery view deployment to CI/CD**
   - **Problem:** BigQuery SQL views (`bigquery/statistics/*.sql`, `bigquery/coauthor_network/*.sql`) are not deployed by any CI/CD workflow. Changes to view definitions (e.g., the fixes in this PR) require manual execution against BigQuery.
   - **Current state:** `main.yml` deploys Cloud Run; `function.yml` deploys Cloud Functions. Neither touches BigQuery.
+  - **Solution:** Added `.github/workflows/bigquery-views.yml` — deploys all 10 views in dependency order (5 tiers), triggers on `bigquery/**/*.sql` changes + manual dispatch
   - Sub-tasks:
-  - [ ] Add a CI/CD step (in `main.yml` or a new workflow) that runs `bq query --use_legacy_sql=false < file.sql` for each view in `bigquery/statistics/` and `bigquery/coauthor_network/`
-  - [ ] Ensure views are deployed in dependency order (e.g., `base_author_publications` before `stats_author_current`, `stats_publication_current` before `stats_author_publication_pip_inputs_current`)
-  - [ ] Only trigger on changes to `bigquery/**/*.sql` files (use `paths` filter in workflow)
-  - [ ] Use the existing service account for authentication (`gcloud auth` in CI)
+  - [x] Add a CI/CD step (in `main.yml` or a new workflow) that runs `bq query --use_legacy_sql=false < file.sql` for each view in `bigquery/statistics/` and `bigquery/coauthor_network/`
+  - [x] Ensure views are deployed in dependency order (e.g., `base_author_publications` before `stats_author_current`, `stats_publication_current` before `stats_author_publication_pip_inputs_current`)
+  - [x] Only trigger on changes to `bigquery/**/*.sql` files (use `paths` filter in workflow)
+  - [x] Use the existing service account for authentication (`gcloud auth` in CI)
 
 - [ ] **Add CI/CD tests**
   - Both workflows deploy without running any tests

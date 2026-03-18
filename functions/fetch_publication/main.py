@@ -11,8 +11,6 @@ from scholarly.data_types import PublicationSource
 from shared.services.storage_service import StorageService
 from shared.config import Config
 from shared.utils import convert_integers_to_strings
-# Firestore service was commented out, uncomment if used
-# from shared.services.firestore_service import FirestoreService
 
 # --- Structured Logging Setup (similar to fetch_author) ---
 logger = logging.getLogger()
@@ -21,7 +19,6 @@ logger.setLevel(logging.INFO)
 # --- End Structured Logging Setup ---
 
 # Instantiate services
-# firestore_service = FirestoreService() # Uncomment if used
 storage_service = StorageService()
 
 @functions_framework.http
@@ -88,16 +85,6 @@ def process_publication(pub_data_from_author, parent_log_extra=None):
     except Exception as e:
         logger.error(f"Failed to serialize detailed publication {author_pub_id}: {e}", extra={"custom_extra_fields": {**log_extra, "error_message": str(e), "detail": "serialization_failed"}})
         return None
-
-    # Firestore saving was commented out
-    # success_firestore = firestore_service.set_firestore_cache(
-    #     Config.FIRESTORE_COLLECTION_PUB, author_pub_id, serialized_pub
-    # )
-    # if success_firestore:
-    #     logger.info(f"Publication details for {author_pub_id} updated in Firestore.", extra={"custom_extra_fields": log_extra})
-    # else:
-    #     logger.error(f"Failed to store publication {author_pub_id} in Firestore.", extra={"custom_extra_fields": log_extra})
-    #     # return None # Depending on criticality
 
     # Save to Google Cloud Storage
     try:

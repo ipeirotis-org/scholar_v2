@@ -18,7 +18,7 @@ AVAILABLE_FUNCTION_REGIONS = [
 
 
 class Config:
-    SECRET_KEY = os.getenv("SECRET_KEY", "default-secret-key")
+    SECRET_KEY = os.getenv("SECRET_KEY") or os.urandom(32).hex()
     PROJECT_ID = "scholar-version2"
 
     QUEUE_LOCATION = "northamerica-northeast1"

@@ -7,6 +7,8 @@ from __future__ import annotations
 import random
 from typing import List
 
+from google.cloud import bigquery as bq
+
 from shared.services.bigquery_service import BigQueryService
 
 _BQ = BigQueryService()
@@ -35,7 +37,7 @@ def new_coauthors(count: int, oversample_factor: int = 100) -> List[str]:
         source view is very small).
     """
     rows_needed = max(count * oversample_factor, 1)
-    sql = f"""
+    sql = """
         SELECT
           coauthor_scholar_id,
           coauthor_name,
@@ -47,9 +49,11 @@ def new_coauthors(count: int, oversample_factor: int = 100) -> List[str]:
           coauthor_name
         ORDER BY
           total DESC
-        LIMIT {rows_needed}
+        LIMIT @rows_needed
     """
-    df = _BQ.query(sql)
+    df = _BQ.query(sql, query_params=[
+        bq.ScalarQueryParameter("rows_needed", "INT64", rows_needed),
+    ])
     ids = df["coauthor_scholar_id"].dropna().drop_duplicates().tolist()
 
     if len(ids) <= count:
