@@ -74,13 +74,13 @@ Only `stats_author_metrics_temporal` is materialized (daily refresh). All other 
 
 ## Critical — Security
 
-- [ ] **Fix SQL injection pattern in coauthor query**
-  - `app/coauthor_service.py:50`: `LIMIT {rows_needed}` uses f-string interpolation instead of parameterized query
-  - Fix: use `LIMIT @rows_needed` with `ScalarQueryParameter("rows_needed", "INT64", rows_needed)`
+- [x] **Fix SQL injection pattern in coauthor query**
+  - `app/coauthor_service.py:50`: `LIMIT {rows_needed}` used f-string interpolation instead of parameterized query
+  - Fixed: uses `LIMIT @rows_needed` with `ScalarQueryParameter("rows_needed", "INT64", rows_needed)`
 
-- [ ] **Fix insecure default SECRET_KEY**
-  - `shared/config.py:21`: `SECRET_KEY = os.getenv("SECRET_KEY", "default-secret-key")` allows Flask session forgery
-  - Fix: raise error if env var not set, or generate random key at startup with `os.urandom(32).hex()`
+- [x] **Fix insecure default SECRET_KEY**
+  - `shared/config.py:21`: `SECRET_KEY = os.getenv("SECRET_KEY", "default-secret-key")` allowed Flask session forgery
+  - Fixed: falls back to `os.urandom(32).hex()` when env var is not set
 
 - [ ] **Add input validation on URL parameters**
   - `app/main.py:98, 106`: `int()` conversion without try/except — crashes on bad input
