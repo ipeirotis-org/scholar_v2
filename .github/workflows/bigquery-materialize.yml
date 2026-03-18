@@ -1,0 +1,80 @@
+name: Materialize BigQuery Tables
+
+on:
+  # Run daily at 06:00 UTC (after overnight data loads settle)
+  schedule:
+    - cron: '0 6 * * *'
+
+  # Allow manual trigger
+  workflow_dispatch:
+
+env:
+  PROJECT_ID: scholar-version2
+
+jobs:
+  materialize:
+    name: Materialize percentile distribution tables
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Authenticate to Google Cloud
+      uses: google-github-actions/auth@v2
+      with:
+        credentials_json: '${{ secrets.GCP_SA_KEY }}'
+
+    - name: Set up Cloud SDK
+      uses: google-github-actions/setup-gcloud@v2
+      with:
+        project_id: ${{ env.PROJECT_ID }}
+
+    # Drop legacy materialized view (one-time migration, safe to re-run)
+    - name: 'Step 0: Drop legacy materialized view'
+      run: |
+        bq query --project_id=${{ env.PROJECT_ID }} --use_legacy_sql=false \
+          "DROP MATERIALIZED VIEW IF EXISTS \`scholar-version2.statistics.stats_author_metrics_temporal\`"
+      continue-on-error: true
+
+    # Distribution tables — the ONLY place PERCENT_RANK() runs.
+    # Output is small (distinct values only). Steps 1+2 are independent.
+
+    - name: 'Step 1: dist_publication_citations'
+      run: bq query --project_id=${{ env.PROJECT_ID }} --use_legacy_sql=false < bigquery/statistics/dist_publication_citations.sql
+
+    - name: 'Step 2: dist_author_metrics'
+      run: bq query --project_id=${{ env.PROJECT_ID }} --use_legacy_sql=false < bigquery/statistics/dist_author_metrics.sql
+
+    # Step 3 depends on Steps 1+2 (underlying views now use distribution lookups)
+    - name: 'Step 3: dist_pip_auc_scores'
+      run: bq query --project_id=${{ env.PROJECT_ID }} --use_legacy_sql=false < bigquery/statistics/dist_pip_auc_scores.sql
+
+    # Full-table snapshots — only needed for all-authors list queries.
+    # Per-author profile queries use the views directly (cheap with dist lookups).
+    # Steps 4+5 depend on Steps 1+2+3.
+
+    - name: 'Step 4: stats_author_current_table (for all-authors list)'
+      run: |
+        bq query --project_id=${{ env.PROJECT_ID }} --use_legacy_sql=false \
+          "CREATE OR REPLACE TABLE \`scholar-version2.statistics.stats_author_current_table\`
+           CLUSTER BY scholar_id, year_of_first_pub
+           AS SELECT * FROM \`scholar-version2.statistics.stats_author_current\`"
+
+    - name: 'Step 5: stats_author_pip_scores_current_table (for all-authors list)'
+      run: |
+        bq query --project_id=${{ env.PROJECT_ID }} --use_legacy_sql=false \
+          "CREATE OR REPLACE TABLE \`scholar-version2.statistics.stats_author_pip_scores_current_table\`
+           CLUSTER BY scholar_id
+           AS SELECT * FROM \`scholar-version2.statistics.stats_author_pip_scores_current\`"
+
+    - name: 'Step 6: stats_author_metrics_temporal (temporal history table)'
+      run: |
+        bq query --project_id=${{ env.PROJECT_ID }} --use_legacy_sql=false \
+          "CREATE OR REPLACE TABLE \`scholar-version2.statistics.stats_author_metrics_temporal\`
+           CLUSTER BY scholar_id, state_year
+           AS SELECT * FROM \`scholar-version2.statistics.stats_author_metrics_temporal_view\`"

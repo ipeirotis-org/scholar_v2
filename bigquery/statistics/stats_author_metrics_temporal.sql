@@ -1,11 +1,7 @@
-CREATE OR REPLACE MATERIALIZED VIEW `scholar-version2.statistics.stats_author_metrics_temporal` 
-   OPTIONS (
-  enable_refresh = true,
-  refresh_interval_minutes = 24 * 60,
-  max_staleness = INTERVAL "1" DAY,
-  allow_non_incremental_definition = true
-)
-AS
+-- This view defines the temporal metrics logic. It is NOT queried directly by the app.
+-- Instead, a scheduled process periodically materializes it into the table
+-- `statistics.stats_author_metrics_temporal` via materialize_stats.sql.
+CREATE OR REPLACE VIEW `scholar-version2.statistics.stats_author_metrics_temporal_view` AS
 
 
 WITH PublicationState AS (

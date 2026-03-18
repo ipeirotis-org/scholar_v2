@@ -90,7 +90,7 @@ scholar_v2/
 | `stats_author_publication_pip_inputs_current` | Interpolated num_papers_percentile for each publication (6-CTE pipeline) |
 | `stats_author_pip_scores_current` | PiP-AUC score via trapezoidal integration + percentile ranking |
 | `stats_publication_citations_temporal` | Full citation timeline per publication (fills missing years with 0) |
-| `stats_author_metrics_temporal` | Materialized view: temporal h-index, citations, i10 evolution (daily refresh) |
+| `stats_author_metrics_temporal` | Table: temporal h-index, citations, i10 evolution (materialized daily from `_view` by `bigquery-materialize.yml`) |
 | `coauthor_network` / `coauthors_to_add` | Co-author graph; discovers authors not yet in DB |
 
 ## Tech Stack
