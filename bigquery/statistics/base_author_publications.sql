@@ -1,4 +1,4 @@
-CREATE VIEW statistics.base_author_publications AS
+CREATE OR REPLACE VIEW `scholar-version2.statistics.base_author_publications` AS
 SELECT
   JSON_EXTRACT_SCALAR(DATA, '$.data.scholar_id') AS scholar_id,
   JSON_EXTRACT_SCALAR(pub, '$.author_pub_id') AS author_pub_id,

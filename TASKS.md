@@ -58,22 +58,17 @@ Only `stats_author_metrics_temporal` is materialized (daily refresh). All other 
 
 ## Critical — Data Correctness (actively wrong in production)
 
-- [ ] **Fix hardcoded year 2025 in temporal citations view — losing 2026 data NOW**
-  - `bigquery/statistics/stats_publication_citations_temporal.sql:45`: `GENERATE_ARRAY(pub_year, 2025)` excludes all 2026+ citation data
-  - Fix: replace `2025` with `EXTRACT(YEAR FROM CURRENT_DATE())`
+- [x] **Fix hardcoded year 2025 in temporal citations view — losing 2026 data NOW**
+  - `bigquery/statistics/stats_publication_citations_temporal.sql:45`: replaced `2025` with `EXTRACT(YEAR FROM CURRENT_DATE())`
 
-- [ ] **Fix hardcoded year 2024 in results template**
-  - `app/templates/results.html:21`: `{{ 2024 - author.stats.year_of_first_pub + 1 }}` — wrong since Jan 2025
-  - Fix: pass current year from route handler or use Jinja2 `now()` function
+- [x] **Fix hardcoded year 2024 in results template**
+  - `app/templates/results.html:21`: replaced hardcoded `2024` with `current_year` injected via Flask context processor
 
-- [ ] **Fix first publication excluded from PiP-AUC score**
-  - `bigquery/statistics/stats_author_pip_scores_current.sql:9-22`: `LAG()` produces NULL for first publication; `WHERE` on line 22 drops it
-  - The area from x=0 to the first publication's `num_papers_percentile` is missing from AUC
-  - Fix: use `COALESCE(prev_num_papers_percentile, 0)` and `COALESCE(prev_num_citations_percentile, num_citations_percentile)` to treat first pub as origin point
+- [x] **Fix first publication excluded from PiP-AUC score**
+  - `bigquery/statistics/stats_author_pip_scores_current.sql`: used `COALESCE` on `LAG()` results to include first publication in AUC
 
-- [ ] **Fix `base_author_publications` view deploy failure**
-  - `bigquery/statistics/base_author_publications.sql:1`: uses `CREATE VIEW` instead of `CREATE OR REPLACE VIEW` with project prefix
-  - Fix: change to `` CREATE OR REPLACE VIEW `scholar-version2.statistics.base_author_publications` AS ``
+- [x] **Fix `base_author_publications` view deploy failure**
+  - `bigquery/statistics/base_author_publications.sql:1`: changed to `CREATE OR REPLACE VIEW` with full project prefix
 
 ---
 
@@ -177,6 +172,15 @@ Only `stats_author_metrics_temporal` is materialized (daily refresh). All other 
   - `functions/batch_load_gcs_to_bq/main.py` duplicates project/dataset/bucket IDs
   - Blocks: local development, testing, multi-environment deployment
 
+- [ ] **Add BigQuery view deployment to CI/CD**
+  - **Problem:** BigQuery SQL views (`bigquery/statistics/*.sql`, `bigquery/coauthor_network/*.sql`) are not deployed by any CI/CD workflow. Changes to view definitions (e.g., the fixes in this PR) require manual execution against BigQuery.
+  - **Current state:** `main.yml` deploys Cloud Run; `function.yml` deploys Cloud Functions. Neither touches BigQuery.
+  - Sub-tasks:
+  - [ ] Add a CI/CD step (in `main.yml` or a new workflow) that runs `bq query --use_legacy_sql=false < file.sql` for each view in `bigquery/statistics/` and `bigquery/coauthor_network/`
+  - [ ] Ensure views are deployed in dependency order (e.g., `base_author_publications` before `stats_author_current`, `stats_publication_current` before `stats_author_publication_pip_inputs_current`)
+  - [ ] Only trigger on changes to `bigquery/**/*.sql` files (use `paths` filter in workflow)
+  - [ ] Use the existing service account for authentication (`gcloud auth` in CI)
+
 - [ ] **Add CI/CD tests**
   - Both workflows deploy without running any tests
   - At minimum: unit tests for shared services, integration tests for BigQuery views
@@ -264,4 +268,4 @@ Only `stats_author_metrics_temporal` is materialized (daily refresh). All other 
 
 ---
 
-_Last updated: 2026-03-16_
+_Last updated: 2026-03-18_
