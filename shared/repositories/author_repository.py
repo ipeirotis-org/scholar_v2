@@ -29,7 +29,10 @@ class AuthorRepository:
         )
 
         # Compare and return the latest of the two timestamps
-        return max(filter(None, [latest_author_change, latest_pub_change]))
+        timestamps = [t for t in (latest_author_change, latest_pub_change) if t]
+        if not timestamps:
+            return None
+        return max(timestamps)
 
     def get_authors_needing_refresh(self, num_authors=1):
         """
