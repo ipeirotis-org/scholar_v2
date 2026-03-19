@@ -179,15 +179,19 @@ Archives are kept indefinitely in GCS for debugging and historical analysis.
 ### View dependency tiers
 
 ```
-Tier 0 (distribution tables, materialized daily):
+Tier 0 (distribution tables, materialized quarterly):
   dist_publication_citations          — (pub_year, num_citations) → percentile
   dist_author_metrics                 — (cohort, metric, value) → percentile
   dist_pip_auc_scores                 — (cohort, pip_auc_score) → percentile
+  dist_publication_citations_temporal — (pub_year, citation_year, yearly_citations) → percentile  [PLANNED]
+                                       (pub_year, citation_year, cumulative_citations) → percentile
+                                       (age, yearly_citations) → percentile
+                                       (age, cumulative_citations) → percentile
 
 Tier 1 (no view dependencies):
   base_author_publications            — author → publication list
   stats_publication_current           — publication citation percentiles (uses dist_publication_citations)
-  stats_publication_citations_temporal — citation timeline per publication
+  stats_publication_citations_temporal — citation timeline per publication (uses dist_publication_citations_temporal)
   coauthor_network                    — coauthor graph
 
 Tier 2 (depends on Tier 1):
@@ -210,6 +214,7 @@ Expensive views are materialized daily into `_table` suffixed tables via the `bi
 | Materialized table | Source |
 |---|---|
 | `dist_publication_citations` | PERCENT_RANK by pub_year |
+| `dist_publication_citations_temporal` | PERCENT_RANK by (pub_year, citation_year) and by age for yearly + cumulative citations — 4 percentile columns [PLANNED] |
 | `dist_author_metrics` | PERCENT_RANK by cohort for 8 metrics |
 | `dist_pip_auc_scores` | PiP-AUC percentiles |
 | `stats_author_current_table` | `stats_author_current` view |
@@ -651,7 +656,7 @@ Once all 6 components in `v3/` are deployed and validated:
 | Issue | Component | Impact | Fix |
 |---|---|---|---|
 | **Disconnected data pipeline** | Ingestion | Batch loader writes to `scholar_raw_data` but views read from frozen `firestore_export` tables — new data never reaches analytics | Phase 1: create `_latest` views, rewrite analytics to use `scholar_raw_data`, backfill data |
-| **Live BigQuery view queries** | Frontend | Full table scans on every author page view | **Already fixed:** distribution table lookups for per-author queries; materialized tables for bulk |
+| **Live BigQuery view queries** | Frontend | Full table scans on every author page view | **Partially fixed:** distribution table lookups for per-author queries; materialized tables for bulk. `stats_publication_citations_temporal` still computes 4 `PERCENT_RANK()` calls live (yearly/cumulative × pub_year/age). Planned: `dist_publication_citations_temporal` table. |
 | **Server-side matplotlib** | Frontend | ~200-500ms CPU per page load to generate 4-6 PNG charts | Future: move to client-side charting (Chart.js/Plotly) |
 | **9-region x 4 function deployment** | Crawler | 36 function deployments, most idle | Acceptable: minimal cost when idle, needed for rate-limit avoidance |
 | **Firestore cache reads** | Frontend | 5-7 reads per page view (cache check + data) | Reduce: consolidate into fewer documents, accept stale data for longer |
