@@ -4,7 +4,7 @@
 -- PERCENT_RANK() is computed over ALL rows (preserving frequency), then DISTINCT
 -- collapses tied values since they all receive the same rank.
 --
--- Refreshed daily by bigquery-materialize.yml.
+-- Refreshed quarterly by bigquery-materialize-distributions.yml.
 -- Used by stats_publication_current to do a fast JOIN lookup instead of
 -- recomputing PERCENT_RANK() on every query.
 
