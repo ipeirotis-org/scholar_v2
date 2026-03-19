@@ -175,19 +175,31 @@ Tier 4 (depends on Tier 3):
 
 ### Materialization strategy
 
-Expensive views are materialized daily via the `bigquery-materialize.yml` workflow (06:00 UTC):
+> Full details: [ANALYTICS.md](ANALYTICS.md)
 
-| Materialized table | Source |
+There are two materialization schedules with different cost profiles:
+
+**Quarterly — distribution tables** (`bigquery-materialize-distributions.yml`, 04:00 UTC, Jan/Apr/Jul/Oct):
+
+| Table | What it computes |
 |---|---|
 | `dist_publication_citations` | PERCENT_RANK by pub_year |
-| `dist_publication_citations_temporal` | PERCENT_RANK by (pub_year, citation_year) and by age for yearly + cumulative citations |
 | `dist_author_metrics` | PERCENT_RANK by cohort for 8 metrics |
-| `dist_pip_auc_scores` | PiP-AUC percentiles |
+| `dist_pip_auc_scores` | PiP-AUC percentiles (depends on the above two) |
+
+These are the **only** place `PERCENT_RANK()` runs. Output is small (DISTINCT values only) and the population shape changes slowly — recomputing quarterly introduces negligible error.
+
+**Daily — snapshot tables** (`bigquery-materialize.yml`, 06:00 UTC):
+
+| Table | Source |
+|---|---|
 | `stats_author_current_table` | `stats_author_current` view |
 | `stats_author_pip_scores_current_table` | `stats_author_pip_scores_current` view |
 | `stats_author_metrics_temporal` | `stats_author_metrics_temporal_view` |
 
-**Per-author queries** use the live views (cheap with distribution table lookups). **Bulk queries** (all-authors ranking export) use the materialized tables.
+These exist only for the all-authors ranking page and CSV export. **Per-author profile pages query the views directly** (cheap via distribution table lookups, cached in Firestore).
+
+**Cost note:** Individual author data changes at most monthly (90-day re-crawl threshold). Daily snapshot materialization recomputes ~15,000 rows when typically fewer than 200 have changed. This is an area where event-driven or weekly materialization could reduce cost without meaningful staleness impact.
 
 ### Boundaries
 

@@ -81,17 +81,33 @@ scholar_v2/
              → HTML templates render with base64-encoded PNG images
 ```
 
-## Key BigQuery Views
+## BigQuery Analytics Framework
 
-| View | Purpose |
-|------|---------|
-| `stats_publication_current` | Citation percentile per publication, partitioned by pub_year |
-| `stats_author_current` | Author metrics (h-index, citations, i10) + percentiles by cohort |
-| `stats_author_publication_pip_inputs_current` | Interpolated num_papers_percentile for each publication (6-CTE pipeline) |
-| `stats_author_pip_scores_current` | PiP-AUC score via trapezoidal integration + percentile ranking |
-| `stats_publication_citations_temporal` | Full citation timeline per publication (fills missing years with 0) |
-| `stats_author_metrics_temporal` | Table: temporal h-index, citations, i10 evolution (materialized daily from `_view` by `bigquery-materialize.yml`) |
-| `coauthor_network` / `coauthors_to_add` | Co-author graph; discovers authors not yet in DB |
+> Full details: [`docs/ANALYTICS.md`](docs/ANALYTICS.md)
+
+### Key design pattern
+
+**Distribution tables** (`dist_*`) precompute population percentiles via `PERCENT_RANK()` — expensive but run only quarterly. **Stats views** (`stats_*`) do cheap floor lookups against these small tables, so per-author queries never trigger full-table scans.
+
+### View tiers
+
+| Tier | Views | Purpose |
+|------|-------|---------|
+| 0 | `dist_publication_citations`, `dist_author_metrics`, `dist_pip_auc_scores` | Percentile distributions (materialized quarterly) |
+| 1 | `base_author_publications`, `stats_publication_current`, `stats_publication_citations_temporal`, `coauthor_network` | Base extraction + citation percentiles via dist lookup |
+| 2 | `stats_author_current`, `coauthors_to_add`, `intermediate_author_publication_state_temporal` | Author-level metrics + percentiles via dist lookup |
+| 3 | `stats_author_publication_pip_inputs_current`, `stats_author_metrics_temporal_view` | PiP chart coordinates (6-CTE interpolation), temporal metrics |
+| 4 | `stats_author_pip_scores_current` | PiP-AUC score (trapezoidal integration) + percentile |
+
+### Materialization schedule
+
+| What | Schedule | Rationale |
+|------|----------|-----------|
+| Distribution tables (`dist_*`) | **Quarterly** | Population percentiles shift slowly; expensive to compute |
+| Snapshot tables (`*_table`) | **Daily** | Needed only for all-authors ranking/export; per-author pages use views directly |
+| Views | **Live** | Cheap per-author queries via dist table lookups; cached in Firestore |
+
+**Cost note:** Individual author data changes at most monthly (90-day re-crawl threshold). Daily snapshot materialization recomputes ~15,000 rows when typically <200 have changed. Per-author profile pages are unaffected — they query views directly and cache in Firestore.
 
 ## Tech Stack
 
