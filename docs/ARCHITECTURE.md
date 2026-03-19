@@ -251,12 +251,20 @@ Expensive views are materialized daily into `_table` suffixed tables via the `bi
 
 ### What it does
 
-1. **Author search:** User enters an author name → calls Author Search Service (Component 6) → display matching profiles
-2. **Author profile:** User selects an author → query BigQuery views for metrics, percentiles, PiP-AUC → render charts
-3. **Publication detail:** User clicks a publication → show citation timeline
-4. **Download:** Export author publications as CSV
-5. **All-authors ranking:** Export full ranking table as CSV (from materialized tables)
-6. **Refresh request:** User clicks "refresh" on a stale author → forwards request to Refresh & Expand service (Component 5)
+1. **Home page:** Show recently analyzed authors _(from GitHub issue #26)_ and search bar
+2. **Author search:** User enters an author name → calls Author Search Service (Component 6) → display matching profiles
+3. **Author profile:** User selects an author → query BigQuery views for metrics, percentiles, PiP-AUC → render charts
+4. **Publication detail:** User clicks a publication → show citation timeline
+5. **Download:** Export author publications as CSV
+6. **All-authors ranking:** Export full ranking table as CSV (from materialized tables)
+7. **Refresh request:** User clicks "refresh" on a stale author → forwards request to Refresh & Expand service (Component 5)
+
+### Page structure _(from GitHub issue #5)_
+
+All pages share a consistent template with:
+- **Header:** Permanent links to Home, Help, and other key pages
+- **Footer:** Attribution, contact, methodology link
+- **Navigation:** Consistent across all pages via a base template
 
 ### Boundaries
 
@@ -322,16 +330,25 @@ All charts are generated server-side with matplotlib and embedded as base64 PNG:
 ### What it does
 
 1. **Stale author refresh:** Identify authors not updated in N days → enqueue for re-crawl
-2. **User-triggered refresh:** When a user views an author and requests a refresh → enqueue for re-crawl
-3. **New author fetch:** When a user searches for an author not in the database → enqueue for initial crawl
-4. **Coauthor expansion:** Analyze the coauthor graph → identify high-value authors not yet in the database → enqueue for crawl
-5. **On-demand ingestion trigger:** After enqueuing a crawl for a user-requested author, optionally trigger an immediate ingestion cycle so results appear faster than the daily batch
+2. **Error author re-crawl:** Find authors with highest fetch errors and re-crawl them, with a **24-hour cooldown** to avoid getting stuck in retry loops _(from GitHub issue #32)_
+3. **User-triggered refresh:** When a user views an author and requests a refresh → enqueue for re-crawl
+4. **New author fetch:** When a user searches for an author not in the database → enqueue for initial crawl
+5. **Coauthor expansion:** Analyze the coauthor graph → identify high-value authors not yet in the database → enqueue for crawl (~1 per 10 min = ~4K new authors/month)
+6. **On-demand ingestion trigger:** After enqueuing a crawl for a user-requested author, optionally trigger an immediate ingestion cycle so results appear faster than the daily batch
+
+### Three scheduled tasks _(from GitHub issue #19)_
+
+| Task | Schedule | Description |
+|---|---|---|
+| **Refresh stale** | Periodic | Find oldest entries by timestamp → enqueue for re-crawl |
+| **Fix errors** | Periodic | Find authors with highest error counts → re-crawl (skip if processed within 24h) |
+| **Add coauthors** | ~1 per 10 min | Pick from `coauthors_to_add` view → enqueue for initial crawl |
 
 ### Boundaries
 
 | | Source | Target |
 |---|---|---|
-| **Reads** | BigQuery (`coauthors_to_add` view, raw table timestamps for staleness) | |
+| **Reads** | BigQuery (`coauthors_to_add` view, raw table timestamps for staleness, error counts) | |
 | **Writes** | | Cloud Tasks (`process-authors` queue) |
 
 ### Refresh policies
@@ -339,6 +356,7 @@ All charts are generated server-side with matplotlib and embedded as base64 PNG:
 | Trigger | Condition | Action |
 |---|---|---|
 | Scheduled | Author not updated in 90+ days | Enqueue for re-crawl |
+| Scheduled | Author has high error count + last attempt > 24h ago | Enqueue for re-crawl |
 | Scheduled | Coauthor not in database, high coauthor frequency | Enqueue for initial crawl |
 | User-driven | User clicks "refresh" on author profile | Enqueue for re-crawl |
 | User-driven | User searches for unknown author ID | Enqueue for initial crawl + trigger ingestion |
@@ -609,14 +627,19 @@ Deliverables:
 3. Calls Author Search Service (Component 6) instead of `scholarly` directly
 4. Calls Refresh & Expand (Component 5) for user-triggered refreshes
 5. No `scholarly` dependency in the frontend at all
+6. Home page shows recently analyzed authors _(from #26)_
+7. Consistent page template with header, footer, navigation _(from #5)_
+8. Input validation, security headers, CSRF protection, accessibility from the start
 
 #### Step 5: Refresh & Expand (Component 5)
 
 Deliverables:
 1. Separate Cloud Run service with Cloud Scheduler triggers
 2. Staleness tracking via BigQuery timestamps
-3. Coauthor expansion via BigQuery `coauthors_to_add` view
-4. HTTP endpoint for user-triggered refresh (called by frontend)
+3. Error author detection: find highest-error authors and re-crawl with 24h cooldown _(from #32)_
+4. Coauthor expansion via BigQuery `coauthors_to_add` view
+5. Three scheduled tasks _(from #19)_: refresh stale, fix errors, add coauthors
+6. HTTP endpoint for user-triggered refresh (called by frontend)
 
 #### Step 6: Author Search Service (Component 6)
 
@@ -634,6 +657,21 @@ Once all 6 components in `v3/` are deployed and validated:
 3. Drop `firestore_export` dataset
 4. Delete old code at repo root (keep in git history)
 5. Move `v3/` contents to repo root
+
+---
+
+## Future Features (beyond v3 launch)
+
+These are tracked in [TASKS.md](../TASKS.md) and are **not part of the v3 build plan**. They represent directions for after the v3 migration is complete.
+
+| Feature | Source | Description |
+|---|---|---|
+| **REST API** | GitHub #28 | Expose authors, publications, and stats as JSON API endpoints for third-party integrations |
+| **API + client-side JS** | GitHub #6 | Replace Jinja server-rendered templates with API calls + JavaScript (Chart.js/Plotly) |
+| **Field-specific benchmarks** | GitHub #12 | Compare against specific fields (business, CS, biology) with per-field percentiles |
+| **Crossref integration** | GitHub #20 | Enrich publications with DOIs and metadata from Crossref; consider bulk 120M dataset import |
+| **Author comparison** | — | Side-by-side PiP-AUC and percentile plots for multiple authors |
+| **Dynamic region rotation** | — | Per-request rotation instead of fixed at module import time |
 
 ---
 
