@@ -130,13 +130,33 @@ Archives are kept indefinitely in GCS for debugging and historical analysis.
 - **Cloud Scheduler:** Triggers the function (currently hourly; can move to daily)
 - **BigQuery schema:** Raw data stored as `{document_id, timestamp, data}` where `data` is a JSON string parsed by downstream views
 
-### Migration note: Eliminate Firestore Export path
+### Migration note: Unify on GCS-loaded tables
 
-**History:** The system originally used Firestore as the primary data store with Google's Firestore-to-BigQuery streaming extension. This was very expensive (continuous per-record streaming costs).
+**History:** The system originally used Firestore as the primary data store with Google's Firestore-to-BigQuery streaming extension. This was very expensive (continuous per-record streaming costs). The extension is now disabled, but the tables and dataset it created (`firestore_export`) remain, and all analytics views still read from them.
 
-**Current state:** The BigQuery analytics views still reference `firestore_export.scholar_raw_author_raw_latest` and `firestore_export.scholar_raw_pub_raw_latest` — remnants of the old Firestore Export path.
+**Current state (two disconnected datasets):**
+- The batch loader writes to `scholar_raw_data.author` and `scholar_raw_data.pub` (via `WRITE_APPEND` — multiple rows per document accumulate over time)
+- All analytics views read from `firestore_export.scholar_raw_author_raw_latest` and `firestore_export.scholar_raw_pub_raw_latest` — tables created by the now-disabled Firestore Export extension
+- The Firestore Export extension is **off**. The `firestore_export` tables contain frozen data from whenever the extension was last active. The batch loader writes to a completely separate dataset that nothing reads.
 
-**Target state:** All analytics views must be rewritten to read from the GCS-batch-loaded tables (`scholar_raw_data.author`, `scholar_raw_data.pub`) instead of the Firestore Export tables. The Firestore Export extension should be disabled. This is the single most important migration step.
+**Key difference:** The `_raw_latest` tables from Firestore Export had built-in deduplication (only the most recent version of each document). The batch-loaded `scholar_raw_data` tables use `WRITE_APPEND`, so they contain **every historical version** of every author/publication. Analytics views need "latest only" semantics.
+
+**Migration approach — start fresh:**
+
+1. Create `_latest` views on `scholar_raw_data` that deduplicate to most recent record per document:
+   ```sql
+   CREATE OR REPLACE VIEW `scholar_raw_data.author_latest` AS
+   SELECT * FROM (
+     SELECT *, ROW_NUMBER() OVER (
+       PARTITION BY document_id ORDER BY timestamp DESC
+     ) AS rn
+     FROM `scholar_raw_data.author`
+   ) WHERE rn = 1;
+   ```
+2. Rewrite all analytics views to read from `scholar_raw_data.author_latest` / `scholar_raw_data.pub_latest` instead of `firestore_export.*`
+3. Backfill: re-crawl all authors via the Crawler to populate `scholar_raw_data` with fresh data (or bulk-load from GCS archives if available)
+4. Verify analytics output matches expected results
+5. Drop the `firestore_export` dataset entirely
 
 ---
 
@@ -468,14 +488,16 @@ All SQL views referencing `firestore_export.scholar_raw_author_raw_latest` or `f
 
 ## Migration Plan
 
-### Phase 1: Rewrite BigQuery views to use GCS-loaded tables
+### Phase 1: Unify on GCS-loaded BigQuery tables
 
-**Goal:** Eliminate dependency on Firestore Export.
+**Goal:** All analytics views read from `scholar_raw_data` (batch-loaded). Drop `firestore_export` dataset.
 
-1. Rewrite all views that reference `firestore_export.*` to read from `scholar_raw_data.author` and `scholar_raw_data.pub`
-2. Verify analytics results match (compare output of old vs new views)
-3. Disable the Firestore-to-BigQuery export extension
-4. Remove Firestore raw data writes from crawler functions (if any remain)
+1. Create `scholar_raw_data.author_latest` and `scholar_raw_data.pub_latest` deduplication views (using `ROW_NUMBER() OVER (PARTITION BY document_id ORDER BY timestamp DESC)`)
+2. Rewrite all 10+ SQL files to reference `scholar_raw_data.*_latest` instead of `firestore_export.*`
+3. Backfill `scholar_raw_data` with current data — either re-crawl all authors or bulk-load from GCS archives
+4. Verify analytics output matches expected results (compare against `firestore_export` data for a sample of authors)
+5. Drop the `firestore_export` dataset
+6. Remove any remaining Firestore raw data writes from crawler functions
 
 ### Phase 2: Build Author Search Service (Component 6)
 
@@ -573,7 +595,7 @@ scholar_v2/
 
 | Issue | Component | Impact | Fix |
 |---|---|---|---|
-| **Firestore Export streaming** | Ingestion | Continuous per-record cost to BigQuery | Phase 1: rewrite views to use batch-loaded tables, disable export |
+| **Disconnected data pipeline** | Ingestion | Batch loader writes to `scholar_raw_data` but views read from frozen `firestore_export` tables — new data never reaches analytics | Phase 1: create `_latest` views, rewrite analytics to use `scholar_raw_data`, backfill data |
 | **Live BigQuery view queries** | Frontend | Full table scans on every author page view | **Already fixed:** distribution table lookups for per-author queries; materialized tables for bulk |
 | **Server-side matplotlib** | Frontend | ~200-500ms CPU per page load to generate 4-6 PNG charts | Future: move to client-side charting (Chart.js/Plotly) |
 | **9-region x 4 function deployment** | Crawler | 36 function deployments, most idle | Acceptable: minimal cost when idle, needed for rate-limit avoidance |
@@ -598,7 +620,7 @@ scholar_v2/
 
 ### Recommendations for cost reduction
 
-1. **Priority 1: Kill Firestore Export** (Phase 1). This is the single largest unnecessary cost. Rewriting views to use batch-loaded tables eliminates continuous streaming charges.
+1. **Priority 1: Reconnect the data pipeline** (Phase 1). The Firestore Export is already disabled, but the batch-loaded data (`scholar_raw_data`) is disconnected from the analytics views (which still read from frozen `firestore_export` tables). New crawled data never reaches the frontend. Creating `_latest` deduplication views and rewriting the analytics SQL is the critical first step.
 
 2. **Priority 2: Move Cloud Scheduler from hourly to daily.** The batch load runs hourly but daily is sufficient. Reduces BigQuery load job costs (minimal) and function invocations.
 
