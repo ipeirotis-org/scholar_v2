@@ -1,2 +1,15 @@
 .ipynb_checkpoints
 __pycache__
+*.pyc
+*.pyo
+*.egg-info/
+.env
+.env.*
+venv/
+.venv/
+.pytest_cache/
+.DS_Store
+downloads/
+*.log
+/tmp/
+sa-key.json

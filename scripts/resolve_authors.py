@@ -66,6 +66,7 @@ def resolve_author(name, resolved_ids):
                     break
         if len(coauthor_matches) == 1:
             sid = coauthor_matches[0].to_dict().get("scholar_id")
+            return {"name": name, "scholar_id": sid, "method": "coauthor_graph"}
 
     # Fallback: unresolved
     logging.warning(f"Unresolved author: {name}")
