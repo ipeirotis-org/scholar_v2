@@ -52,8 +52,10 @@ We are rebuilding the system from scratch in `v3/` with clean component boundari
   - [ ] Calls Author Search Service (Component 6) — no `scholarly` dependency
   - [ ] Calls Refresh & Expand (Component 5) for user-triggered refreshes
   - [ ] Visualization (decide: keep matplotlib or move to client-side charting)
+  - [ ] Show recently analyzed authors on the home page _(from #26)_
   - [ ] Input validation, security headers, CSRF protection from the start
   - [ ] Accessibility: keyboard support, ARIA, no deprecated HTML attributes
+  - [ ] Overall page template: consistent header, footer, navigation across all pages _(from #5)_
   - [ ] Pin dependency versions in `requirements.txt`
   - [ ] Tests and Dockerfile
 
@@ -61,9 +63,10 @@ We are rebuilding the system from scratch in `v3/` with clean component boundari
 
 - [ ] **Build as a separate service in `v3/refresh/`**
   - [ ] Stale author detection via BigQuery timestamps (`MAX(timestamp)` on raw tables)
+  - [ ] Error author detection: find authors with highest fetch errors and re-crawl (with 24h cooldown to avoid loops) _(from #32)_
   - [ ] Coauthor expansion via BigQuery `coauthors_to_add` view (evaluate oversample_factor — currently 100x may be excessive)
   - [ ] Queue manager: enqueue to Cloud Tasks, check pending status
-  - [ ] Cloud Scheduler triggers for periodic refresh and expansion
+  - [ ] Three scheduled tasks _(from #19)_: refresh stale authors, fix error authors, add coauthors (~1 per 10 min = ~4K/month)
   - [ ] HTTP endpoint for user-triggered refresh (called by frontend)
   - [ ] Tests and CI/CD
 
@@ -118,6 +121,25 @@ We are rebuilding the system from scratch in `v3/` with clean component boundari
 ---
 
 ## Future Features (for v3)
+
+- [ ] **REST API for authors, publications, and stats** _(from #28)_
+  - Expose data as JSON API endpoints (separate from the HTML frontend)
+  - Enables third-party integrations and programmatic access
+  - Could be a separate Cloud Run service or part of the frontend with `/api/` routes
+
+- [ ] **Migrate frontend to API + client-side JS** _(from #6)_
+  - Replace Jinja server-rendered templates with API calls + JavaScript
+  - Aligns with client-side charting direction (Chart.js/Plotly)
+  - Added benefit: exposes a usable API for external consumers
+
+- [ ] **Field-specific benchmarks** _(from #12)_
+  - Allow users to compare against their field (business, CS, biology, etc.)
+  - Show number of people included per field, field-specific percentiles
+
+- [ ] **Crossref integration for publication metadata** _(from #20)_
+  - Query Crossref to find DOIs and enriched metadata for publications in our dataset
+  - Colab notebook exists: https://colab.research.google.com/drive/14WhIOthRkVMWp0r3O86PYVHTQ0CuipeT
+  - Consider bulk importing the 120M entries dataset (publications until 2020)
 
 - [ ] **Author comparison feature**
   - Side-by-side PiP-AUC and percentile plots for multiple authors
