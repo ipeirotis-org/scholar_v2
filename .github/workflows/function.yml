@@ -72,6 +72,74 @@ jobs:
           --gen2 \
           --source /tmp/deploy/
 
+  # --- v3 ingestion function (batch_load) ---
+  deploy-v3-ingestion:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Authenticate to Google Cloud
+      uses: google-github-actions/auth@v2
+      with:
+        credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+    - name: Set up Cloud SDK
+      uses: google-github-actions/setup-gcloud@v2
+      with:
+        project_id: ${{ env.PROJECT_ID }}
+
+    - name: Prepare source for v3_batch_load
+      run: |
+        mkdir -p /tmp/deploy-ingestion/ingestion
+        # Copy ingestion package
+        cp v3/ingestion/__init__.py /tmp/deploy-ingestion/ingestion/
+        cp v3/ingestion/config.py /tmp/deploy-ingestion/ingestion/
+        cp v3/ingestion/batch_load.py /tmp/deploy-ingestion/ingestion/
+        # Create main.py entry point
+        cp v3/ingestion/batch_load.py /tmp/deploy-ingestion/main.py
+        # Copy requirements
+        cp v3/ingestion/requirements.txt /tmp/deploy-ingestion/requirements.txt
+        # Fix imports: v3.ingestion -> ingestion
+        sed -i 's/from v3\.ingestion\./from ingestion./g' /tmp/deploy-ingestion/ingestion/*.py
+        sed -i 's/from v3\.ingestion\./from ingestion./g' /tmp/deploy-ingestion/main.py
+
+    - name: Deploy v3_batch_load to us-central1
+      run: |
+        gcloud functions deploy "v3_batch_load_gcs_to_bq" \
+          --region "us-central1" \
+          --entry-point "batch_load_gcs_to_bq" \
+          --runtime python312 \
+          --trigger-http \
+          --allow-unauthenticated \
+          --memory="512MB" \
+          --timeout="3600s" \
+          --gen2 \
+          --source /tmp/deploy-ingestion/
+
+  # --- v3 ingestion dedup views ---
+  deploy-v3-dedup-views:
+    needs: deploy-v3-ingestion
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Authenticate to Google Cloud
+      uses: google-github-actions/auth@v2
+      with:
+        credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+    - name: Set up Cloud SDK
+      uses: google-github-actions/setup-gcloud@v2
+      with:
+        project_id: ${{ env.PROJECT_ID }}
+
+    - name: Deploy dedup views (author_latest, pub_latest)
+      run: bq query --project_id=${{ env.PROJECT_ID }} --use_legacy_sql=false < v3/ingestion/dedup_views.sql
+
   # --- Legacy functions (not yet migrated to v3) ---
   deploy-legacy-functions:
     runs-on: ubuntu-latest
