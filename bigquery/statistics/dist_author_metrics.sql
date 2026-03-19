@@ -9,7 +9,7 @@
 -- so that view can read directly from this small table instead of scanning
 -- all of stats_author_current.
 --
--- Refreshed daily by bigquery-materialize.yml.
+-- Refreshed quarterly by bigquery-materialize-distributions.yml.
 -- Used by stats_author_current for fast lookups instead of live PERCENT_RANK().
 
 CREATE OR REPLACE TABLE `scholar-version2.statistics.dist_author_metrics`

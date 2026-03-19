@@ -8,7 +8,7 @@
 -- so that the underlying stats_publication_current and stats_author_current
 -- views are fast when computing pip scores for all authors.
 --
--- Refreshed daily by bigquery-materialize.yml (run after dist_* tables).
+-- Refreshed quarterly by bigquery-materialize-distributions.yml.
 
 CREATE OR REPLACE TABLE `scholar-version2.statistics.dist_pip_auc_scores`
 CLUSTER BY year_of_first_pub
