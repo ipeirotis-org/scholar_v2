@@ -1,4 +1,4 @@
-# System Architecture: Scholar Analytics v2
+# System Architecture: Scholar Analytics
 
 ## Overview
 
@@ -53,7 +53,7 @@ Scholar Analytics is a system for analyzing Google Scholar data using percentile
 | **Writes** | | GCS (`authors_json/`, `publications_json/`) |
 | **Receives work from** | Cloud Tasks (`process-authors`, `process-pubs`) | |
 
-### Current implementation
+### Implementation
 
 | File | Role |
 |---|---|
@@ -69,13 +69,6 @@ Scholar Analytics is a system for analyzing Google Scholar data using percentile
 - **Cloud Tasks queues:** `process-authors` (author fetches), `process-pubs` (publication fetches), both in `northamerica-northeast1`
 - **Timeouts:** 1 hour for author fetch, 60 seconds for publication fetch
 - **Idempotency:** Task names include the scholar/pub ID; Cloud Tasks deduplicates (AlreadyExists caught gracefully)
-
-### Queue management needs
-
-- Query queue depth (number of pending tasks)
-- Check if a specific author/publication fetch is pending or complete
-- Purge/cancel tasks if needed
-- Monitor for stuck or failed tasks
 
 ### Archival
 
@@ -112,12 +105,16 @@ Archives are kept indefinitely in GCS for debugging and historical analysis.
 | **Writes** | | BigQuery (`scholar_raw_data.author`, `scholar_raw_data.pub`) |
 | | | GCS (archive moves, temp NDJSON, dead letter) |
 
+### Deduplication
+
+The raw tables use `WRITE_APPEND`, so they accumulate every historical version of each document. `_latest` views deduplicate to the most recent record per document using `ROW_NUMBER() OVER (PARTITION BY document_id ORDER BY timestamp DESC)`. All downstream analytics read from these `_latest` views.
+
 ### Cadence
 
 - **Default: daily batch.** This is a slow-moving field; daily is sufficient for routine operation.
-- **On-demand: event-driven.** When a user searches for an author not yet in the database, the frontend can trigger an immediate ingestion cycle for that specific author after the crawler completes. This avoids the cost of continuous event-driven loading while providing responsive UX for interactive users.
+- **On-demand:** When a user searches for an author not yet in the database, the frontend can trigger an immediate ingestion cycle after the crawler completes.
 
-### Current implementation
+### Implementation
 
 | File | Role |
 |---|---|
@@ -127,36 +124,8 @@ Archives are kept indefinitely in GCS for debugging and historical analysis.
 ### Infrastructure
 
 - **Cloud Function (Gen2):** `batch_load_gcs_to_bq`, 1-hour timeout, 512MB memory
-- **Cloud Scheduler:** Triggers the function (currently hourly; can move to daily)
+- **Cloud Scheduler:** Triggers the function daily
 - **BigQuery schema:** Raw data stored as `{document_id, timestamp, data}` where `data` is a JSON string parsed by downstream views
-
-### Migration note: Unify on GCS-loaded tables
-
-**History:** The system originally used Firestore as the primary data store with Google's Firestore-to-BigQuery streaming extension. This was very expensive (continuous per-record streaming costs). The extension is now disabled, but the tables and dataset it created (`firestore_export`) remain, and all analytics views still read from them.
-
-**Current state (two disconnected datasets):**
-- The batch loader writes to `scholar_raw_data.author` and `scholar_raw_data.pub` (via `WRITE_APPEND` — multiple rows per document accumulate over time)
-- All analytics views read from `firestore_export.scholar_raw_author_raw_latest` and `firestore_export.scholar_raw_pub_raw_latest` — tables created by the now-disabled Firestore Export extension
-- The Firestore Export extension is **off**. The `firestore_export` tables contain frozen data from whenever the extension was last active. The batch loader writes to a completely separate dataset that nothing reads.
-
-**Key difference:** The `_raw_latest` tables from Firestore Export had built-in deduplication (only the most recent version of each document). The batch-loaded `scholar_raw_data` tables use `WRITE_APPEND`, so they contain **every historical version** of every author/publication. Analytics views need "latest only" semantics.
-
-**Migration approach — start fresh:**
-
-1. Create `_latest` views on `scholar_raw_data` that deduplicate to most recent record per document:
-   ```sql
-   CREATE OR REPLACE VIEW `scholar_raw_data.author_latest` AS
-   SELECT * FROM (
-     SELECT *, ROW_NUMBER() OVER (
-       PARTITION BY document_id ORDER BY timestamp DESC
-     ) AS rn
-     FROM `scholar_raw_data.author`
-   ) WHERE rn = 1;
-   ```
-2. Rewrite all analytics views to read from `scholar_raw_data.author_latest` / `scholar_raw_data.pub_latest` instead of `firestore_export.*`
-3. Backfill: re-crawl all authors via the Crawler to populate `scholar_raw_data` with fresh data (or bulk-load from GCS archives if available)
-4. Verify analytics output matches expected results
-5. Drop the `firestore_export` dataset entirely
 
 ---
 
@@ -164,7 +133,7 @@ Archives are kept indefinitely in GCS for debugging and historical analysis.
 
 **Purpose:** Compute all metrics, percentiles, and scores from raw BigQuery data.
 
-**Input:** BigQuery raw tables (`scholar_raw_data.author`, `scholar_raw_data.pub`).
+**Input:** BigQuery raw tables via `_latest` deduplication views.
 
 **Output:** BigQuery views and materialized tables with computed metrics.
 
@@ -183,10 +152,7 @@ Tier 0 (distribution tables, materialized quarterly):
   dist_publication_citations          — (pub_year, num_citations) → percentile
   dist_author_metrics                 — (cohort, metric, value) → percentile
   dist_pip_auc_scores                 — (cohort, pip_auc_score) → percentile
-  dist_publication_citations_temporal — (pub_year, citation_year, yearly_citations) → percentile  [PLANNED]
-                                       (pub_year, citation_year, cumulative_citations) → percentile
-                                       (age, yearly_citations) → percentile
-                                       (age, cumulative_citations) → percentile
+  dist_publication_citations_temporal — (pub_year, citation_year, yearly/cumulative_citations) → percentile
 
 Tier 1 (no view dependencies):
   base_author_publications            — author → publication list
@@ -209,12 +175,12 @@ Tier 4 (depends on Tier 3):
 
 ### Materialization strategy
 
-Expensive views are materialized daily into `_table` suffixed tables via the `bigquery-materialize.yml` workflow (06:00 UTC):
+Expensive views are materialized daily via the `bigquery-materialize.yml` workflow (06:00 UTC):
 
 | Materialized table | Source |
 |---|---|
 | `dist_publication_citations` | PERCENT_RANK by pub_year |
-| `dist_publication_citations_temporal` | PERCENT_RANK by (pub_year, citation_year) and by age for yearly + cumulative citations — 4 percentile columns [PLANNED] |
+| `dist_publication_citations_temporal` | PERCENT_RANK by (pub_year, citation_year) and by age for yearly + cumulative citations |
 | `dist_author_metrics` | PERCENT_RANK by cohort for 8 metrics |
 | `dist_pip_auc_scores` | PiP-AUC percentiles |
 | `stats_author_current_table` | `stats_author_current` view |
@@ -227,10 +193,10 @@ Expensive views are materialized daily into `_table` suffixed tables via the `bi
 
 | | Source | Target |
 |---|---|---|
-| **Reads** | BigQuery raw tables (`scholar_raw_data.author`, `scholar_raw_data.pub`) | |
+| **Reads** | BigQuery raw tables (`scholar_raw_data.author`, `scholar_raw_data.pub`) via `_latest` views | |
 | **Writes** | | BigQuery views and materialized tables |
 
-### Current implementation
+### Implementation
 
 | File | Role |
 |---|---|
@@ -251,7 +217,7 @@ Expensive views are materialized daily into `_table` suffixed tables via the `bi
 
 ### What it does
 
-1. **Home page:** Show recently analyzed authors _(from GitHub issue #26)_ and search bar
+1. **Home page:** Recently analyzed authors and search bar
 2. **Author search:** User enters an author name → calls Author Search Service (Component 6) → display matching profiles
 3. **Author profile:** User selects an author → query BigQuery views for metrics, percentiles, PiP-AUC → render charts
 4. **Publication detail:** User clicks a publication → show citation timeline
@@ -259,7 +225,7 @@ Expensive views are materialized daily into `_table` suffixed tables via the `bi
 6. **All-authors ranking:** Export full ranking table as CSV (from materialized tables)
 7. **Refresh request:** User clicks "refresh" on a stale author → forwards request to Refresh & Expand service (Component 5)
 
-### Page structure _(from GitHub issue #5)_
+### Page structure
 
 All pages share a consistent template with:
 - **Header:** Permanent links to Home, Help, and other key pages
@@ -291,7 +257,7 @@ The frontend caches BigQuery query results in Firestore to avoid repeated expens
 - **Invalidation:** Cache entry is stale when the author's latest data (max of author timestamp and latest publication timestamp) is newer than the cache timestamp
 - **Collections used:** `author_pub_stats`, `author_stats`, `pub_stats`
 
-Firestore is used **only** as a cache in the target architecture — not as a raw data store.
+Firestore is used **only** as a query result cache — not as a raw data store.
 
 ### Visualization
 
@@ -301,14 +267,13 @@ All charts are generated server-side with matplotlib and embedded as base64 PNG:
 - Publication citation timeline (yearly + cumulative percentile, dual axis)
 - Temporal author metrics (h-index, citations, i10 over time)
 
-### Current implementation
+### Implementation
 
 | File | Role |
 |---|---|
 | `app/main.py` | Flask routes: `/`, `/results`, `/download`, `/publication/*` |
 | `app/data_analysis.py` | BigQuery queries + Firestore cache layer |
 | `app/visualization.py` | Matplotlib chart generation |
-| `app/scholar.py` | Google Scholar author search — **TO DELETE** (replaced by Component 6) |
 | `app/templates/` | Jinja2 HTML templates |
 | `app/static/` | CSS, JS assets |
 
@@ -330,13 +295,13 @@ All charts are generated server-side with matplotlib and embedded as base64 PNG:
 ### What it does
 
 1. **Stale author refresh:** Identify authors not updated in N days → enqueue for re-crawl
-2. **Error author re-crawl:** Find authors with highest fetch errors and re-crawl them, with a **24-hour cooldown** to avoid getting stuck in retry loops _(from GitHub issue #32)_
+2. **Error author re-crawl:** Find authors with highest fetch errors and re-crawl them, with a **24-hour cooldown** to avoid retry loops
 3. **User-triggered refresh:** When a user views an author and requests a refresh → enqueue for re-crawl
 4. **New author fetch:** When a user searches for an author not in the database → enqueue for initial crawl
 5. **Coauthor expansion:** Analyze the coauthor graph → identify high-value authors not yet in the database → enqueue for crawl (~1 per 10 min = ~4K new authors/month)
 6. **On-demand ingestion trigger:** After enqueuing a crawl for a user-requested author, optionally trigger an immediate ingestion cycle so results appear faster than the daily batch
 
-### Three scheduled tasks _(from GitHub issue #19)_
+### Scheduled tasks
 
 | Task | Schedule | Description |
 |---|---|---|
@@ -361,25 +326,14 @@ All charts are generated server-side with matplotlib and embedded as base64 PNG:
 | User-driven | User clicks "refresh" on author profile | Enqueue for re-crawl |
 | User-driven | User searches for unknown author ID | Enqueue for initial crawl + trigger ingestion |
 
-### Current implementation
+### Implementation
 
-| File | Role |
-|---|---|
-| `app/refresh.py` | Stale author detection, coauthor discovery, fetch enqueueing |
-| `app/coauthor_service.py` | BigQuery query for coauthors not in DB |
-| `app/queue_handler.py` | Cloud Tasks wrapper (enqueue, check pending) |
-| `shared/services/task_queue_service.py` | Cloud Tasks client |
-| `shared/repositories/author_repository.py` | Firestore staleness queries |
-
-### Migration: Extract from Flask app
-
-Currently, Refresh & Expand logic lives inside the Flask app as API routes (`/api/refresh_stale_authors`, `/api/add_coauthors`, `/api/fetch_authors`). These should be extracted into a **separate Cloud Run service** with:
-
+Refresh & Expand runs as a **separate Cloud Run service** with:
 - **Cloud Scheduler triggers** for periodic stale refresh and coauthor expansion
 - **HTTP endpoints** for user-triggered refreshes (called by the frontend)
 - Its own deployment pipeline, independent of the frontend
 
-This separation means the frontend becomes truly read-only, and refresh/expand logic can be scaled, tested, and debugged independently.
+This separation keeps the frontend truly read-only.
 
 ---
 
@@ -399,15 +353,13 @@ This separation means the frontend becomes truly read-only, and refresh/expand l
 
 ### Data sources for local search
 
-The system already has rich author identity data:
-
 | Source | What it contains | Coverage |
 |---|---|---|
 | `stats_author_current` view | name, affiliation, email_domain, scholar_id, metrics | All crawled authors (~15k+) |
 | `coauthor_network` view | coauthor_name, coauthor_affiliation, coauthor_scholar_id | All coauthors of crawled authors (much larger set) |
 | `coauthors_to_add` view | name, affiliation, scholar_id of authors not yet crawled | Discovery candidates |
 
-This means most academic searches can be answered locally. A professor searching for their colleague will almost certainly find them in the coauthor graph without hitting Google Scholar at all.
+Most academic searches can be answered locally — a professor searching for their colleague will almost certainly find them in the coauthor graph without hitting Google Scholar.
 
 ### Search strategy
 
@@ -437,23 +389,9 @@ This means most academic searches can be answered locally. A professor searching
 | | Google Scholar (fallback via `scholarly`) | |
 | **Writes** | | Firestore (search result cache) |
 
-### Why a separate component
-
-- **Rate limiting:** Google Scholar aggressively rate-limits. Running `scholarly` from a Cloud Function with 9-region rotation is safer than running it from the single-region Flask app.
-- **Testability:** Search logic can be tested independently — mock BigQuery results, verify fallback behavior.
-- **Scalability:** Can add more sophisticated matching (fuzzy name matching, affiliation search, autocomplete) without touching the frontend.
-- **Separation of concerns:** The frontend should not import `scholarly` at all.
-
-### Current implementation
-
-| File | Role | Target state |
-|---|---|---|
-| `functions/find_scholar_id_from_name/main.py` | Cloud Function: Scholar search only | Extend with local BigQuery search |
-| `app/scholar.py` | Flask app: duplicate Scholar search | **Delete** — replaced by this component |
-
 ### Frontend integration
 
-The frontend autocomplete should call this service as the user types:
+The frontend calls this service for author search:
 - Debounced input (300ms) → HTTP call to Author Search Service
 - Display results as dropdown: name, affiliation, scholar_id
 - Clicking a result navigates to `/results?author_id=X`
@@ -462,7 +400,6 @@ The frontend autocomplete should call this service as the user types:
 ### Infrastructure
 
 - **Cloud Function (Gen2):** Deployed across 9 US regions (same rotation as Crawler)
-- **OR Cloud Run service:** If we need persistent connections or more complex logic
 - Benefits from region rotation for Google Scholar fallback calls
 
 ---
@@ -477,8 +414,8 @@ The frontend autocomplete should call this service as the user types:
 | **GCS `publications_archive/`** | Archived publication JSON | Ingestion | (debugging only) |
 | **GCS `dead_letter/`** | Failed files | Ingestion | (debugging only) |
 | **GCS `all_authors_stats.csv`** | Author rankings export | Frontend | Frontend (signed URL download) |
-| **BigQuery `scholar_raw_data.author`** | Raw author records | Ingestion | Analytics |
-| **BigQuery `scholar_raw_data.pub`** | Raw publication records | Ingestion | Analytics |
+| **BigQuery `scholar_raw_data.author`** | Raw author records | Ingestion | Analytics (via `_latest` views) |
+| **BigQuery `scholar_raw_data.pub`** | Raw publication records | Ingestion | Analytics (via `_latest` views) |
 | **BigQuery views** | Computed metrics/percentiles | Analytics | Frontend, Refresh & Expand |
 | **BigQuery materialized tables** | Daily snapshots of views | Analytics | Frontend (bulk exports) |
 | **Firestore (cache collections)** | Query result cache | Frontend, Author Search | Frontend, Author Search |
@@ -487,244 +424,53 @@ The frontend autocomplete should call this service as the user types:
 
 ---
 
-## Code to Delete or Consolidate
-
-These are identified redundancies and dead code based on the target architecture:
-
-### Duplicate author search
-
-Both `app/scholar.py` and `functions/find_scholar_id_from_name/main.py` implement Google Scholar author search with Firestore caching. **Delete `app/scholar.py`.** The Cloud Function becomes the Author Search Service (Component 6), extended with local BigQuery search before Scholar fallback. The Flask app calls this service instead of using `scholarly` directly.
-
-### Firestore as raw data store
-
-`shared/repositories/author_repository.py` and `shared/repositories/publication_repository.py` provide CRUD for raw scholar data in Firestore. In the target architecture, raw data lives only in GCS and BigQuery. **Delete both repositories.** Staleness tracking moves to BigQuery (`SELECT MAX(timestamp) FROM scholar_raw_data.author WHERE document_id = @id`).
-
-### Firestore Export references in BigQuery views
-
-All SQL views referencing `firestore_export.scholar_raw_author_raw_latest` or `firestore_export.scholar_raw_pub_raw_latest` must be rewritten to use `scholar_raw_data.author` and `scholar_raw_data.pub`.
-
-### Refresh & Expand routes in Flask app
-
-`app/main.py` routes `/api/add_coauthors`, `/api/refresh_stale_authors`, `/api/fetch_authors` should move to the separate Refresh & Expand service. The Flask app should only have a thin endpoint that forwards user-triggered refresh requests.
-
----
-
-## Build Plan
-
-### Approach: Fresh codebase in `v3/` subfolder
-
-The new architecture is built from scratch in `v3/`, component by component. The old code at the repo root continues to serve production until each component is replaced. Tests are written first for each component.
-
-### `v3/` directory layout
-
-```
-v3/
-├── crawler/                       # Component 1 (build first)
-│   ├── fetch_author.py            # Cloud Function entry point
-│   ├── fetch_publication.py       # Cloud Function entry point
-│   ├── scholarly_client.py        # scholarly wrapper with timeout/retry
-│   ├── gcs_writer.py              # GCS JSON upload logic
-│   ├── task_enqueuer.py           # Cloud Tasks publication enqueueing
-│   ├── config.py                  # Crawler-specific config
-│   ├── requirements.txt
-│   └── tests/
-│       ├── test_fetch_author.py
-│       ├── test_fetch_publication.py
-│       ├── test_scholarly_client.py
-│       └── test_gcs_writer.py
-├── ingestion/                     # Component 2
-│   ├── batch_load.py              # Cloud Function: GCS → BigQuery
-│   ├── dedup_views.sql            # author_latest / pub_latest views
-│   ├── config.py
-│   ├── requirements.txt
-│   └── tests/
-├── analytics/                     # Component 3
-│   ├── views/
-│   │   ├── statistics/            # All SQL view definitions
-│   │   └── coauthor_network/
-│   ├── materialization/           # Materialization SQL + scheduling
-│   └── tests/                     # View output validation
-├── frontend/                      # Component 4
-│   ├── app/
-│   │   ├── main.py
-│   │   ├── data_analysis.py
-│   │   ├── visualization.py
-│   │   ├── templates/
-│   │   └── static/
-│   ├── Dockerfile
-│   ├── requirements.txt
-│   └── tests/
-├── refresh/                       # Component 5
-│   ├── stale_refresh.py
-│   ├── coauthor_expansion.py
-│   ├── queue_manager.py
-│   ├── config.py
-│   ├── requirements.txt
-│   └── tests/
-├── author_search/                 # Component 6
-│   ├── main.py                    # Cloud Function: local search + Scholar fallback
-│   ├── config.py
-│   ├── requirements.txt
-│   └── tests/
-├── shared/                        # Common utilities (copied into each component at deploy)
-│   ├── config.py                  # GCP project, bucket, queue names
-│   ├── gcs_client.py              # GCS operations
-│   ├── bigquery_client.py         # BigQuery query execution
-│   ├── firestore_client.py        # Firestore cache operations
-│   ├── task_queue_client.py       # Cloud Tasks operations
-│   └── utils.py
-└── .github/workflows/
-    ├── deploy-crawler.yml
-    ├── deploy-ingestion.yml
-    ├── deploy-analytics.yml
-    ├── deploy-frontend.yml
-    ├── deploy-refresh.yml
-    └── deploy-author-search.yml
-```
-
-### Build order
-
-Each component is built from scratch with tests first, deployed, and validated before moving to the next.
-
-#### Step 1: Crawler (Component 1)
-
-**Write from scratch.** The crawler is the most independent component — no dependencies on other components.
-
-Deliverables:
-1. `scholarly_client.py` — wrapper around `scholarly` with timeout handling (ThreadPoolExecutor), retry logic, and clean error classification (transient vs permanent)
-2. `gcs_writer.py` — upload JSON to GCS with date-prefix path, retry on failure
-3. `task_enqueuer.py` — enqueue publication fetch tasks to Cloud Tasks with stagger delay
-4. `fetch_author.py` — Cloud Function entry point: receive author_id → scholarly_client → gcs_writer → task_enqueuer
-5. `fetch_publication.py` — Cloud Function entry point: receive pub_data → scholarly_client → gcs_writer
-6. Tests for all of the above (mocked scholarly, mocked GCS, mocked Cloud Tasks)
-7. `deploy-crawler.yml` — CI/CD for 9-region deployment
-
-**Validation:** Deploy, crawl a test author, verify JSON in GCS.
-
-#### Step 2: Ingestion (Component 2)
-
-Deliverables:
-1. `batch_load.py` — GCS → NDJSON → BigQuery batch load with chunking, dead-letter handling
-2. `dedup_views.sql` — `author_latest` and `pub_latest` views with `ROW_NUMBER()` deduplication
-3. Tests, CI/CD
-
-**Validation:** Load crawled JSON into BigQuery, query `_latest` views, verify data.
-
-#### Step 3: Analytics (Component 3)
-
-Deliverables:
-1. Rewrite all SQL views to read from `scholar_raw_data.*_latest` (no more `firestore_export`)
-2. Distribution tables + materialization
-3. View validation tests (compare output against known-good data)
-
-**Validation:** Query analytics views for a sample of authors, verify metrics match expectations.
-
-#### Step 4: Frontend (Component 4)
-
-Deliverables:
-1. Flask app that reads from analytics views and materialized tables
-2. Firestore cache (query results only)
-3. Calls Author Search Service (Component 6) instead of `scholarly` directly
-4. Calls Refresh & Expand (Component 5) for user-triggered refreshes
-5. No `scholarly` dependency in the frontend at all
-6. Home page shows recently analyzed authors _(from #26)_
-7. Consistent page template with header, footer, navigation _(from #5)_
-8. Input validation, security headers, CSRF protection, accessibility from the start
-
-#### Step 5: Refresh & Expand (Component 5)
-
-Deliverables:
-1. Separate Cloud Run service with Cloud Scheduler triggers
-2. Staleness tracking via BigQuery timestamps
-3. Error author detection: find highest-error authors and re-crawl with 24h cooldown _(from #32)_
-4. Coauthor expansion via BigQuery `coauthors_to_add` view
-5. Three scheduled tasks _(from #19)_: refresh stale, fix errors, add coauthors
-6. HTTP endpoint for user-triggered refresh (called by frontend)
-
-#### Step 6: Author Search Service (Component 6)
-
-Deliverables:
-1. Local BigQuery search (stats_author_current + coauthor_network)
-2. Google Scholar fallback via `scholarly`
-3. Firestore cache for Scholar results
-4. Frontend autocomplete integration
-
-### Cutover
-
-Once all 6 components in `v3/` are deployed and validated:
-1. Point production traffic to `v3/` services
-2. Backfill `scholar_raw_data` by re-crawling all authors
-3. Drop `firestore_export` dataset
-4. Delete old code at repo root (keep in git history)
-5. Move `v3/` contents to repo root
-
----
-
-## Future Features (beyond v3 launch)
-
-These are tracked in [TASKS.md](../TASKS.md) and are **not part of the v3 build plan**. They represent directions for after the v3 migration is complete.
-
-| Feature | Source | Description |
-|---|---|---|
-| **REST API** | GitHub #28 | Expose authors, publications, and stats as JSON API endpoints for third-party integrations |
-| **API + client-side JS** | GitHub #6 | Replace Jinja server-rendered templates with API calls + JavaScript (Chart.js/Plotly) |
-| **Field-specific benchmarks** | GitHub #12 | Compare against specific fields (business, CS, biology) with per-field percentiles |
-| **Crossref integration** | GitHub #20 | Enrich publications with DOIs and metadata from Crossref; consider bulk 120M dataset import |
-| **Author comparison** | — | Side-by-side PiP-AUC and percentile plots for multiple authors |
-| **Dynamic region rotation** | — | Per-request rotation instead of fixed at module import time |
-
----
-
 ## Design Decisions
 
-1. **Staleness tracking: BigQuery.** Use `SELECT MAX(timestamp) FROM scholar_raw_data.author WHERE document_id = @id`. This eliminates Firestore as a dependency for Refresh & Expand and lets us delete `shared/repositories/`. BigQuery latency (~500ms) is acceptable since staleness checks run on schedules, not in user-facing request paths.
+1. **Staleness tracking: BigQuery.** Use `SELECT MAX(timestamp) FROM scholar_raw_data.author WHERE document_id = @id`. This eliminates Firestore as a dependency for Refresh & Expand. BigQuery latency (~500ms) is acceptable since staleness checks run on schedules, not in user-facing request paths.
 
-2. **Author search: Separate component (Component 6).** The existing `find_scholar_id_from_name` Cloud Function becomes the Author Search Service, extended with local BigQuery search before Scholar fallback. `app/scholar.py` is deleted. The service benefits from 9-region rotation for Scholar API calls.
+2. **Author search: Separate component (Component 6).** A dedicated service with local BigQuery search before Scholar fallback. Benefits from 9-region rotation for Scholar API calls. The frontend does not import `scholarly`.
 
-3. **On-demand latency: Show "queued" status.** The crawler is not real-time. When a user searches for an unknown author, Refresh & Expand enqueues the crawl and the frontend shows a message like "Author queued for analysis, results available within 24 hours." No event-driven ingestion needed.
+3. **On-demand latency: Show "queued" status.** The crawler is not real-time. When a user searches for an unknown author, Refresh & Expand enqueues the crawl and the frontend shows "Author queued for analysis." No event-driven ingestion needed for most cases.
 
-4. **Shared code: Keep copy approach.** The `shared/` directory is copied into each component at deploy time (already done in CI/CD). Add a `shared/VERSION` file so deployed components can report which version of shared code they're running.
+4. **Shared code: Copy at deploy.** The `shared/` directory is copied into each component at deploy time. A `shared/VERSION` file lets deployed components report which version of shared code they're running.
 
 ---
 
-## Cost and Performance Analysis
+## Cost and Performance
 
-### Current cost hotspots
+### Cost profile
 
-| Issue | Component | Impact | Fix |
-|---|---|---|---|
-| **Disconnected data pipeline** | Ingestion | Batch loader writes to `scholar_raw_data` but views read from frozen `firestore_export` tables — new data never reaches analytics | Phase 1: create `_latest` views, rewrite analytics to use `scholar_raw_data`, backfill data |
-| **Live BigQuery view queries** | Frontend | Full table scans on every author page view | **Partially fixed:** distribution table lookups for per-author queries; materialized tables for bulk. `stats_publication_citations_temporal` still computes 4 `PERCENT_RANK()` calls live (yearly/cumulative × pub_year/age). Planned: `dist_publication_citations_temporal` table. |
-| **Server-side matplotlib** | Frontend | ~200-500ms CPU per page load to generate 4-6 PNG charts | Future: move to client-side charting (Chart.js/Plotly) |
-| **9-region x 4 function deployment** | Crawler | 36 function deployments, most idle | Acceptable: minimal cost when idle, needed for rate-limit avoidance |
-| **Firestore cache reads** | Frontend | 5-7 reads per page view (cache check + data) | Reduce: consolidate into fewer documents, accept stale data for longer |
+| Area | Cost | Notes |
+|---|---|---|
+| **GCS storage** | Negligible | Raw JSON + archives < 1GB |
+| **Cloud Tasks** | Near-zero | Low volume |
+| **BigQuery storage** | Minimal | Small raw + materialized tables |
+| **Daily batch ingestion** | Free tier | One load job per day |
+| **9-region function deployment** | Low | Minimal cost when idle, needed for rate-limit avoidance |
+| **Firestore cache** | Low | 5-7 reads per page view |
+| **Server-side matplotlib** | Moderate | ~200-500ms CPU per page load for 4-6 charts |
 
-### What's already cheap
+### Performance characteristics
 
-- **GCS storage:** Raw JSON + archives are small (<1GB total). Negligible cost.
-- **Cloud Tasks:** Per-task pricing is near-zero at our volume.
-- **BigQuery storage:** Raw tables + materialized tables are small. Storage cost is minimal.
-- **Daily batch ingestion:** One BigQuery load job per day is essentially free.
+| Operation | Latency | Mitigation |
+|---|---|---|
+| BigQuery per-author query | 1-3s | Firestore cache (hit: ~50ms). Distribution table lookups keep view cost low. |
+| matplotlib chart generation | 200-500ms | Could move to client-side JS charting in the future. |
+| scholarly.fill() for author | 10-60s | Unavoidable — Scholar is slow. 1-hour timeout is appropriate. |
+| scholarly.search_author() | 2-5s | Local BigQuery search first (Component 6) avoids this for most queries. |
+| Bulk export (all authors) | 5-15s | Uses materialized tables. Pre-generated CSV served from GCS. |
 
-### Performance bottlenecks
+---
 
-| Bottleneck | Latency | Component | Mitigation |
-|---|---|---|---|
-| **BigQuery per-author query** | 1-3 seconds | Frontend | Firestore cache (cache hit: ~50ms). Distribution table lookups reduced view cost significantly. |
-| **matplotlib chart generation** | 200-500ms | Frontend | Could move to client-side JS charting. Or pre-render and cache chart images. |
-| **scholarly.fill() for author** | 10-60 seconds | Crawler | Unavoidable — Scholar is slow. 1-hour timeout is appropriate. |
-| **scholarly.search_author()** | 2-5 seconds | Author Search | Local BigQuery search first (Component 6) avoids this for most queries. |
-| **Bulk export (all authors)** | 5-15 seconds | Frontend | Uses materialized tables. Could pre-generate CSV daily and serve from GCS (already partially done). |
+## Future Directions
 
-### Recommendations for cost reduction
-
-1. **Priority 1: Reconnect the data pipeline** (Phase 1). The Firestore Export is already disabled, but the batch-loaded data (`scholar_raw_data`) is disconnected from the analytics views (which still read from frozen `firestore_export` tables). New crawled data never reaches the frontend. Creating `_latest` deduplication views and rewriting the analytics SQL is the critical first step.
-
-2. **Priority 2: Move Cloud Scheduler from hourly to daily.** The batch load runs hourly but daily is sufficient. Reduces BigQuery load job costs (minimal) and function invocations.
-
-3. **Priority 3: Cache more aggressively.** The Firestore cache invalidation currently checks if author data is newer than cache. For most authors (unchanged for months), extend cache TTL significantly — check for freshness at most once per day, not on every request.
-
-4. **Future: Client-side charting.** Eliminates matplotlib CPU cost on Cloud Run. The data is already in JSON format from BigQuery; sending it to the browser for Chart.js/Plotly rendering would be faster and enable interactive plots.
+| Feature | Description |
+|---|---|
+| **REST API** | Expose authors, publications, and stats as JSON API endpoints for third-party integrations |
+| **Client-side charting** | Replace server-side matplotlib with Chart.js/Plotly for interactive plots |
+| **Field-specific benchmarks** | Compare against specific fields (business, CS, biology) with per-field percentiles |
+| **Crossref integration** | Enrich publications with DOIs and metadata from Crossref |
+| **Author comparison** | Side-by-side PiP-AUC and percentile plots for multiple authors |
 
 ---
 
