@@ -15,13 +15,13 @@ We are rebuilding the system from scratch in `v3/` with clean component boundari
 ### Step 1: Crawler (Component 1)
 
 - [ ] **Build the crawler from scratch in `v3/crawler/`**
-  - [ ] `scholarly_client.py` — wrapper around `scholarly` with timeout handling (`ThreadPoolExecutor`), retry logic, clean error classification (transient vs permanent)
-  - [ ] `gcs_writer.py` — upload JSON to GCS with date-prefix path, retry on failure
-  - [ ] `task_enqueuer.py` — enqueue publication fetch tasks to Cloud Tasks with stagger delay
-  - [ ] `fetch_author.py` — Cloud Function entry point: receive author_id → fetch → serialize → upload → enqueue pubs
-  - [ ] `fetch_publication.py` — Cloud Function entry point: receive pub_data → fetch → upload
-  - [ ] `config.py` — crawler config with env var overrides (project, bucket, queues, regions)
-  - [ ] Tests for all modules (mocked scholarly, mocked GCS, mocked Cloud Tasks)
+  - [x] `scholarly_client.py` — wrapper around `scholarly` with timeout handling (`ThreadPoolExecutor`), retry logic, clean error classification (transient vs permanent)
+  - [x] `gcs_writer.py` — upload JSON to GCS with date-prefix path, retry on failure
+  - [x] `task_enqueuer.py` — enqueue publication fetch tasks to Cloud Tasks with stagger delay
+  - [x] `fetch_author.py` — Cloud Function entry point: receive author_id → fetch → serialize → upload → enqueue pubs
+  - [x] `fetch_publication.py` — Cloud Function entry point: receive pub_data → fetch → upload
+  - [x] `config.py` — crawler config with env var overrides (project, bucket, queues, regions)
+  - [x] Tests for all modules (52 tests, mocked scholarly, mocked GCS, mocked Cloud Tasks)
   - [ ] `deploy-crawler.yml` — CI/CD for 9-region deployment
   - [ ] Validate: deploy, crawl a test author, verify JSON lands in GCS correctly
 
@@ -93,12 +93,11 @@ We are rebuilding the system from scratch in `v3/` with clean component boundari
 
 ## Immediate (do now, applies to whole repo)
 
-- [ ] **Improve .gitignore coverage**
-  - Currently only 2 entries (`.ipynb_checkpoints`, `__pycache__`)
-  - Missing: `.env`, `*.pyc`, `venv/`, `.pytest_cache/`, `downloads/`, `.DS_Store`, `*.egg-info/`
+- [x] **Improve .gitignore coverage**
+  - Added `.env`, `*.pyc`, `*.pyo`, `*.egg-info/`, `venv/`, `.venv/`, `.pytest_cache/`, `downloads/`, `.DS_Store`, `*.log`, `sa-key.json`
 
-- [ ] **Pin dependency versions in `requirements.txt`** (old codebase)
-  - All 13 packages have no `==` version constraints — builds not reproducible
+- [x] **Pin dependency versions in `requirements.txt`** (old codebase)
+  - All 12 packages now pinned with `==` version constraints
 
 ---
 
@@ -156,9 +155,8 @@ We are rebuilding the system from scratch in `v3/` with clean component boundari
 
 ## Utility Scripts
 
-- [ ] **Fix broken `resolve_authors.py` script**
-  - `scripts/resolve_authors.py:68`: after setting `sid` via coauthor graph, function falls through to "unresolved" return
-  - Fix: add return statement after line 68
+- [x] **Fix broken `resolve_authors.py` script**
+  - Added missing `return` statement after coauthor graph resolution (line 68)
 
 ---
 
