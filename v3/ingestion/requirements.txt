@@ -1,0 +1,3 @@
+functions-framework==3.*
+google-cloud-storage==3.10.0
+google-cloud-bigquery==3.31.0

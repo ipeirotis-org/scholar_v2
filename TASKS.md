@@ -28,10 +28,11 @@ We are rebuilding the system from scratch in `v3/` with clean component boundari
 ### Step 2: Ingestion (Component 2)
 
 - [ ] **Build the ingestion pipeline in `v3/ingestion/`**
-  - [ ] `batch_load.py` — GCS → NDJSON → BigQuery batch load with chunking, dead-letter handling
-  - [ ] `dedup_views.sql` — `author_latest` and `pub_latest` views with `ROW_NUMBER()` deduplication
-  - [ ] Config with env var overrides
-  - [ ] Tests and CI/CD
+  - [x] `batch_load.py` — GCS → NDJSON → BigQuery batch load with streaming, chunking, dead-letter handling (OOM-safe: streams GCS listing, processes in bounded batches, clears NDJSON after each batch)
+  - [x] `dedup_views.sql` — `author_latest` and `pub_latest` views with `ROW_NUMBER()` deduplication in `scholar_raw_data` dataset
+  - [x] `config.py` — Config with env var overrides (project, bucket, dataset, batch size, max files)
+  - [x] Tests (34 tests: config, streaming, NDJSON prep, dead letter, archival, BQ load, batching, entry point)
+  - [x] CI/CD — Added to `function.yml`: deploys `v3_batch_load_gcs_to_bq` function + dedup views
   - [ ] Validate: load crawled JSON, query `_latest` views, verify data
 
 ### Step 3: Analytics (Component 3)
