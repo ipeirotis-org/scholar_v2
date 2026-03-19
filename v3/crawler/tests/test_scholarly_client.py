@@ -114,6 +114,9 @@ class TestClassifyError:
     def test_captcha_is_transient(self):
         assert _classify_error(Exception("captcha required")) == ErrorKind.TRANSIENT
 
+    def test_cannot_fetch_is_transient(self):
+        assert _classify_error(Exception("Cannot Fetch from Google Scholar.")) == ErrorKind.TRANSIENT
+
     def test_unknown_is_permanent(self):
         assert _classify_error(Exception("author not found")) == ErrorKind.PERMANENT
 

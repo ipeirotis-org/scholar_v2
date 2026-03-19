@@ -21,9 +21,9 @@ We are rebuilding the system from scratch in `v3/` with clean component boundari
   - [x] `fetch_author.py` — Cloud Function entry point: receive author_id → fetch → serialize → upload → enqueue pubs
   - [x] `fetch_publication.py` — Cloud Function entry point: receive pub_data → fetch → upload
   - [x] `config.py` — crawler config with env var overrides (project, bucket, queues, regions)
-  - [x] Tests for all modules (52 tests, mocked scholarly, mocked GCS, mocked Cloud Tasks)
-  - [ ] `deploy-crawler.yml` — CI/CD for 9-region deployment
-  - [ ] Validate: deploy, crawl a test author, verify JSON lands in GCS correctly
+  - [x] Tests for all modules (53 tests, mocked scholarly, mocked GCS, mocked Cloud Tasks)
+  - [x] `deploy-crawler.yml` — CI/CD for 9-region deployment (updated `function.yml`)
+  - [x] Validate: deployed to us-central1 + us-east4, tested with real author IDs, verified error classification and logging
 
 ### Step 2: Ingestion (Component 2)
 

@@ -25,7 +25,7 @@ class ScholarlyError(Exception):
         self.kind = kind
 
 
-_TRANSIENT_MARKERS = ["429", "rate limit", "captcha", "timeout", "connection"]
+_TRANSIENT_MARKERS = ["429", "rate limit", "captcha", "timeout", "connection", "cannot fetch"]
 
 
 def _classify_error(exc):

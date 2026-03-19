@@ -3,7 +3,7 @@
 import json
 from unittest import mock
 
-from v3.crawler.fetch_author import handle
+from v3.crawler.fetch_author import v3_fetch_author as handle
 from v3.crawler.scholarly_client import ErrorKind, ScholarlyError
 
 
@@ -25,7 +25,7 @@ class TestHandleFetchAuthor:
     @mock.patch("v3.crawler.fetch_author.enqueue_publications")
     @mock.patch("v3.crawler.fetch_author.upload_json")
     @mock.patch("v3.crawler.fetch_author.author_blob_path", return_value="authors_json/2026/03/19/abc.json")
-    @mock.patch("v3.crawler.fetch_author.fetch_author")
+    @mock.patch("v3.crawler.fetch_author._fetch_author")
     def test_success(self, mock_fetch, mock_path, mock_upload, mock_enqueue):
         mock_fetch.return_value = {
             "scholar_id": "abc",
@@ -44,7 +44,7 @@ class TestHandleFetchAuthor:
 
     @mock.patch("v3.crawler.fetch_author.upload_json")
     @mock.patch("v3.crawler.fetch_author.author_blob_path", return_value="test.json")
-    @mock.patch("v3.crawler.fetch_author.fetch_author")
+    @mock.patch("v3.crawler.fetch_author._fetch_author")
     def test_skip_pubs(self, mock_fetch, mock_path, mock_upload):
         mock_fetch.return_value = {"scholar_id": "abc", "publications": []}
 
@@ -53,7 +53,7 @@ class TestHandleFetchAuthor:
 
         assert status == 200
 
-    @mock.patch("v3.crawler.fetch_author.fetch_author")
+    @mock.patch("v3.crawler.fetch_author._fetch_author")
     def test_transient_error_returns_429(self, mock_fetch):
         mock_fetch.side_effect = ScholarlyError("rate limited", ErrorKind.TRANSIENT)
 
@@ -62,7 +62,7 @@ class TestHandleFetchAuthor:
 
         assert status == 429
 
-    @mock.patch("v3.crawler.fetch_author.fetch_author")
+    @mock.patch("v3.crawler.fetch_author._fetch_author")
     def test_permanent_error_returns_500(self, mock_fetch):
         mock_fetch.side_effect = ScholarlyError("not found", ErrorKind.PERMANENT)
 

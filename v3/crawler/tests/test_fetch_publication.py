@@ -3,7 +3,7 @@
 import json
 from unittest import mock
 
-from v3.crawler.fetch_publication import handle
+from v3.crawler.fetch_publication import v3_fetch_publication as handle
 from v3.crawler.scholarly_client import ErrorKind, ScholarlyError
 
 
@@ -27,7 +27,7 @@ class TestHandleFetchPublication:
 
     @mock.patch("v3.crawler.fetch_publication.upload_json")
     @mock.patch("v3.crawler.fetch_publication.publication_blob_path", return_value="pubs/test.json")
-    @mock.patch("v3.crawler.fetch_publication.fetch_publication")
+    @mock.patch("v3.crawler.fetch_publication._fetch_publication")
     def test_success(self, mock_fetch, mock_path, mock_upload):
         mock_fetch.return_value = {"author_pub_id": "abc:pub1", "num_citations": 42}
 
@@ -39,7 +39,7 @@ class TestHandleFetchPublication:
         assert data["author_pub_id"] == "abc:pub1"
         mock_upload.assert_called_once()
 
-    @mock.patch("v3.crawler.fetch_publication.fetch_publication")
+    @mock.patch("v3.crawler.fetch_publication._fetch_publication")
     def test_transient_error_returns_429(self, mock_fetch):
         mock_fetch.side_effect = ScholarlyError("rate limited", ErrorKind.TRANSIENT)
 
@@ -48,7 +48,7 @@ class TestHandleFetchPublication:
 
         assert status == 429
 
-    @mock.patch("v3.crawler.fetch_publication.fetch_publication")
+    @mock.patch("v3.crawler.fetch_publication._fetch_publication")
     def test_permanent_error_returns_500(self, mock_fetch):
         mock_fetch.side_effect = ScholarlyError("not found", ErrorKind.PERMANENT)
 

@@ -12,7 +12,7 @@ import functions_framework
 from v3.crawler.scholarly_client import (
     ErrorKind,
     ScholarlyError,
-    fetch_publication,
+    fetch_publication as _fetch_publication,
     serialize_publication,
 )
 from v3.crawler.gcs_writer import publication_blob_path, upload_json
@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 
 @functions_framework.http
-def handle(request):
+def v3_fetch_publication(request):
     """HTTP entry point for the fetch_publication Cloud Function."""
     start = time.time()
 
@@ -39,7 +39,7 @@ def handle(request):
     logger.info(f"[{request_id}] Fetching publication: {author_pub_id}")
 
     try:
-        filled = fetch_publication(pub_data)
+        filled = _fetch_publication(pub_data)
     except ScholarlyError as exc:
         elapsed = time.time() - start
         logger.error(f"[{request_id}] Failed to fetch {author_pub_id}: {exc} (kind={exc.kind.value}, {elapsed:.1f}s)")
