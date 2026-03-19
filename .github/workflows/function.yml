@@ -85,7 +85,7 @@ jobs:
             memory: 512MB
           - name: batch_load_gcs_to_bq
             timeout: "3600s"
-            memory: 512MB
+            memory: 1024MB
 
     steps:
     - name: Checkout code
