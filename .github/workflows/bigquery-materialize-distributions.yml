@@ -1,0 +1,50 @@
+name: Materialize Percentile Distribution Tables
+
+on:
+  # Run quarterly — 1st day of Jan, Apr, Jul, Oct at 04:00 UTC.
+  # These tables are expensive to compute but change slowly (population
+  # percentiles shift only when many new authors/papers are added).
+  schedule:
+    - cron: '0 4 1 1,4,7,10 *'
+
+  # Allow manual trigger for ad-hoc refreshes
+  workflow_dispatch:
+
+env:
+  PROJECT_ID: scholar-version2
+
+jobs:
+  materialize-distributions:
+    name: Materialize percentile distribution tables (quarterly)
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Authenticate to Google Cloud
+      uses: google-github-actions/auth@v2
+      with:
+        credentials_json: '${{ secrets.GCP_SA_KEY }}'
+
+    - name: Set up Cloud SDK
+      uses: google-github-actions/setup-gcloud@v2
+      with:
+        project_id: ${{ env.PROJECT_ID }}
+
+    # Distribution tables — the ONLY place PERCENT_RANK() runs.
+    # Output is small (distinct values only). Steps 1+2 are independent.
+
+    - name: 'Step 1: dist_publication_citations'
+      run: bq query --project_id=${{ env.PROJECT_ID }} --use_legacy_sql=false < bigquery/statistics/dist_publication_citations.sql
+
+    - name: 'Step 2: dist_author_metrics'
+      run: bq query --project_id=${{ env.PROJECT_ID }} --use_legacy_sql=false < bigquery/statistics/dist_author_metrics.sql
+
+    # Step 3 depends on Steps 1+2 (underlying views now use distribution lookups)
+    - name: 'Step 3: dist_pip_auc_scores'
+      run: bq query --project_id=${{ env.PROJECT_ID }} --use_legacy_sql=false < bigquery/statistics/dist_pip_auc_scores.sql

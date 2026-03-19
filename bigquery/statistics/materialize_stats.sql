@@ -6,15 +6,18 @@
 --   Distribution tables (dist_*) — small, store (value → percentile) mappings.
 --     These are the only place PERCENT_RANK() runs. Output is compact because
 --     DISTINCT collapses tied values that share the same rank.
+--     These are EXPENSIVE to compute and change slowly. Refreshed quarterly
+--     by bigquery-materialize-distributions.yml (or manually via this script).
 --   View definitions (stats_*) — reference distribution tables for fast lookups.
 --     Per-author queries are cheap: read one author's data + JOIN small dist table.
 --   Full-table snapshots (_table suffix) — only for get_all_authors_stats() which
 --     needs to scan all authors at once for the ranking/listing UI.
+--     Refreshed daily by bigquery-materialize.yml.
 --
 -- Per-author app queries (author profile page) use the VIEWS directly.
 -- All-authors list queries use the _table snapshots.
 --
--- Usage:
+-- Usage (full refresh — distribution tables + snapshots):
 --   bq query --project_id=scholar-version2 --use_legacy_sql=false < bigquery/statistics/materialize_stats.sql
 
 -- Step 0: One-time migration — drop the old BigQuery MATERIALIZED VIEW if it

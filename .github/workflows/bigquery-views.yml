@@ -36,18 +36,10 @@ jobs:
       with:
         project_id: ${{ env.PROJECT_ID }}
 
-    # Tier 0: Distribution tables — must exist before views that reference them.
-    # These are small precomputed (value → percentile) lookup tables.
-    # Creating them here ensures views can always be deployed cleanly.
-    # They are also refreshed daily by bigquery-materialize.yml.
-    - name: 'Tier 0: dist_publication_citations'
-      run: bq query --project_id=${{ env.PROJECT_ID }} --use_legacy_sql=false < bigquery/statistics/dist_publication_citations.sql
-
-    - name: 'Tier 0: dist_author_metrics'
-      run: bq query --project_id=${{ env.PROJECT_ID }} --use_legacy_sql=false < bigquery/statistics/dist_author_metrics.sql
-
-    - name: 'Tier 0: dist_pip_auc_scores'
-      run: bq query --project_id=${{ env.PROJECT_ID }} --use_legacy_sql=false < bigquery/statistics/dist_pip_auc_scores.sql
+    # NOTE: Distribution tables (dist_*) are NOT recreated here.
+    # They are materialized quarterly by bigquery-materialize-distributions.yml
+    # and must already exist before deploying views that reference them.
+    # To refresh them manually, trigger that workflow via workflow_dispatch.
 
     # Deploy views in dependency order.
     # Tier 1: No view dependencies (read from raw Firestore tables + dist tables)
