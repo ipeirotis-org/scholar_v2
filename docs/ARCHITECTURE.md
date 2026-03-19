@@ -486,94 +486,149 @@ All SQL views referencing `firestore_export.scholar_raw_author_raw_latest` or `f
 
 ---
 
-## Migration Plan
+## Build Plan
 
-### Phase 1: Unify on GCS-loaded BigQuery tables
+### Approach: Fresh codebase in `v3/` subfolder
 
-**Goal:** All analytics views read from `scholar_raw_data` (batch-loaded). Drop `firestore_export` dataset.
+The new architecture is built from scratch in `v3/`, component by component. The old code at the repo root continues to serve production until each component is replaced. Tests are written first for each component.
 
-1. Create `scholar_raw_data.author_latest` and `scholar_raw_data.pub_latest` deduplication views (using `ROW_NUMBER() OVER (PARTITION BY document_id ORDER BY timestamp DESC)`)
-2. Rewrite all 10+ SQL files to reference `scholar_raw_data.*_latest` instead of `firestore_export.*`
-3. Backfill `scholar_raw_data` with current data — either re-crawl all authors or bulk-load from GCS archives
-4. Verify analytics output matches expected results (compare against `firestore_export` data for a sample of authors)
-5. Drop the `firestore_export` dataset
-6. Remove any remaining Firestore raw data writes from crawler functions
-
-### Phase 2: Build Author Search Service (Component 6)
-
-1. Extend `find_scholar_id_from_name` Cloud Function with local BigQuery search (query `stats_author_current` and `coauthor_network` by name before falling back to `scholarly`)
-2. Make the Flask app call this service instead of using `scholarly` directly
-3. Delete `app/scholar.py`
-4. Update the frontend autocomplete to call the Author Search Service
-
-### Phase 3: Extract Refresh & Expand service
-
-1. Create a new Cloud Run service (or Cloud Function) for Refresh & Expand
-2. Move `app/refresh.py`, `app/coauthor_service.py`, `app/queue_handler.py` logic into it
-3. Set up Cloud Scheduler triggers for periodic stale refresh and coauthor expansion
-4. Add an HTTP endpoint for user-triggered refreshes
-5. Update the Flask frontend to call the new service for refresh requests
-6. Remove `/api/` routes from Flask `main.py`
-
-### Phase 4: Clean up Firestore usage
-
-1. Delete `shared/repositories/author_repository.py` and `publication_repository.py`
-2. Move staleness tracking to BigQuery: `SELECT MAX(timestamp) FROM scholar_raw_data.author WHERE document_id = @id`
-3. Firestore remains as cache-only for frontend query results and author search results
-
-### Phase 5: Reorganize code structure
-
-Target directory layout reflecting the 5 components:
+### `v3/` directory layout
 
 ```
-scholar_v2/
-├── crawler/                       # Component 1
-│   ├── fetch_author/              # Cloud Function
-│   ├── fetch_publication/         # Cloud Function
-│   └── shared/                    # Copied at deploy time
+v3/
+├── crawler/                       # Component 1 (build first)
+│   ├── fetch_author.py            # Cloud Function entry point
+│   ├── fetch_publication.py       # Cloud Function entry point
+│   ├── scholarly_client.py        # scholarly wrapper with timeout/retry
+│   ├── gcs_writer.py              # GCS JSON upload logic
+│   ├── task_enqueuer.py           # Cloud Tasks publication enqueueing
+│   ├── config.py                  # Crawler-specific config
+│   ├── requirements.txt
+│   └── tests/
+│       ├── test_fetch_author.py
+│       ├── test_fetch_publication.py
+│       ├── test_scholarly_client.py
+│       └── test_gcs_writer.py
 ├── ingestion/                     # Component 2
-│   ├── batch_load/                # Cloud Function
-│   └── shared/
+│   ├── batch_load.py              # Cloud Function: GCS → BigQuery
+│   ├── dedup_views.sql            # author_latest / pub_latest views
+│   ├── config.py
+│   ├── requirements.txt
+│   └── tests/
 ├── analytics/                     # Component 3
-│   ├── views/                     # SQL view definitions
-│   │   ├── statistics/
+│   ├── views/
+│   │   ├── statistics/            # All SQL view definitions
 │   │   └── coauthor_network/
-│   └── materialization/           # Materialization SQL + workflow
+│   ├── materialization/           # Materialization SQL + scheduling
+│   └── tests/                     # View output validation
 ├── frontend/                      # Component 4
-│   ├── app/                       # Flask application
+│   ├── app/
 │   │   ├── main.py
 │   │   ├── data_analysis.py
 │   │   ├── visualization.py
 │   │   ├── templates/
 │   │   └── static/
-│   ├── shared/
-│   └── Dockerfile
+│   ├── Dockerfile
+│   ├── requirements.txt
+│   └── tests/
 ├── refresh/                       # Component 5
-│   ├── service/                   # Refresh & Expand logic
-│   │   ├── stale_refresh.py
-│   │   ├── coauthor_expansion.py
-│   │   └── queue_manager.py
-│   └── shared/
+│   ├── stale_refresh.py
+│   ├── coauthor_expansion.py
+│   ├── queue_manager.py
+│   ├── config.py
+│   ├── requirements.txt
+│   └── tests/
 ├── author_search/                 # Component 6
 │   ├── main.py                    # Cloud Function: local search + Scholar fallback
-│   └── shared/
-├── shared/                        # Common code (copied into each component at deploy)
 │   ├── config.py
-│   ├── services/
-│   │   ├── bigquery_service.py
-│   │   ├── firestore_service.py
-│   │   ├── storage_service.py
-│   │   └── task_queue_service.py
+│   ├── requirements.txt
+│   └── tests/
+├── shared/                        # Common utilities (copied into each component at deploy)
+│   ├── config.py                  # GCP project, bucket, queue names
+│   ├── gcs_client.py              # GCS operations
+│   ├── bigquery_client.py         # BigQuery query execution
+│   ├── firestore_client.py        # Firestore cache operations
+│   ├── task_queue_client.py       # Cloud Tasks operations
 │   └── utils.py
-├── scripts/                       # One-off utilities
-└── .github/workflows/             # CI/CD
+└── .github/workflows/
     ├── deploy-crawler.yml
     ├── deploy-ingestion.yml
-    ├── deploy-analytics.yml       # View deployment + materialization
+    ├── deploy-analytics.yml
     ├── deploy-frontend.yml
     ├── deploy-refresh.yml
     └── deploy-author-search.yml
 ```
+
+### Build order
+
+Each component is built from scratch with tests first, deployed, and validated before moving to the next.
+
+#### Step 1: Crawler (Component 1)
+
+**Write from scratch.** The crawler is the most independent component — no dependencies on other components.
+
+Deliverables:
+1. `scholarly_client.py` — wrapper around `scholarly` with timeout handling (ThreadPoolExecutor), retry logic, and clean error classification (transient vs permanent)
+2. `gcs_writer.py` — upload JSON to GCS with date-prefix path, retry on failure
+3. `task_enqueuer.py` — enqueue publication fetch tasks to Cloud Tasks with stagger delay
+4. `fetch_author.py` — Cloud Function entry point: receive author_id → scholarly_client → gcs_writer → task_enqueuer
+5. `fetch_publication.py` — Cloud Function entry point: receive pub_data → scholarly_client → gcs_writer
+6. Tests for all of the above (mocked scholarly, mocked GCS, mocked Cloud Tasks)
+7. `deploy-crawler.yml` — CI/CD for 9-region deployment
+
+**Validation:** Deploy, crawl a test author, verify JSON in GCS.
+
+#### Step 2: Ingestion (Component 2)
+
+Deliverables:
+1. `batch_load.py` — GCS → NDJSON → BigQuery batch load with chunking, dead-letter handling
+2. `dedup_views.sql` — `author_latest` and `pub_latest` views with `ROW_NUMBER()` deduplication
+3. Tests, CI/CD
+
+**Validation:** Load crawled JSON into BigQuery, query `_latest` views, verify data.
+
+#### Step 3: Analytics (Component 3)
+
+Deliverables:
+1. Rewrite all SQL views to read from `scholar_raw_data.*_latest` (no more `firestore_export`)
+2. Distribution tables + materialization
+3. View validation tests (compare output against known-good data)
+
+**Validation:** Query analytics views for a sample of authors, verify metrics match expectations.
+
+#### Step 4: Frontend (Component 4)
+
+Deliverables:
+1. Flask app that reads from analytics views and materialized tables
+2. Firestore cache (query results only)
+3. Calls Author Search Service (Component 6) instead of `scholarly` directly
+4. Calls Refresh & Expand (Component 5) for user-triggered refreshes
+5. No `scholarly` dependency in the frontend at all
+
+#### Step 5: Refresh & Expand (Component 5)
+
+Deliverables:
+1. Separate Cloud Run service with Cloud Scheduler triggers
+2. Staleness tracking via BigQuery timestamps
+3. Coauthor expansion via BigQuery `coauthors_to_add` view
+4. HTTP endpoint for user-triggered refresh (called by frontend)
+
+#### Step 6: Author Search Service (Component 6)
+
+Deliverables:
+1. Local BigQuery search (stats_author_current + coauthor_network)
+2. Google Scholar fallback via `scholarly`
+3. Firestore cache for Scholar results
+4. Frontend autocomplete integration
+
+### Cutover
+
+Once all 6 components in `v3/` are deployed and validated:
+1. Point production traffic to `v3/` services
+2. Backfill `scholar_raw_data` by re-crawling all authors
+3. Drop `firestore_export` dataset
+4. Delete old code at repo root (keep in git history)
+5. Move `v3/` contents to repo root
 
 ---
 
