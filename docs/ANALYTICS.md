@@ -4,18 +4,19 @@ This document describes the full analytics computation pipeline — how raw Scho
 
 ## Design Principles
 
-### 1. Separate population statistics from individual lookups
+### 1. Three-tier architecture: Stats → Distributions → Ranked
 
-Computing a percentile requires knowing the full distribution. But *looking up* a percentile for one author only requires the precomputed distribution. We exploit this by splitting the work:
+The pipeline is split into three clean tiers:
 
-- **Distribution tables (`dist_*`):** Expensive to compute (full-table `PERCENT_RANK()`), but small in output (distinct values only) and slow to change (population percentiles shift meaningfully only when many new authors/papers are added).
-- **Views (`stats_*`):** Cheap per-author queries that do floor lookups against the distribution tables. No `PERCENT_RANK()` at query time.
+- **Tier 1 — Raw statistics (`stats_*`):** Compute actual metric values only. No percentiles, no `PERCENT_RANK()`. These are the core "facts" — citation counts, h-index values, PiP-AUC scores.
+- **Tier 2 — Distribution tables (`dist_*`):** The **only** place `PERCENT_RANK()` runs. Small lookup tables mapping (partition_key, metric_value) → percentile. Expensive to compute but compact in output (DISTINCT collapses tied values). Refreshed quarterly.
+- **Tier 3 — Ranked views (`ranked_*`):** Cheap JOINs of Tier 1 + Tier 2. Add percentile columns to raw stats via floor lookups. These are what the app queries.
 
 This means a single author's profile page never triggers a full-table scan — it joins one author's data against the small distribution tables.
 
 ### 2. Materialize only what's needed for bulk operations
 
-Per-author page loads query the views directly (1-3s, cached in Firestore). Only the all-authors ranking page and CSV export need pre-materialized snapshot tables.
+Per-author page loads query the ranked views directly (1-3s, cached in Firestore). Only the all-authors ranking page and CSV export need pre-materialized snapshot tables.
 
 ### 3. Refresh frequency should match data change rate
 
@@ -31,45 +32,92 @@ Raw tables
   scholar_raw_data.pub     →  pub_latest (dedup view)
       │
       ▼
-Tier 0: Distribution Tables (materialized quarterly)
-  ┌─────────────────────────────────────────────────┐
-  │ dist_publication_citations                      │
-  │   (pub_year, num_citations) → percentile        │
-  │                                                 │
-  │ dist_author_metrics                             │
-  │   (cohort, metric_name, metric_value)           │
-  │   → percentile for 8 metrics                   │
-  │                                                 │
-  │ dist_pip_auc_scores                             │
-  │   (cohort, pip_auc_score) → percentile          │
-  └─────────────────────────────────────────────────┘
+Tier 1: Raw Statistics (no percentiles, no PERCENT_RANK)
+  base_author_publications            — author → publication list
+  stats_publication_current           — num_citations, metadata
+  stats_publication_citations_temporal — yearly_citations, cumulative_citations
+  coauthor_network                    — coauthor graph
+  stats_author_current                — hindex, citedby, i10index, total_publications
+  stats_author_metrics_temporal_view  — per-author per-year: h_index, total_citations, etc.
+  intermediate_author_publication_state_temporal
+  stats_author_pip_scores_current     — pip_auc_score (no percentile)
+  stats_author_pip_scores_temporal_view — pip_auc_score per year (no percentile)
       │
       ▼
-Tier 1: Base Views (no view-to-view dependencies)
-  base_author_publications         — author → publication list (UNNEST from JSON)
-  stats_publication_current        — publication citation percentiles (floor lookup into dist_publication_citations)
-  stats_publication_citations_temporal — citation timeline per publication (yearly + cumulative)
-  coauthor_network                 — coauthor graph (UNNEST from JSON)
+Tier 2: Distribution Tables (materialized quarterly — the ONLY place PERCENT_RANK runs)
+  ┌──────────────────────────────────────────────────────────────────────────────┐
+  │ dist_publication_citations          (pub_year) → num_citations → percentile │
+  │ dist_publication_citations_temporal  (pub_year, citation_year, age)          │
+  │                                     → yearly_citations, cumulative → pctile │
+  │ dist_author_metrics                 (year_of_first_pub) → 8 metrics → pctile│
+  │ dist_author_metrics_temporal        (year_of_first_pub, state_year)          │
+  │                                     → 7 metrics → percentile                │
+  │ dist_pip_auc_scores                 (year_of_first_pub) → pip_auc → pctile  │
+  │ dist_pip_auc_scores_temporal        (year_of_first_pub, state_year)          │
+  │                                     → pip_auc → percentile                  │
+  └──────────────────────────────────────────────────────────────────────────────┘
       │
       ▼
-Tier 2: Author-Level Views
-  stats_author_current             — author summary metrics + 8 percentiles (floor lookup into dist_author_metrics)
-  coauthors_to_add                 — coauthors not yet in the database
-  intermediate_author_publication_state_temporal — per-author-per-year publication state
-      │
-      ▼
-Tier 3: PiP-AUC Inputs + Temporal
-  stats_author_publication_pip_inputs_current — PiP chart X/Y coordinates (6-CTE interpolation pipeline)
-  stats_author_metrics_temporal_view          — temporal h-index, citations, i10 evolution
-      │
-      ▼
-Tier 4: Final Scores
-  stats_author_pip_scores_current  — PiP-AUC score (trapezoidal integration) + percentile from dist_pip_auc_scores
+Tier 3: Ranked Views (cheap JOINs of Tier 1 + Tier 2)
+  ranked_publication_current            — adds num_citations_percentile
+  ranked_publication_citations_temporal  — adds 4 percentile columns
+  ranked_author_current                 — adds 8 percentile columns
+  ranked_author_metrics_temporal        — adds 7 percentile columns
+  ranked_author_pip_scores_current      — adds pip_auc_score_percentile
+  ranked_author_pip_scores_temporal     — adds pip_auc_score_percentile
+
+PiP Pipeline (sits between tiers, uses ranked + dist for inputs):
+  stats_author_publication_pip_inputs_current  — PiP chart X/Y coordinates
+  coauthors_to_add                             — coauthors not yet in the database
 ```
 
 ---
 
-## Distribution Tables (Tier 0)
+## Tier 1: Raw Statistics
+
+These views compute actual metric values only. No percentile columns.
+
+### stats_publication_current
+
+**Purpose:** Extract core publication details from the latest deduplicated data.
+
+**Output:** `scholar_id`, `author_pub_id`, `pub_year`, `title`, `author`, `num_citations`, `last_updated`
+
+### stats_publication_citations_temporal
+
+**Purpose:** Full citation timeline per publication — yearly and cumulative counts.
+
+**Output:** `scholar_id`, `author_pub_id`, `pub_year`, `age`, `citation_year`, `yearly_citations`, `cumulative_citations`
+
+### stats_author_current
+
+**Purpose:** Author summary metrics (no percentiles).
+
+**Output:** `scholar_id`, `name`, `affiliation`, `email_domain`, h-index/citations/i10 (current + 5y), `total_publications`, `total_publications_with_citations`, `year_of_first_pub`, `last_updated`
+
+### stats_author_metrics_temporal_view
+
+**Purpose:** How an author's metrics evolved over time. Raw values only.
+
+**Output per (author, year):** `total_publications`, `total_citations`, `total_recent_citations_5y`, `h_index`, `h_index_5y`, `i10_index`, `i10_index_5y`
+
+### stats_author_pip_scores_current
+
+**Purpose:** PiP-AUC score via trapezoidal integration. No percentile.
+
+**Output:** `scholar_id`, `year_of_first_pub`, `pip_auc_score`
+
+### stats_author_pip_scores_temporal_view
+
+**Purpose:** PiP-AUC at each point in time. Uses each publication's `cumulative_citations` as of `state_year` to compute the PiP chart at that moment.
+
+**Output:** `scholar_id`, `state_year`, `year_of_first_pub`, `pip_auc_score`
+
+**Cost:** This is the most expensive view — it runs the full PiP pipeline for every author × every year. Always materialized, never queried live.
+
+---
+
+## Tier 2: Distribution Tables
 
 These are the **only** place `PERCENT_RANK()` runs. Everything downstream uses floor lookups.
 
@@ -77,81 +125,105 @@ These are the **only** place `PERCENT_RANK()` runs. Everything downstream uses f
 
 **What:** Maps (pub_year, num_citations) → citation percentile.
 
-**How:** `PERCENT_RANK() OVER (PARTITION BY pub_year ORDER BY num_citations)` across all publications. `SELECT DISTINCT` collapses tied values that share the same rank, keeping the table small.
+**How:** `PERCENT_RANK() OVER (PARTITION BY pub_year ORDER BY num_citations)` across all publications. `SELECT DISTINCT` collapses tied values.
 
-**Used by:** `stats_publication_current` (Tier 1) — to assign each publication its citation percentile without scanning all publications.
+**Used by:** `ranked_publication_current` (Tier 3)
 
-**Example lookup:**
-```sql
--- "A paper with 45 citations published in 2018 is at what percentile?"
-SELECT MAX(percentile)
-FROM dist_publication_citations
-WHERE pub_year = 2018 AND num_citations <= 45
-```
+### dist_publication_citations_temporal
+
+**What:** Maps temporal citation data to percentiles with two partitioning schemes:
+- By (pub_year, citation_year): yearly_citations → percentile, cumulative_citations → percentile
+- By (age): yearly_citations → percentile, cumulative_citations → percentile
+
+**Format:** Normalized `(pub_year, citation_year, age, metric_name, metric_value, percentile)`
+
+**Used by:** `ranked_publication_citations_temporal` (Tier 3), `stats_author_pip_scores_temporal_view` (Tier 1)
 
 ### dist_author_metrics
 
 **What:** Maps (year_of_first_pub, metric_name, metric_value) → percentile for 8 author metrics.
 
-**Metrics covered:**
-- `hindex`, `hindex5y`
-- `citedby`, `citedby5y`
-- `i10index`, `i10index5y`
-- `total_publications`, `total_publications_with_citations`
+**Metrics:** `hindex`, `hindex5y`, `citedby`, `citedby5y`, `i10index`, `i10index5y`, `total_publications`, `total_publications_with_citations`
 
-**How:** Same `PERCENT_RANK()` + `DISTINCT` pattern, partitioned by `(year_of_first_pub, metric_name)`. This makes percentiles **age-aware** — a 5-year-old researcher is compared only to other 5-year-old researchers.
+**Used by:** `ranked_author_current` (Tier 3), `stats_author_publication_pip_inputs_current` (PiP X-axis interpolation)
 
-**Used by:**
-- `stats_author_current` (Tier 2) — author metric percentiles
-- `stats_author_publication_pip_inputs_current` (Tier 3) — num_papers_percentile interpolation for PiP chart X-axis
+### dist_author_metrics_temporal
+
+**What:** Maps (year_of_first_pub, state_year, metric_name, metric_value) → percentile for 7 temporal author metrics.
+
+**Format:** Same normalized structure as `dist_author_metrics`, with added `state_year` partition key.
+
+**Used by:** `ranked_author_metrics_temporal` (Tier 3), `stats_author_pip_scores_temporal_view` (Tier 1)
 
 ### dist_pip_auc_scores
 
 **What:** Maps (year_of_first_pub, pip_auc_score) → PiP-AUC percentile.
 
-**Depends on:** `dist_publication_citations` and `dist_author_metrics` (the underlying PiP-AUC view reads from them).
+**Depends on:** `dist_publication_citations` and `dist_author_metrics` (the underlying PiP views read from them).
 
-**Used by:** `stats_author_pip_scores_current` (Tier 4) — to rank an author's PiP-AUC score against their cohort.
+**Used by:** `ranked_author_pip_scores_current` (Tier 3)
+
+### dist_pip_auc_scores_temporal
+
+**What:** Maps (year_of_first_pub, state_year, pip_auc_score) → PiP-AUC percentile.
+
+**Depends on:** `dist_publication_citations_temporal` and `dist_author_metrics_temporal`.
+
+**Used by:** `ranked_author_pip_scores_temporal` (Tier 3)
 
 ---
 
-## Stats Views (Tiers 1-4)
+## Tier 3: Ranked Views
 
-### Tier 1: stats_publication_current
+These add percentile columns by JOINing Tier 1 stats against Tier 2 distribution tables. The app queries these.
 
-**Purpose:** Assign each publication its citation percentile.
+### ranked_publication_current
 
-**Key technique:** Floor lookup into `dist_publication_citations`:
-```sql
-SELECT MAX(d.percentile)
-FROM dist_publication_citations d
-WHERE d.pub_year = p.pub_year AND d.num_citations <= p.num_citations
-```
-This is O(log n) per publication via the distribution table, not O(n) via live `PERCENT_RANK()`.
+**Joins:** `stats_publication_current` + `dist_publication_citations`
 
-**Output columns:** `author_pub_id`, `scholar_id`, `pub_year`, `num_citations`, `num_citations_percentile`
+**Adds:** `num_citations_percentile`
 
-### Tier 1: stats_publication_citations_temporal
+### ranked_publication_citations_temporal
 
-**Purpose:** Full citation timeline per publication — yearly citation counts and cumulative totals, with percentiles.
+**Joins:** `stats_publication_citations_temporal` + `dist_publication_citations_temporal`
 
-**Key technique:** Generates a year series for each publication (from pub_year to current year), LEFT JOINs actual citations, fills gaps with 0. Computes both yearly and cumulative citation percentiles.
+**Adds:** `perc_pub_year_yearly_citations`, `perc_pub_year_cumulative_citations`, `perc_age_yearly_citations`, `perc_age_cumulative_citations`
 
-### Tier 2: stats_author_current
+### ranked_author_current
 
-**Purpose:** Author summary metrics with age-aware percentiles.
+**Joins:** `stats_author_current` + `dist_author_metrics`
 
-**Output:** h-index, citations, i10-index (current + 5-year), total publications — each with its percentile from `dist_author_metrics`. Also includes name, affiliation, email domain, year of first publication.
+**Adds:** 8 percentile columns (one per metric)
 
-**Key technique:** Same floor lookup pattern against `dist_author_metrics`.
+### ranked_author_metrics_temporal
 
-### Tier 3: stats_author_publication_pip_inputs_current
+**Joins:** `stats_author_metrics_temporal_view` + `dist_author_metrics_temporal`
+
+**Adds:** 7 percentile columns (one per temporal metric)
+
+### ranked_author_pip_scores_current
+
+**Joins:** `stats_author_pip_scores_current` + `dist_pip_auc_scores`
+
+**Adds:** `pip_auc_score_percentile`
+
+### ranked_author_pip_scores_temporal
+
+**Joins:** `stats_author_pip_scores_temporal_view` + `dist_pip_auc_scores_temporal`
+
+**Adds:** `pip_auc_score_percentile`
+
+---
+
+## PiP Pipeline
+
+### stats_author_publication_pip_inputs_current
 
 **Purpose:** Compute the (X, Y) coordinates for each point on an author's PiP chart.
 
-**Y-axis:** `num_citations_percentile` — from `stats_publication_current`
+**Y-axis:** `num_citations_percentile` — from `ranked_publication_current`
 
-**X-axis:** `num_papers_percentile` — interpolated from `dist_author_metrics` (the `total_publications` metric). This is a 6-CTE pipeline:
+**X-axis:** `num_papers_percentile` — interpolated from `dist_author_metrics` (the `total_publications_with_citations` metric). This is a 6-CTE pipeline:
 
 1. **RankedPublications:** Rank author's papers by citation percentile (descending)
 2. **Distances:** Look up the num_papers_percentile for the author's paper count and for paper count ± 1
@@ -160,29 +232,29 @@ This is O(log n) per publication via the distribution table, not O(n) via live `
 5. **AggregatedDistances:** Compute interpolation bounds
 6. **InterpolatedResults:** Linear interpolation to get the exact X-axis position
 
-### Tier 4: stats_author_pip_scores_current
-
-**Purpose:** Compute the PiP-AUC score and its percentile.
-
-**How:** Sorts publications by citation percentile (descending), uses `LAG()` to get consecutive (X, Y) pairs, computes trapezoidal areas, sums them. Then does a floor lookup into `dist_pip_auc_scores` for the percentile.
-
-**Output:** `scholar_id`, `pip_auc`, `pip_auc_percentile`, `num_papers`, `year_of_first_pub`
-
 ---
 
 ## Temporal Views
 
-### stats_author_metrics_temporal_view → stats_author_metrics_temporal (table)
+### stats_author_metrics_temporal_view → ranked_author_metrics_temporal_table
 
 **Purpose:** How an author's h-index, citations, and i10-index evolved over time (year by year).
 
 **How:** For each (author, year) pair, computes what the author's metrics *would have been* at that point in time — using only citations accumulated up to that year. This requires rolling calculations across the full publication × citation-year matrix.
 
-**Cost:** This is the most expensive computation because it materializes O(authors × years × publications) intermediate state. For a single author it's manageable (~50 years × ~100 papers), but for all 15,000+ authors it's substantial.
+**Cost:** This is expensive because it materializes O(authors × years × publications) intermediate state.
+
+### stats_author_pip_scores_temporal_view → ranked_author_pip_scores_temporal_table
+
+**Purpose:** How an author's PiP-AUC score evolved over their career.
+
+**How:** For each (author, year), takes all publications with pub_year ≤ state_year, looks up each publication's cumulative_citations as of that year via `dist_publication_citations_temporal`, counts papers and looks up `num_papers_percentile` via `dist_author_metrics_temporal`, then runs trapezoidal integration.
+
+**Cost:** The most expensive computation in the system. Always materialized.
 
 ### intermediate_author_publication_state_temporal
 
-**Purpose:** Intermediate join table used by the temporal view. For each (author, publication, year), tracks the cumulative citation count and citation percentile at that point in time.
+**Purpose:** Intermediate join table used by temporal views. For each (author, publication, year), tracks cumulative citation count at that point in time.
 
 ---
 
@@ -190,11 +262,11 @@ This is O(log n) per publication via the distribution table, not O(n) via live `
 
 ### coauthor_network
 
-**Purpose:** Extract the coauthor graph from author JSON. Each author's profile contains a list of coauthors with their names, affiliations, and Scholar IDs.
+**Purpose:** Extract the coauthor graph from author JSON.
 
 ### coauthors_to_add
 
-**Purpose:** Filter `coauthor_network` to find coauthors not yet in the database — candidates for the Refresh & Expand service to crawl.
+**Purpose:** Filter `coauthor_network` to find coauthors not yet in the database.
 
 ---
 
@@ -205,33 +277,28 @@ This is O(log n) per publication via the distribution table, not O(n) via live `
 | What | Schedule | Workflow | Estimated BQ cost |
 |------|----------|----------|-------------------|
 | Distribution tables (`dist_*`) | Quarterly (Jan 1, Apr 1, Jul 1, Oct 1 at 04:00 UTC) | `bigquery-materialize-distributions.yml` | High per run (full PERCENT_RANK), but only 4x/year |
-| Snapshot tables (`*_table`) | Daily at 06:00 UTC | `bigquery-materialize.yml` | Moderate (SELECT * from views for all authors) |
+| Snapshot tables (`ranked_*_table`) | Daily at 06:00 UTC | `bigquery-materialize.yml` | Moderate (SELECT * from views for all authors) |
 
 ### Why quarterly for distribution tables
 
-Distribution tables capture the *shape* of the population — "what percentile is 100 citations for a 2018 paper?" This shape changes slowly because:
+Distribution tables capture the *shape* of the population. This shape changes slowly because:
 
 - Adding a few hundred authors to a pool of 15,000+ barely shifts percentile boundaries
-- Citation counts for older papers change slowly (a 2015 paper gains maybe 5-10 citations/year)
+- Citation counts for older papers change slowly
 - New publication years accumulate papers gradually throughout the year
 
-Recomputing quarterly is sufficient. The error from a 3-month-old distribution table is negligible — if your paper was at the 85th percentile in January, it's almost certainly between the 84th and 86th in March.
+Recomputing quarterly is sufficient. The error from a 3-month-old distribution table is negligible.
 
 ### Why daily snapshot materialization may be excessive
 
-The snapshot tables (`stats_author_current_table`, `stats_author_pip_scores_current_table`, `stats_author_metrics_temporal`) exist only for:
-
-1. **All-authors ranking page** — needs every author in one query
-2. **CSV export** — bulk download of all author stats
-
-Individual author data changes only when that author is re-crawled, which happens at most monthly (90-day staleness threshold). On any given day, fewer than ~200 of 15,000+ authors have new data. Daily materialization recomputes all 15,000+ rows to update ~200.
+The snapshot tables exist only for the all-authors ranking page and CSV export. Individual author data changes only when re-crawled (monthly). Daily materialization recomputes all rows to update ~200.
 
 **Alternatives to consider:**
-- **Weekly materialization** — 7x cost reduction, data is at most 7 days stale for bulk exports
-- **Event-driven materialization** — trigger after `batch_load_gcs_to_bq` completes, so snapshots update only when new data actually arrives
-- **Incremental updates** — MERGE only changed authors into the snapshot tables (requires tracking which authors were updated)
+- **Weekly materialization** — 7x cost reduction
+- **Event-driven materialization** — trigger after `batch_load_gcs_to_bq` completes
+- **Incremental updates** — MERGE only changed authors
 
-The per-author profile pages are unaffected by this choice — they always query views directly and cache in Firestore.
+Per-author profile pages are unaffected — they always query views directly and cache in Firestore.
 
 ---
 
@@ -242,11 +309,10 @@ The per-author profile pages are unaffected by this choice — they always query
 ```
 User visits /results?author_id=XYZ
   → Check Firestore cache (hit: ~50ms, done)
-  → Cache miss: query these views for ONE author:
-      stats_author_current WHERE scholar_id = 'XYZ'           (~500ms)
-      stats_publication_current WHERE scholar_id = 'XYZ'       (~500ms)
-      stats_author_publication_pip_inputs_current WHERE ...     (~800ms)
-      stats_author_pip_scores_current WHERE scholar_id = 'XYZ' (~500ms)
+  → Cache miss: query these ranked views for ONE author:
+      ranked_author_current WHERE scholar_id = 'XYZ'              (~500ms)
+      stats_author_publication_pip_inputs_current WHERE ...        (~800ms)
+      ranked_author_pip_scores_current WHERE scholar_id = 'XYZ'   (~500ms)
   → Cache results in Firestore
   → Generate matplotlib charts (~300ms)
   → Total: ~2-3s uncached, ~350ms cached
@@ -261,13 +327,10 @@ These queries are cheap because:
 
 ```
 User visits /download or all-authors page
-  → Query stats_author_current_table (materialized, all rows)
-  → JOIN stats_author_pip_scores_current_table
+  → Query ranked_author_current_table (materialized, all rows)
+  → JOIN ranked_author_pip_scores_current_table
   → Return ~15,000 rows
-  → Generate CSV or render HTML table
 ```
-
-This cannot use views efficiently because it needs *all* authors — the view would have to compute metrics for every author on every request.
 
 ---
 
@@ -275,22 +338,32 @@ This cannot use views efficiently because it needs *all* authors — the view wo
 
 | File | Tier | Type | Purpose |
 |------|------|------|---------|
-| `dist_publication_citations.sql` | 0 | Table (quarterly) | Citation percentile distribution by pub_year |
-| `dist_author_metrics.sql` | 0 | Table (quarterly) | Author metric percentile distribution by cohort |
-| `dist_pip_auc_scores.sql` | 0 | Table (quarterly) | PiP-AUC percentile distribution by cohort |
 | `base_author_publications.sql` | 1 | View | Author → publication list extraction |
-| `stats_publication_current.sql` | 1 | View | Per-publication citation percentile |
-| `stats_publication_citations_temporal.sql` | 1 | View | Citation timeline per publication |
+| `stats_publication_current.sql` | 1 | View | Per-pub: num_citations, metadata |
+| `stats_publication_citations_temporal.sql` | 1 | View | Per-pub per-year: yearly/cumulative citations |
+| `stats_author_current.sql` | 1 | View | Per-author: hindex, citedby, etc. (no percentiles) |
+| `stats_author_metrics_temporal.sql` | 1 | View | Per-author per-year metrics (no percentiles) |
+| `stats_author_pip_scores_current.sql` | 1 | View | PiP-AUC score (no percentile) |
+| `stats_author_pip_scores_temporal.sql` | 1 | View | Temporal PiP-AUC (no percentile) |
+| `intermediate_author_publication_state_temporal.sql` | 1 | View | Intermediate temporal state |
+| `stats_author_publication_pip_inputs_current.sql` | 1+ | View | PiP chart coordinates |
+| `dist_publication_citations.sql` | 2 | Table (quarterly) | Citation percentile by pub_year |
+| `dist_publication_citations_temporal.sql` | 2 | Table (quarterly) | Temporal citation percentiles |
+| `dist_author_metrics.sql` | 2 | Table (quarterly) | Author metric percentiles by cohort |
+| `dist_author_metrics_temporal.sql` | 2 | Table (quarterly) | Temporal author metric percentiles |
+| `dist_pip_auc_scores.sql` | 2 | Table (quarterly) | PiP-AUC percentile by cohort |
+| `dist_pip_auc_scores_temporal.sql` | 2 | Table (quarterly) | Temporal PiP-AUC percentiles |
+| `ranked_publication_current.sql` | 3 | View | Pub stats + citation percentile |
+| `ranked_publication_citations_temporal.sql` | 3 | View | Temporal pub stats + 4 percentiles |
+| `ranked_author_current.sql` | 3 | View | Author stats + 8 percentiles |
+| `ranked_author_metrics_temporal.sql` | 3 | View | Temporal author stats + 7 percentiles |
+| `ranked_author_pip_scores_current.sql` | 3 | View | PiP-AUC + percentile |
+| `ranked_author_pip_scores_temporal.sql` | 3 | View | Temporal PiP-AUC + percentile |
 | `coauthor_network.sql` | 1 | View | Coauthor graph |
-| `stats_author_current.sql` | 2 | View | Author metrics + percentiles |
-| `coauthors_to_add.sql` | 2 | View | Uncrawled coauthors |
-| `intermediate_author_publication_state_temporal.sql` | 2 | View | Per-author-per-year publication state |
-| `stats_author_publication_pip_inputs_current.sql` | 3 | View | PiP chart coordinates |
-| `stats_author_metrics_temporal.sql` | 3 | View → Table | Temporal metrics (materialized daily) |
-| `stats_author_pip_scores_current.sql` | 4 | View | PiP-AUC score + percentile |
-| `materialize_stats.sql` | — | Script | Snapshot materialization queries |
+| `coauthors_to_add.sql` | 1 | View | Uncrawled coauthors |
+| `materialize_stats.sql` | — | Script | Full materialization (dist + snapshots) |
 
-All files live under `bigquery/statistics/` except coauthor views which are in `bigquery/coauthor_network/`.
+All statistics files live under `bigquery/statistics/` except coauthor views in `bigquery/coauthor_network/`.
 
 ---
 
@@ -300,22 +373,27 @@ All files live under `bigquery/statistics/` except coauthor views which are in `
 
 Workflow: `.github/workflows/bigquery-views.yml`
 
-Triggers on push to `bigquery/**/*.sql` on main. Deploys views in tier order (0 → 4) to respect dependencies. Does **not** refresh distribution or snapshot tables.
+Triggers on push to `bigquery/**/*.sql` on main. Deploys views in tier order (1 → 3) to respect dependencies. Does **not** refresh distribution or snapshot tables.
 
 ### Distribution table refresh (quarterly)
 
 Workflow: `.github/workflows/bigquery-materialize-distributions.yml`
 
-Runs `dist_publication_citations.sql` and `dist_author_metrics.sql` (independent, could be parallel), then `dist_pip_auc_scores.sql` (depends on the first two). Can be triggered manually via `workflow_dispatch`.
+Runs 6 distribution table materializations in dependency order:
+1. `dist_publication_citations` + `dist_author_metrics` (independent)
+2. `dist_publication_citations_temporal` + `dist_author_metrics_temporal` (independent)
+3. `dist_pip_auc_scores` (depends on 1)
+4. `dist_pip_auc_scores_temporal` (depends on 2)
 
 ### Snapshot table refresh (daily)
 
 Workflow: `.github/workflows/bigquery-materialize.yml`
 
-Runs `CREATE OR REPLACE TABLE ... AS SELECT * FROM <view>` for:
-1. `stats_author_current_table` (clustered by scholar_id, year_of_first_pub)
-2. `stats_author_pip_scores_current_table` (clustered by scholar_id)
-3. `stats_author_metrics_temporal` (clustered by scholar_id, state_year)
+Runs `CREATE OR REPLACE TABLE ... AS SELECT * FROM <ranked_view>` for:
+1. `ranked_author_current_table` (clustered by scholar_id, year_of_first_pub)
+2. `ranked_author_pip_scores_current_table` (clustered by scholar_id)
+3. `ranked_author_metrics_temporal_table` (clustered by scholar_id, state_year)
+4. `ranked_author_pip_scores_temporal_table` (clustered by scholar_id, state_year)
 
 ---
 

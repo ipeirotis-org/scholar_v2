@@ -41,8 +41,8 @@ jobs:
     # and must already exist before deploying views that reference them.
     # To refresh them manually, trigger that workflow via workflow_dispatch.
 
-    # Deploy views in dependency order.
-    # Tier 1: No view dependencies (read from scholar_raw_data.*_latest + dist tables)
+    # ── Tier 1: Raw statistics (no percentiles, no PERCENT_RANK) ─────────────
+    # Read from scholar_raw_data.*_latest only.
     - name: 'Tier 1: base_author_publications'
       run: bq query --project_id=${{ env.PROJECT_ID }} --use_legacy_sql=false < bigquery/statistics/base_author_publications.sql
 
@@ -55,26 +55,45 @@ jobs:
     - name: 'Tier 1: coauthor_network'
       run: bq query --project_id=${{ env.PROJECT_ID }} --use_legacy_sql=false < bigquery/coauthor_network/coauthor_network.sql
 
-    # Tier 2: Depends on Tier 1 views
-    - name: 'Tier 2: stats_author_current'
+    # Depends on Tier 1 base views
+    - name: 'Tier 1: stats_author_current'
       run: bq query --project_id=${{ env.PROJECT_ID }} --use_legacy_sql=false < bigquery/statistics/stats_author_current.sql
 
-    - name: 'Tier 2: coauthors_to_add'
+    - name: 'Tier 1: coauthors_to_add'
       run: bq query --project_id=${{ env.PROJECT_ID }} --use_legacy_sql=false < bigquery/coauthor_network/coauthors_to_add.sql
 
-    - name: 'Tier 2: intermediate_author_publication_state_temporal'
+    - name: 'Tier 1: intermediate_author_publication_state_temporal'
       run: bq query --project_id=${{ env.PROJECT_ID }} --use_legacy_sql=false < bigquery/statistics/intermediate_author_publication_state_temporal.sql
 
-    # Tier 3: Depends on Tier 2 views
-    - name: 'Tier 3: stats_author_publication_pip_inputs_current'
+    - name: 'Tier 1: stats_author_metrics_temporal_view'
+      run: bq query --project_id=${{ env.PROJECT_ID }} --use_legacy_sql=false < bigquery/statistics/stats_author_metrics_temporal.sql
+
+    # ── Tier 3: Ranked views (cheap JOINs of Tier 1 + Tier 2 dist tables) ───
+    - name: 'Tier 3: ranked_publication_current'
+      run: bq query --project_id=${{ env.PROJECT_ID }} --use_legacy_sql=false < bigquery/statistics/ranked_publication_current.sql
+
+    - name: 'Tier 3: ranked_author_current'
+      run: bq query --project_id=${{ env.PROJECT_ID }} --use_legacy_sql=false < bigquery/statistics/ranked_author_current.sql
+
+    - name: 'Tier 3: ranked_publication_citations_temporal'
+      run: bq query --project_id=${{ env.PROJECT_ID }} --use_legacy_sql=false < bigquery/statistics/ranked_publication_citations_temporal.sql
+
+    - name: 'Tier 3: ranked_author_metrics_temporal'
+      run: bq query --project_id=${{ env.PROJECT_ID }} --use_legacy_sql=false < bigquery/statistics/ranked_author_metrics_temporal.sql
+
+    # ── PiP pipeline (depends on ranked_publication_current + dist tables) ───
+    - name: 'PiP: stats_author_publication_pip_inputs_current'
       run: bq query --project_id=${{ env.PROJECT_ID }} --use_legacy_sql=false < bigquery/statistics/stats_author_publication_pip_inputs_current.sql
 
-    # Tier 4: Depends on Tier 3 views
-    - name: 'Tier 4: stats_author_pip_scores_current'
+    - name: 'PiP: stats_author_pip_scores_current'
       run: bq query --project_id=${{ env.PROJECT_ID }} --use_legacy_sql=false < bigquery/statistics/stats_author_pip_scores_current.sql
 
-    # Tier 5: Temporal metrics view (depends on Tier 2)
-    # This is a regular view that defines the temporal metrics logic.
-    # The actual table is materialized daily by bigquery-materialize.yml.
-    - name: 'Tier 5: stats_author_metrics_temporal_view'
-      run: bq query --project_id=${{ env.PROJECT_ID }} --use_legacy_sql=false < bigquery/statistics/stats_author_metrics_temporal.sql
+    - name: 'Tier 3: ranked_author_pip_scores_current'
+      run: bq query --project_id=${{ env.PROJECT_ID }} --use_legacy_sql=false < bigquery/statistics/ranked_author_pip_scores_current.sql
+
+    # ── Temporal PiP pipeline (depends on dist_publication_citations_temporal + dist_author_metrics_temporal) ─
+    - name: 'PiP temporal: stats_author_pip_scores_temporal_view'
+      run: bq query --project_id=${{ env.PROJECT_ID }} --use_legacy_sql=false < bigquery/statistics/stats_author_pip_scores_temporal.sql
+
+    - name: 'Tier 3: ranked_author_pip_scores_temporal'
+      run: bq query --project_id=${{ env.PROJECT_ID }} --use_legacy_sql=false < bigquery/statistics/ranked_author_pip_scores_temporal.sql

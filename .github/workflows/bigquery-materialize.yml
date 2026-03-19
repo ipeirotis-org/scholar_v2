@@ -34,30 +34,41 @@ jobs:
       with:
         project_id: ${{ env.PROJECT_ID }}
 
-    # Full-table snapshots — only needed for all-authors list queries.
-    # Per-author profile queries use the views directly (cheap with dist lookups).
+    # Full-table snapshots — only needed for all-authors list queries and
+    # temporal history. Per-author profile queries use the views directly
+    # (cheap with dist lookups).
     #
     # NOTE: Distribution tables (dist_*) are materialized separately on a
     # quarterly schedule by bigquery-materialize-distributions.yml.
     # They change slowly and are expensive to recompute.
+    #
+    # Snapshot tables source from ranked_* views (Tier 3) which include
+    # both raw metrics and percentile columns.
 
-    - name: 'Step 1: stats_author_current_table (for all-authors list)'
+    - name: 'Step 1: ranked_author_current_table (for all-authors list)'
       run: |
         bq query --project_id=${{ env.PROJECT_ID }} --use_legacy_sql=false \
-          "CREATE OR REPLACE TABLE \`scholar-version2.statistics.stats_author_current_table\`
+          "CREATE OR REPLACE TABLE \`scholar-version2.statistics.ranked_author_current_table\`
            CLUSTER BY scholar_id, year_of_first_pub
-           AS SELECT * FROM \`scholar-version2.statistics.stats_author_current\`"
+           AS SELECT * FROM \`scholar-version2.statistics.ranked_author_current\`"
 
-    - name: 'Step 2: stats_author_pip_scores_current_table (for all-authors list)'
+    - name: 'Step 2: ranked_author_pip_scores_current_table (for all-authors list)'
       run: |
         bq query --project_id=${{ env.PROJECT_ID }} --use_legacy_sql=false \
-          "CREATE OR REPLACE TABLE \`scholar-version2.statistics.stats_author_pip_scores_current_table\`
+          "CREATE OR REPLACE TABLE \`scholar-version2.statistics.ranked_author_pip_scores_current_table\`
            CLUSTER BY scholar_id
-           AS SELECT * FROM \`scholar-version2.statistics.stats_author_pip_scores_current\`"
+           AS SELECT * FROM \`scholar-version2.statistics.ranked_author_pip_scores_current\`"
 
-    - name: 'Step 3: stats_author_metrics_temporal (temporal history table)'
+    - name: 'Step 3: ranked_author_metrics_temporal_table (temporal history)'
       run: |
         bq query --project_id=${{ env.PROJECT_ID }} --use_legacy_sql=false \
-          "CREATE OR REPLACE TABLE \`scholar-version2.statistics.stats_author_metrics_temporal\`
+          "CREATE OR REPLACE TABLE \`scholar-version2.statistics.ranked_author_metrics_temporal_table\`
            CLUSTER BY scholar_id, state_year
-           AS SELECT * FROM \`scholar-version2.statistics.stats_author_metrics_temporal_view\`"
+           AS SELECT * FROM \`scholar-version2.statistics.ranked_author_metrics_temporal\`"
+
+    - name: 'Step 4: ranked_author_pip_scores_temporal_table (temporal PiP history)'
+      run: |
+        bq query --project_id=${{ env.PROJECT_ID }} --use_legacy_sql=false \
+          "CREATE OR REPLACE TABLE \`scholar-version2.statistics.ranked_author_pip_scores_temporal_table\`
+           CLUSTER BY scholar_id, state_year
+           AS SELECT * FROM \`scholar-version2.statistics.ranked_author_pip_scores_temporal\`"

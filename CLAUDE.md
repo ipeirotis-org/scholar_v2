@@ -45,8 +45,8 @@ scholar_v2/
 │   │   └── task_queue_service.py # Cloud Tasks enqueue (author + publication tasks)
 │   ├── repositories/             # Author + Publication CRUD (Firestore-backed)
 │   └── utils.py                  # Integer overflow handling for BigQuery JSON
-├── bigquery/                     # SQL view definitions
-│   ├── statistics/               # 8 SQL views (PiP-AUC, percentiles, temporal metrics)
+├── bigquery/                     # SQL view definitions (3-tier architecture)
+│   ├── statistics/               # Tier 1 stats, Tier 2 dist tables, Tier 3 ranked views
 │   └── coauthor_network/         # Co-author graph views
 ├── scripts/                      # One-off utility scripts
 ├── .github/workflows/            # CI/CD (Cloud Run + multi-region Functions)
@@ -85,27 +85,27 @@ scholar_v2/
 
 > Full details: [`docs/ANALYTICS.md`](docs/ANALYTICS.md)
 
-### Key design pattern
+### Key design pattern: 3-tier architecture
 
-**Distribution tables** (`dist_*`) precompute population percentiles via `PERCENT_RANK()` — expensive but run only quarterly. **Stats views** (`stats_*`) do cheap floor lookups against these small tables, so per-author queries never trigger full-table scans.
+**Tier 1 — Raw statistics** (`stats_*`): Compute metric values only. No percentiles, no `PERCENT_RANK()`.
+**Tier 2 — Distribution tables** (`dist_*`): The ONLY place `PERCENT_RANK()` runs. Small lookup tables, refreshed quarterly.
+**Tier 3 — Ranked views** (`ranked_*`): Cheap JOINs of Tier 1 + Tier 2 that add percentile columns. The app queries these.
 
 ### View tiers
 
 | Tier | Views | Purpose |
 |------|-------|---------|
-| 0 | `dist_publication_citations`, `dist_author_metrics`, `dist_pip_auc_scores` | Percentile distributions (materialized quarterly) |
-| 1 | `base_author_publications`, `stats_publication_current`, `stats_publication_citations_temporal`, `coauthor_network` | Base extraction + citation percentiles via dist lookup |
-| 2 | `stats_author_current`, `coauthors_to_add`, `intermediate_author_publication_state_temporal` | Author-level metrics + percentiles via dist lookup |
-| 3 | `stats_author_publication_pip_inputs_current`, `stats_author_metrics_temporal_view` | PiP chart coordinates (6-CTE interpolation), temporal metrics |
-| 4 | `stats_author_pip_scores_current` | PiP-AUC score (trapezoidal integration) + percentile |
+| 1 | `stats_publication_current`, `stats_author_current`, `stats_publication_citations_temporal`, `stats_author_metrics_temporal_view`, `stats_author_pip_scores_current`, `stats_author_pip_scores_temporal_view` | Raw metric values — no percentile columns |
+| 2 | `dist_publication_citations`, `dist_publication_citations_temporal`, `dist_author_metrics`, `dist_author_metrics_temporal`, `dist_pip_auc_scores`, `dist_pip_auc_scores_temporal` | Percentile distributions (materialized quarterly) |
+| 3 | `ranked_publication_current`, `ranked_publication_citations_temporal`, `ranked_author_current`, `ranked_author_metrics_temporal`, `ranked_author_pip_scores_current`, `ranked_author_pip_scores_temporal` | Tier 1 + Tier 2 JOINs — adds percentile columns |
 
 ### Materialization schedule
 
 | What | Schedule | Rationale |
 |------|----------|-----------|
-| Distribution tables (`dist_*`) | **Quarterly** | Population percentiles shift slowly; expensive to compute |
-| Snapshot tables (`*_table`) | **Daily** | Needed only for all-authors ranking/export; per-author pages use views directly |
-| Views | **Live** | Cheap per-author queries via dist table lookups; cached in Firestore |
+| Distribution tables (`dist_*`, 6 tables) | **Quarterly** | Population percentiles shift slowly; expensive to compute |
+| Snapshot tables (`ranked_*_table`, 4 tables) | **Daily** | Needed only for all-authors ranking/export; per-author pages use views directly |
+| Views (Tier 1 + Tier 3) | **Live** | Cheap per-author queries via dist table lookups; cached in Firestore |
 
 **Cost note:** Individual author data changes at most monthly (90-day re-crawl threshold). Daily snapshot materialization recomputes ~15,000 rows when typically <200 have changed. Per-author profile pages are unaffected — they query views directly and cache in Firestore.
 
