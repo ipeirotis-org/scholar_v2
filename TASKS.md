@@ -3,6 +3,102 @@
 > Maintain and improve the Scholar Analytics platform — percentile-based, age-aware research metrics with PiP-AUC scoring.
 >
 > Live at [scholar.ipeirotis.org](https://scholar.ipeirotis.org/)
+>
+> **System architecture:** [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+
+---
+
+## v3 Migration — Build New Codebase
+
+We are rebuilding the system from scratch in `v3/` with clean component boundaries, tests first, and no legacy baggage. The old code at the repo root continues to serve production until each component is replaced. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full architecture and build plan.
+
+### Step 1: Crawler (Component 1)
+
+- [ ] **Build the crawler from scratch in `v3/crawler/`**
+  - [ ] `scholarly_client.py` — wrapper around `scholarly` with timeout handling (`ThreadPoolExecutor`), retry logic, clean error classification (transient vs permanent)
+  - [ ] `gcs_writer.py` — upload JSON to GCS with date-prefix path, retry on failure
+  - [ ] `task_enqueuer.py` — enqueue publication fetch tasks to Cloud Tasks with stagger delay
+  - [ ] `fetch_author.py` — Cloud Function entry point: receive author_id → fetch → serialize → upload → enqueue pubs
+  - [ ] `fetch_publication.py` — Cloud Function entry point: receive pub_data → fetch → upload
+  - [ ] `config.py` — crawler config with env var overrides (project, bucket, queues, regions)
+  - [ ] Tests for all modules (mocked scholarly, mocked GCS, mocked Cloud Tasks)
+  - [ ] `deploy-crawler.yml` — CI/CD for 9-region deployment
+  - [ ] Validate: deploy, crawl a test author, verify JSON lands in GCS correctly
+
+### Step 2: Ingestion (Component 2)
+
+- [ ] **Build the ingestion pipeline in `v3/ingestion/`**
+  - [ ] `batch_load.py` — GCS → NDJSON → BigQuery batch load with chunking, dead-letter handling
+  - [ ] `dedup_views.sql` — `author_latest` and `pub_latest` views with `ROW_NUMBER()` deduplication
+  - [ ] Config with env var overrides
+  - [ ] Tests and CI/CD
+  - [ ] Validate: load crawled JSON, query `_latest` views, verify data
+
+### Step 3: Analytics (Component 3)
+
+- [ ] **Rewrite all SQL views to read from `scholar_raw_data.*_latest`**
+  - [ ] Remove all references to `firestore_export.*` (currently ~15 references across 10 SQL files)
+  - [ ] Distribution tables (`dist_publication_citations`, `dist_author_metrics`, `dist_pip_auc_scores`)
+  - [ ] Core views (tiers 1–4): publication stats, author stats, PiP-AUC, temporal metrics, coauthor network
+  - [ ] Materialization workflow
+  - [ ] View output validation tests (compare against known-good data for sample authors)
+  - [ ] Backfill: re-crawl all authors to populate `scholar_raw_data` with fresh data
+
+### Step 4: Frontend (Component 4)
+
+- [ ] **Build the frontend in `v3/frontend/`**
+  - [ ] Flask app: read-only, queries analytics views + materialized tables
+  - [ ] Firestore cache for query results only (not raw data)
+  - [ ] Calls Author Search Service (Component 6) — no `scholarly` dependency
+  - [ ] Calls Refresh & Expand (Component 5) for user-triggered refreshes
+  - [ ] Visualization (decide: keep matplotlib or move to client-side charting)
+  - [ ] Show recently analyzed authors on the home page _(from #26)_
+  - [ ] Input validation, security headers, CSRF protection from the start
+  - [ ] Accessibility: keyboard support, ARIA, no deprecated HTML attributes
+  - [ ] Overall page template: consistent header, footer, navigation across all pages _(from #5)_
+  - [ ] Pin dependency versions in `requirements.txt`
+  - [ ] Tests and Dockerfile
+
+### Step 5: Refresh & Expand (Component 5)
+
+- [ ] **Build as a separate service in `v3/refresh/`**
+  - [ ] Stale author detection via BigQuery timestamps (`MAX(timestamp)` on raw tables)
+  - [ ] Error author detection: find authors with highest fetch errors and re-crawl (with 24h cooldown to avoid loops) _(from #32)_
+  - [ ] Coauthor expansion via BigQuery `coauthors_to_add` view (evaluate oversample_factor — currently 100x may be excessive)
+  - [ ] Queue manager: enqueue to Cloud Tasks, check pending status
+  - [ ] Three scheduled tasks _(from #19)_: refresh stale authors, fix error authors, add coauthors (~1 per 10 min = ~4K/month)
+  - [ ] HTTP endpoint for user-triggered refresh (called by frontend)
+  - [ ] Tests and CI/CD
+
+### Step 6: Author Search Service (Component 6)
+
+- [ ] **Build in `v3/author_search/`**
+  - [ ] Local-first search: query BigQuery `stats_author_current` + `coauthor_network` by name
+  - [ ] Google Scholar fallback via `scholarly` (only when local search insufficient)
+  - [ ] Firestore cache for Scholar search results
+  - [ ] Cloud Function with 9-region rotation (for Scholar rate-limit avoidance)
+  - [ ] Frontend autocomplete integration
+  - [ ] Tests and CI/CD
+
+### Cutover
+
+- [ ] **Switch production to v3**
+  - [ ] Point production traffic to v3 services
+  - [ ] Verify all components working end-to-end
+  - [ ] Drop `firestore_export` BigQuery dataset
+  - [ ] Delete old code at repo root (keep in git history)
+  - [ ] Move `v3/` contents to repo root
+
+---
+
+## Immediate (do now, applies to whole repo)
+
+- [ ] **Improve .gitignore coverage**
+  - Currently only 2 entries (`.ipynb_checkpoints`, `__pycache__`)
+  - Missing: `.env`, `*.pyc`, `venv/`, `.pytest_cache/`, `downloads/`, `.DS_Store`, `*.egg-info/`
+
+- [ ] **Pin dependency versions in `requirements.txt`** (old codebase)
+  - All 13 packages have no `==` version constraints — builds not reproducible
 
 ---
 
@@ -24,247 +120,102 @@
 
 ---
 
-## Architecture — Key Context
+## Future Features (for v3)
 
-### Storage migration (Firestore → GCS + BigQuery batch)
+- [ ] **REST API for authors, publications, and stats** _(from #28)_
+  - Expose data as JSON API endpoints (separate from the HTML frontend)
+  - Enables third-party integrations and programmatic access
+  - Could be a separate Cloud Run service or part of the frontend with `/api/` routes
 
-**History:** The system originally used Firestore as the primary data store, with Google's automatic Firestore-to-BigQuery streaming extension syncing data for analytics. This was very expensive due to continuous per-record streaming costs.
+- [ ] **Migrate frontend to API + client-side JS** _(from #6)_
+  - Replace Jinja server-rendered templates with API calls + JavaScript
+  - Aligns with client-side charting direction (Chart.js/Plotly)
+  - Added benefit: exposes a usable API for external consumers
 
-**Current state (incomplete migration):** We stopped the Firestore→BigQuery streaming and switched to a GCS-based pipeline:
-1. Cloud Functions (`fetch_author`, `fetch_publication`) write JSON to GCS buckets (`authors_json/`, `publications_json/`)
-2. `batch_load_gcs_to_bq` Cloud Function reads GCS files, converts to NDJSON, and loads into BigQuery in batch mode
-3. After successful load, source files are archived (`authors_json/` → `authors_archive/`)
+- [ ] **Field-specific benchmarks** _(from #12)_
+  - Allow users to compare against their field (business, CS, biology, etc.)
+  - Show number of people included per field, field-specific percentiles
 
-**What's broken:** The batch load function (`functions/batch_load_gcs_to_bq/main.py`) is triggered manually (no scheduling), and it times out for authors with very long publication lists. There is no systematic, automated way to move data from GCS to BigQuery. The old Firestore saves in the Cloud Functions are commented out (lines 111-117 in `fetch_author`, lines 92-100 in `fetch_publication`).
+- [ ] **Crossref integration for publication metadata** _(from #20)_
+  - Query Crossref to find DOIs and enriched metadata for publications in our dataset
+  - Colab notebook exists: https://colab.research.google.com/drive/14WhIOthRkVMWp0r3O86PYVHTQ0CuipeT
+  - Consider bulk importing the 120M entries dataset (publications until 2020)
 
-**What we need:** A reliable, automated GCS→BigQuery batch pipeline that handles large authors without timeout, runs on a schedule (e.g., daily or hourly), and doesn't require manual intervention.
+- [ ] **Author comparison feature**
+  - Side-by-side PiP-AUC and percentile plots for multiple authors
 
-### Percentile computation cost
+- [ ] **Dynamic region rotation per-request** instead of fixed at import time
+  - Currently `Config.FUNCTION_LOCATION` is set once when the module loads
+  - Long-running Cloud Run instances may use the same region for days
 
-**History:** All percentile calculations (publication citations, author metrics, PiP-AUC scores) are computed as live BigQuery SQL views using `PERCENT_RANK()` window functions. Every time a user views an author profile, the app queries these views, triggering expensive full-table scans and window computations across the entire dataset.
-
-**Current state:** The view dependency chain is:
-```
-stats_publication_current (pub citation percentiles — MODERATE-HIGH cost)
-  → stats_author_current (author metric percentiles — HIGH cost)
-    → stats_author_publication_pip_inputs_current (PiP interpolation — VERY HIGH cost, 6-CTE pipeline)
-      → stats_author_pip_scores_current (PiP-AUC score — MODERATE cost)
-```
-**Current state (fixed):** All expensive views are materialized daily into `_table` suffixed tables via `bigquery-materialize.yml`. The app queries these pre-computed tables. The old MATERIALIZED VIEW has been replaced with a regular view + periodic table creation.
-
-**Remaining:** Implement approximate percentile lookup for newly fetched publications not yet in the materialized table.
-
----
-
-## Critical — Data Correctness (actively wrong in production)
-
-- [x] **Fix hardcoded year 2025 in temporal citations view — losing 2026 data NOW**
-  - `bigquery/statistics/stats_publication_citations_temporal.sql:45`: replaced `2025` with `EXTRACT(YEAR FROM CURRENT_DATE())`
-
-- [x] **Fix hardcoded year 2024 in results template**
-  - `app/templates/results.html:21`: replaced hardcoded `2024` with `current_year` injected via Flask context processor
-
-- [x] **Fix first publication excluded from PiP-AUC score**
-  - `bigquery/statistics/stats_author_pip_scores_current.sql`: used `COALESCE` on `LAG()` results to include first publication in AUC
-
-- [x] **Fix `base_author_publications` view deploy failure**
-  - `bigquery/statistics/base_author_publications.sql:1`: changed to `CREATE OR REPLACE VIEW` with full project prefix
+- [ ] **Document the region rotation strategy in README**
+  - 9-region deployment with daily rotation is a key architectural decision
+  - Documented in CLAUDE.md and `shared/config.py`, but not in README
 
 ---
 
-## Critical — Security
-
-- [x] **Fix SQL injection pattern in coauthor query**
-  - `app/coauthor_service.py:50`: `LIMIT {rows_needed}` used f-string interpolation instead of parameterized query
-  - Fixed: uses `LIMIT @rows_needed` with `ScalarQueryParameter("rows_needed", "INT64", rows_needed)`
-
-- [x] **Fix insecure default SECRET_KEY**
-  - `shared/config.py:21`: `SECRET_KEY = os.getenv("SECRET_KEY", "default-secret-key")` allowed Flask session forgery
-  - Fixed: falls back to `os.urandom(32).hex()` when env var is not set
-
-- [ ] **Add input validation on URL parameters**
-  - `app/main.py:98, 106`: `int()` conversion without try/except — crashes on bad input
-  - `app/main.py:113, 121`: no format validation on scholar IDs, no length limits
-  - Fix: try/except around int() casts, validate scholar_id with regex `^[a-zA-Z0-9_-]+$`, cap `num_authors`
-
-- [ ] **Add security headers to Flask responses**
-  - No CSP, X-Frame-Options, X-Content-Type-Options, or HSTS headers
-  - Fix: add `@app.after_request` handler in `app/main.py`
-
----
-
-## Bugs / Reliability
-
-- [ ] **Re-enable temporal stats visualization**
-  - `app/main.py:157-173`: temporal stats block is commented out
-  - Plot functions exist in `app/visualization.py` (`generate_author_h_index_plot`, `generate_author_total_citations_plot`, `generate_author_i10_index_plot`, `generate_author_h_index_5y_plot`)
-  - `bigquery_service.get_author_temporal_stats()` is implemented and working
-  - `stats_author_metrics_temporal` table is materialized daily via `bigquery-materialize.yml`
-  - Decision needed: re-enable as-is, or redesign the temporal UI
-
-- [ ] **Add retry logic for GCS upload failures**
-  - `functions/fetch_author/main.py:130-133`: GCS upload returns None on failure, no retry
-  - `functions/fetch_publication/main.py:114-117`: same issue
-  - Risk: silent data loss for fetched Scholar data
-
-- [ ] **Fix broken task queue status tracking**
-  - `shared/services/task_queue_service.py`: `get_number_of_tasks_in_queue()` always returns None; `check_pending_tasks()` always returns False
-  - `app/queue_handler.py` wraps these but can't provide meaningful status
-  - `app/main.py:132-134`: queue count display is commented out as a result
-  - Source comments suggest Firestore-based tracking as alternative
-
-- [ ] **Add timeout handling for `scholarly.fill()` in Cloud Functions**
-  - `functions/fetch_author/main.py:159`: `scholarly.fill()` can hang for the entire 1h function timeout
-  - `functions/fetch_publication/main.py`: same issue with 60s timeout
-  - Fix: wrap in `concurrent.futures.ThreadPoolExecutor` with timeout (300s for authors, 30s for publications)
-
-- [ ] **Differentiate transient vs permanent failures in Cloud Functions**
-  - `functions/fetch_publication/main.py:56-59`: all exceptions return 500, causing Cloud Tasks to retry permanent failures
-  - Fix: return 503 for transient errors (network/timeout), 200/400 for permanent errors (bad data)
-
-- [ ] **Fix matplotlib memory leak in visualization.py**
-  - `app/visualization.py`: all plot functions create `Figure` and `BytesIO` objects without closing them
-  - Affects: lines 12, 49, 93, 154, 184, 227
-  - Fix: add `plt.close(fig)` and `buf.close()` after base64 encoding
-
-- [ ] **Fix unsafe chained `.get().get()` in Firestore service**
-  - `shared/services/firestore_service.py:88-90`: `doc.to_dict().get("data").get(key_attr)` — AttributeError if "data" is None
-  - Fix: use `(doc.to_dict().get("data") or {}).get(key_attr)`
+## Utility Scripts
 
 - [ ] **Fix broken `resolve_authors.py` script**
   - `scripts/resolve_authors.py:68`: after setting `sid` via coauthor graph, function falls through to "unresolved" return
   - Fix: add return statement after line 68
 
-- [ ] **Fix `get_rotating_region()` docstring**
-  - `shared/config.py:40`: docstring says "based on the current UTC hour" but line 59 divides by 24 (daily rotation)
-  - Fix: update docstring to say "daily"
+---
+
+## Completed (old codebase)
+
+<details>
+<summary>Click to expand completed tasks</summary>
+
+### Data Correctness
+- [x] Fix hardcoded year 2025 in temporal citations view — losing 2026 data
+- [x] Fix hardcoded year 2024 in results template
+- [x] Fix first publication excluded from PiP-AUC score
+- [x] Fix `base_author_publications` view deploy failure
+
+### Security
+- [x] Fix SQL injection pattern in coauthor query
+- [x] Fix insecure default SECRET_KEY
+
+### Infrastructure
+- [x] Complete the GCS → BigQuery batch loading pipeline (chunking, scheduling, dead-letter)
+- [x] Materialize percentile tables to reduce BigQuery costs (distribution lookups, daily materialization)
+- [x] Add BigQuery view deployment to CI/CD
+
+</details>
 
 ---
 
-## High Priority
+## Obsolete (superseded by v3 migration)
 
-- [x] **Complete the GCS → BigQuery batch loading pipeline**
-  - **Problem:** `functions/batch_load_gcs_to_bq/main.py` was triggered manually and timed out for authors with long publication lists. No automated scheduling exists.
-  - **Current flow:** fetch functions write JSON to GCS → batch_load reads GCS → wraps in NDJSON → loads to BQ tables (`scholar_raw_data.author`, `scholar_raw_data.pub`) → archives source files
-  - **Solution:** Rewrote batch_load to process files in configurable chunks (default 50, controllable via `?batch_size=N`), added dead-letter handling for bad files, cleaned up dead Firestore code
-  - Sub-tasks:
-  - [x] Fix timeout for large authors: files now processed in batches of 50 (configurable) instead of all-at-once per date folder
-  - [x] Add automated scheduling: Cloud Scheduler job (`batch-load-gcs-to-bq`, hourly) deployed via CI/CD in `function.yml`
-  - [x] Add per-file error handling: bad JSON files are moved to `dead_letter/` prefix instead of blocking the batch
-  - [x] Idempotency: archive-after-load pattern ensures files are only archived on BQ success; re-runs safely skip already-archived files
-  - [x] Remove commented-out Firestore saves from Cloud Functions — removed from both `fetch_author` and `fetch_publication`, plus unused FirestoreService imports
+<details>
+<summary>Click to expand — these bugs/tasks exist in the old codebase and will not be fixed there. The v3 rewrite addresses them by design.</summary>
 
-- [x] **Materialize percentile tables to reduce BigQuery costs**
-  - **Problem:** All percentile views were computed live on every query via expensive `PERCENT_RANK()` window functions. `stats_author_metrics_temporal` used a BigQuery MATERIALIZED VIEW which has limitations (no `CURRENT_DATE()` in dependency chains).
-  - **Solution:** Replaced the materialized view with a regular view (`_view` suffix) + periodic table materialization. All expensive views are materialized into `_table` suffixed tables daily via `bigquery-materialize.yml`. The app queries the pre-computed tables.
-  - Sub-tasks:
-  - [x] Converted `stats_author_metrics_temporal` from MATERIALIZED VIEW to regular VIEW (`stats_author_metrics_temporal_view`); table `stats_author_metrics_temporal` is now created by periodic materialization
-  - [x] Created `bigquery/statistics/materialize_stats.sql` that materializes all 5 expensive views into clustered tables: `stats_publication_current_table`, `stats_author_current_table`, `stats_author_publication_pip_inputs_current_table`, `stats_author_pip_scores_current_table`, `stats_author_metrics_temporal`
-  - [x] Created `.github/workflows/bigquery-materialize.yml` — scheduled daily at 06:00 UTC + manual dispatch
-  - [x] Updated `bigquery_service.py` to query `_table` tables instead of live views; fixed broken `stats_author_current_percentiles` reference
-  - [x] Updated `bigquery-views.yml` CI/CD — removed `continue-on-error` hack, deploys regular view
-  - [x] Implement distribution-based percentile lookup: created `dist_publication_citations`, `dist_author_metrics`, `dist_pip_auc_scores` tables; rewrote all 4 percentile views to use floor-based lookups (exact match or nearest-lower approximation for newly fetched data not yet in the distribution); updated `bigquery-materialize.yml` to run 6 ordered steps; per-author queries now use views directly (cheap), all-authors list uses pre-materialized tables
+- ~~Add input validation on URL parameters~~ → v3 frontend built correctly from scratch
+- ~~Add security headers to Flask responses~~ → v3 frontend includes from start
+- ~~Add retry logic for GCS upload failures~~ → v3 crawler has retry by design
+- ~~Fix broken task queue status tracking~~ → v3 queue_manager redesigned
+- ~~Add timeout handling for `scholarly.fill()`~~ → v3 `scholarly_client.py` handles this
+- ~~Differentiate transient vs permanent failures~~ → v3 crawler error classification
+- ~~Fix matplotlib memory leak~~ → v3 frontend may use client-side charting; if matplotlib kept, will close figures properly
+- ~~Fix unsafe chained `.get().get()` in Firestore service~~ → v3 shared code rewritten
+- ~~Fix `get_rotating_region()` docstring~~ → v3 config rewritten
+- ~~Add environment variable overrides for hardcoded config~~ → v3 config has env vars from start
+- ~~Add CI/CD tests~~ → v3 has tests-first approach per component
+- ~~Improve error handling across services~~ → v3 services rewritten with proper error propagation
+- ~~Reduce redundant Firestore reads~~ → v3 frontend cache redesigned
+- ~~Consolidate duplicate service instances~~ → v3 clean architecture, no duplication
+- ~~Evaluate coauthor query oversample_factor~~ → addressed in v3 refresh component
+- ~~Consolidate logging configuration~~ → v3 has unified logging per component
+- ~~Clean up empty stub templates~~ → v3 frontend rewritten
+- ~~Re-enable temporal stats visualization~~ → v3 frontend includes temporal plots
+- ~~Add OIDC authentication for Cloud Function endpoints~~ → v3 deployment config
+- ~~Update frontend dependencies (jQuery, Bootstrap)~~ → v3 uses current versions
+- ~~Switch from matplotlib to client-side charting~~ → decided during v3 frontend build
+- ~~Improve accessibility~~ → v3 frontend built with accessibility from start
 
-- [ ] **Add environment variable overrides for hardcoded config**
-  - `shared/config.py`: `PROJECT_ID`, `BUCKET_NAME`, Firestore collection names, queue names all hardcoded
-  - `functions/batch_load_gcs_to_bq/main.py` duplicates project/dataset/bucket IDs
-  - Blocks: local development, testing, multi-environment deployment
-
-- [x] **Add BigQuery view deployment to CI/CD**
-  - **Problem:** BigQuery SQL views (`bigquery/statistics/*.sql`, `bigquery/coauthor_network/*.sql`) are not deployed by any CI/CD workflow. Changes to view definitions (e.g., the fixes in this PR) require manual execution against BigQuery.
-  - **Current state:** `main.yml` deploys Cloud Run; `function.yml` deploys Cloud Functions. Neither touches BigQuery.
-  - **Solution:** Added `.github/workflows/bigquery-views.yml` — deploys all 10 views in dependency order (5 tiers), triggers on `bigquery/**/*.sql` changes + manual dispatch
-  - Sub-tasks:
-  - [x] Add a CI/CD step (in `main.yml` or a new workflow) that runs `bq query --use_legacy_sql=false < file.sql` for each view in `bigquery/statistics/` and `bigquery/coauthor_network/`
-  - [x] Ensure views are deployed in dependency order (e.g., `base_author_publications` before `stats_author_current`, `stats_publication_current` before `stats_author_publication_pip_inputs_current`)
-  - [x] Only trigger on changes to `bigquery/**/*.sql` files (use `paths` filter in workflow)
-  - [x] Use the existing service account for authentication (`gcloud auth` in CI)
-
-- [ ] **Add CI/CD tests**
-  - Both workflows deploy without running any tests
-  - At minimum: unit tests for shared services, integration tests for BigQuery views
-  - Consider: linting, type checking
-  - Also: `.github/workflows/function.yml:37` uses outdated `actions/checkout@v3` (should be v4)
-  - Also: `.github/workflows/function.yml:92` uses `eval $CMD` — replace with direct execution
-
-- [ ] **Improve error handling across services**
-  - `bigquery_service.py`: all methods catch exceptions and return empty structures (empty DataFrame, None, []) — failures are invisible
-  - `firestore_service.py`: same pattern
-  - `storage_service.py`: `upload_string_to_gcs` returns None on failure
-  - Decide: add structured error reporting, or at minimum ensure errors surface to the UI
-
-- [ ] **Reduce redundant Firestore reads in data_analysis.py**
-  - `app/data_analysis.py:20-26`: `get_author()` fetches author, then `get_author_last_modification()` re-reads the same doc plus queries all publications
-  - 5-7 Firestore reads + 2 BigQuery queries per author page view
-  - Fix: refactor `get_author_last_modification()` to accept already-fetched timestamp
-
-- [ ] **Consolidate duplicate service instances across app modules**
-  - `app/data_analysis.py:12-15`, `app/coauthor_service.py:12`, `app/refresh.py:14-15`, `app/scholar.py:9`, `app/queue_handler.py:8` each create independent `FirestoreService()`, `BigQueryService()` instances
-  - Fix: create `app/services.py` with shared singletons; import from there
+</details>
 
 ---
 
-## Enhancements
-
-- [ ] **Evaluate coauthor query oversample_factor**
-  - `app/coauthor_service.py:37`: `oversample_factor=100` fetches 100x requested rows from BigQuery
-  - Same pattern in `shared/repositories/author_repository.py:47` (hardcoded `* 100` multiplier for stale author selection)
-  - May have unnecessary BigQuery cost; assess whether a smaller factor suffices
-
-- [ ] **Document the region rotation strategy in README**
-  - 9-region deployment with daily rotation is a key architectural decision for avoiding Scholar rate-limiting
-  - Documented in CLAUDE.md and code comments in `shared/config.py:38-60`, but not in README
-
-- [ ] **Pin dependency versions in requirements.txt**
-  - `requirements.txt`: all 13 packages have no `==` version constraints
-  - Builds are not reproducible; risk of breaking changes on redeploy
-
-- [ ] **Improve .gitignore coverage**
-  - Currently only 2 entries (`.ipynb_checkpoints`, `__pycache__`)
-  - Missing: `.env`, `*.pyc`, `venv/`, `.pytest_cache/`, `downloads/`, `.DS_Store`, `*.egg-info/`
-
-- [ ] **Consolidate logging configuration**
-  - `app/main.py:42`, `app/data_analysis.py:9`, `app/scholar.py:6`: each call `logging.basicConfig()` independently
-  - `shared/config.py:63`: uses `print()` instead of `logging`
-  - Fix: single logging config in `main.py`; replace `print()` with `logging.info()`
-
-- [ ] **Clean up empty stub templates**
-  - `app/templates/api.html` and `app/templates/help.html` are completely empty (just extend base.html)
-  - Either add content or remove the routes
-
----
-
-## Future / Low Priority
-
-- [ ] **Switch from matplotlib to client-side charting** (e.g., Chart.js, Plotly.js)
-  - Would reduce server-side computation
-  - Enable interactive plots (hover for paper details, zoom)
-
-- [ ] **Add author comparison feature**
-  - Side-by-side PiP-AUC and percentile plots for multiple authors
-
-- [ ] **Make region rotation dynamic per-request** instead of fixed at import time
-  - Currently `Config.FUNCTION_LOCATION` is set once when the module loads
-  - Long-running Cloud Run instances may use the same region for days
-
-- [ ] **Add OIDC authentication for Cloud Function endpoints**
-  - `task_queue_service.py` has OIDC token config commented out
-  - Functions currently deploy with `--allow-unauthenticated`
-
-- [ ] **Add security headers and CSRF protection**
-  - No Content-Security-Policy, X-Frame-Options, X-Content-Type-Options, HSTS headers
-  - No CSRF tokens on forms
-
-- [ ] **Update frontend dependencies**
-  - jQuery 3.3.1 (2018) -> 3.7.x
-  - Bootstrap 4.3.1 (2018) -> 5.x
-  - Add `&display=swap` to Google Fonts URL for better loading
-
-- [ ] **Improve accessibility**
-  - Table sorting headers lack keyboard support (`role="button"`, `tabindex`)
-  - Autocomplete dropdown not ARIA-compliant
-  - Deprecated `align` attributes in templates — use CSS instead
-
----
-
-_Last updated: 2026-03-18_
+_Last updated: 2026-03-19_
