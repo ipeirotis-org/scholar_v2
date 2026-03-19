@@ -1,0 +1,4 @@
+functions-framework==3.*
+scholarly==1.7.11
+google-cloud-storage==3.10.0
+google-cloud-tasks==2.21.0

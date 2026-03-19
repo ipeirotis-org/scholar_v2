@@ -24,6 +24,8 @@ DEAD_LETTER_PREFIX = "dead_letter/"
 
 # Max files to process in a single NDJSON batch to avoid timeouts
 DEFAULT_BATCH_SIZE = 50
+# Max total files to process per entity type per invocation to stay within memory/time limits
+MAX_FILES_PER_RUN = int(os.environ.get("MAX_FILES_PER_RUN", "500"))
 
 # Initialize clients globally
 try:
@@ -45,23 +47,30 @@ def _log(message, severity="INFO", **extra):
     print(json.dumps(payload))
 
 
-def list_gcs_files(bucket_name, source_prefix):
-    """List all JSON files under source_prefix, returned as a flat list."""
+def iter_gcs_files(bucket_name, source_prefix, max_files=None):
+    """Yield JSON file info dicts from GCS, one at a time (streaming).
+
+    Never materializes the full blob list in memory.
+    Yields at most max_files items if specified.
+    """
     blobs = storage_client.list_blobs(bucket_name, prefix=source_prefix)
-    files = []
+    count = 0
 
     for blob in blobs:
         if not blob.name.endswith(".json"):
             continue
-        files.append({
+        yield {
             "gcs_uri": f"gs://{bucket_name}/{blob.name}",
             "name": blob.name,
             "blob_object": blob,
             "updated_time": blob.updated.isoformat() if blob.updated else datetime.now(timezone.utc).isoformat(),
-        })
+        }
+        count += 1
+        if max_files and count >= max_files:
+            _log(f"Reached max_files limit ({max_files}) for {source_prefix}")
+            return
 
-    _log(f"Found {len(files)} .json files under gs://{bucket_name}/{source_prefix}")
-    return files
+    _log(f"Found {count} .json files under gs://{bucket_name}/{source_prefix}")
 
 
 def move_to_dead_letter(file_info, source_prefix, reason):
@@ -241,29 +250,48 @@ def process_batch(files_batch, source_prefix, archive_prefix, bq_table_id, entit
         cleanup_temp_gcs_file(ndjson_uri)
 
 
-def process_source_path(source_prefix, archive_prefix, bq_table_id, entity_type, batch_size):
-    """Process all files under a source prefix in batches."""
+def process_source_path(source_prefix, archive_prefix, bq_table_id, entity_type, batch_size,
+                        max_files=MAX_FILES_PER_RUN):
+    """Process files under a source prefix in streaming batches.
+
+    Iterates GCS blobs one at a time, collecting batch_size files before
+    processing each batch. Never holds more than batch_size blob references
+    in memory. Stops after max_files total to stay within time/memory limits.
+    """
     _log(f"Starting processing for {entity_type}",
          source=f"gs://{GCS_BUCKET_NAME}/{source_prefix}",
-         bigquery_table=bq_table_id, batch_size=batch_size)
-
-    all_files = list_gcs_files(GCS_BUCKET_NAME, source_prefix)
-    if not all_files:
-        _log(f"No {entity_type} files to process.")
-        return
+         bigquery_table=bq_table_id, batch_size=batch_size, max_files=max_files)
 
     total_archived = 0
-    num_batches = (len(all_files) + batch_size - 1) // batch_size
+    total_seen = 0
+    batch_num = 0
+    current_batch = []
 
-    for i in range(num_batches):
-        batch = all_files[i * batch_size : (i + 1) * batch_size]
-        _log(f"Processing batch {i + 1}/{num_batches} ({len(batch)} files) for {entity_type}")
+    for file_info in iter_gcs_files(GCS_BUCKET_NAME, source_prefix, max_files=max_files):
+        current_batch.append(file_info)
+        total_seen += 1
+
+        if len(current_batch) >= batch_size:
+            batch_num += 1
+            _log(f"Processing batch {batch_num} ({len(current_batch)} files) for {entity_type}")
+            total_archived += process_batch(
+                current_batch, source_prefix, archive_prefix, bq_table_id, entity_type, batch_num
+            )
+            current_batch = []
+
+    # Process remaining files
+    if current_batch:
+        batch_num += 1
+        _log(f"Processing batch {batch_num} ({len(current_batch)} files) for {entity_type}")
         total_archived += process_batch(
-            batch, source_prefix, archive_prefix, bq_table_id, entity_type, i + 1
+            current_batch, source_prefix, archive_prefix, bq_table_id, entity_type, batch_num
         )
 
-    _log(f"Finished {entity_type}: {total_archived}/{len(all_files)} files loaded and archived.",
-         batches_processed=num_batches)
+    if total_seen == 0:
+        _log(f"No {entity_type} files to process.")
+    else:
+        _log(f"Finished {entity_type}: {total_archived}/{total_seen} files loaded and archived.",
+             batches_processed=batch_num)
 
 
 @functions_framework.http
