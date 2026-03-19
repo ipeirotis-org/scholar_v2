@@ -42,7 +42,7 @@ jobs:
     # To refresh them manually, trigger that workflow via workflow_dispatch.
 
     # Deploy views in dependency order.
-    # Tier 1: No view dependencies (read from raw Firestore tables + dist tables)
+    # Tier 1: No view dependencies (read from scholar_raw_data.*_latest + dist tables)
     - name: 'Tier 1: base_author_publications'
       run: bq query --project_id=${{ env.PROJECT_ID }} --use_legacy_sql=false < bigquery/statistics/base_author_publications.sql
 

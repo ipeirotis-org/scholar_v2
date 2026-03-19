@@ -10,7 +10,7 @@ WITH
     CAST(JSON_EXTRACT_SCALAR(DATA, '$.data.num_citations') AS INT64) AS total_citations,
     JSON_QUERY(DATA, '$.data.cites_per_year') AS cites_per_year
   FROM
-    `scholar-version2.firestore_export.scholar_raw_pub_raw_latest`),
+    `scholar-version2.scholar_raw_data.pub_latest`),
 ExplodedData AS (
   SELECT
     ed.scholar_id,

@@ -17,7 +17,7 @@ WITH raw_pubs AS (
     JSON_EXTRACT_SCALAR(data, '$.data.bib.author') AS author,
     CAST(JSON_EXTRACT_SCALAR(data, '$.data.num_citations') AS INT64) AS num_citations,
     timestamp
-  FROM `scholar-version2.firestore_export.scholar_raw_pub_raw_latest`
+  FROM `scholar-version2.scholar_raw_data.pub_latest`
   WHERE CAST(JSON_EXTRACT_SCALAR(data, '$.data.bib.pub_year') AS INT64) > 1950
     AND CAST(JSON_EXTRACT_SCALAR(data, '$.data.bib.pub_year') AS INT64) <= EXTRACT(YEAR FROM CURRENT_DATE())
     AND CAST(JSON_EXTRACT_SCALAR(data, '$.data.num_citations') AS INT64) > 0
