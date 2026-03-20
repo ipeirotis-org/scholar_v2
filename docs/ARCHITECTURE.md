@@ -57,11 +57,12 @@ Scholar Analytics is a system for analyzing Google Scholar data using percentile
 
 | File | Role |
 |---|---|
-| `functions/fetch_author/main.py` | Cloud Function: fetch author profile → GCS |
-| `functions/fetch_publication/main.py` | Cloud Function: fetch publication details → GCS |
-| `shared/services/storage_service.py` | GCS upload client |
-| `shared/services/task_queue_service.py` | Enqueue publication tasks |
-| `shared/config.py` | Region rotation, queue config |
+| `crawler/fetch_author.py` | Cloud Function: fetch author profile → GCS |
+| `crawler/fetch_publication.py` | Cloud Function: fetch publication details → GCS |
+| `crawler/gcs_writer.py` | GCS upload client with retry |
+| `crawler/scholarly_client.py` | scholarly wrapper with timeout, retry, error classification |
+| `crawler/task_enqueuer.py` | Enqueue publication tasks |
+| `crawler/config.py` | Region rotation, queue config |
 
 ### Infrastructure
 
@@ -118,8 +119,8 @@ The raw tables use `WRITE_APPEND`, so they accumulate every historical version o
 
 | File | Role |
 |---|---|
-| `functions/batch_load_gcs_to_bq/main.py` | Cloud Function: GCS → NDJSON → BigQuery batch load |
-| `shared/services/storage_service.py` | GCS list/read/move operations |
+| `ingestion/batch_load.py` | Cloud Function: GCS → NDJSON → BigQuery batch load |
+| `ingestion/config.py` | Config with env var overrides |
 
 ### Infrastructure
 
@@ -291,11 +292,15 @@ All charts are generated server-side with matplotlib and embedded as base64 PNG:
 
 | File | Role |
 |---|---|
-| `app/main.py` | Flask routes: `/`, `/results`, `/download`, `/publication/*` |
-| `app/data_analysis.py` | BigQuery queries + Firestore cache layer |
-| `app/visualization.py` | Matplotlib chart generation |
-| `app/templates/` | Jinja2 HTML templates |
-| `app/static/` | CSS, JS assets |
+| `frontend/main.py` | App entry point |
+| `frontend/app.py` | Flask app factory with security headers |
+| `frontend/routes.py` | Routes: `/`, `/results`, `/publication`, `/download`, `/data`, `/help`, `/api/*` |
+| `frontend/bigquery_client.py` | Parameterized BigQuery queries |
+| `frontend/cache.py` | Firestore cache with timestamp-based invalidation |
+| `frontend/visualization.py` | Matplotlib chart generation (base64 PNG) |
+| `frontend/config.py` | Config with env var overrides |
+| `frontend/templates/` | Jinja2 HTML templates |
+| `frontend/static/` | CSS, JS assets |
 
 ### Infrastructure
 
@@ -452,7 +457,7 @@ The frontend calls this service for author search:
 
 3. **On-demand latency: Show "queued" status.** The crawler is not real-time. When a user searches for an unknown author, Refresh & Expand enqueues the crawl and the frontend shows "Author queued for analysis." No event-driven ingestion needed for most cases.
 
-4. **Shared code: Copy at deploy.** The `shared/` directory is copied into each component at deploy time. A `shared/VERSION` file lets deployed components report which version of shared code they're running.
+4. **Self-contained components.** Each component (`frontend/`, `crawler/`, `ingestion/`, `refresh/`, `author_search/`) has its own `config.py`, service modules, `requirements.txt`, and tests. No shared code directory — components are fully independent.
 
 ---
 
@@ -494,4 +499,4 @@ The frontend calls this service for author search:
 
 ---
 
-_Last updated: 2026-03-19_
+_Last updated: 2026-03-20_
