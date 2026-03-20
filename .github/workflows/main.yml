@@ -49,7 +49,7 @@ jobs:
           --config /dev/stdin <<CLOUDBUILD
         steps:
           - name: 'gcr.io/cloud-builders/docker'
-            args: ['build', '-f', 'v3/frontend/Dockerfile', '-t', '$IMAGE_PATH', '.']
+            args: ['build', '-f', 'frontend/Dockerfile', '-t', '$IMAGE_PATH', '.']
         images: ['$IMAGE_PATH']
         CLOUDBUILD
 
@@ -118,20 +118,15 @@ jobs:
       run: |
         mkdir -p /tmp/deploy-refresh/refresh
         # Copy refresh package
-        cp v3/refresh/__init__.py /tmp/deploy-refresh/refresh/
-        cp v3/refresh/config.py /tmp/deploy-refresh/refresh/
-        cp v3/refresh/bigquery_client.py /tmp/deploy-refresh/refresh/
-        cp v3/refresh/task_enqueuer.py /tmp/deploy-refresh/refresh/
-        cp v3/refresh/refresh_service.py /tmp/deploy-refresh/refresh/
+        cp refresh/__init__.py /tmp/deploy-refresh/refresh/
+        cp refresh/config.py /tmp/deploy-refresh/refresh/
+        cp refresh/bigquery_client.py /tmp/deploy-refresh/refresh/
+        cp refresh/task_enqueuer.py /tmp/deploy-refresh/refresh/
+        cp refresh/refresh_service.py /tmp/deploy-refresh/refresh/
         # Copy entry point as main.py
-        cp v3/refresh/main.py /tmp/deploy-refresh/main.py
+        cp refresh/main.py /tmp/deploy-refresh/main.py
         # Copy requirements
-        cp v3/refresh/requirements.txt /tmp/deploy-refresh/requirements.txt
-        # Fix imports: v3.refresh -> refresh
-        sed -i 's/from v3\.refresh\./from refresh./g' /tmp/deploy-refresh/refresh/*.py
-        sed -i 's/from v3\.refresh\./from refresh./g' /tmp/deploy-refresh/main.py
-        sed -i 's/from v3\.refresh /from refresh /g' /tmp/deploy-refresh/refresh/*.py
-        sed -i 's/from v3\.refresh /from refresh /g' /tmp/deploy-refresh/main.py
+        cp refresh/requirements.txt /tmp/deploy-refresh/requirements.txt
 
     - name: Deploy Refresh service to Cloud Run
       run: |-
