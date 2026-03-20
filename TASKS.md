@@ -61,19 +61,21 @@ We are rebuilding the system from scratch in `v3/` with clean component boundari
   - [x] Pin dependency versions in `requirements.txt`
   - [x] Tests (30 tests: config, routes, input validation, security headers, visualizations) and Dockerfile
   - [ ] Calls Author Search Service (Component 6) — stub returns empty results until Component 6 is built
-  - [ ] Calls Refresh & Expand (Component 5) — stub returns not_implemented until Component 5 is built
+  - [x] Calls Refresh & Expand (Component 5) — delegates via HTTP when REFRESH_SERVICE_URL configured, falls back gracefully
   - [ ] Show recently analyzed authors on the home page _(from #26)_
 
 ### Step 5: Refresh & Expand (Component 5)
 
 - [ ] **Build as a separate service in `v3/refresh/`**
-  - [ ] Stale author detection via BigQuery timestamps (`MAX(timestamp)` on raw tables)
-  - [ ] Error author detection: find authors with highest fetch errors and re-crawl (with 24h cooldown to avoid loops) _(from #32)_
-  - [ ] Coauthor expansion via BigQuery `coauthors_to_add` view (evaluate oversample_factor — currently 100x may be excessive)
-  - [ ] Queue manager: enqueue to Cloud Tasks, check pending status
-  - [ ] Three scheduled tasks _(from #19)_: refresh stale authors, fix error authors, add coauthors (~1 per 10 min = ~4K/month)
-  - [ ] HTTP endpoint for user-triggered refresh (called by frontend)
-  - [ ] Tests and CI/CD
+  - [x] `config.py` — Config with env var overrides (project, bucket, queues, regions, refresh policies)
+  - [x] `bigquery_client.py` — Queries for stale authors (90-day threshold), error authors (24h cooldown), coauthors to add (oversample factor 10x)
+  - [x] `task_enqueuer.py` — Enqueue author tasks to Cloud Tasks with idempotent task names, duplicate handling
+  - [x] `refresh_service.py` — Orchestration: refresh_stale_authors, refresh_error_authors, expand_coauthors, fetch_author(s)
+  - [x] `main.py` — HTTP entry points: refresh_stale, refresh_errors, expand_coauthors, fetch_author, fetch_authors (Cloud Run / Cloud Function)
+  - [x] Frontend wired: routes.py calls Component 5 via HTTP when REFRESH_SERVICE_URL is configured, falls back to stubs when not
+  - [x] Tests (76 tests: config, bigquery_client, task_enqueuer, refresh_service, main entry points, input validation)
+  - [ ] CI/CD deployment pipeline
+  - [ ] Cloud Scheduler triggers for periodic refresh, error retry, coauthor expansion
 
 ### Step 6: Author Search Service (Component 6)
 
@@ -221,4 +223,4 @@ We are rebuilding the system from scratch in `v3/` with clean component boundari
 
 ---
 
-_Last updated: 2026-03-20 (Step 4 frontend built)_
+_Last updated: 2026-03-20 (Step 5 refresh & expand built)_
