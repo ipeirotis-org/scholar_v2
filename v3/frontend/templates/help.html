@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+
+{% block title %}Help -- Scholar Analytics{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Help</h2>
+
+    <h4>What is PiP-AUC?</h4>
+    <p>
+        PiP-AUC (Paper-in-Percentile Area Under Curve) combines citation quality with
+        publication productivity into a single 0-to-1 score. Each paper is ranked against
+        all papers published in the same year, and an author's publication count is compared
+        to faculty at similar career stages.
+    </p>
+
+    <h4>How are percentiles calculated?</h4>
+    <p>
+        All metrics (h-index, citations, i10-index, publication count) are percentile-ranked
+        against ~15,000 faculty at top US universities who started publishing in the same year.
+        This age-aware normalization prevents bias toward senior researchers.
+    </p>
+
+    <h4>How often is data updated?</h4>
+    <p>
+        Author data is re-crawled from Google Scholar approximately every 90 days.
+        Distribution tables (population percentiles) are refreshed quarterly.
+    </p>
+
+    <h4>Contact</h4>
+    <p>
+        For questions or issues, contact
+        <a href="mailto:panos@nyu.edu">Panos Ipeirotis</a> or open an issue on
+        <a href="https://github.com/ipeirotis-org/scholar_v2" rel="noopener">GitHub</a>.
+    </p>
+</div>
+{% endblock %}

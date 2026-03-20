@@ -50,17 +50,19 @@ We are rebuilding the system from scratch in `v3/` with clean component boundari
 ### Step 4: Frontend (Component 4)
 
 - [ ] **Build the frontend in `v3/frontend/`**
-  - [ ] Flask app: read-only, queries analytics views + materialized tables
-  - [ ] Firestore cache for query results only (not raw data)
-  - [ ] Calls Author Search Service (Component 6) — no `scholarly` dependency
-  - [ ] Calls Refresh & Expand (Component 5) for user-triggered refreshes
-  - [ ] Visualization (decide: keep matplotlib or move to client-side charting)
+  - [x] Flask app factory with security headers (X-Content-Type-Options, X-Frame-Options, X-XSS-Protection, Referrer-Policy, Permissions-Policy)
+  - [x] BigQuery client: parameterized queries for author stats, publication stats, PiP inputs, temporal metrics, CSV export
+  - [x] Firestore cache for query results only (not raw data), with timestamp-based invalidation
+  - [x] Visualization: server-side matplotlib (percentile rank, PiP scatter, pub citations, temporal dual-axis plots), explicit figure cleanup to prevent memory leaks
+  - [x] Route handlers: /, /results, /publication, /download, /data, /help, /api/fetch_authors, /api/refresh_stale_authors, /api/add_coauthors, /get_similar_authors
+  - [x] Input validation: regex-based scholar_id and author_pub_id validation on all routes
+  - [x] Accessibility: ARIA landmarks, roles, labels, keyboard-navigable autocomplete, semantic HTML
+  - [x] Overall page template: consistent header, footer, navigation, flash messages across all pages _(from #5)_
+  - [x] Pin dependency versions in `requirements.txt`
+  - [x] Tests (30 tests: config, routes, input validation, security headers, visualizations) and Dockerfile
+  - [ ] Calls Author Search Service (Component 6) — stub returns empty results until Component 6 is built
+  - [ ] Calls Refresh & Expand (Component 5) — stub returns not_implemented until Component 5 is built
   - [ ] Show recently analyzed authors on the home page _(from #26)_
-  - [ ] Input validation, security headers, CSRF protection from the start
-  - [ ] Accessibility: keyboard support, ARIA, no deprecated HTML attributes
-  - [ ] Overall page template: consistent header, footer, navigation across all pages _(from #5)_
-  - [ ] Pin dependency versions in `requirements.txt`
-  - [ ] Tests and Dockerfile
 
 ### Step 5: Refresh & Expand (Component 5)
 
@@ -219,4 +221,4 @@ We are rebuilding the system from scratch in `v3/` with clean component boundari
 
 ---
 
-_Last updated: 2026-03-20_
+_Last updated: 2026-03-20 (Step 4 frontend built)_

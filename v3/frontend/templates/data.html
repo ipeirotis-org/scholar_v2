@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+
+{% block title %}Data Export -- Scholar Analytics{% endblock %}
+
+{% block content %}
+<div class="container mt-4 text-center">
+    <h2>Data Export</h2>
+    <p>Download aggregated statistics for all authors in our database.</p>
+    <a href="https://storage.googleapis.com/scholar_data_share/all_authors_stats.csv"
+       class="btn btn-primary" rel="noopener">
+        Download All Authors Stats (CSV)
+    </a>
+</div>
+{% endblock %}

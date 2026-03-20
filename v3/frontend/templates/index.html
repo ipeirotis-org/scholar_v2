@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+
+{% block title %}Scholar Analytics{% endblock %}
+
+{% block content %}
+<section id="content" class="container mt-4">
+    <div class="text-center">
+        <h1>Scholar Analytics</h1>
+        <p>Percentile-based, age-aware research impact analysis using PiP-AUC scoring.</p>
+
+        <form id="searchForm" class="mt-4" role="search" aria-label="Author search"
+              onsubmit="event.preventDefault(); findAuthor();">
+            <div class="form-group">
+                <label for="author_name" class="sr-only">Author Name</label>
+                <input type="text" id="author_name" name="author_name"
+                       class="form-control d-inline-block" style="max-width: 400px;"
+                       placeholder="Enter author name"
+                       autocomplete="off" required
+                       aria-describedby="searchHelp">
+                <small id="searchHelp" class="form-text text-muted">
+                    Search by name to find a Google Scholar profile.
+                </small>
+            </div>
+            <button type="submit" id="findAuthorButton" class="btn btn-primary">Find Author</button>
+            <button type="button" id="analyzeAuthorButton" class="btn btn-success"
+                    onclick="analyzeAuthor()" disabled>Analyze Author</button>
+        </form>
+
+        <div class="autocomplete-dropdown" id="autocomplete-dropdown"
+             role="listbox" aria-label="Author search results"></div>
+    </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const authorInput = document.getElementById("author_name");
+    const analyzeBtn = document.getElementById("analyzeAuthorButton");
+    const dropdown = document.getElementById("autocomplete-dropdown");
+
+    function findAuthor() {
+        const name = authorInput.value.trim();
+        const findBtn = document.getElementById("findAuthorButton");
+        if (!name) return;
+
+        analyzeBtn.disabled = true;
+        findBtn.disabled = true;
+        findBtn.textContent = "Searching...";
+
+        fetch("/get_similar_authors?author_name=" + encodeURIComponent(name))
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                dropdown.innerHTML = "";
+                var authors = Array.isArray(data) ? data : [data];
+                if (authors.length === 0) {
+                    dropdown.innerHTML = '<div class="author-option text-muted">No results found.</div>';
+                }
+                authors.forEach(function(author) {
+                    var div = document.createElement("div");
+                    div.className = "author-option";
+                    div.setAttribute("role", "option");
+                    div.setAttribute("tabindex", "0");
+                    div.textContent = author.name + " (ID: " + author.scholar_id +
+                        ", Affiliation: " + (author.affiliation || "N/A") + ")";
+                    div.onclick = function() { selectAuthor(author); };
+                    div.onkeydown = function(e) {
+                        if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            selectAuthor(author);
+                        }
+                    };
+                    dropdown.appendChild(div);
+                });
+                dropdown.style.display = "block";
+            })
+            .catch(function(err) { console.error("Search error:", err); })
+            .finally(function() {
+                findBtn.disabled = false;
+                findBtn.textContent = "Find Author";
+            });
+    }
+
+    function selectAuthor(author) {
+        authorInput.value = author.name;
+        dropdown.style.display = "none";
+        analyzeBtn.disabled = false;
+        analyzeBtn.dataset.scholarId = author.scholar_id;
+    }
+
+    function analyzeAuthor() {
+        var scholarId = analyzeBtn.dataset.scholarId;
+        if (scholarId) {
+            analyzeBtn.disabled = true;
+            window.location.href = "/results?author_id=" + encodeURIComponent(scholarId);
+        }
+    }
+</script>
+{% endblock %}
