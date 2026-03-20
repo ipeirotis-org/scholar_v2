@@ -3,24 +3,46 @@
 import sys
 from unittest import mock
 
-# Mock the entire google.cloud hierarchy before any imports
-_google = mock.MagicMock()
+# Build a proper mock hierarchy for google.cloud so submodule imports work.
+# Each level needs to be a MagicMock so `from google.cloud import X` resolves.
+_google_mock = mock.MagicMock()
+_google_cloud_mock = mock.MagicMock()
+_google_mock.cloud = _google_cloud_mock
+
+for mod_name, mod_mock in [
+    ("google", _google_mock),
+    ("google.cloud", _google_cloud_mock),
+]:
+    sys.modules.setdefault(mod_name, mod_mock)
+
+# Mock individual GCP packages
 for mod_name in [
-    "google",
-    "google.cloud",
     "google.cloud.bigquery",
     "google.cloud.firestore",
     "google.cloud.firestore_v1",
     "google.cloud.firestore_v1.base_query",
     "google.cloud.storage",
+    "google.cloud.tasks_v2",
+    "google.api_core",
+    "google.api_core.exceptions",
     "scholarly",
+    "matplotlib",
+    "matplotlib.pyplot",
+    "matplotlib.ticker",
+    "matplotlib.colors",
+    "matplotlib.patches",
+    "matplotlib.figure",
 ]:
-    sys.modules.setdefault(mod_name, _google)
+    sys.modules.setdefault(mod_name, mock.MagicMock())
 
-# Make google.cloud.bigquery.ScalarQueryParameter a real class for parameterized queries
+# Make ScalarQueryParameter a real class (used by author_search)
 sys.modules["google.cloud.bigquery"].ScalarQueryParameter = type(
     "ScalarQueryParameter", (), {"__init__": lambda self, *a, **kw: None}
 )
+
+# Make HttpMethod an object with POST attribute
+sys.modules["google.cloud.tasks_v2"].HttpMethod = mock.MagicMock()
+sys.modules["google.cloud.tasks_v2"].HttpMethod.POST = 1
 
 import pytest
 

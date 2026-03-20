@@ -24,9 +24,12 @@ class Config:
     # Refresh & Expand service (Component 5)
     REFRESH_SERVICE_URL = os.environ.get("REFRESH_SERVICE_URL", "")
 
-    # Cloud Tasks (legacy — Component 5 now owns task enqueueing)
+    # Cloud Tasks
     QUEUE_LOCATION = os.environ.get("QUEUE_LOCATION", "northamerica-northeast1")
-    QUEUE_NAME_AUTHORS = os.environ.get("QUEUE_NAME_AUTHORS", "process-authors")
+    QUEUE_NAME_CACHE_PRIORITY = os.environ.get("QUEUE_NAME_CACHE_PRIORITY", "cache-priority")
+
+    # Cache Layer service (Component 7)
+    CACHE_LAYER_URL = os.environ.get("CACHE_LAYER_URL", "")
 
     # Author search function (Component 6 — stub until built)
     SEARCH_FUNCTION_URL = os.environ.get("SEARCH_FUNCTION_URL", "")

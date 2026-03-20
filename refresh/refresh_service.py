@@ -23,6 +23,7 @@ def refresh_stale_authors(limit=None):
         return {"source": "stale", "found": 0, "enqueued": 0, "duplicates": 0, "errors": []}
 
     result = task_enqueuer.enqueue_authors(scholar_ids)
+    task_enqueuer.enqueue_cache_warm_batch(scholar_ids)
     return {
         "source": "stale",
         "found": len(scholar_ids),
@@ -42,6 +43,7 @@ def refresh_error_authors(limit=None):
         return {"source": "errors", "found": 0, "enqueued": 0, "duplicates": 0, "errors": []}
 
     result = task_enqueuer.enqueue_authors(scholar_ids)
+    task_enqueuer.enqueue_cache_warm_batch(scholar_ids)
     return {
         "source": "errors",
         "found": len(scholar_ids),
@@ -60,6 +62,7 @@ def expand_coauthors(limit=None):
         return {"source": "coauthors", "found": 0, "enqueued": 0, "duplicates": 0, "errors": []}
 
     result = task_enqueuer.enqueue_authors(scholar_ids)
+    task_enqueuer.enqueue_cache_warm_batch(scholar_ids)
     return {
         "source": "coauthors",
         "found": len(scholar_ids),
@@ -84,6 +87,9 @@ def fetch_author(scholar_id):
             "error": str(exc),
         }
 
+    if enqueued:
+        task_enqueuer.enqueue_cache_warm(scholar_id)
+
     return {
         "scholar_id": scholar_id,
         "exists": exists,
@@ -97,6 +103,7 @@ def fetch_authors(scholar_ids):
     Returns a summary dict with per-author results.
     """
     result = task_enqueuer.enqueue_authors(scholar_ids)
+    task_enqueuer.enqueue_cache_warm_batch(scholar_ids)
     return {
         "source": "user_request",
         "found": len(scholar_ids),

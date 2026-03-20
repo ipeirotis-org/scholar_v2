@@ -84,3 +84,61 @@ def enqueue_authors(scholar_ids):
         enqueued, duplicates, len(errors),
     )
     return {"enqueued": enqueued, "duplicates": duplicates, "errors": errors}
+
+
+# ── Cache warming ────────────────────────────────────────────────────────────
+
+
+def enqueue_cache_warm(scholar_id):
+    """Enqueue a cache warming task to the batch queue.
+
+    Called after a crawl is enqueued so the cache layer pre-populates
+    the author's data before the user returns. Non-fatal — failures are
+    logged but don't propagate.
+
+    Returns True if enqueued, False otherwise.
+    """
+    cache_url = Config.CACHE_LAYER_URL
+    if not cache_url:
+        return False
+
+    client = _get_client()
+    queue_path = Config.queue_path(Config.QUEUE_NAME_CACHE_BATCH)
+    target_url = f"{cache_url.rstrip('/')}/tasks/batch"
+
+    task = {
+        "http_request": {
+            "http_method": tasks_v2.HttpMethod.POST,
+            "url": target_url,
+            "headers": {"Content-Type": "application/json"},
+            "body": json.dumps({
+                "type": "warm_author",
+                "scholar_id": scholar_id,
+            }).encode(),
+        },
+    }
+
+    try:
+        client.create_task(parent=queue_path, task=task)
+        logger.info("Enqueued cache warm task: %s", scholar_id)
+        return True
+    except Exception:
+        logger.exception("Failed to enqueue cache warm for %s", scholar_id)
+        return False
+
+
+def enqueue_cache_warm_batch(scholar_ids):
+    """Enqueue cache warming tasks for a list of scholar IDs.
+
+    Returns the number of tasks successfully enqueued.
+    """
+    if not Config.CACHE_LAYER_URL:
+        return 0
+
+    count = 0
+    for sid in scholar_ids:
+        if enqueue_cache_warm(sid):
+            count += 1
+    if count:
+        logger.info("Enqueued %d cache warm tasks", count)
+    return count

@@ -24,6 +24,10 @@ from datetime import datetime, timezone
 import functions_framework
 from google.cloud import bigquery, storage
 
+from ingestion.cache_enqueuer import (
+    enqueue_cache_invalidations,
+    _extract_scholar_ids_from_ndjson_lines,
+)
 from ingestion.config import Config
 
 logger = logging.getLogger(__name__)
@@ -306,6 +310,16 @@ def process_batch(
                 f"Batch {batch_num}: BQ load succeeded for {len(good_files)} {entity_type} files. Archiving."
             )
             archive_files(good_files, source_prefix, archive_prefix)
+            # Notify cache layer to invalidate affected authors
+            try:
+                scholar_ids = _extract_scholar_ids_from_ndjson_lines(ndjson_lines)
+                if scholar_ids:
+                    enqueue_cache_invalidations(scholar_ids)
+            except Exception:
+                _log(
+                    f"Batch {batch_num}: Cache invalidation failed (non-fatal).",
+                    severity="WARNING",
+                )
             return len(good_files)
         else:
             _log(

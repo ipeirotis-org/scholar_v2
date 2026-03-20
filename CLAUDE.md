@@ -25,18 +25,26 @@ All current and planned tasks are tracked in [`TASKS.md`](TASKS.md). Check there
 
 ```
 scholar_v2/
-├── frontend/                     # Flask web application (Cloud Run)
+├── frontend/                     # Flask web application (Cloud Run) — reads Firestore only
 │   ├── main.py                   # App entry point
 │   ├── app.py                    # Flask app factory with security headers
 │   ├── routes.py                 # Routes: /, /results, /publication, /download, /data, /help, /api/*
-│   ├── bigquery_client.py        # Parameterized BigQuery queries
-│   ├── cache.py                  # Firestore cache with timestamp-based invalidation
+│   ├── cache.py                  # Read-only Firestore cache client
+│   ├── queue_client.py           # Enqueue cache-miss tasks to priority queue
 │   ├── visualization.py          # Matplotlib plot generation (base64 PNG)
 │   ├── config.py                 # Config with env var overrides
 │   ├── templates/                # Jinja2 HTML templates
 │   ├── static/                   # CSS, JS assets
 │   ├── Dockerfile                # Python 3.12-slim, Flask on port 8080
 │   └── tests/                    # 32 tests
+├── cache_layer/                  # Cloud Run service: BigQuery → Firestore cache population
+│   ├── main.py                   # HTTP entry points for priority + batch queues
+│   ├── cache_service.py          # Orchestration: dispatch by request type
+│   ├── bigquery_client.py        # Read-only BigQuery queries
+│   ├── cache_writer.py           # Write-only Firestore client
+│   ├── config.py                 # Config with env var overrides
+│   ├── Dockerfile                # Python 3.12-slim
+│   └── tests/
 ├── crawler/                      # Cloud Functions: fetch author/publication data (Gen2, 9 regions)
 │   ├── fetch_author.py           # Scholar → JSON → GCS → enqueue pubs (timeout: 1h)
 │   ├── fetch_publication.py      # Scholar → JSON → GCS (timeout: 60s)
@@ -95,9 +103,15 @@ scholar_v2/
              → PiP-AUC score (trapezoidal AUC) + its percentile
              → Temporal metrics (h-index, citations over time) [materialized, daily refresh]
 
-4. SERVE:  Flask app queries BigQuery via bigquery_client
-             → caches results in Firestore (invalidated when author data is newer)
-             → matplotlib generates percentile rank + PiP scatter plots
+4. CACHE:  Cache Layer (Cloud Run) populates Firestore from BigQuery
+             → Triggered by: priority queue (frontend cache miss, ingestion events)
+                             batch queue (scheduled warming, full rebuild)
+             → Writes structured data to Firestore cache collections
+             → Cache is fully disposable — can be rebuilt from BigQuery
+
+5. SERVE:  Flask app reads from Firestore cache only (no direct BigQuery)
+             → On cache miss: enqueues priority task → returns loading page
+             → matplotlib generates percentile rank + PiP scatter plots from cached data
              → HTML templates render with base64-encoded PNG images
 ```
 

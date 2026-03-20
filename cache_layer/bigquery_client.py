@@ -1,4 +1,4 @@
-"""BigQuery client for frontend analytics queries.
+"""Read-only BigQuery client for cache layer queries.
 
 All queries use parameterized SQL to prevent injection.
 """
@@ -9,7 +9,7 @@ from datetime import datetime
 from google.cloud import bigquery
 from google.cloud.bigquery import ScalarQueryParameter
 
-from frontend.config import Config
+from cache_layer.config import Config
 
 logger = logging.getLogger(__name__)
 
@@ -106,38 +106,6 @@ class BigQueryClient:
             return []
         return df.to_dict("records")
 
-    def get_all_authors_stats(self):
-        """Get all authors stats from materialized tables (for CSV export)."""
-        sql = f"""
-            SELECT S.*, P.pip_auc_score, P.pip_auc_score_percentile
-            FROM {Config.bq_view('ranked_author_current_table')} S
-            LEFT JOIN {Config.bq_view('ranked_author_pip_scores_current_table')} P
-              ON P.scholar_id = S.scholar_id
-        """
-        return self._query(sql)
-
-    def get_author_last_updated(self, scholar_id):
-        """Get the latest timestamp for an author's data."""
-        sql = f"""
-            SELECT MAX(ts) AS last_updated FROM (
-                SELECT MAX(timestamp) AS ts
-                FROM {Config.bq_raw('author')}
-                WHERE document_id = @scholar_id
-                UNION ALL
-                SELECT MAX(timestamp) AS ts
-                FROM {Config.bq_raw('pub')}
-                WHERE STARTS_WITH(document_id, @scholar_id_prefix)
-            )
-        """
-        params = [
-            ScalarQueryParameter("scholar_id", "STRING", scholar_id),
-            ScalarQueryParameter("scholar_id_prefix", "STRING", f"{scholar_id}:"),
-        ]
-        df = self._query(sql, params)
-        if df is None or df.empty or df.iloc[0]["last_updated"] is None:
-            return None
-        return df.iloc[0]["last_updated"]
-
     def get_author_freshness(self, scholar_id):
         """Check author existence and get last_updated in a single query.
 
@@ -163,23 +131,8 @@ class BigQueryClient:
             return False, None
         return True, df.iloc[0]["last_updated"]
 
-    def author_exists(self, scholar_id):
-        """Check whether an author exists in the raw data."""
-        sql = f"""
-            SELECT 1
-            FROM {Config.bq_raw('author')}
-            WHERE document_id = @scholar_id
-            LIMIT 1
-        """
-        params = [ScalarQueryParameter("scholar_id", "STRING", scholar_id)]
-        df = self._query(sql, params)
-        return df is not None and not df.empty
-
     def get_recently_analyzed_authors(self, limit=20):
-        """Get the most recently updated authors with their PiP-AUC scores.
-
-        Uses materialized tables for efficiency (no live view computation).
-        """
+        """Get the most recently updated authors with their PiP-AUC scores."""
         sql = f"""
             SELECT S.scholar_id, S.name, S.affiliation,
                    S.hindex, S.citedby,
@@ -198,3 +151,14 @@ class BigQueryClient:
         if df is None:
             return []
         return df.to_dict("records")
+
+    def get_all_author_ids(self):
+        """Get all author scholar_ids for full cache rebuild."""
+        sql = f"""
+            SELECT DISTINCT document_id AS scholar_id
+            FROM {Config.bq_raw('author')}
+        """
+        df = self._query(sql)
+        if df is None:
+            return []
+        return df["scholar_id"].tolist()
