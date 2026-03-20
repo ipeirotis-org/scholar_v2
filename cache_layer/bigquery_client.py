@@ -137,7 +137,7 @@ class BigQueryClient:
             SELECT S.scholar_id, S.name, S.affiliation,
                    S.hindex, S.citedby,
                    ROUND(MAX(P.pip_auc_score), 3) AS pip_auc_score,
-                   ROUND(MAX(P.pip_auc_score_percentile), 1) AS pip_auc_percentile,
+                   ROUND(MAX(P.pip_auc_score_percentile), 3) AS pip_auc_percentile,
                    S.last_updated
             FROM {Config.bq_view('ranked_author_current_table')} S
             LEFT JOIN {Config.bq_view('ranked_author_pip_scores_current_table')} P

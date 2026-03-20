@@ -56,7 +56,7 @@
                         {% if author.pip_auc_score %}
                             {{ author.pip_auc_score }}
                             {% if author.pip_auc_percentile is not none %}
-                                <small class="text-muted">({{ (100 * author.pip_auc_percentile)|round(0)|int }}% percentile)</small>
+                                <small class="text-muted">({{ "%.1f"|format(100 * author.pip_auc_percentile) }}% percentile)</small>
                             {% endif %}
                         {% else %}
                             —
