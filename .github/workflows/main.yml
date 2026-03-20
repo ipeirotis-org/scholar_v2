@@ -64,6 +64,34 @@ jobs:
           --allow-unauthenticated \
           --set-env-vars="GCP_PROJECT_ID=${{ env.GCP_PROJECT_ID }},REFRESH_SERVICE_URL=https://v3-refresh-service-${{ env.GCP_PROJECT_ID }}.run.app"
 
+    - name: Get Cloud Run service URL
+      id: service-url
+      run: |
+        URL=$(gcloud run services describe ${{ env.SERVICE_NAME }} \
+          --region=${{ env.GCP_REGION }} \
+          --format='value(status.url)' \
+          --project=${{ env.GCP_PROJECT_ID }})
+        echo "URL=$URL" >> "$GITHUB_OUTPUT"
+
+    - name: Post-deploy speed check (warm-up + cached path)
+      run: |
+        SERVICE_URL="${{ steps.service-url.outputs.URL }}"
+        echo "Service URL: $SERVICE_URL"
+        # First request warms the cache (may be slow — that's OK)
+        echo "Warming cache..."
+        curl -sf --max-time 30 "$SERVICE_URL/api/speed_check" > /dev/null || true
+        sleep 2
+        # Second request must hit the cached path and be fast
+        echo "Checking cached speed..."
+        RESPONSE=$(curl -sf --max-time 10 "$SERVICE_URL/api/speed_check?threshold=5")
+        echo "$RESPONSE" | python3 -m json.tool
+        STATUS=$(echo "$RESPONSE" | python3 -c "import sys,json; print(json.load(sys.stdin)['status'])")
+        if [ "$STATUS" != "ok" ]; then
+          echo "::error::Speed check failed — cached path is too slow"
+          exit 1
+        fi
+        echo "Speed check passed"
+
   deploy-refresh-service:
     name: Build and Deploy v3 Refresh & Expand Service
     runs-on: ubuntu-latest
