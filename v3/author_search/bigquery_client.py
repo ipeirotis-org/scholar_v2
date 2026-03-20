@@ -24,10 +24,8 @@ class BigQuerySearchClient:
         if params:
             job_config.query_parameters = params
         try:
-            df = self.client.query(sql, job_config=job_config).result().to_dataframe()
-            if df is None or df.empty:
-                return []
-            return df.to_dict("records")
+            rows = self.client.query(sql, job_config=job_config).result()
+            return [dict(row) for row in rows]
         except Exception:
             logger.exception("BigQuery search query failed")
             return []

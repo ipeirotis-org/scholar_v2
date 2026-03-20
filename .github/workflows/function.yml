@@ -179,6 +179,7 @@ jobs:
         # Fix imports: v3.author_search -> author_search
         sed -i 's/from v3\.author_search\./from author_search./g' /tmp/deploy-search/author_search/*.py
         sed -i 's/from v3\.author_search\./from author_search./g' /tmp/deploy-search/main.py
+        sed -i 's/from v3\.author_search /from author_search /g' /tmp/deploy-search/author_search/*.py
         sed -i 's/from v3\.author_search /from author_search /g' /tmp/deploy-search/main.py
 
     - name: Deploy v3_search_authors to ${{ matrix.region }}
