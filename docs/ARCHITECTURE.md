@@ -2,7 +2,7 @@
 
 ## Overview
 
-Scholar Analytics is a system for analyzing Google Scholar data using percentile-based, age-aware research metrics (PiP-AUC). It consists of six components with strict boundaries around what each reads and writes.
+Scholar Analytics is a system for analyzing Google Scholar data using percentile-based, age-aware research metrics (PiP-AUC). It consists of seven components with strict boundaries around what each reads and writes.
 
 ```
                          Google Scholar
@@ -21,10 +21,15 @@ Scholar Analytics is a system for analyzing Google Scholar data using percentile
                          /|\
                         / | \
                        /  |  \
-          [4. FRONTEND]   |   [5. REFRESH & EXPAND]
-          (read-only)     |     (orchestration)
-               |          |           |
-               +--- calls ---+  Cloud Tasks → back to Crawler
+     [7. CACHE LAYER]    |   [5. REFRESH & EXPAND]
+      (BQ → Firestore)   |     (orchestration)
+            |             |           |
+      Firestore cache     |     Cloud Tasks → back to Crawler
+            |             |
+     [4. FRONTEND]        |
+     (Firestore-only)     |
+            |             |
+            +--- calls ---+
 ```
 
 ---
@@ -230,7 +235,7 @@ These exist only for the all-authors ranking page and CSV export. **Per-author p
 
 ## Component 4: Frontend
 
-**Purpose:** Display precomputed analytics with visualizations. **Read-only** — does not modify any data, trigger any crawling, or search Google Scholar directly.
+**Purpose:** Display precomputed analytics with visualizations. **Read-only** — reads only from Firestore cache (populated by the Cache Layer). Does not query BigQuery directly.
 
 **Input:** User queries (author search via Author Search Service, author ID for profile display).
 
@@ -238,13 +243,19 @@ These exist only for the all-authors ranking page and CSV export. **Per-author p
 
 ### What it does
 
-1. **Home page:** Recently analyzed authors and search bar
+1. **Home page:** Recently analyzed authors (from Firestore cache) and search bar
 2. **Author search:** User enters an author name → calls Author Search Service (Component 6) → display matching profiles
-3. **Author profile:** User selects an author → query BigQuery views for metrics, percentiles, PiP-AUC → render charts
-4. **Publication detail:** User clicks a publication → show citation timeline
+3. **Author profile:** User selects an author → read metrics from Firestore → render charts with visualization module
+4. **Publication detail:** User clicks a publication → read citation timeline data from Firestore → render chart
 5. **Download:** Export author publications as CSV
-6. **All-authors ranking:** Export full ranking table as CSV (from materialized tables)
-7. **Refresh request:** User clicks "refresh" on a stale author → forwards request to Refresh & Expand service (Component 5)
+6. **Refresh request:** User clicks "refresh" on a stale author → forwards request to Refresh & Expand service (Component 5)
+
+### Cache miss handling
+
+When the frontend reads from Firestore and the data is not present (cache miss):
+1. Enqueue a `populate` task to the Cache Layer's **priority queue** (Cloud Tasks)
+2. Return a "loading" page to the user (this pattern already exists for uncrawled authors)
+3. The user's page auto-refreshes; when the Cache Layer has populated the data, the next request returns the full page
 
 ### Page structure
 
@@ -257,28 +268,19 @@ All pages share a consistent template with:
 
 | | Source | Target |
 |---|---|---|
-| **Reads** | BigQuery (analytics views and materialized tables) | |
-| | Firestore (query result cache) | |
+| **Reads** | Firestore (cache — sole data source for display) | |
 | | Author Search Service (Component 6) | |
-| **Writes** | | Firestore (query result cache only) |
-| | | GCS (CSV export: `all_authors_stats.csv`) |
+| **Writes** | | Cloud Tasks (`cache-priority` queue, on cache miss) |
 | **Calls** | | Refresh & Expand (Component 5) for user-triggered refreshes |
 
 **The frontend does NOT:**
+- Query BigQuery directly (all data comes from Firestore, populated by the Cache Layer)
+- Write to Firestore (the Cache Layer owns all cache writes)
 - Write to BigQuery
 - Enqueue crawl tasks directly
 - Modify raw data
 - Call Google Scholar directly (that goes through Component 6)
 - Run scheduled refresh or expansion (that is Component 5's job)
-
-### Caching
-
-The frontend caches BigQuery query results in Firestore to avoid repeated expensive queries:
-- **Cache key:** collection + document ID (e.g., `author_pub_stats/{author_id}`)
-- **Invalidation:** Cache entry is stale when the author's latest data (max of author timestamp and latest publication timestamp) is newer than the cache timestamp
-- **Collections used:** `author_pub_stats`, `author_stats`, `pub_stats`
-
-Firestore is used **only** as a query result cache — not as a raw data store.
 
 ### Visualization
 
@@ -288,6 +290,8 @@ All charts are generated server-side with matplotlib and embedded as base64 PNG:
 - Publication citation timeline (yearly + cumulative percentile, dual axis)
 - Temporal author metrics (h-index, citations, i10 over time)
 
+The Cache Layer provides the structured data; the frontend owns how to visualize it.
+
 ### Implementation
 
 | File | Role |
@@ -295,8 +299,8 @@ All charts are generated server-side with matplotlib and embedded as base64 PNG:
 | `frontend/main.py` | App entry point |
 | `frontend/app.py` | Flask app factory with security headers |
 | `frontend/routes.py` | Routes: `/`, `/results`, `/publication`, `/download`, `/data`, `/help`, `/api/*` |
-| `frontend/bigquery_client.py` | Parameterized BigQuery queries |
-| `frontend/cache.py` | Firestore cache with timestamp-based invalidation |
+| `frontend/cache.py` | Read-only Firestore cache client |
+| `frontend/queue_client.py` | Thin client to enqueue cache-miss tasks to priority queue |
 | `frontend/visualization.py` | Matplotlib chart generation (base64 PNG) |
 | `frontend/config.py` | Config with env var overrides |
 | `frontend/templates/` | Jinja2 HTML templates |
@@ -429,6 +433,88 @@ The frontend calls this service for author search:
 
 ---
 
+## Component 7: Cache Layer
+
+**Purpose:** Populate and maintain the Firestore cache from BigQuery. This is the **only** component that writes to Firestore cache collections. The cache is fully disposable — it can be wiped and rebuilt from BigQuery at any time.
+
+**Input:** Tasks from two Cloud Tasks queues (priority and batch).
+
+**Output:** Firestore cache documents.
+
+### What it does
+
+1. **Priority queue tasks** (interactive, user-waiting — target <2s):
+   - `populate_author_profile` — query BigQuery for author_stats, pub_stats, temporal_stats; write all to Firestore
+   - `populate_publication_detail` — query BigQuery for publication citation temporal data; write to Firestore
+   - `invalidate_author` — re-populate all caches for an author whose data has changed
+
+2. **Batch queue tasks** (background, scheduled):
+   - `populate_recent_authors` — query BigQuery for recently analyzed authors; write to Firestore (scheduled every 5 min)
+   - `warm_author` — pre-populate cache for a newly crawled author before a user visits
+   - `rebuild_all` — full cache rebuild from BigQuery (enqueues individual `populate_author_profile` tasks to batch queue)
+
+### Data flow
+
+```
+Cloud Tasks (priority or batch queue)
+    → Cache Layer (Cloud Run)
+        → BigQuery (read analytics views)
+        → Firestore (write cache documents)
+```
+
+The Cache Layer is the **single writer** to Firestore cache collections. This one-way flow makes the cache fully disposable: delete all Firestore cache documents, trigger `rebuild_all`, and the cache is restored from BigQuery.
+
+### Cache collections
+
+| Collection | Document ID | Data | Populated by |
+|---|---|---|---|
+| `v3_author_stats/{id}` | scholar_id | Author metrics + percentiles + PiP-AUC | `populate_author_profile` |
+| `v3_author_pub_stats/{id}` | scholar_id | Per-publication PiP inputs and metadata | `populate_author_profile` |
+| `v3_author_temporal/{id}` | scholar_id | H-index, citations, i10 over time | `populate_author_profile` |
+| `v3_pub_stats/{id}` | author_pub_id | Temporal citation data for one publication | `populate_publication_detail` |
+| `v3_author_freshness/{id}` | scholar_id | Existence + last_updated timestamp | `populate_author_profile` |
+| `v3_recent_authors` | `recent` | List of recently analyzed authors | `populate_recent_authors` |
+
+### Cache invalidation
+
+The Cache Layer owns invalidation logic:
+- **On data change:** The Ingestion Pipeline (Component 2) enqueues `invalidate_author` to the priority queue after loading new data for an author. The Cache Layer checks the author's latest BigQuery timestamp and re-populates all caches.
+- **On cache miss:** The Frontend (Component 4) enqueues a `populate` task to the priority queue. The Cache Layer runs the queries and writes fresh data to Firestore.
+- **Scheduled:** `populate_recent_authors` runs every 5 minutes via Cloud Scheduler → batch queue.
+- **Manual rebuild:** `rebuild_all` can reconstruct the entire cache from BigQuery.
+
+No timestamp-comparison logic is needed in the frontend — it simply reads whatever is in Firestore.
+
+### Boundaries
+
+| | Source | Target |
+|---|---|---|
+| **Reads** | BigQuery (analytics views and materialized tables) | |
+| **Writes** | | Firestore (cache collections) |
+| **Receives work from** | Cloud Tasks (`cache-priority`, `cache-batch`) | |
+| **Enqueues work to** | Cloud Tasks (`cache-batch`, for `rebuild_all` fan-out) | |
+
+### Implementation
+
+| File | Role |
+|---|---|
+| `cache_layer/main.py` | Cloud Run HTTP entry points (one handler per queue) |
+| `cache_layer/cache_service.py` | Orchestration: dispatch by request type, coordinate queries |
+| `cache_layer/bigquery_client.py` | Read-only BigQuery queries (moved from frontend) |
+| `cache_layer/cache_writer.py` | Write-only Firestore client |
+| `cache_layer/config.py` | Config with env var overrides |
+| `cache_layer/Dockerfile` | Python 3.12-slim |
+
+### Infrastructure
+
+- **Cloud Run:** `cache-layer-service`, us-central1
+- **Cloud Tasks queues:**
+  - `cache-priority` — high concurrency, short timeout (~30s), for interactive cache population
+  - `cache-batch` — rate-limited, longer timeout (~5min), for warming and rebuilds
+- **Cloud Scheduler:** Triggers `populate_recent_authors` every 5 minutes via batch queue
+
+---
+
 ## Data Stores Summary
 
 | Store | Role | Written by | Read by |
@@ -441,11 +527,13 @@ The frontend calls this service for author search:
 | **GCS `all_authors_stats.csv`** | Author rankings export | Frontend | Frontend (signed URL download) |
 | **BigQuery `scholar_raw_data.author`** | Raw author records | Ingestion | Analytics (via `_latest` views) |
 | **BigQuery `scholar_raw_data.pub`** | Raw publication records | Ingestion | Analytics (via `_latest` views) |
-| **BigQuery views** | Computed metrics/percentiles | Analytics | Frontend, Refresh & Expand |
-| **BigQuery materialized tables** | Daily snapshots of views | Analytics | Frontend (bulk exports) |
-| **Firestore (cache collections)** | Query result cache | Frontend, Author Search | Frontend, Author Search |
+| **BigQuery views** | Computed metrics/percentiles | Analytics | Cache Layer, Refresh & Expand |
+| **BigQuery materialized tables** | Daily snapshots of views | Analytics | Cache Layer (bulk exports) |
+| **Firestore (cache collections)** | Query result cache | Cache Layer | Frontend, Author Search |
 | **Cloud Tasks `process-authors`** | Author fetch queue | Refresh & Expand | Crawler |
 | **Cloud Tasks `process-pubs`** | Publication fetch queue | Crawler | Crawler |
+| **Cloud Tasks `cache-priority`** | Interactive cache population | Frontend (on miss), Ingestion (on load) | Cache Layer |
+| **Cloud Tasks `cache-batch`** | Background cache warming/rebuild | Cloud Scheduler, Refresh, Cache Layer | Cache Layer |
 
 ---
 
@@ -457,7 +545,9 @@ The frontend calls this service for author search:
 
 3. **On-demand latency: Show "queued" status.** The crawler is not real-time. When a user searches for an unknown author, Refresh & Expand enqueues the crawl and the frontend shows "Author queued for analysis." No event-driven ingestion needed for most cases.
 
-4. **Self-contained components.** Each component (`frontend/`, `crawler/`, `ingestion/`, `refresh/`, `author_search/`) has its own `config.py`, service modules, `requirements.txt`, and tests. No shared code directory — components are fully independent.
+4. **Self-contained components.** Each component (`frontend/`, `crawler/`, `ingestion/`, `refresh/`, `author_search/`, `cache_layer/`) has its own `config.py`, service modules, `requirements.txt`, and tests. No shared code directory — components are fully independent.
+
+5. **Cache Layer separation (Component 7).** The frontend does not query BigQuery directly. A dedicated Cache Layer service owns all BigQuery reads and Firestore writes. Benefits: (a) frontend latency is bounded by Firestore read time, not BigQuery query time; (b) BigQuery costs are controlled by the cache layer, not by user traffic; (c) BigQuery outages don't take down the frontend (it serves whatever is in cache); (d) the cache is fully disposable and can be rebuilt from BigQuery at any time. Two Cloud Tasks queues (priority + batch) separate interactive requests from background warming.
 
 ---
 
@@ -479,11 +569,14 @@ The frontend calls this service for author search:
 
 | Operation | Latency | Mitigation |
 |---|---|---|
-| BigQuery per-author query | 1-3s | Firestore cache (hit: ~50ms). Distribution table lookups keep view cost low. |
+| Frontend page load (cache hit) | ~50-100ms | Firestore read only — no BigQuery in request path |
+| Frontend page load (cache miss) | 2-5s | Priority queue → Cache Layer → BigQuery → Firestore; user sees loading page then auto-refresh |
+| BigQuery per-author query (Cache Layer) | 1-3s | Runs in Cache Layer, not frontend. Distribution table lookups keep view cost low. |
 | matplotlib chart generation | 200-500ms | Could move to client-side JS charting in the future. |
 | scholarly.fill() for author | 10-60s | Unavoidable — Scholar is slow. 1-hour timeout is appropriate. |
 | scholarly.search_author() | 2-5s | Local BigQuery search first (Component 6) avoids this for most queries. |
 | Bulk export (all authors) | 5-15s | Uses materialized tables. Pre-generated CSV served from GCS. |
+| Full cache rebuild | Minutes | Batch queue fan-out; runs in background, no user impact. |
 
 ---
 
@@ -491,8 +584,8 @@ The frontend calls this service for author search:
 
 | Feature | Description |
 |---|---|
-| **REST API** | Expose authors, publications, and stats as JSON API endpoints for third-party integrations |
-| **Client-side charting** | Replace server-side matplotlib with Chart.js/Plotly for interactive plots |
+| **REST API** | Expose authors, publications, and stats as JSON API endpoints for third-party integrations. Cache Layer already provides the data; API would read from Firestore. |
+| **Client-side charting** | Replace server-side matplotlib with Chart.js/Plotly for interactive plots. Data served via API from Firestore cache. |
 | **Field-specific benchmarks** | Compare against specific fields (business, CS, biology) with per-field percentiles |
 | **Crossref integration** | Enrich publications with DOIs and metadata from Crossref |
 | **Author comparison** | Side-by-side PiP-AUC and percentile plots for multiple authors |
