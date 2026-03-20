@@ -174,8 +174,71 @@ def register_routes(app):
             _call_refresh_service("fetch_author", body={"scholar_id": author_id})
             return render_template("redirect.html", author_id=author_id)
 
-        # Fetch author stats, pub stats, and temporal stats in parallel (all cached)
+        # Check if plots are already cached — if so, skip fetching pub_stats
+        cached_plots = cache.get("v3_author_plots", author_id, valid_after=last_updated)
+
+        # Fetch author stats and temporal stats in parallel (always needed)
+        # Only fetch pub_stats if we need to generate plots
         with ThreadPoolExecutor(max_workers=3) as executor:
+            author_stats_future = executor.submit(
+                _get_cached_or_query,
+                Config.CACHE_AUTHOR_STATS, author_id,
+                lambda: bq.get_author_stats(author_id),
+                last_updated,
+            )
+            temporal_stats_future = executor.submit(
+                _get_cached_or_query,
+                Config.CACHE_AUTHOR_TEMPORAL, author_id,
+                lambda: bq.get_author_temporal_stats(author_id),
+                last_updated,
+            )
+            pub_stats_future = None
+            if cached_plots is None:
+                pub_stats_future = executor.submit(
+                    _get_cached_or_query,
+                    Config.CACHE_AUTHOR_PUB_STATS, author_id,
+                    lambda: bq.get_author_pub_stats(author_id),
+                    last_updated,
+                )
+
+            author_stats = author_stats_future.result()
+            temporal_stats = temporal_stats_future.result()
+            pub_stats = pub_stats_future.result() if pub_stats_future else None
+
+        if not author_stats:
+            return render_template("loading.html", author_id=author_id)
+
+        # Generate plots (cached in Firestore, invalidated when data changes)
+        if cached_plots is None:
+            cached_plots = _get_cached_or_query(
+                "v3_author_plots", author_id,
+                lambda: _generate_all_plots(author_stats, pub_stats, temporal_stats),
+                last_updated,
+            ) or {}
+
+        return render_template(
+            "results.html",
+            author_id=author_id,
+            stats=author_stats,
+            plot1=cached_plots.get("plot1", ""),
+            plot2=cached_plots.get("plot2", ""),
+            temporal_plots=cached_plots.get("temporal_plots", {}),
+            last_updated=last_updated,
+        )
+
+    @app.route("/publications/<author_id>")
+    def publications(author_id):
+        author_id = _validate_scholar_id(author_id)
+        if not author_id:
+            flash("A valid Google Scholar ID is required.")
+            return redirect(url_for("index"))
+
+        exists, last_updated = _get_author_freshness(author_id)
+        if not exists:
+            flash("Author not found.")
+            return redirect(url_for("index"))
+
+        with ThreadPoolExecutor(max_workers=2) as executor:
             author_stats_future = executor.submit(
                 _get_cached_or_query,
                 Config.CACHE_AUTHOR_STATS, author_id,
@@ -188,35 +251,17 @@ def register_routes(app):
                 lambda: bq.get_author_pub_stats(author_id),
                 last_updated,
             )
-            temporal_stats_future = executor.submit(
-                _get_cached_or_query,
-                Config.CACHE_AUTHOR_TEMPORAL, author_id,
-                lambda: bq.get_author_temporal_stats(author_id),
-                last_updated,
-            )
-
             author_stats = author_stats_future.result()
             pub_stats = pub_stats_future.result()
-            temporal_stats = temporal_stats_future.result()
 
         if not author_stats:
             return render_template("loading.html", author_id=author_id)
 
-        # Generate plots (cached in Firestore, invalidated when data changes)
-        cached_plots = _get_cached_or_query(
-            "v3_author_plots", author_id,
-            lambda: _generate_all_plots(author_stats, pub_stats, temporal_stats),
-            last_updated,
-        ) or {}
-
         return render_template(
-            "results.html",
+            "publications.html",
             author_id=author_id,
             stats=author_stats,
             publications=pub_stats or [],
-            plot1=cached_plots.get("plot1", ""),
-            plot2=cached_plots.get("plot2", ""),
-            temporal_plots=cached_plots.get("temporal_plots", {}),
             last_updated=last_updated,
         )
 
