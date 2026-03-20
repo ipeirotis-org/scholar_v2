@@ -3,7 +3,7 @@ FROM python:3.12-slim
 WORKDIR /app
 
 COPY frontend/requirements.txt /app/requirements.txt
-RUN pip install --upgrade pip \
+RUN pip install --upgrade pip setuptools wheel \
  && pip install --no-cache-dir -r requirements.txt
 
 # Build matplotlib font cache
