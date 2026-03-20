@@ -101,15 +101,15 @@ class TestApiRoutes:
         assert response.status_code == 200
         assert response.json == []
 
-    def test_api_refresh_stale_not_implemented(self, client):
+    def test_api_refresh_stale_not_configured(self, client):
         response = client.get("/api/refresh_stale_authors")
         assert response.status_code == 200
-        assert response.json["status"] == "not_implemented"
+        assert response.json["status"] == "not_configured"
 
-    def test_api_add_coauthors_not_implemented(self, client):
+    def test_api_add_coauthors_not_configured(self, client):
         response = client.get("/api/add_coauthors")
         assert response.status_code == 200
-        assert response.json["status"] == "not_implemented"
+        assert response.json["status"] == "not_configured"
 
     def test_api_fetch_authors_no_ids(self, client):
         response = client.get("/api/fetch_authors?scholar_ids=")

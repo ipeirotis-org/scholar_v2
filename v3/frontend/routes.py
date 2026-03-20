@@ -2,10 +2,12 @@
 
 import datetime
 import io
+import json
 import logging
 import re
 
 import pandas as pd
+import urllib.request
 from flask import (
     flash,
     jsonify,
@@ -50,6 +52,34 @@ def _validate_author_pub_id(pub_id):
     return pub_id
 
 
+def _call_refresh_service(path, params=None, body=None, timeout=10):
+    """Call the Refresh & Expand service (Component 5).
+
+    Returns the parsed JSON response, or None if the service is not configured
+    or the call fails.
+    """
+    base_url = Config.REFRESH_SERVICE_URL
+    if not base_url:
+        return None
+
+    url = f"{base_url.rstrip('/')}/{path.lstrip('/')}"
+    if params:
+        qs = "&".join(f"{k}={v}" for k, v in params.items())
+        url = f"{url}?{qs}"
+
+    try:
+        data = json.dumps(body).encode() if body else None
+        req = urllib.request.Request(
+            url, data=data,
+            headers={"Content-Type": "application/json"} if data else {},
+        )
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            return json.loads(resp.read())
+    except Exception:
+        logger.exception("Refresh service call failed: %s", path)
+        return None
+
+
 def register_routes(app):
     bq = BigQueryClient()
     cache = FirestoreCache()
@@ -76,9 +106,9 @@ def register_routes(app):
             flash("A valid Google Scholar ID is required.")
             return redirect(url_for("index"))
 
-        # Check if author exists
+        # Check if author exists; enqueue via Component 5 if not
         if not bq.author_exists(author_id):
-            # TODO: enqueue via Component 5 when available
+            _call_refresh_service("fetch_author", body={"scholar_id": author_id})
             return render_template("redirect.html", author_id=author_id)
 
         last_updated = bq.get_author_last_updated(author_id)
@@ -206,7 +236,12 @@ def register_routes(app):
                        if _validate_scholar_id(s.strip())]
         if not scholar_ids:
             return jsonify({"error": "No valid scholar IDs provided"}), 400
-        # TODO: delegate to Component 5 (Refresh & Expand) when available
+        result = _call_refresh_service(
+            "fetch_authors", body={"scholar_ids": scholar_ids},
+        )
+        if result is not None:
+            return jsonify(result)
+        # Fallback if refresh service not configured
         return jsonify({
             "status": "queued",
             "total_authors": len(scholar_ids),
@@ -215,13 +250,19 @@ def register_routes(app):
 
     @app.route("/api/refresh_stale_authors")
     def api_refresh_stale():
-        # TODO: delegate to Component 5 when available
-        return jsonify({"status": "not_implemented", "message": "Refresh service not yet available"})
+        num = request.args.get("num_authors", "5")
+        result = _call_refresh_service("refresh_stale", params={"limit": num})
+        if result is not None:
+            return jsonify(result)
+        return jsonify({"status": "not_configured", "message": "Refresh service not yet configured"})
 
     @app.route("/api/add_coauthors")
     def api_add_coauthors():
-        # TODO: delegate to Component 5 when available
-        return jsonify({"status": "not_implemented", "message": "Coauthor service not yet available"})
+        num = request.args.get("num_authors", "1")
+        result = _call_refresh_service("expand_coauthors", params={"limit": num})
+        if result is not None:
+            return jsonify(result)
+        return jsonify({"status": "not_configured", "message": "Refresh service not yet configured"})
 
     @app.route("/get_similar_authors")
     def get_similar_authors():

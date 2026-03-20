@@ -19,7 +19,10 @@ class Config:
     CACHE_AUTHOR_STATS = "v3_author_stats"
     CACHE_PUB_STATS = "v3_pub_stats"
 
-    # Cloud Tasks (for refresh/enqueue — delegates to Component 5)
+    # Refresh & Expand service (Component 5)
+    REFRESH_SERVICE_URL = os.environ.get("REFRESH_SERVICE_URL", "")
+
+    # Cloud Tasks (legacy — Component 5 now owns task enqueueing)
     QUEUE_LOCATION = os.environ.get("QUEUE_LOCATION", "northamerica-northeast1")
     QUEUE_NAME_AUTHORS = os.environ.get("QUEUE_NAME_AUTHORS", "process-authors")
 
