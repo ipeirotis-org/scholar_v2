@@ -2,7 +2,7 @@
 
 > Maintain and improve the Scholar Analytics platform — percentile-based, age-aware research metrics with PiP-AUC scoring.
 >
-> Live at [scholar.ipeirotis.org](https://scholar.ipeirotis.org/)
+> Live at [scholar-analytics.org](https://www.scholar-analytics.org/)
 >
 > **System architecture:** [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 

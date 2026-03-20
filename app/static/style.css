@@ -1,10 +1,23 @@
 :root {
-    --error-color: red;
+    /* NYU Brand Colors */
+    --nyu-violet: #57068c;
+    --nyu-ultra-violet: #8900e1;
+    --nyu-deep-violet: #330662;
+    --nyu-violet-85: #702b9d;
+    --nyu-violet-70: #7b5aa6;
+    --nyu-violet-50: #ab82c5;
+    --nyu-violet-10: #eee6f3;
+    --nyu-teal: #009b8a;
+    --nyu-teal-deep: #007a6d;
+    --nyu-black: #000000;
+    --nyu-white: #ffffff;
+
+    --error-color: #d9534f;
     --background-light: #f8f8f8;
-    --background-hover: #eee;
+    --background-hover: var(--nyu-violet-10);
     --border-color: #ddd;
     --text-color: #333;
-    --header-bg: #f8f9fa;
+    --header-bg: var(--nyu-violet);
     --box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
     --box-shadow-footer: 0 2px 4px rgba(0, 0, 0, 0.1);
     --border-radius: 8px;
@@ -12,7 +25,7 @@
 
 html {
     margin: 20px;
-    font-family: 'Open Sans', Arial, sans-serif;
+    font-family: 'Montserrat', 'Verdana', Arial, sans-serif;
     font-weight: 400;
 }
 
@@ -21,30 +34,72 @@ body {
     flex-direction: column;
     min-height: 100vh;
     margin: 20px;
-    font-family: 'Open Sans', Arial, sans-serif;
+    font-family: 'Montserrat', 'Verdana', Arial, sans-serif;
     font-weight: 400;
+    color: var(--text-color);
 }
 
 main {
     flex: 1;
 }
 
-/* For headings */
+/* Headings use Frank Ruhl Libre (serif) per NYU brand */
 h1, h2, h3, h4, h5, h6 {
-    font-family: 'Open Sans', sans-serif;
-    font-weight: 600; /* Semi-bold weight */
+    font-family: 'Frank Ruhl Libre', Georgia, serif;
+    font-weight: 700;
+    color: var(--nyu-deep-violet);
 }
 
-/* For emphasized text */
 em {
-    font-family: 'Open Sans', sans-serif;
-    font-weight: 300; /* Light weight */
+    font-family: 'Montserrat', 'Verdana', Arial, sans-serif;
+    font-weight: 300;
 }
 
-/* For strong text */
 strong {
-    font-family: 'Open Sans', sans-serif;
-    font-weight: 700; /* Bold weight */
+    font-family: 'Montserrat', 'Verdana', Arial, sans-serif;
+    font-weight: 700;
+}
+
+/* NYU branded navbar */
+.navbar {
+    background-color: var(--nyu-violet) !important;
+    padding: 0.75rem 1rem;
+}
+
+.navbar-brand {
+    color: var(--nyu-white) !important;
+    font-family: 'Frank Ruhl Libre', Georgia, serif;
+    font-weight: 700;
+    font-size: 1.4rem;
+}
+
+.navbar-brand .brand-subtitle {
+    display: block;
+    font-family: 'Montserrat', 'Verdana', Arial, sans-serif;
+    font-size: 0.65rem;
+    font-weight: 400;
+    font-style: italic;
+    color: var(--nyu-violet-50);
+    letter-spacing: 0.05em;
+}
+
+.navbar-nav .nav-link {
+    color: rgba(255, 255, 255, 0.85) !important;
+    font-weight: 500;
+    transition: color 0.2s;
+}
+
+.navbar-nav .nav-link:hover,
+.navbar-nav .nav-link:focus {
+    color: var(--nyu-white) !important;
+}
+
+.navbar-toggler {
+    border-color: rgba(255, 255, 255, 0.5);
+}
+
+.navbar-toggler-icon {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba(255, 255, 255, 0.8)' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e");
 }
 
 .error {
@@ -79,19 +134,20 @@ img.plot {
 }
 
 .table thead th {
-    background-color: var(--header-bg);
-    color: var(--text-color);
+    background-color: var(--nyu-violet);
+    color: var(--nyu-white);
     font-weight: bold;
 }
 
 th.sortable:hover {
-    background-color: #e9ecef;
+    background-color: var(--nyu-violet-85);
     cursor: pointer;
 }
 
 .metrics-explanation, #refreshButton, .clickable-link {
     text-decoration: underline;
     cursor: pointer;
+    color: var(--nyu-deep-violet);
 }
 
 .autocomplete-dropdown, .author-option {
@@ -115,13 +171,72 @@ th.sortable:hover {
     background-color: var(--background-hover);
 }
 
+/* Links use NYU teal accent */
+a {
+    color: var(--nyu-teal-deep);
+}
+
+a:hover {
+    color: var(--nyu-teal);
+}
+
+/* Buttons */
+.btn-primary {
+    background-color: var(--nyu-violet);
+    border-color: var(--nyu-violet);
+}
+
+.btn-primary:hover,
+.btn-primary:focus {
+    background-color: var(--nyu-deep-violet);
+    border-color: var(--nyu-deep-violet);
+}
+
+.btn-success {
+    background-color: var(--nyu-teal);
+    border-color: var(--nyu-teal);
+}
+
+.btn-success:hover,
+.btn-success:focus {
+    background-color: var(--nyu-teal-deep);
+    border-color: var(--nyu-teal-deep);
+}
+
+.btn-info {
+    background-color: var(--nyu-violet-70);
+    border-color: var(--nyu-violet-70);
+    color: var(--nyu-white);
+}
+
+.btn-info:hover,
+.btn-info:focus {
+    background-color: var(--nyu-violet-85);
+    border-color: var(--nyu-violet-85);
+    color: var(--nyu-white);
+}
+
 footer {
     display: flex;
     justify-content: center;
     align-items: center;
-    background-color: var(--background-light);
-    padding: 10px 0;
+    background-color: var(--nyu-violet);
+    color: var(--nyu-white);
+    padding: 15px 0;
     box-shadow: var(--box-shadow-footer);
+}
+
+footer a {
+    color: var(--nyu-violet-10);
+    text-decoration: underline;
+}
+
+footer a:hover {
+    color: var(--nyu-white);
+}
+
+footer p {
+    margin: 0;
 }
 
 @media (max-width: 768px) {
