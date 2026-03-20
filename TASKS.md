@@ -37,13 +37,14 @@ We are rebuilding the system from scratch in `v3/` with clean component boundari
 
 ### Step 3: Analytics (Component 3)
 
-- [ ] **Rewrite all SQL views to read from `scholar_raw_data.*_latest`**
+- [x] **Rewrite all SQL views to read from `scholar_raw_data.*_latest`**
   - [x] Remove all references to `firestore_export.*` (migrated 15 references across 11 files)
   - [x] Distribution tables (`dist_publication_citations`, `dist_author_metrics`, `dist_pip_auc_scores`)
   - [x] Core views (tiers 1–4): publication stats, author stats, PiP-AUC, temporal metrics, coauthor network
   - [x] Materialization workflow (`materialize_stats.sql`)
-  - [ ] Deploy views to BigQuery (will happen via CI/CD on merge to main)
-  - [ ] View output validation tests (compare against known-good data for sample authors)
+  - [x] Deploy all 24 views/tables to BigQuery (3 materialized tables were missing: `dist_publication_citations_temporal`, `dist_author_metrics_temporal`, `dist_pip_auc_scores_temporal`; plus 5 views)
+  - [x] Fix floor-lookup performance: rewrite all 6 ranked views from range-join pattern to scalar subquery pattern (query time: timeout → 4s for per-author queries)
+  - [x] View output validation: tested `stats_author_current`, `ranked_author_current`, `ranked_publication_current`, `stats_author_pip_scores_current`, `ranked_author_pip_scores_current`, `stats_author_publication_pip_inputs_current`, `ranked_author_metrics_temporal`, `ranked_author_pip_scores_temporal`, `coauthor_network` across 3 authors (Ipeirotis, Hinton, Bengio) — all passed
   - [ ] Backfill: re-crawl all authors to populate `scholar_raw_data` with fresh data
 
 ### Step 4: Frontend (Component 4)
@@ -218,4 +219,4 @@ We are rebuilding the system from scratch in `v3/` with clean component boundari
 
 ---
 
-_Last updated: 2026-03-19_
+_Last updated: 2026-03-20_
