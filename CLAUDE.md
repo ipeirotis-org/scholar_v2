@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Scholar Analytics v2 is a distributed system for analyzing Google Scholar data using percentile-based, age-aware research metrics. It implements the **PiP-AUC (Paper-in-Percentile Area Under Curve)** scoring methodology and serves an interactive Flask web app at [scholar.ipeirotis.org](https://scholar.ipeirotis.org/).
+Scholar Analytics v2 is a distributed system for analyzing Google Scholar data using percentile-based, age-aware research metrics. It implements the **PiP-AUC (Paper-in-Percentile Area Under Curve)** scoring methodology and serves an interactive Flask web app at [scholar-analytics.org](https://www.scholar-analytics.org/).
 
 ### What is PiP-AUC?
 
