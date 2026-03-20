@@ -90,6 +90,77 @@ class TestEnqueueAuthors:
         mock_enqueue.assert_not_called()
 
 
+class TestEnqueueCacheWarm:
+    @mock.patch("refresh.task_enqueuer.Config")
+    def test_skips_when_no_url(self, mock_config):
+        mock_config.CACHE_LAYER_URL = ""
+
+        from refresh.task_enqueuer import enqueue_cache_warm
+        result = enqueue_cache_warm("abc123")
+        assert result is False
+
+    @mock.patch("refresh.task_enqueuer._get_client")
+    @mock.patch("refresh.task_enqueuer.Config")
+    def test_enqueues_task(self, mock_config, mock_get_client):
+        mock_config.CACHE_LAYER_URL = "https://cache.example.com"
+        mock_config.QUEUE_NAME_CACHE_BATCH = "cache-batch"
+        mock_config.queue_path.return_value = "projects/p/locations/l/queues/cache-batch"
+        client = mock.MagicMock()
+        mock_get_client.return_value = client
+
+        from refresh.task_enqueuer import enqueue_cache_warm
+        result = enqueue_cache_warm("abc123")
+
+        assert result is True
+        client.create_task.assert_called_once()
+
+    @mock.patch("refresh.task_enqueuer._get_client")
+    @mock.patch("refresh.task_enqueuer.Config")
+    def test_handles_failure(self, mock_config, mock_get_client):
+        mock_config.CACHE_LAYER_URL = "https://cache.example.com"
+        mock_config.QUEUE_NAME_CACHE_BATCH = "cache-batch"
+        mock_config.queue_path.return_value = "projects/p/locations/l/queues/cache-batch"
+        client = mock.MagicMock()
+        client.create_task.side_effect = Exception("fail")
+        mock_get_client.return_value = client
+
+        from refresh.task_enqueuer import enqueue_cache_warm
+        result = enqueue_cache_warm("abc123")
+        assert result is False
+
+
+class TestEnqueueCacheWarmBatch:
+    @mock.patch("refresh.task_enqueuer.Config")
+    def test_skips_when_no_url(self, mock_config):
+        mock_config.CACHE_LAYER_URL = ""
+
+        from refresh.task_enqueuer import enqueue_cache_warm_batch
+        result = enqueue_cache_warm_batch(["a", "b"])
+        assert result == 0
+
+    @mock.patch("refresh.task_enqueuer.enqueue_cache_warm")
+    @mock.patch("refresh.task_enqueuer.Config")
+    def test_enqueues_all(self, mock_config, mock_warm):
+        mock_config.CACHE_LAYER_URL = "https://cache.example.com"
+        mock_warm.return_value = True
+
+        from refresh.task_enqueuer import enqueue_cache_warm_batch
+        result = enqueue_cache_warm_batch(["a", "b", "c"])
+
+        assert result == 3
+        assert mock_warm.call_count == 3
+
+    @mock.patch("refresh.task_enqueuer.enqueue_cache_warm")
+    @mock.patch("refresh.task_enqueuer.Config")
+    def test_partial_failures(self, mock_config, mock_warm):
+        mock_config.CACHE_LAYER_URL = "https://cache.example.com"
+        mock_warm.side_effect = [True, False, True]
+
+        from refresh.task_enqueuer import enqueue_cache_warm_batch
+        result = enqueue_cache_warm_batch(["a", "b", "c"])
+        assert result == 2
+
+
 class TestSanitizeTaskId:
     def test_colons_replaced(self):
         from refresh.task_enqueuer import _sanitize_task_id

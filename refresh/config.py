@@ -39,6 +39,10 @@ class Config:
     # Cloud Tasks
     QUEUE_LOCATION = os.environ.get("QUEUE_LOCATION", "northamerica-northeast1")
     QUEUE_NAME_AUTHORS = os.environ.get("QUEUE_NAME_AUTHORS", "process-authors")
+    QUEUE_NAME_CACHE_BATCH = os.environ.get("QUEUE_NAME_CACHE_BATCH", "cache-batch")
+
+    # Cache Layer service
+    CACHE_LAYER_URL = os.environ.get("CACHE_LAYER_URL", "")
 
     # Region rotation for function URLs
     FUNCTION_LOCATION = os.environ.get("FUNCTION_LOCATION") or get_rotating_region()

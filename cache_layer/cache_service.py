@@ -40,6 +40,7 @@ class CacheService:
             "populate_publication_detail": self._populate_publication_detail,
             "populate_recent_authors": self._populate_recent_authors,
             "invalidate_author": self._invalidate_author,
+            "warm_author": self._populate_author_profile,
             "rebuild_all": self._rebuild_all,
         }
 

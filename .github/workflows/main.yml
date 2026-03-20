@@ -1,4 +1,4 @@
-# .github/workflows/main.yml — Deploy v3 Frontend to Cloud Run
+# .github/workflows/main.yml — Deploy Cloud Run services
 
 name: Build and Deploy to Google Cloud Run
 
@@ -14,10 +14,143 @@ env:
   GAR_LOCATION: us-central1
   REPOSITORY_NAME: scholar-repo
   IMAGE_NAME: scholar_v2
+  CACHE_LAYER_SERVICE: v3-cache-layer
+  CACHE_LAYER_IMAGE: cache_layer
+  REFRESH_SERVICE: v3-refresh-service
+  QUEUE_LOCATION: northamerica-northeast1
 
 jobs:
+  # ── Phase 0: Infrastructure (queues) ──────────────────────────────────────
+  ensure-queues:
+    name: Ensure Cloud Tasks queues exist
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+
+    steps:
+    - name: Authenticate to Google Cloud
+      uses: google-github-actions/auth@v2
+      with:
+        credentials_json: '${{ secrets.GCP_SA_KEY }}'
+
+    - name: Set up Cloud SDK
+      uses: google-github-actions/setup-gcloud@v2
+      with:
+        project_id: ${{ env.GCP_PROJECT_ID }}
+
+    - name: Create cache-priority queue (if not exists)
+      run: |
+        if ! gcloud tasks queues describe cache-priority \
+            --location=${{ env.QUEUE_LOCATION }} > /dev/null 2>&1; then
+          gcloud tasks queues create cache-priority \
+            --location=${{ env.QUEUE_LOCATION }} \
+            --max-dispatches-per-second=50 \
+            --max-concurrent-dispatches=20 \
+            --max-attempts=3 \
+            --min-backoff=10s \
+            --max-backoff=60s
+          echo "Created cache-priority queue"
+        else
+          echo "cache-priority queue already exists"
+        fi
+
+    - name: Create cache-batch queue (if not exists)
+      run: |
+        if ! gcloud tasks queues describe cache-batch \
+            --location=${{ env.QUEUE_LOCATION }} > /dev/null 2>&1; then
+          gcloud tasks queues create cache-batch \
+            --location=${{ env.QUEUE_LOCATION }} \
+            --max-dispatches-per-second=5 \
+            --max-concurrent-dispatches=3 \
+            --max-attempts=3 \
+            --min-backoff=30s \
+            --max-backoff=300s
+          echo "Created cache-batch queue"
+        else
+          echo "cache-batch queue already exists"
+        fi
+
+  # ── Phase 1: Deploy Cache Layer (no dependencies on other services) ──────
+  deploy-cache-layer:
+    name: Build and Deploy Cache Layer
+    needs: ensure-queues
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Authenticate to Google Cloud
+      uses: google-github-actions/auth@v2
+      with:
+        credentials_json: '${{ secrets.GCP_SA_KEY }}'
+
+    - name: Set up Cloud SDK
+      uses: google-github-actions/setup-gcloud@v2
+      with:
+        project_id: ${{ env.GCP_PROJECT_ID }}
+
+    - name: Configure Docker for Artifact Registry
+      run: gcloud auth configure-docker ${{ env.GAR_LOCATION }}-docker.pkg.dev
+
+    - name: Build and Push Cache Layer Image
+      env:
+        IMAGE_PATH: ${{ env.GAR_LOCATION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.REPOSITORY_NAME }}/${{ env.CACHE_LAYER_IMAGE }}:${{ github.sha }}
+      run: |-
+        gcloud builds submit \
+          --config /dev/stdin <<CLOUDBUILD
+        steps:
+          - name: 'gcr.io/cloud-builders/docker'
+            args: ['build', '-f', 'cache_layer/Dockerfile', '-t', '$IMAGE_PATH', '.']
+        images: ['$IMAGE_PATH']
+        CLOUDBUILD
+
+    - name: Deploy Cache Layer to Cloud Run
+      env:
+        IMAGE_PATH: ${{ env.GAR_LOCATION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.REPOSITORY_NAME }}/${{ env.CACHE_LAYER_IMAGE }}:${{ github.sha }}
+      run: |-
+        gcloud run deploy ${{ env.CACHE_LAYER_SERVICE }} \
+          --image "$IMAGE_PATH" \
+          --platform managed \
+          --region ${{ env.GCP_REGION }} \
+          --no-allow-unauthenticated \
+          --memory=1Gi \
+          --timeout=300 \
+          --set-env-vars="GCP_PROJECT_ID=${{ env.GCP_PROJECT_ID }},QUEUE_LOCATION=${{ env.QUEUE_LOCATION }}"
+
+    - name: Get Cache Layer URL
+      id: cache-url
+      run: |
+        URL=$(gcloud run services describe ${{ env.CACHE_LAYER_SERVICE }} \
+          --region=${{ env.GCP_REGION }} \
+          --format='value(status.url)' \
+          --project=${{ env.GCP_PROJECT_ID }})
+        echo "URL=$URL" >> "$GITHUB_OUTPUT"
+
+    - name: Health check
+      run: |
+        HEALTH_URL="${{ steps.cache-url.outputs.URL }}/health"
+        echo "Checking $HEALTH_URL..."
+        STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 30 "$HEALTH_URL" || echo "000")
+        if [ "$STATUS" = "200" ]; then
+          echo "Cache layer healthy"
+        else
+          echo "::warning::Cache layer health check returned $STATUS (may need auth token)"
+        fi
+
+    outputs:
+      cache_layer_url: ${{ steps.cache-url.outputs.URL }}
+
+  # ── Phase 2: Deploy Frontend (depends on cache layer URL) ────────────────
   deploy-frontend:
     name: Build and Deploy v3 Frontend
+    needs: deploy-cache-layer
     runs-on: ubuntu-latest
 
     permissions:
@@ -56,13 +189,14 @@ jobs:
     - name: Deploy to Cloud Run
       env:
         IMAGE_PATH: ${{ env.GAR_LOCATION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.REPOSITORY_NAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+        CACHE_LAYER_URL: ${{ needs.deploy-cache-layer.outputs.cache_layer_url }}
       run: |-
         gcloud run deploy ${{ env.SERVICE_NAME }} \
           --image "$IMAGE_PATH" \
           --platform managed \
           --region ${{ env.GCP_REGION }} \
           --allow-unauthenticated \
-          --set-env-vars="GCP_PROJECT_ID=${{ env.GCP_PROJECT_ID }},REFRESH_SERVICE_URL=https://v3-refresh-service-${{ env.GCP_PROJECT_ID }}.run.app"
+          --set-env-vars="GCP_PROJECT_ID=${{ env.GCP_PROJECT_ID }},REFRESH_SERVICE_URL=https://${{ env.REFRESH_SERVICE }}-${{ env.GCP_PROJECT_ID }}.run.app,CACHE_LAYER_URL=$CACHE_LAYER_URL,QUEUE_LOCATION=${{ env.QUEUE_LOCATION }}"
 
     - name: Get Cloud Run service URL
       id: service-url
@@ -78,8 +212,7 @@ jobs:
         SERVICE_URL="${{ steps.service-url.outputs.URL }}"
         echo "Service URL: $SERVICE_URL"
 
-        # Step 1: Warm-up request populates the cache.
-        # Cloud Run cold start + BigQuery can take 60s+, so give it room.
+        # Step 1: Warm-up request — cache layer should serve from Firestore.
         echo "Warming cache (this may take a while on cold start)..."
         WARM_RESPONSE=$(curl -s --max-time 120 "$SERVICE_URL/api/speed_check?threshold=120" || true)
         if [ -z "$WARM_RESPONSE" ]; then
@@ -120,8 +253,10 @@ jobs:
           exit 1
         fi
 
+  # ── Phase 2b: Deploy Refresh Service (parallel with frontend) ────────────
   deploy-refresh-service:
     name: Build and Deploy v3 Refresh & Expand Service
+    needs: deploy-cache-layer
     runs-on: ubuntu-latest
 
     permissions:
@@ -157,19 +292,22 @@ jobs:
         cp refresh/requirements.txt /tmp/deploy-refresh/requirements.txt
 
     - name: Deploy Refresh service to Cloud Run
+      env:
+        CACHE_LAYER_URL: ${{ needs.deploy-cache-layer.outputs.cache_layer_url }}
       run: |-
-        gcloud run deploy v3-refresh-service \
+        gcloud run deploy ${{ env.REFRESH_SERVICE }} \
           --source /tmp/deploy-refresh/ \
           --platform managed \
           --region ${{ env.GCP_REGION }} \
           --allow-unauthenticated \
           --memory=512Mi \
           --timeout=300 \
-          --set-env-vars="GCP_PROJECT_ID=${{ env.GCP_PROJECT_ID }}"
+          --set-env-vars="GCP_PROJECT_ID=${{ env.GCP_PROJECT_ID }},CACHE_LAYER_URL=$CACHE_LAYER_URL,QUEUE_LOCATION=${{ env.QUEUE_LOCATION }}"
 
-  deploy-refresh-schedulers:
-    name: Set up Cloud Scheduler for Refresh operations
-    needs: deploy-refresh-service
+  # ── Phase 3: Schedulers (after services are deployed) ────────────────────
+  deploy-schedulers:
+    name: Set up Cloud Scheduler jobs
+    needs: [deploy-refresh-service, deploy-cache-layer]
     runs-on: ubuntu-latest
 
     permissions:
@@ -188,13 +326,22 @@ jobs:
         project_id: ${{ env.GCP_PROJECT_ID }}
 
     - name: Get Refresh service URL
-      id: get-url
+      id: get-refresh-url
       run: |
-        URL=$(gcloud run services describe v3-refresh-service \
+        URL=$(gcloud run services describe ${{ env.REFRESH_SERVICE }} \
           --region=${{ env.GCP_REGION }} \
           --format='value(status.url)' \
           --project=${{ env.GCP_PROJECT_ID }})
         echo "REFRESH_URL=$URL" >> "$GITHUB_OUTPUT"
+
+    - name: Get Cache Layer URL
+      id: get-cache-url
+      run: |
+        URL=$(gcloud run services describe ${{ env.CACHE_LAYER_SERVICE }} \
+          --region=${{ env.GCP_REGION }} \
+          --format='value(status.url)' \
+          --project=${{ env.GCP_PROJECT_ID }})
+        echo "CACHE_URL=$URL" >> "$GITHUB_OUTPUT"
 
     - name: Create or update scheduler — refresh stale authors (daily 02:00 UTC)
       run: |
@@ -204,7 +351,7 @@ jobs:
           gcloud scheduler jobs update http "$JOB_NAME" \
             --location="$LOCATION" \
             --schedule="0 2 * * *" \
-            --uri="${{ steps.get-url.outputs.REFRESH_URL }}/refresh_stale" \
+            --uri="${{ steps.get-refresh-url.outputs.REFRESH_URL }}/refresh_stale" \
             --http-method=GET \
             --time-zone=UTC \
             --attempt-deadline=300s
@@ -212,7 +359,7 @@ jobs:
           gcloud scheduler jobs create http "$JOB_NAME" \
             --location="$LOCATION" \
             --schedule="0 2 * * *" \
-            --uri="${{ steps.get-url.outputs.REFRESH_URL }}/refresh_stale" \
+            --uri="${{ steps.get-refresh-url.outputs.REFRESH_URL }}/refresh_stale" \
             --http-method=GET \
             --time-zone=UTC \
             --attempt-deadline=300s
@@ -226,7 +373,7 @@ jobs:
           gcloud scheduler jobs update http "$JOB_NAME" \
             --location="$LOCATION" \
             --schedule="0 3 * * *" \
-            --uri="${{ steps.get-url.outputs.REFRESH_URL }}/refresh_errors" \
+            --uri="${{ steps.get-refresh-url.outputs.REFRESH_URL }}/refresh_errors" \
             --http-method=GET \
             --time-zone=UTC \
             --attempt-deadline=300s
@@ -234,7 +381,7 @@ jobs:
           gcloud scheduler jobs create http "$JOB_NAME" \
             --location="$LOCATION" \
             --schedule="0 3 * * *" \
-            --uri="${{ steps.get-url.outputs.REFRESH_URL }}/refresh_errors" \
+            --uri="${{ steps.get-refresh-url.outputs.REFRESH_URL }}/refresh_errors" \
             --http-method=GET \
             --time-zone=UTC \
             --attempt-deadline=300s
@@ -248,7 +395,7 @@ jobs:
           gcloud scheduler jobs update http "$JOB_NAME" \
             --location="$LOCATION" \
             --schedule="*/10 * * * *" \
-            --uri="${{ steps.get-url.outputs.REFRESH_URL }}/expand_coauthors" \
+            --uri="${{ steps.get-refresh-url.outputs.REFRESH_URL }}/expand_coauthors" \
             --http-method=GET \
             --time-zone=UTC \
             --attempt-deadline=300s
@@ -256,8 +403,36 @@ jobs:
           gcloud scheduler jobs create http "$JOB_NAME" \
             --location="$LOCATION" \
             --schedule="*/10 * * * *" \
-            --uri="${{ steps.get-url.outputs.REFRESH_URL }}/expand_coauthors" \
+            --uri="${{ steps.get-refresh-url.outputs.REFRESH_URL }}/expand_coauthors" \
             --http-method=GET \
             --time-zone=UTC \
             --attempt-deadline=300s
+        fi
+
+    - name: Create or update scheduler — populate recent authors (every 5 min)
+      run: |
+        JOB_NAME="v3-populate-recent-authors"
+        LOCATION="${{ env.GCP_REGION }}"
+        CACHE_URL="${{ steps.get-cache-url.outputs.CACHE_URL }}"
+        BODY='{"type":"populate_recent_authors"}'
+        if gcloud scheduler jobs describe "$JOB_NAME" --location="$LOCATION" > /dev/null 2>&1; then
+          gcloud scheduler jobs update http "$JOB_NAME" \
+            --location="$LOCATION" \
+            --schedule="*/5 * * * *" \
+            --uri="$CACHE_URL/tasks/batch" \
+            --http-method=POST \
+            --headers="Content-Type=application/json" \
+            --message-body="$BODY" \
+            --time-zone=UTC \
+            --attempt-deadline=60s
+        else
+          gcloud scheduler jobs create http "$JOB_NAME" \
+            --location="$LOCATION" \
+            --schedule="*/5 * * * *" \
+            --uri="$CACHE_URL/tasks/batch" \
+            --http-method=POST \
+            --headers="Content-Type=application/json" \
+            --message-body="$BODY" \
+            --time-zone=UTC \
+            --attempt-deadline=60s
         fi

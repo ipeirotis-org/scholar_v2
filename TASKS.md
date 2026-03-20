@@ -47,22 +47,26 @@ Create the new component that owns all BigQuery reads and Firestore writes.
 - [x] **Implement `main.py` with HTTP handlers** (`/tasks/priority`, `/tasks/batch`, `/admin/rebuild`, `/admin/populate`, `/health`)
 - [x] **Write tests for cache_layer** (50 tests)
 
-### Phase 2: Cloud Tasks queues + wiring ✓ (code complete, infra pending)
+### Phase 2: Cloud Tasks queues + wiring ✓
 
 - [x] **Wire ingestion to publish cache invalidation events**
   - `ingestion/cache_enqueuer.py` — extracts scholar IDs from NDJSON, enqueues `invalidate_author` to priority queue
   - `ingestion/batch_load.py` — calls cache enqueuer after successful BQ load (non-fatal on failure)
   - 8 new tests for cache_enqueuer
-- [ ] **Create Cloud Tasks queues** (infra — needs `gcloud` commands or Terraform)
-  - `cache-priority` — high concurrency, short timeout (~30s)
-  - `cache-batch` — rate-limited, longer timeout (~5min)
+- [x] **Create Cloud Tasks queues** (via CI/CD `ensure-queues` job)
+  - `cache-priority` — 50 dispatches/sec, 20 concurrent, 3 attempts
+  - `cache-batch` — 5 dispatches/sec, 3 concurrent, 3 attempts
   - Region: `northamerica-northeast1`
-- [ ] **Wire refresh service to publish warm events**
-  - After triggering a crawl for an author, enqueue `warm_author` to batch queue
-- [ ] **Add scheduled task for `populate_recent_authors`**
-  - Cloud Scheduler → batch queue, every 5 minutes
-- [ ] **CI/CD: deploy cache_layer as Cloud Run service**
-  - Add to `.github/workflows/main.yml` or create dedicated workflow
+- [x] **Wire refresh service to publish warm events**
+  - `refresh/task_enqueuer.py` — `enqueue_cache_warm()` + `enqueue_cache_warm_batch()`
+  - All 5 refresh operations now enqueue cache warming after crawl tasks
+  - 6 new tests for cache warming
+- [x] **Add scheduled task for `populate_recent_authors`**
+  - Cloud Scheduler `v3-populate-recent-authors` → cache-batch queue, every 5 minutes
+- [x] **CI/CD: deploy cache_layer as Cloud Run service**
+  - Updated `.github/workflows/main.yml` with full deployment pipeline
+  - Deploy order: queues → cache_layer → frontend + refresh (parallel) → schedulers
+  - `CACHE_LAYER_URL` env var propagated to frontend, refresh, and cache_layer services
 
 ### Phase 3: Migrate frontend to cache-read-only ✓
 
@@ -77,15 +81,11 @@ Create the new component that owns all BigQuery reads and Firestore writes.
   - `cache.set()` retained only for plot caching (frontend-generated)
 - [x] **Update frontend tests** (27 tests, all passing — no BQ mocks needed)
 
-### Remaining deployment tasks
+### Remaining post-merge tasks
 
-- [ ] **Create Cloud Tasks queues** (`cache-priority`, `cache-batch`)
-- [ ] **Deploy cache_layer Cloud Run service**
-- [ ] **Set `CACHE_LAYER_URL` env var** on frontend, ingestion, and cache_layer services
-- [ ] **Run initial cache rebuild** (`POST /admin/rebuild`) to populate Firestore from BigQuery
-- [ ] **Add Cloud Scheduler** for `populate_recent_authors` (every 5 min)
-- [ ] **Wire refresh service** to enqueue `warm_author` after crawls
-- [ ] **Update frontend loading/polling UX**
+- [ ] **Run initial cache rebuild** — after first deploy, `POST /admin/rebuild` to populate Firestore from BigQuery
+- [ ] **Verify end-to-end flow** — crawl → ingest → cache invalidation → frontend serves from cache
+- [ ] **Update frontend loading/polling UX** (optional)
   - Existing loading page pattern already handles "data not ready" state
   - Consider client-side polling or short auto-refresh for smoother cache-miss UX
 
