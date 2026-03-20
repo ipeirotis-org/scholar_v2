@@ -269,9 +269,10 @@ def register_routes(app):
         author_name = request.args.get("author_name", "").strip()
         if not author_name or len(author_name) < 2:
             return jsonify([])
-        # TODO: delegate to Component 6 (Author Search Service) when available
-        # For now, return empty — no scholarly dependency in v3 frontend
-        return jsonify([])
+        from v3.author_search.search_service import AuthorSearchService
+        search_svc = AuthorSearchService()
+        results = search_svc.search(author_name)
+        return jsonify(results)
 
     @app.errorhandler(404)
     def not_found(e):
