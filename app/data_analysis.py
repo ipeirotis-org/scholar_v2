@@ -31,10 +31,12 @@ def _fetch_and_cache(cache_key, author_id, author_last_modified, bq_fetch_fn):
     return fresh_data
 
 
-def get_author_stats(author_id):
-    # Fetch author details and last modification in one pass
-    # get_author reads the author doc; get_author_last_modification re-reads it.
-    # We combine by reading once and getting the timestamp from that read.
+def get_author_stats(author_id, cache_only=False):
+    """Fetch author details and stats, with caching.
+
+    If cache_only=True, returns None when stats require a BigQuery fetch
+    instead of blocking on the query. This enables "not ready" UX.
+    """
     author_data, author_timestamp = firestore_service.get_firestore_cache(
         Config.FIRESTORE_COLLECTION_AUTHOR, author_id
     )
@@ -44,31 +46,68 @@ def get_author_stats(author_id):
 
     author = author_data
 
-    # Get latest publication timestamp (still needed for cache invalidation)
+    # Fast path: check if both caches are valid against just the author timestamp.
+    # This avoids the expensive publication timestamp prefix query when caches are
+    # already newer than the author record (the common case for repeat visits).
+    cached_pub_stats, cached_pub_ts = firestore_service.get_firestore_cache(
+        "author_pub_stats", author_id
+    )
+    cached_author_stats, cached_author_ts = firestore_service.get_firestore_cache(
+        "author_stats", author_id
+    )
+
+    if (cached_pub_stats and cached_author_stats
+            and cached_pub_ts and cached_author_ts
+            and author_timestamp
+            and author_timestamp <= cached_pub_ts
+            and author_timestamp <= cached_author_ts):
+        logging.info(f"Fast-path cache hit for author {author_id}")
+        author["last_modified"] = author_timestamp
+        author["publications"] = cached_pub_stats
+        author["stats"] = cached_author_stats
+        return author
+
+    # Slow path: need full cache invalidation check including publication timestamps
     latest_pub_change = publication_repository.get_latest_publication_timestamp(author_id)
     timestamps = [t for t in (author_timestamp, latest_pub_change) if t]
     author_last_modified = max(timestamps) if timestamps else None
 
     author["last_modified"] = author_last_modified
 
-    # Fetch both pub stats and author stats in parallel
+    # Re-check caches against the full author_last_modified timestamp
+    pub_stats_valid = (cached_pub_stats and cached_pub_ts
+                       and (not author_last_modified or author_last_modified <= cached_pub_ts))
+    author_stats_valid = (cached_author_stats and cached_author_ts
+                          and (not author_last_modified or author_last_modified <= cached_author_ts))
+
+    if pub_stats_valid and author_stats_valid:
+        author["publications"] = cached_pub_stats
+        author["stats"] = cached_author_stats
+        return author
+
+    # Cache miss — need BigQuery. In cache_only mode, signal "not ready".
+    if cache_only:
+        return None
+
+    # Fetch from BigQuery (only the stale ones)
     with ThreadPoolExecutor(max_workers=2) as executor:
-        pub_stats_future = executor.submit(
-            _fetch_and_cache,
-            "author_pub_stats", author_id, author_last_modified,
-            bigquery_service.get_author_pub_stats,
-        )
-        author_stats_future = executor.submit(
-            _fetch_and_cache,
-            "author_stats", author_id, author_last_modified,
-            bigquery_service.get_author_stats,
-        )
+        if not pub_stats_valid:
+            pub_future = executor.submit(
+                _fetch_and_cache,
+                "author_pub_stats", author_id, author_last_modified,
+                bigquery_service.get_author_pub_stats,
+            )
+        if not author_stats_valid:
+            stats_future = executor.submit(
+                _fetch_and_cache,
+                "author_stats", author_id, author_last_modified,
+                bigquery_service.get_author_stats,
+            )
 
-        author_pub_stats = pub_stats_future.result()
-        author_stats = author_stats_future.result()
-
-    author["publications"] = author_pub_stats or []
-    author["stats"] = author_stats or {}
+        author["publications"] = (pub_future.result() if not pub_stats_valid
+                                  else cached_pub_stats) or []
+        author["stats"] = (stats_future.result() if not author_stats_valid
+                           else cached_author_stats) or {}
 
     return author
 

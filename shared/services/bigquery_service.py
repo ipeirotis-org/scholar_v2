@@ -114,6 +114,16 @@ class BigQueryService:
         df = self.query(sql, query_params=query_params)
         return df.to_dict("records")
 
+    def get_all_author_names(self):
+        """Fetch all author names/IDs/affiliations from the materialized table."""
+        sql = """
+            SELECT scholar_id, name, affiliation, citedby
+            FROM `scholar-version2.statistics.ranked_author_current_table`
+            ORDER BY name
+        """
+        df = self.query(sql)
+        return df.to_dict("records")
+
     def get_author_temporal_stats(self, author_id):
         """Fetches the temporal evolution of metrics and percentiles for an author."""
         if not author_id:

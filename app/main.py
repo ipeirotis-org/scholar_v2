@@ -18,6 +18,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 from shared.config import Config
 from scholar import get_similar_authors
+from author_search import search_authors, refresh_author_index
 from data_analysis import (
     get_author_stats,
     download_all_authors_stats,
@@ -95,8 +96,18 @@ def help():
 @app.route("/get_similar_authors")
 def get_similar_authors_route():
     author_name = request.args.get("author_name")
-    authors = get_similar_authors(author_name)
+    # Try the fast in-memory index first (pre-loaded from BigQuery via Firestore)
+    authors = search_authors(author_name)
+    if not authors:
+        # Fall back to scholarly search for authors not in the database
+        authors = get_similar_authors(author_name)
     return jsonify(authors)
+
+
+@app.route("/api/refresh_author_index")
+def refresh_author_index_route():
+    count = refresh_author_index()
+    return jsonify({"status": "ok", "authors_indexed": count})
 
 
 @app.route("/api/add_coauthors")
@@ -114,6 +125,18 @@ def refresh_stale_authors_route():
     result = fetch_authors(scholar_ids)
     return jsonify(result)
 
+@app.route("/api/warm_cache")
+def warm_cache_route():
+    """Warm the stats cache for an author by running the BigQuery queries."""
+    author_id = request.args.get("author_id", "")
+    if not author_id:
+        return jsonify({"error": "author_id required"}), 400
+    author = get_author_stats(author_id, cache_only=False)
+    if author:
+        return jsonify({"status": "ready"})
+    return jsonify({"status": "not_found"})
+
+
 @app.route("/api/fetch_authors")
 def fetch_authors_route():
     scholar_ids_arg = request.args.get("scholar_ids", "")
@@ -130,14 +153,23 @@ def results():
         flash("Google Scholar ID is required.")
         return redirect(url_for("index"))
 
-    author = get_author_stats(author_id)
+    # First try cache-only (fast path — no BigQuery)
+    author = get_author_stats(author_id, cache_only=True)
 
-    # If there is no author, put the author in the queue and render redirect.html
-    if not author: # If author data truly missing, enqueue
-        put_author_in_queue(author_id)
-        # queue_tasks = number_of_tasks_in_queue() # Old line
-        # Render redirect template without the task count
-        return render_template("redirect.html", author_id=author_id)
+    if not author:
+        # Check if author exists in Firestore at all
+        from data_analysis import firestore_service as _fs
+        author_data, _ = _fs.get_firestore_cache("scholar_raw_author", author_id)
+        if not author_data:
+            # Author not in database — enqueue fetch
+            put_author_in_queue(author_id)
+            return render_template("redirect.html", author_id=author_id,
+                                   message="Author data is being fetched from Google Scholar. This usually takes 2-5 minutes.")
+        else:
+            # Author exists but stats aren't cached — show "processing" page
+            # Trigger a background stats computation so it's ready on next visit
+            return render_template("redirect.html", author_id=author_id,
+                                   message="Analytics are being computed. The page will refresh automatically in about 30 seconds.")
 
     # Generate existing plots (PiP-AUC related)
     plot1 = ""

@@ -194,7 +194,7 @@
         link.style.pointerEvents = 'none'; // Prevent further clicks
     
         // Adjust the fetch call to use a GET request
-        fetch(`/api/refresh_authors?scholar_ids=${authorId}`, {
+        fetch(`/api/fetch_authors?scholar_ids=${authorId}`, {
             method: 'GET',
         })
         .then(response => response.json())

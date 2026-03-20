@@ -5,14 +5,52 @@
 {% block content %}
 <div class="container mt-4 text-center">
     <h2>Author Data Processing</h2>
-    <p id="message">Author id {{ author_id }} is being processed or queued. The page will refresh automatically. Please wait...</p>
+    <p id="message">{{ message|default("Author id " ~ author_id ~ " is being processed or queued. The page will refresh automatically. Please wait...") }}</p>
+    <p>Author ID: {{ author_id }}</p>
+    <div id="spinner" style="margin: 20px auto;">
+        <div style="border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto;"></div>
+    </div>
 </div>
+<style>
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+</style>
 {% endblock %}
 
 {% block scripts %}
 <script>
-    setTimeout(function() {
-        window.location.href = "/results?author_id={{ author_id }}";
-    }, 30000);
+    // Poll the warm_cache endpoint to check when results are ready
+    var authorId = "{{ author_id }}";
+    var pollInterval = 10000; // 10 seconds
+    var maxAttempts = 18;     // Up to 3 minutes
+    var attempt = 0;
+
+    function checkReady() {
+        attempt++;
+        fetch("/api/warm_cache?author_id=" + encodeURIComponent(authorId))
+            .then(function(response) { return response.json(); })
+            .then(function(data) {
+                if (data.status === "ready") {
+                    document.getElementById("message").textContent = "Results are ready! Redirecting...";
+                    window.location.href = "/results?author_id=" + encodeURIComponent(authorId);
+                } else if (attempt < maxAttempts) {
+                    setTimeout(checkReady, pollInterval);
+                } else {
+                    document.getElementById("message").textContent =
+                        "Still processing. Please try again in a few minutes by visiting this page again.";
+                    document.getElementById("spinner").style.display = "none";
+                }
+            })
+            .catch(function() {
+                if (attempt < maxAttempts) {
+                    setTimeout(checkReady, pollInterval);
+                }
+            });
+    }
+
+    // Start polling after initial delay
+    setTimeout(checkReady, pollInterval);
 </script>
 {% endblock %}
