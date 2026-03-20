@@ -46,14 +46,11 @@ jobs:
         IMAGE_PATH: ${{ env.GAR_LOCATION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.REPOSITORY_NAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
       run: |-
         gcloud builds submit \
-          --tag "$IMAGE_PATH" \
-          --config /dev/stdin <<'CLOUDBUILD'
+          --config /dev/stdin <<CLOUDBUILD
         steps:
           - name: 'gcr.io/cloud-builders/docker'
-            args: ['build', '-f', 'v3/frontend/Dockerfile', '-t', '$TAG_NAME', '.']
-        images: ['$TAG_NAME']
-        substitutions:
-          TAG_NAME: '${{ env.GAR_LOCATION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.REPOSITORY_NAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }}'
+            args: ['build', '-f', 'v3/frontend/Dockerfile', '-t', '$IMAGE_PATH', '.']
+        images: ['$IMAGE_PATH']
         CLOUDBUILD
 
     - name: Deploy to Cloud Run
@@ -105,6 +102,7 @@ jobs:
         # Fix imports: v3.refresh -> refresh
         sed -i 's/from v3\.refresh\./from refresh./g' /tmp/deploy-refresh/refresh/*.py
         sed -i 's/from v3\.refresh\./from refresh./g' /tmp/deploy-refresh/main.py
+        sed -i 's/from v3\.refresh /from refresh /g' /tmp/deploy-refresh/refresh/*.py
         sed -i 's/from v3\.refresh /from refresh /g' /tmp/deploy-refresh/main.py
 
     - name: Deploy Refresh service to Cloud Run
