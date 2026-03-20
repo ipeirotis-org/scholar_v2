@@ -36,7 +36,7 @@ scholar_v2/
 │   ├── templates/                # Jinja2 HTML templates
 │   ├── static/                   # CSS, JS assets
 │   ├── Dockerfile                # Python 3.12-slim, Flask on port 8080
-│   └── tests/                    # 30 tests
+│   └── tests/                    # 32 tests
 ├── crawler/                      # Cloud Functions: fetch author/publication data (Gen2, 9 regions)
 │   ├── fetch_author.py           # Scholar → JSON → GCS → enqueue pubs (timeout: 1h)
 │   ├── fetch_publication.py      # Scholar → JSON → GCS (timeout: 60s)
@@ -64,7 +64,7 @@ scholar_v2/
 │   ├── scholar_client.py         # scholarly fallback search
 │   ├── cache.py                  # Firestore cache (24h TTL)
 │   ├── config.py                 # Config with env var overrides
-│   └── tests/                    # 20 tests
+│   └── tests/                    # 23 tests
 ├── bigquery/                     # SQL view definitions (8-level DAG)
 │   ├── statistics/               # Stats, dist tables, ranked views (Levels 1–7)
 │   └── coauthor_network/         # Co-author graph views
@@ -157,7 +157,7 @@ Every metric family follows: **stats** (raw values) → **dist** (PERCENT_RANK, 
 - **bigquery-views.yml**: Deploy analytics SQL views in topological DAG order
 - **bigquery-materialize.yml**: Daily snapshot materialization (4 ranked tables)
 - **bigquery-materialize-distributions.yml**: Quarterly distribution materialization (6 dist tables)
-- Tests run per-component: 213 tests total across all 6 components
+- Tests run per-component: 218 tests total across all 5 components
 
 ## Development Notes
 

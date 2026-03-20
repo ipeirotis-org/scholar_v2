@@ -56,4 +56,4 @@
 
 ---
 
-_Last updated: 2026-03-20 (v3 cutover complete — old code removed, components at repo root)_
+_Last updated: 2026-03-20_
