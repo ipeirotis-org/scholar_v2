@@ -1,6 +1,0 @@
-scholarly
-google-cloud-firestore
-google-cloud-tasks
-pytz
-google-cloud-bigquery
-google-cloud-storage
