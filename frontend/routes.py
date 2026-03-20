@@ -395,7 +395,9 @@ def register_routes(app):
             "has_temporal_stats": bool(temporal_stats),
             "timings": timings,
         }
-        return jsonify(result), 200 if ok else 500
+        # Always return 200 so curl -f doesn't fail and the JSON is readable.
+        # The CI step inspects result["status"] to decide pass/fail.
+        return jsonify(result), 200
 
     @app.errorhandler(404)
     def not_found(e):
