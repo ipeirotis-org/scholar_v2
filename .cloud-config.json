@@ -1,0 +1,20 @@
+{
+  "provider": "gcp",
+  "project_id": "scholar-version2",
+  "service_account": "claude-agent@scholar-version2.iam.gserviceaccount.com",
+  "roles": [
+    "roles/bigquery.dataEditor",
+    "roles/bigquery.jobUser",
+    "roles/cloudfunctions.developer",
+    "roles/storage.objectAdmin",
+    "roles/datastore.user",
+    "roles/cloudtasks.admin",
+    "roles/run.developer",
+    "roles/iam.serviceAccountUser",
+    "roles/secretmanager.admin",
+    "roles/logging.viewer",
+    "roles/monitoring.viewer",
+    "roles/errorreporting.viewer"
+  ],
+  "created_at": "2026-03-19T00:00:00Z"
+}
