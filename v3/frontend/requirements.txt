@@ -7,3 +7,4 @@ google-cloud-firestore==2.25.0
 google-cloud-bigquery[all]==3.40.1
 google-cloud-storage==3.10.0
 gunicorn==23.0.0
+scholarly==1.7.11
