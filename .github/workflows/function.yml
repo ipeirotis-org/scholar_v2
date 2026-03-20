@@ -94,6 +94,7 @@ jobs:
         cp ingestion/__init__.py /tmp/deploy-ingestion/ingestion/
         cp ingestion/config.py /tmp/deploy-ingestion/ingestion/
         cp ingestion/batch_load.py /tmp/deploy-ingestion/ingestion/
+        cp ingestion/cache_enqueuer.py /tmp/deploy-ingestion/ingestion/
         # Create main.py entry point
         cp ingestion/batch_load.py /tmp/deploy-ingestion/main.py
         # Copy requirements

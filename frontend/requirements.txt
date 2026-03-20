@@ -7,4 +7,5 @@ google-cloud-firestore==2.25.0
 google-cloud-tasks==2.21.0
 google-cloud-storage==3.10.0
 gunicorn==23.0.0
+setuptools>=69.0
 scholarly==1.7.11
