@@ -33,7 +33,7 @@ class BigQueryService:
         # The num_papers_percentile CTE in the view reads from the small
         # dist_author_metrics table instead of scanning all authors.
         sql = """
-            WITH pub_details AS ((
+            WITH pub_details AS (
                 SELECT
                     JSON_EXTRACT_SCALAR(DATA, '$.data.author_pub_id') AS author_pub_id,
                     JSON_EXTRACT_SCALAR(DATA, '$.data.bib.title') AS title,
@@ -41,7 +41,8 @@ class BigQueryService:
                     CAST(JSON_EXTRACT_SCALAR(DATA, '$.data.bib.pub_year') AS INT64) AS pub_year,
                     CAST(JSON_EXTRACT_SCALAR(DATA, '$.data.num_citations') AS INT64) AS num_citations
                 FROM `scholar-version2.scholar_raw_data.pub`
-            ))
+                WHERE JSON_EXTRACT_SCALAR(DATA, '$.data.author_pub_id') LIKE CONCAT(@author_id, ':%')
+            )
             SELECT P.*, S.num_citations_percentile, S.publication_rank, S.num_papers_percentile
             FROM `scholar-version2.statistics.stats_author_publication_pip_inputs_current` S
             JOIN pub_details P ON P.author_pub_id = S.author_pub_id

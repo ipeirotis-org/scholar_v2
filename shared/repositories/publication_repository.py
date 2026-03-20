@@ -22,8 +22,6 @@ class PublicationRepository:
         )[0]
 
     def get_latest_publication_timestamp(self, author_id):
-        publications = self.firestore_service.query_by_prefix(
+        return self.firestore_service.get_latest_timestamp_by_prefix(
             Config.FIRESTORE_COLLECTION_PUB, "data.author_pub_id", author_id
         )
-        timestamps = [pub["timestamp"] for pub in publications if "timestamp" in pub]
-        return max(timestamps) if timestamps else None

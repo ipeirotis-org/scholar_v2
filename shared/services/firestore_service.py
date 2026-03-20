@@ -61,6 +61,26 @@ class FirestoreService:
         results = query.stream()
         return [doc.to_dict() for doc in results]
 
+    def get_latest_timestamp_by_prefix(self, collection, field, prefix):
+        """
+        Get the latest timestamp from documents matching a prefix, without
+        fetching full document data. Uses a descending order on timestamp
+        with limit(1) so Firestore only returns a single document.
+        """
+        end_at = prefix + "\uf8ff"
+        query = (
+            self.db.collection(collection)
+            .where(filter=FieldFilter(field, ">=", prefix))
+            .where(filter=FieldFilter(field, "<=", end_at))
+            .order_by("timestamp", direction=firestore.Query.DESCENDING)
+            .limit(1)
+            .select(["timestamp"])
+        )
+        for doc in query.stream():
+            data = doc.to_dict()
+            return data.get("timestamp")
+        return None
+
     def objects_needing_refresh(
         self, collection, days_since_last_update, limit, key_attr
     ):
