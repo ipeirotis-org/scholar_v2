@@ -1,0 +1,4 @@
+functions-framework==3.*
+scholarly==1.7.11
+google-cloud-bigquery==3.31.0
+google-cloud-firestore==2.25.0

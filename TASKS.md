@@ -60,7 +60,7 @@ We are rebuilding the system from scratch in `v3/` with clean component boundari
   - [x] Overall page template: consistent header, footer, navigation, flash messages across all pages _(from #5)_
   - [x] Pin dependency versions in `requirements.txt`
   - [x] Tests (30 tests: config, routes, input validation, security headers, visualizations) and Dockerfile
-  - [ ] Calls Author Search Service (Component 6) — stub returns empty results until Component 6 is built
+  - [x] Calls Author Search Service (Component 6) — runs in-process via direct import; also deployable as 9-region Cloud Function
   - [x] Calls Refresh & Expand (Component 5) — delegates via HTTP when REFRESH_SERVICE_URL configured, falls back gracefully
   - [ ] Show recently analyzed authors on the home page _(from #26)_
 
@@ -74,18 +74,22 @@ We are rebuilding the system from scratch in `v3/` with clean component boundari
   - [x] `main.py` — HTTP entry points: refresh_stale, refresh_errors, expand_coauthors, fetch_author, fetch_authors (Cloud Run / Cloud Function)
   - [x] Frontend wired: routes.py calls Component 5 via HTTP when REFRESH_SERVICE_URL is configured, falls back to stubs when not
   - [x] Tests (76 tests: config, bigquery_client, task_enqueuer, refresh_service, main entry points, input validation)
-  - [ ] CI/CD deployment pipeline
-  - [ ] Cloud Scheduler triggers for periodic refresh, error retry, coauthor expansion
+  - [x] `requirements.txt` — functions-framework, google-cloud-bigquery, google-cloud-tasks
+  - [x] CI/CD deployment pipeline — Cloud Run service in `main.yml` with source deploy
+  - [x] Cloud Scheduler triggers — refresh stale (daily 02:00), refresh errors (daily 03:00), expand coauthors (every 10 min)
 
 ### Step 6: Author Search Service (Component 6)
 
 - [ ] **Build in `v3/author_search/`**
-  - [ ] Local-first search: query BigQuery `stats_author_current` + `coauthor_network` by name
-  - [ ] Google Scholar fallback via `scholarly` (only when local search insufficient)
-  - [ ] Firestore cache for Scholar search results
-  - [ ] Cloud Function with 9-region rotation (for Scholar rate-limit avoidance)
-  - [ ] Frontend autocomplete integration
-  - [ ] Tests and CI/CD
+  - [x] Local-first search: query BigQuery `stats_author_current` + `coauthor_network` by name
+  - [x] Google Scholar fallback via `scholarly` (only when local search insufficient)
+  - [x] Firestore cache for Scholar search results (24h TTL)
+  - [x] `main.py` — Cloud Function entry point with `functions_framework.http`
+  - [x] `requirements.txt` — scholarly, google-cloud-bigquery, google-cloud-firestore, functions-framework
+  - [x] CI/CD — 9-region Cloud Function deployment in `function.yml`
+  - [x] Frontend autocomplete integration — in-process import in `routes.py:get_similar_authors`
+  - [x] Tests (20 tests: bigquery_client, search_service, cache)
+  - [ ] End-to-end validation with live BigQuery data
 
 ### Cutover
 
@@ -223,4 +227,4 @@ We are rebuilding the system from scratch in `v3/` with clean component boundari
 
 ---
 
-_Last updated: 2026-03-20 (Step 5 refresh & expand built)_
+_Last updated: 2026-03-20 (CI/CD deployment pipelines for all 6 components)_
