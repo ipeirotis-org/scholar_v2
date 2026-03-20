@@ -1,7 +1,8 @@
 """Firestore cache for Google Scholar search results.
 
 Caches Scholar API responses to avoid repeated rate-limited calls
-for the same query.
+for the same query. Also caches the final merged search results
+so that repeat searches skip BigQuery entirely.
 """
 
 import logging
@@ -12,6 +13,9 @@ from google.cloud import firestore
 from v3.author_search.config import Config
 
 logger = logging.getLogger(__name__)
+
+# Collection for caching final merged search results (all tiers combined)
+SEARCH_RESULTS_COLLECTION = "v3_search_results"
 
 
 class SearchCache:
@@ -52,6 +56,41 @@ class SearchCache:
             })
         except Exception:
             logger.exception("Search cache write failed for: %s", query_string)
+
+    def get_search_results(self, query_string):
+        """Get cached final search results (all tiers combined) if fresh.
+
+        Returns list of author dicts, or None if missing/stale.
+        """
+        doc_id = self._safe_doc_id(query_string)
+        try:
+            doc = self.db.collection(SEARCH_RESULTS_COLLECTION).document(doc_id).get()
+            if not doc.exists:
+                return None
+            cached = doc.to_dict()
+            cached_time = cached.get("timestamp")
+            if not cached_time:
+                return None
+            cutoff = datetime.now(timezone.utc) - timedelta(hours=Config.CACHE_TTL_HOURS)
+            if cached_time < cutoff:
+                logger.info("Search results cache stale for query: %s", query_string)
+                return None
+            return cached.get("data")
+        except Exception:
+            logger.exception("Search results cache read failed for: %s", query_string)
+            return None
+
+    def set_search_results(self, query_string, results):
+        """Cache the final merged search results."""
+        doc_id = self._safe_doc_id(query_string)
+        try:
+            self.db.collection(SEARCH_RESULTS_COLLECTION).document(doc_id).set({
+                "timestamp": datetime.now(timezone.utc),
+                "query": query_string,
+                "data": results,
+            })
+        except Exception:
+            logger.exception("Search results cache write failed for: %s", query_string)
 
     @staticmethod
     def _safe_doc_id(query_string):

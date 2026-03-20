@@ -5,6 +5,7 @@ import io
 import json
 import logging
 import re
+from concurrent.futures import ThreadPoolExecutor
 
 import pandas as pd
 import urllib.request
@@ -113,27 +114,33 @@ def register_routes(app):
 
         last_updated = bq.get_author_last_updated(author_id)
 
-        # Fetch author stats (metrics + percentiles + PiP-AUC)
-        author_stats = _get_cached_or_query(
-            Config.CACHE_AUTHOR_STATS, author_id,
-            lambda: bq.get_author_stats(author_id),
-            valid_after=last_updated,
-        )
+        # Fetch author stats, pub stats, and temporal stats in parallel
+        with ThreadPoolExecutor(max_workers=3) as executor:
+            author_stats_future = executor.submit(
+                _get_cached_or_query,
+                Config.CACHE_AUTHOR_STATS, author_id,
+                lambda: bq.get_author_stats(author_id),
+                last_updated,
+            )
+            pub_stats_future = executor.submit(
+                _get_cached_or_query,
+                Config.CACHE_AUTHOR_PUB_STATS, author_id,
+                lambda: bq.get_author_pub_stats(author_id),
+                last_updated,
+            )
+            temporal_stats_future = executor.submit(
+                bq.get_author_temporal_stats, author_id,
+            )
+
+            author_stats = author_stats_future.result()
+            pub_stats = pub_stats_future.result()
+            temporal_stats = temporal_stats_future.result()
+
         if not author_stats:
             return render_template("error.html",
                                    error_message="Author metrics not yet available. Data may still be processing.")
 
-        # Fetch publication stats (PiP inputs)
-        pub_stats = _get_cached_or_query(
-            Config.CACHE_AUTHOR_PUB_STATS, author_id,
-            lambda: bq.get_author_pub_stats(author_id),
-            valid_after=last_updated,
-        )
-
-        # Fetch temporal stats
-        temporal_stats = bq.get_author_temporal_stats(author_id)
-
-        # Generate PiP plots
+        # Generate PiP plots in parallel
         plot1, plot2 = "", ""
         if pub_stats:
             df = pd.DataFrame(pub_stats)
@@ -145,8 +152,11 @@ def register_routes(app):
             df["age"] = current_year - df["pub_year"] + 1
             df["num_citations_percentile"] = 100 * df["num_citations_percentile"]
             df["num_papers_percentile"] = 100 * df["num_papers_percentile"]
-            plot1 = generate_percentile_rank_plot(df, author_name)
-            plot2 = generate_pip_plot(df, author_name)
+            with ThreadPoolExecutor(max_workers=2) as executor:
+                plot1_future = executor.submit(generate_percentile_rank_plot, df.copy(), author_name)
+                plot2_future = executor.submit(generate_pip_plot, df.copy(), author_name)
+                plot1 = plot1_future.result()
+                plot2 = plot2_future.result()
 
         # Generate temporal plots
         temporal_plots = {}
@@ -264,13 +274,14 @@ def register_routes(app):
             return jsonify(result)
         return jsonify({"status": "not_configured", "message": "Refresh service not yet configured"})
 
+    from v3.author_search.search_service import AuthorSearchService
+    search_svc = AuthorSearchService()
+
     @app.route("/get_similar_authors")
     def get_similar_authors():
         author_name = request.args.get("author_name", "").strip()
         if not author_name or len(author_name) < 2:
             return jsonify([])
-        from v3.author_search.search_service import AuthorSearchService
-        search_svc = AuthorSearchService()
         results = search_svc.search(author_name)
         return jsonify(results)
 
