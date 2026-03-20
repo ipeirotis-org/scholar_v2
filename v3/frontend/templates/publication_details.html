@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block title %}Publication Details -- Scholar Analytics{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <section aria-label="Publication details">
+        {% if pub_stats %}
+        <h2>{{ pub_stats[0].get('title', 'Publication') if pub_stats else 'Publication' }}</h2>
+
+        {% if citations_plot %}
+        <div class="row mb-4">
+            <div class="col-md-8 mx-auto">
+                <img class="plot img-fluid" src="{{ citations_plot }}"
+                     alt="Citation trends over time">
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="table-responsive">
+            <table class="table table-bordered">
+                <thead>
+                    <tr>
+                        <th scope="col">Citation Year</th>
+                        <th scope="col">Age</th>
+                        <th scope="col">Yearly Citations</th>
+                        <th scope="col">Cumulative Citations</th>
+                        <th scope="col">Percentile<br>Yearly Citations</th>
+                        <th scope="col">Percentile<br>Cumulative Citations</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for stat in pub_stats %}
+                    <tr>
+                        <td>{{ stat.citation_year }}</td>
+                        <td>{{ stat.age }}</td>
+                        <td>{{ stat.yearly_citations }}</td>
+                        <td>{{ stat.cumulative_citations }}</td>
+                        <td>{{ (100 * stat.perc_yearly_citations)|round(2) }}%</td>
+                        <td>{{ (100 * stat.perc_cumulative_citations)|round(2) }}%</td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="6">No statistics available.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p>No publication data available.</p>
+        {% endif %}
+
+        <p><a href="{{ url_for('results', author_id=author_id) }}">&larr; Back to author profile</a></p>
+    </section>
+</div>
+{% endblock %}

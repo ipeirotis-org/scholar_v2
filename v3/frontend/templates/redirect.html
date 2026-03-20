@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+
+{% block title %}Processing -- Scholar Analytics{% endblock %}
+
+{% block content %}
+<div class="container mt-4 text-center">
+    <h2>Author Data Processing</h2>
+    <p>The author with ID <strong>{{ author_id }}</strong> is being processed or queued for fetching.</p>
+    <p>This page will automatically refresh in 30 seconds.</p>
+    <p><a href="{{ url_for('index') }}">Return to search</a></p>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    setTimeout(function() {
+        window.location.href = "/results?author_id=" + encodeURIComponent("{{ author_id }}");
+    }, 30000);
+</script>
+{% endblock %}

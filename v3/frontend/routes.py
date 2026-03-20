@@ -1,0 +1,241 @@
+"""Flask route handlers for the Scholar Analytics frontend."""
+
+import datetime
+import io
+import logging
+import re
+
+import pandas as pd
+from flask import (
+    flash,
+    jsonify,
+    redirect,
+    render_template,
+    request,
+    send_file,
+    url_for,
+)
+
+from v3.frontend.bigquery_client import BigQueryClient
+from v3.frontend.cache import FirestoreCache
+from v3.frontend.config import Config
+from v3.frontend.visualization import (
+    generate_percentile_rank_plot,
+    generate_pip_plot,
+    generate_pub_citation_plot,
+    generate_author_h_index_plot,
+    generate_author_total_citations_plot,
+    generate_author_i10_index_plot,
+    generate_author_h_index_5y_plot,
+)
+
+logger = logging.getLogger(__name__)
+
+# Validate scholar_id: alphanumeric, hyphens, underscores, 4-20 chars
+SCHOLAR_ID_RE = re.compile(r"^[A-Za-z0-9_-]{4,20}$")
+
+# Validate author_pub_id: scholar_id:base64-like, up to 60 chars
+AUTHOR_PUB_ID_RE = re.compile(r"^[A-Za-z0-9_:/-]{4,80}$")
+
+
+def _validate_scholar_id(scholar_id):
+    if not scholar_id or not SCHOLAR_ID_RE.match(scholar_id):
+        return None
+    return scholar_id
+
+
+def _validate_author_pub_id(pub_id):
+    if not pub_id or not AUTHOR_PUB_ID_RE.match(pub_id):
+        return None
+    return pub_id
+
+
+def register_routes(app):
+    bq = BigQueryClient()
+    cache = FirestoreCache()
+
+    def _get_cached_or_query(collection, doc_id, query_fn, valid_after=None):
+        """Get from cache or query BigQuery, then cache the result."""
+        data = cache.get(collection, doc_id, valid_after=valid_after)
+        if data is not None:
+            return data
+        data = query_fn()
+        if data:
+            cache.set(collection, doc_id, data)
+        return data
+
+    @app.route("/")
+    @app.route("/index")
+    def index():
+        return render_template("index.html")
+
+    @app.route("/results")
+    def results():
+        author_id = _validate_scholar_id(request.args.get("author_id", "").strip())
+        if not author_id:
+            flash("A valid Google Scholar ID is required.")
+            return redirect(url_for("index"))
+
+        # Check if author exists
+        if not bq.author_exists(author_id):
+            # TODO: enqueue via Component 5 when available
+            return render_template("redirect.html", author_id=author_id)
+
+        last_updated = bq.get_author_last_updated(author_id)
+
+        # Fetch author stats (metrics + percentiles + PiP-AUC)
+        author_stats = _get_cached_or_query(
+            Config.CACHE_AUTHOR_STATS, author_id,
+            lambda: bq.get_author_stats(author_id),
+            valid_after=last_updated,
+        )
+        if not author_stats:
+            return render_template("error.html",
+                                   error_message="Author metrics not yet available. Data may still be processing.")
+
+        # Fetch publication stats (PiP inputs)
+        pub_stats = _get_cached_or_query(
+            Config.CACHE_AUTHOR_PUB_STATS, author_id,
+            lambda: bq.get_author_pub_stats(author_id),
+            valid_after=last_updated,
+        )
+
+        # Fetch temporal stats
+        temporal_stats = bq.get_author_temporal_stats(author_id)
+
+        # Generate PiP plots
+        plot1, plot2 = "", ""
+        if pub_stats:
+            df = pd.DataFrame(pub_stats)
+            author_name = author_stats.get("name", "N/A")
+            current_year = datetime.datetime.now().year
+            df["pub_year"] = pd.to_numeric(df["pub_year"], errors="coerce")
+            df.dropna(subset=["pub_year"], inplace=True)
+            df["pub_year"] = df["pub_year"].astype(int)
+            df["age"] = current_year - df["pub_year"] + 1
+            df["num_citations_percentile"] = 100 * df["num_citations_percentile"]
+            df["num_papers_percentile"] = 100 * df["num_papers_percentile"]
+            plot1 = generate_percentile_rank_plot(df, author_name)
+            plot2 = generate_pip_plot(df, author_name)
+
+        # Generate temporal plots
+        temporal_plots = {}
+        if temporal_stats:
+            tdf = pd.DataFrame(temporal_stats)
+            tdf["state_year"] = pd.to_numeric(tdf["state_year"], errors="coerce")
+            tdf.dropna(subset=["state_year"], inplace=True)
+            if not tdf.empty:
+                temporal_plots["h_index"] = generate_author_h_index_plot(tdf)
+                temporal_plots["total_citations"] = generate_author_total_citations_plot(tdf)
+                temporal_plots["i10_index"] = generate_author_i10_index_plot(tdf)
+                temporal_plots["h_index_5y"] = generate_author_h_index_5y_plot(tdf)
+
+        return render_template(
+            "results.html",
+            author_id=author_id,
+            stats=author_stats,
+            publications=pub_stats or [],
+            plot1=plot1,
+            plot2=plot2,
+            temporal_plots=temporal_plots,
+            last_updated=last_updated,
+        )
+
+    @app.route("/publication/<author_id>/<path:pub_id>")
+    def publication_details(author_id, pub_id):
+        author_id = _validate_scholar_id(author_id)
+        pub_id = _validate_author_pub_id(pub_id)
+        if not author_id or not pub_id:
+            return render_template("error.html", error_message="Invalid parameters.")
+
+        last_updated = bq.get_author_last_updated(author_id)
+        pub_stats = _get_cached_or_query(
+            Config.CACHE_PUB_STATS, pub_id,
+            lambda: bq.get_publication_stats(pub_id),
+            valid_after=last_updated,
+        )
+
+        if not pub_stats:
+            return render_template("error.html", error_message="Publication not found.")
+
+        citations_plot = generate_pub_citation_plot(pd.DataFrame(pub_stats))
+
+        return render_template(
+            "publication_details.html",
+            author_id=author_id,
+            pub_id=pub_id,
+            pub_stats=pub_stats,
+            citations_plot=citations_plot,
+        )
+
+    @app.route("/download/<author_id>")
+    def download_results(author_id):
+        author_id = _validate_scholar_id(author_id)
+        if not author_id:
+            flash("Invalid author ID.")
+            return redirect(url_for("index"))
+
+        pub_stats = bq.get_author_pub_stats(author_id)
+        if not pub_stats:
+            flash("No publications found to download.")
+            return redirect(url_for("index"))
+
+        df = pd.DataFrame(pub_stats)
+        buf = io.BytesIO()
+        df.to_csv(buf, index=False)
+        buf.seek(0)
+        return send_file(
+            buf,
+            mimetype="text/csv",
+            as_attachment=True,
+            download_name=f"{author_id}_results.csv",
+        )
+
+    @app.route("/data")
+    def data():
+        return render_template("data.html")
+
+    @app.route("/help")
+    def help_page():
+        return render_template("help.html")
+
+    @app.route("/api/fetch_authors")
+    def api_fetch_authors():
+        scholar_ids_arg = request.args.get("scholar_ids", "")
+        scholar_ids = [s.strip() for s in scholar_ids_arg.split(",")
+                       if _validate_scholar_id(s.strip())]
+        if not scholar_ids:
+            return jsonify({"error": "No valid scholar IDs provided"}), 400
+        # TODO: delegate to Component 5 (Refresh & Expand) when available
+        return jsonify({
+            "status": "queued",
+            "total_authors": len(scholar_ids),
+            "authors": [{"scholar_id": sid} for sid in scholar_ids],
+        })
+
+    @app.route("/api/refresh_stale_authors")
+    def api_refresh_stale():
+        # TODO: delegate to Component 5 when available
+        return jsonify({"status": "not_implemented", "message": "Refresh service not yet available"})
+
+    @app.route("/api/add_coauthors")
+    def api_add_coauthors():
+        # TODO: delegate to Component 5 when available
+        return jsonify({"status": "not_implemented", "message": "Coauthor service not yet available"})
+
+    @app.route("/get_similar_authors")
+    def get_similar_authors():
+        author_name = request.args.get("author_name", "").strip()
+        if not author_name or len(author_name) < 2:
+            return jsonify([])
+        # TODO: delegate to Component 6 (Author Search Service) when available
+        # For now, return empty — no scholarly dependency in v3 frontend
+        return jsonify([])
+
+    @app.errorhandler(404)
+    def not_found(e):
+        return render_template("error.html", error_message="Page not found."), 404
+
+    @app.errorhandler(500)
+    def server_error(e):
+        return render_template("error.html", error_message="Internal server error."), 500

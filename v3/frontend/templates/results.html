@@ -1,0 +1,208 @@
+{% extends "base.html" %}
+
+{% block title %}{{ stats.get('name', 'Author') }} -- Scholar Analytics{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <section aria-label="Author information">
+        <h2>Author: {{ stats.get('name', 'N/A') }}</h2>
+        <div class="author-details card p-3 mb-4">
+            <ul class="list-unstyled mb-0">
+                <li><strong>Name:</strong> {{ stats.get('name', 'N/A') }}</li>
+                <li><strong>Affiliation:</strong> {{ stats.get('affiliation', 'N/A') }}</li>
+                <li><strong>Google Scholar ID:</strong> {{ author_id }}</li>
+                {% if last_updated %}
+                <li>
+                    <strong>Last Modified:</strong> {{ last_updated.strftime('%Y-%m-%d %H:%M') }}
+                    (<a href="javascript:void(0);" id="refreshButton"
+                        data-author-id="{{ author_id }}"
+                        role="button" aria-label="Refresh author data">Refresh</a>)
+                </li>
+                {% endif %}
+                <li>
+                    <strong>First Year Active:</strong> {{ stats.year_of_first_pub }}
+                    ({{ current_year - stats.year_of_first_pub + 1 }} years active)
+                </li>
+            </ul>
+        </div>
+    </section>
+
+    <section aria-label="Author metrics">
+        <h3>Research Metrics</h3>
+        <div class="card p-3 mb-4">
+            <ul class="list-unstyled mb-0">
+                <li>
+                    <span class="metrics-explanation" data-toggle="tooltip"
+                          title="Total citations; percentile vs authors who started publishing in {{ stats.year_of_first_pub }}.">
+                        Total Citations</span>: {{ stats.citedby }}
+                    ({{ (100 * stats.citedby_percentile)|round(2) }}% percentile)
+                </li>
+                <li>
+                    <span class="metrics-explanation" data-toggle="tooltip"
+                          title="Citations in the last 5 years; percentile vs authors who started publishing in {{ stats.year_of_first_pub }}.">
+                        Recent Citations (last 5 years)</span>: {{ stats.citedby5y }}
+                    ({{ (100 * stats.citedby5y_percentile)|round(2) }}% percentile)
+                </li>
+                <li>
+                    <span class="metrics-explanation" data-toggle="tooltip"
+                          title="H-index: largest h such that h publications have at least h citations.">
+                        H-index</span>: {{ stats.hindex }}
+                    ({{ (100 * stats.hindex_percentile)|round(2) }}% percentile)
+                </li>
+                <li>
+                    <span class="metrics-explanation" data-toggle="tooltip"
+                          title="Recent h-index: largest h such that h publications have at least h new citations in the last 5 years.">
+                        H-index (last 5 years)</span>: {{ stats.hindex5y }}
+                    ({{ (100 * stats.hindex5y_percentile)|round(2) }}% percentile)
+                </li>
+                <li>
+                    <span class="metrics-explanation" data-toggle="tooltip"
+                          title="Number of publications with at least one citation.">
+                        Total Publications</span>: {{ stats.total_publications_with_citations }}
+                    ({{ (100 * stats.total_publications_with_citations_percentile)|round(2) }}% percentile)
+                </li>
+                <li>
+                    <span class="metrics-explanation" data-toggle="tooltip"
+                          title="Number of publications with at least 10 citations.">
+                        i10-index</span>: {{ stats.i10index }}
+                    ({{ (100 * stats.i10index_percentile)|round(2) }}% percentile)
+                </li>
+                <li>
+                    <span class="metrics-explanation" data-toggle="tooltip"
+                          title="Number of publications with at least 10 new citations in the last 5 years.">
+                        i10-index (last 5 years)</span>: {{ stats.i10index5y }}
+                    ({{ (100 * stats.i10index5y_percentile)|round(2) }}% percentile)
+                </li>
+                <li class="mt-2">
+                    <strong>
+                        <span class="metrics-explanation" data-toggle="tooltip"
+                              title="PiP-AUC combines citation quality with publication productivity into a single 0-to-1 score.">
+                            PiP-AUC Score</span>: {{ stats.pip_auc_score|round(4) }}
+                        ({{ (100 * stats.pip_auc_score_percentile)|round(2) }}% percentile)
+                    </strong>
+                </li>
+            </ul>
+            <div class="mt-2">
+                <a class="btn btn-info btn-sm" data-toggle="collapse" href="#pipExplanation"
+                   role="button" aria-expanded="false" aria-controls="pipExplanation">
+                    Learn more about PiP-AUC Score
+                </a>
+                <div class="collapse mt-2" id="pipExplanation">
+                    <p class="text-justify">
+                        The PiP-AUC score evaluates jointly the citation impact of individual papers,
+                        together with the overall productivity (number of papers) produced by an author.
+                        For each paper, we calculate its citation percentile against all papers published
+                        in the same year. Papers are sorted by decreasing percentile on the y-axis. On the
+                        x-axis, we plot the author's publication count percentile compared to peers who
+                        started publishing in the same year. The area under this curve captures both
+                        impact and quantity of a researcher's work. The score ranges from 0 to 1.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    {% if plot1 or plot2 %}
+    <section aria-label="PiP-AUC visualizations">
+        <h3>Visualizations</h3>
+        <div class="row mb-4">
+            {% if plot1 %}
+            <div class="col-md-6">
+                <img class="plot img-fluid" src="{{ plot1 }}"
+                     alt="Paper percentile scores ranked by paper rank for {{ stats.get('name', 'author') }}">
+            </div>
+            {% endif %}
+            {% if plot2 %}
+            <div class="col-md-6">
+                <img class="plot img-fluid" src="{{ plot2 }}"
+                     alt="Paper percentile scores vs publication count percentile for {{ stats.get('name', 'author') }}">
+            </div>
+            {% endif %}
+        </div>
+    </section>
+    {% endif %}
+
+    {% if temporal_plots %}
+    <section aria-label="Metric evolution over time">
+        <h3>Metric Evolution Over Time</h3>
+        <div class="row mb-4">
+            {% for key, plot in temporal_plots.items() %}
+            {% if plot %}
+            <div class="col-md-6 mb-3">
+                <img class="plot img-fluid" src="{{ plot }}"
+                     alt="{{ key|replace('_', ' ')|title }} over time for {{ stats.get('name', 'author') }}">
+            </div>
+            {% endif %}
+            {% endfor %}
+        </div>
+    </section>
+    {% endif %}
+
+    {% if publications %}
+    <section aria-label="Publications">
+        <h3>Publications</h3>
+        <p class="text-center">
+            <a href="{{ url_for('download_results', author_id=author_id) }}">
+                Download CSV for {{ stats.get('name', 'N/A') }}
+            </a>
+        </p>
+        <div class="table-responsive">
+            <table id="resultsTable" class="table table-striped table-bordered table-hover">
+                <thead>
+                    <tr>
+                        <th scope="col" onclick="sortTable(0, 'resultsTable')" class="sortable">Title</th>
+                        <th scope="col" onclick="sortTable(1, 'resultsTable', true)" class="sortable">Year</th>
+                        <th scope="col" onclick="sortTable(2, 'resultsTable', true)" class="sortable">Citations</th>
+                        <th scope="col" onclick="sortTable(3, 'resultsTable', true)" class="sortable">Score</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for pub in publications %}
+                    <tr>
+                        <td>
+                            {{ pub.title }}
+                            {% if pub.citation %}<br><em>{{ pub.citation }}</em>{% endif %}
+                            <br>
+                            <a href="{{ url_for('publication_details', author_id=author_id, pub_id=pub.author_pub_id) }}">
+                                View Details
+                            </a>
+                        </td>
+                        <td>{{ pub.pub_year }}</td>
+                        <td>{{ pub.num_citations }}</td>
+                        <td>{{ (100 * pub.num_citations_percentile)|round(2) }}%</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='tablesort.js') }}" defer></script>
+<script>
+$(document).ready(function(){
+    $('[data-toggle="tooltip"]').tooltip();
+});
+
+var refreshBtn = document.getElementById("refreshButton");
+if (refreshBtn) {
+    refreshBtn.addEventListener("click", function(e) {
+        e.preventDefault();
+        var authorId = this.getAttribute("data-author-id");
+        this.textContent = "Queuing...";
+        this.style.pointerEvents = "none";
+        var link = this;
+        fetch("/api/fetch_authors?scholar_ids=" + encodeURIComponent(authorId))
+            .then(function(r) { return r.json(); })
+            .then(function() { link.textContent = "Queued for Refresh"; })
+            .catch(function() {
+                link.textContent = "Error";
+                link.style.pointerEvents = "auto";
+            });
+    });
+}
+</script>
+{% endblock %}
