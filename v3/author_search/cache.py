@@ -92,6 +92,24 @@ class SearchCache:
         except Exception:
             logger.exception("Search results cache write failed for: %s", query_string)
 
+    def get_index_chunk(self, collection, doc_id):
+        """Get a chunk of the author name index from Firestore."""
+        try:
+            doc = self.db.collection(collection).document(doc_id).get()
+            if not doc.exists:
+                return None
+            return doc.to_dict().get("data")
+        except Exception:
+            logger.exception("Index chunk read failed: %s/%s", collection, doc_id)
+            return None
+
+    def set_index_chunk(self, collection, doc_id, data):
+        """Save a chunk of the author name index to Firestore."""
+        try:
+            self.db.collection(collection).document(doc_id).set({"data": data})
+        except Exception:
+            logger.exception("Index chunk write failed: %s/%s", collection, doc_id)
+
     @staticmethod
     def _safe_doc_id(query_string):
         """Convert a query string to a safe Firestore document ID."""

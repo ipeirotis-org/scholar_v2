@@ -274,7 +274,7 @@ def register_routes(app):
             return jsonify(result)
         return jsonify({"status": "not_configured", "message": "Refresh service not yet configured"})
 
-    from v3.author_search.search_service import AuthorSearchService
+    from v3.author_search.search_service import AuthorSearchService, refresh_author_index
     search_svc = AuthorSearchService()
 
     @app.route("/get_similar_authors")
@@ -282,8 +282,14 @@ def register_routes(app):
         author_name = request.args.get("author_name", "").strip()
         if not author_name or len(author_name) < 2:
             return jsonify([])
-        results = search_svc.search(author_name)
+        typeahead = request.args.get("typeahead", "").lower() == "true"
+        results = search_svc.search(author_name, typeahead=typeahead)
         return jsonify(results)
+
+    @app.route("/api/refresh_author_index")
+    def api_refresh_author_index():
+        count = refresh_author_index(bq=search_svc.bq, cache=search_svc.cache)
+        return jsonify({"status": "ok", "authors_indexed": count})
 
     @app.errorhandler(404)
     def not_found(e):

@@ -54,6 +54,15 @@ class BigQuerySearchClient:
         ]
         return self._query(sql, params)
 
+    def get_all_author_names(self):
+        """Fetch all author names/IDs/affiliations for the in-memory index."""
+        sql = f"""
+            SELECT scholar_id, name, affiliation, citedby
+            FROM {Config.bq_view('ranked_author_current_table')}
+            ORDER BY name
+        """
+        return self._query(sql)
+
     def search_coauthor_network(self, name_pattern):
         """Search the coauthor network for authors not yet crawled.
 
