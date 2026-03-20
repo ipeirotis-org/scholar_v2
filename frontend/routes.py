@@ -197,6 +197,12 @@ def register_routes(app):
             # Cache the plots in Firestore for next time
             cache.set("v3_author_plots", author_id, cached_plots)
 
+        # Record this author as recently queried (fire-and-forget)
+        try:
+            cache.record_recent_author(author_stats)
+        except Exception:
+            logger.debug("Failed to record recent author %s", author_id)
+
         return render_template(
             "results.html",
             author_id=author_id,
