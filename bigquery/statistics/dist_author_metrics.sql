@@ -22,7 +22,7 @@ WITH
       JSON_EXTRACT_SCALAR(DATA, '$.data.scholar_id') AS scholar_id,
       JSON_EXTRACT_SCALAR(pub, '$.author_pub_id') AS author_pub_id,
       CAST(JSON_EXTRACT_SCALAR(pub, '$.bib.pub_year') AS INT64) AS pub_year
-    FROM `scholar-version2.firestore_export.scholar_raw_author_raw_latest`,
+    FROM `scholar-version2.scholar_raw_data.author_latest`,
          UNNEST(JSON_EXTRACT_ARRAY(DATA, '$.data.publications')) AS pub
     WHERE JSON_EXTRACT_SCALAR(pub, '$.author_pub_id') IS NOT NULL
       AND JSON_EXTRACT_SCALAR(DATA, '$.data.scholar_id') IS NOT NULL
@@ -33,7 +33,7 @@ WITH
     SELECT
       JSON_EXTRACT_SCALAR(data, '$.data.author_pub_id') AS author_pub_id,
       CAST(JSON_EXTRACT_SCALAR(data, '$.data.num_citations') AS INT64) AS num_citations
-    FROM `scholar-version2.firestore_export.scholar_raw_pub_raw_latest`
+    FROM `scholar-version2.scholar_raw_data.pub_latest`
   ),
   AuthorPubCounts AS (
     -- Compute total publications, cited publications, and year of first cited pub
@@ -56,7 +56,7 @@ WITH
       CAST(JSON_EXTRACT_SCALAR(DATA, '$.data.citedby5y') AS INT64) AS citedby5y,
       CAST(JSON_EXTRACT_SCALAR(DATA, '$.data.i10index') AS INT64) AS i10index,
       CAST(JSON_EXTRACT_SCALAR(DATA, '$.data.i10index5y') AS INT64) AS i10index5y
-    FROM `scholar-version2.firestore_export.scholar_raw_author_raw_latest`
+    FROM `scholar-version2.scholar_raw_data.author_latest`
     WHERE JSON_EXTRACT_SCALAR(DATA, '$.data.scholar_id') IS NOT NULL
   ),
   CombinedData AS (

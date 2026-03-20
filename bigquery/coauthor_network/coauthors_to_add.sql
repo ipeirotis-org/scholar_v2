@@ -12,7 +12,7 @@ WHERE
   SELECT
     JSON_EXTRACT_SCALAR(DATA, '$.data.scholar_id') AS primary_scholar_id
   FROM
-    `scholar-version2.firestore_export.scholar_raw_author_raw_latest`)
+    `scholar-version2.scholar_raw_data.author_latest`)
 GROUP BY
   coauthor_scholar_id,
   coauthor_name,

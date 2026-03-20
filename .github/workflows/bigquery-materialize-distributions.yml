@@ -37,14 +37,27 @@ jobs:
         project_id: ${{ env.PROJECT_ID }}
 
     # Distribution tables — the ONLY place PERCENT_RANK() runs.
-    # Output is small (distinct values only). Steps 1+2 are independent.
+    # Output is small (distinct values only).
+    # Materialized in strict DAG order — see docs/ANALYTICS.md.
 
-    - name: 'Step 1: dist_publication_citations'
+    # ── Step 1: Level 1 (independent — read from raw data only) ────────
+    - name: 'Step 1a: dist_publication_citations (Level 1)'
       run: bq query --project_id=${{ env.PROJECT_ID }} --use_legacy_sql=false < bigquery/statistics/dist_publication_citations.sql
 
-    - name: 'Step 2: dist_author_metrics'
+    - name: 'Step 1b: dist_author_metrics (Level 1)'
       run: bq query --project_id=${{ env.PROJECT_ID }} --use_legacy_sql=false < bigquery/statistics/dist_author_metrics.sql
 
-    # Step 3 depends on Steps 1+2 (underlying views now use distribution lookups)
-    - name: 'Step 3: dist_pip_auc_scores'
+    # ── Step 2: Level 2 (depends on Level 1 views) ────────────────────
+    - name: 'Step 2: dist_publication_citations_temporal (Level 2)'
+      run: bq query --project_id=${{ env.PROJECT_ID }} --use_legacy_sql=false < bigquery/statistics/dist_publication_citations_temporal.sql
+
+    # ── Step 3: Level 4 (depends on Level 2-3 views + Step 1 tables) ──
+    - name: 'Step 3a: dist_author_metrics_temporal (Level 4)'
+      run: bq query --project_id=${{ env.PROJECT_ID }} --use_legacy_sql=false < bigquery/statistics/dist_author_metrics_temporal.sql
+
+    - name: 'Step 3b: dist_pip_auc_scores (Level 4)'
       run: bq query --project_id=${{ env.PROJECT_ID }} --use_legacy_sql=false < bigquery/statistics/dist_pip_auc_scores.sql
+
+    # ── Step 4: Level 6 (depends on Level 5 views + Step 2-3 tables) ──
+    - name: 'Step 4: dist_pip_auc_scores_temporal (Level 6)'
+      run: bq query --project_id=${{ env.PROJECT_ID }} --use_legacy_sql=false < bigquery/statistics/dist_pip_auc_scores_temporal.sql

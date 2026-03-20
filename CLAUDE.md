@@ -45,8 +45,8 @@ scholar_v2/
 │   │   └── task_queue_service.py # Cloud Tasks enqueue (author + publication tasks)
 │   ├── repositories/             # Author + Publication CRUD (Firestore-backed)
 │   └── utils.py                  # Integer overflow handling for BigQuery JSON
-├── bigquery/                     # SQL view definitions
-│   ├── statistics/               # 8 SQL views (PiP-AUC, percentiles, temporal metrics)
+├── bigquery/                     # SQL view definitions (8-level DAG)
+│   ├── statistics/               # Stats, dist tables, ranked views (Levels 1–7)
 │   └── coauthor_network/         # Co-author graph views
 ├── scripts/                      # One-off utility scripts
 ├── .github/workflows/            # CI/CD (Cloud Run + multi-region Functions)
@@ -81,17 +81,37 @@ scholar_v2/
              → HTML templates render with base64-encoded PNG images
 ```
 
-## Key BigQuery Views
+## BigQuery Analytics Framework
 
-| View | Purpose |
-|------|---------|
-| `stats_publication_current` | Citation percentile per publication, partitioned by pub_year |
-| `stats_author_current` | Author metrics (h-index, citations, i10) + percentiles by cohort |
-| `stats_author_publication_pip_inputs_current` | Interpolated num_papers_percentile for each publication (6-CTE pipeline) |
-| `stats_author_pip_scores_current` | PiP-AUC score via trapezoidal integration + percentile ranking |
-| `stats_publication_citations_temporal` | Full citation timeline per publication (fills missing years with 0) |
-| `stats_author_metrics_temporal` | Table: temporal h-index, citations, i10 evolution (materialized daily from `_view` by `bigquery-materialize.yml`) |
-| `coauthor_network` / `coauthors_to_add` | Co-author graph; discovers authors not yet in DB |
+> Full details: [`docs/ANALYTICS.md`](docs/ANALYTICS.md)
+
+### Key design pattern: Stats → Distributions → Ranked (per metric family)
+
+Every metric family follows: **stats** (raw values) → **dist** (PERCENT_RANK, materialized quarterly) → **ranked** (cheap JOIN). But the PiP pipeline creates cross-role dependencies, so the full DAG has **8 topological levels** (0–7), not 3 tiers.
+
+### View DAG (topological levels)
+
+| Level | Views/Tables | Purpose |
+|-------|-------------|---------|
+| 1 | `base_author_publications`, `stats_publication_current`, `stats_publication_citations_temporal`, `coauthor_network`, **`dist_publication_citations`** ᵀ, **`dist_author_metrics`** ᵀ | Foundation: raw data only |
+| 2 | `stats_author_current`, `intermediate_author_publication_state_temporal`, `coauthors_to_add`, `ranked_publication_current`, **`dist_publication_citations_temporal`** ᵀ | Derived stats + first ranked + first temporal dist |
+| 3 | `stats_author_metrics_temporal_view`, `stats_author_publication_pip_inputs_current`, `ranked_author_current`, `ranked_publication_citations_temporal` | Temporal stats + PiP inputs + more ranked |
+| 4 | `stats_author_pip_scores_current`, **`dist_pip_auc_scores`** ᵀ, **`dist_author_metrics_temporal`** ᵀ | PiP scores + PiP dist + temporal author dist |
+| 5 | `ranked_author_pip_scores_current`, `ranked_author_metrics_temporal`, `stats_author_pip_scores_temporal_view` | PiP ranked + temporal ranked + temporal PiP stats |
+| 6 | **`dist_pip_auc_scores_temporal`** ᵀ | Temporal PiP distribution |
+| 7 | `ranked_author_pip_scores_temporal` | Temporal PiP ranked |
+
+ᵀ = Materialized TABLE (quarterly). All others are live VIEWs.
+
+### Materialization schedule
+
+| What | Schedule | Rationale |
+|------|----------|-----------|
+| Distribution tables (`dist_*`, 6 tables) | **Quarterly** | Population percentiles shift slowly; expensive to compute |
+| Snapshot tables (`ranked_*_table`, 4 tables) | **Daily** | Needed only for all-authors ranking/export; per-author pages use views directly |
+| Views (all non-dist, non-snapshot) | **Live** | Cheap per-author queries via dist table lookups; cached in Firestore |
+
+**Cost note:** Individual author data changes at most monthly (90-day re-crawl threshold). Daily snapshot materialization recomputes ~15,000 rows when typically <200 have changed. Per-author profile pages are unaffected — they query views directly and cache in Firestore.
 
 ## Tech Stack
 

@@ -55,13 +55,12 @@ class BigQueryService:
         return df.to_dict("records")
 
     def get_author_stats(self, author_id):
-        # Queries the VIEWs directly — cheap because both views use distribution
-        # lookups (dist_author_metrics, dist_pip_auc_scores) instead of live
-        # PERCENT_RANK() over all authors.
+        # Queries ranked_* views (Tier 3) which include both raw metrics and
+        # percentiles via cheap JOINs against distribution tables.
         sql = """
             SELECT S.*, P.pip_auc_score, P.pip_auc_score_percentile
-            FROM `scholar-version2.statistics.stats_author_current` S
-            LEFT JOIN `scholar-version2.statistics.stats_author_pip_scores_current` P ON P.scholar_id = S.scholar_id
+            FROM `scholar-version2.statistics.ranked_author_current` S
+            LEFT JOIN `scholar-version2.statistics.ranked_author_pip_scores_current` P ON P.scholar_id = S.scholar_id
             WHERE S.scholar_id = @author_id
         """
         query_params = [
@@ -83,8 +82,8 @@ class BigQueryService:
         # These tables are refreshed daily by bigquery-materialize.yml.
         sql = """
             SELECT S.*, P.pip_auc_score, P.pip_auc_score_percentile
-            FROM `scholar-version2.statistics.stats_author_current_table` S
-            LEFT JOIN `scholar-version2.statistics.stats_author_pip_scores_current_table` P ON P.scholar_id = S.scholar_id
+            FROM `scholar-version2.statistics.ranked_author_current_table` S
+            LEFT JOIN `scholar-version2.statistics.ranked_author_pip_scores_current_table` P ON P.scholar_id = S.scholar_id
         """
         df = self.query(sql)
         return df
@@ -100,7 +99,7 @@ class BigQueryService:
               perc_pub_year_yearly_citations AS perc_yearly_citations,
               perc_pub_year_cumulative_citations AS perc_cumulative_citations
             FROM
-              `scholar-version2.statistics.stats_publication_citations_temporal`
+              `scholar-version2.statistics.ranked_publication_citations_temporal`
             WHERE
               author_pub_id = @author_pub_id
               AND citation_year >= pub_year
@@ -122,7 +121,7 @@ class BigQueryService:
 
         sql = """
             SELECT *
-            FROM `scholar-version2.statistics.stats_author_metrics_temporal`
+            FROM `scholar-version2.statistics.ranked_author_metrics_temporal_table`
             WHERE scholar_id = @author_id
             ORDER BY state_year ASC
         """

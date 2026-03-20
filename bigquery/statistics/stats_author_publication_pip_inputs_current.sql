@@ -26,7 +26,7 @@ WITH
       ROW_NUMBER() OVER(PARTITION BY p.scholar_id ORDER BY p.num_citations_percentile DESC) AS publication_rank,
       a.year_of_first_pub,
       a.total_publications_with_citations
-    FROM `scholar-version2.statistics.stats_publication_current` p
+    FROM `scholar-version2.statistics.ranked_publication_current` p
     JOIN `scholar-version2.statistics.stats_author_current` a
       ON p.scholar_id = a.scholar_id
   ),

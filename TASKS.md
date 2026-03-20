@@ -38,10 +38,11 @@ We are rebuilding the system from scratch in `v3/` with clean component boundari
 ### Step 3: Analytics (Component 3)
 
 - [ ] **Rewrite all SQL views to read from `scholar_raw_data.*_latest`**
-  - [ ] Remove all references to `firestore_export.*` (currently ~15 references across 10 SQL files)
-  - [ ] Distribution tables (`dist_publication_citations`, `dist_author_metrics`, `dist_pip_auc_scores`)
-  - [ ] Core views (tiers 1–4): publication stats, author stats, PiP-AUC, temporal metrics, coauthor network
-  - [ ] Materialization workflow
+  - [x] Remove all references to `firestore_export.*` (migrated 15 references across 11 files)
+  - [x] Distribution tables (`dist_publication_citations`, `dist_author_metrics`, `dist_pip_auc_scores`)
+  - [x] Core views (tiers 1–4): publication stats, author stats, PiP-AUC, temporal metrics, coauthor network
+  - [x] Materialization workflow (`materialize_stats.sql`)
+  - [ ] Deploy views to BigQuery (will happen via CI/CD on merge to main)
   - [ ] View output validation tests (compare against known-good data for sample authors)
   - [ ] Backfill: re-crawl all authors to populate `scholar_raw_data` with fresh data
 
