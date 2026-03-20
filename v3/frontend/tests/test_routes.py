@@ -116,6 +116,47 @@ class TestApiRoutes:
         assert response.status_code == 400
 
 
+class TestSpeedCheck:
+    def test_speed_check_invalid_author_id(self, client):
+        response = client.get("/api/speed_check?author_id=<bad>")
+        assert response.status_code == 400
+        assert response.json["status"] == "error"
+
+    def test_speed_check_returns_timings(self):
+        """Speed check with a mocked BQ/cache returns timing data."""
+        from v3.frontend.app import create_app
+
+        with mock.patch("v3.frontend.routes.BigQueryClient") as bq_cls, \
+             mock.patch("v3.frontend.routes.FirestoreCache") as cache_cls:
+            bq_instance = bq_cls.return_value
+            cache_instance = cache_cls.return_value
+
+            # Simulate cached freshness
+            def cache_get(collection, doc_id, valid_after=None):
+                if collection == "v3_author_freshness":
+                    return {"exists": True, "last_updated": datetime.datetime(2025, 1, 1)}
+                if collection == "v3_author_stats":
+                    return {"name": "Test Author"}
+                if collection == "v3_author_pub_stats":
+                    return [{"pub_year": 2020, "num_citations_percentile": 0.5}]
+                if collection == "v3_author_temporal":
+                    return [{"state_year": 2020}]
+                return None
+
+            cache_instance.get.side_effect = cache_get
+            cache_instance.set.return_value = True
+
+            app = create_app(config={"TESTING": True, "SECRET_KEY": "test"})
+            test_client = app.test_client()
+            response = test_client.get("/api/speed_check?author_id=evnr-MwAAAAJ")
+            assert response.status_code == 200
+            data = response.json
+            assert data["status"] == "ok"
+            assert "timings" in data
+            assert "total_ms" in data["timings"]
+            assert data["has_author_stats"] is True
+
+
 class TestErrorHandlers:
     def test_404_handler(self, client):
         response = client.get("/nonexistent-page")

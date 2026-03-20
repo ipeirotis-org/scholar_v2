@@ -138,6 +138,31 @@ class BigQueryClient:
             return None
         return df.iloc[0]["last_updated"]
 
+    def get_author_freshness(self, scholar_id):
+        """Check author existence and get last_updated in a single query.
+
+        Returns (exists: bool, last_updated: datetime|None).
+        """
+        sql = f"""
+            SELECT MAX(ts) AS last_updated FROM (
+                SELECT MAX(timestamp) AS ts
+                FROM {Config.bq_raw('author')}
+                WHERE document_id = @scholar_id
+                UNION ALL
+                SELECT MAX(timestamp) AS ts
+                FROM {Config.bq_raw('pub')}
+                WHERE STARTS_WITH(document_id, @scholar_id_prefix)
+            )
+        """
+        params = [
+            ScalarQueryParameter("scholar_id", "STRING", scholar_id),
+            ScalarQueryParameter("scholar_id_prefix", "STRING", f"{scholar_id}:"),
+        ]
+        df = self._query(sql, params)
+        if df is None or df.empty or df.iloc[0]["last_updated"] is None:
+            return False, None
+        return True, df.iloc[0]["last_updated"]
+
     def author_exists(self, scholar_id):
         """Check whether an author exists in the raw data."""
         sql = f"""

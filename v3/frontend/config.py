@@ -18,6 +18,8 @@ class Config:
     CACHE_AUTHOR_PUB_STATS = "v3_author_pub_stats"
     CACHE_AUTHOR_STATS = "v3_author_stats"
     CACHE_PUB_STATS = "v3_pub_stats"
+    CACHE_AUTHOR_TEMPORAL = "v3_author_temporal"
+    CACHE_AUTHOR_FRESHNESS = "v3_author_freshness"
 
     # Refresh & Expand service (Component 5)
     REFRESH_SERVICE_URL = os.environ.get("REFRESH_SERVICE_URL", "")

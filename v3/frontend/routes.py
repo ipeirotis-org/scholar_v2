@@ -4,7 +4,9 @@ import datetime
 import io
 import json
 import logging
+import os
 import re
+import time
 from concurrent.futures import ThreadPoolExecutor
 
 import pandas as pd
@@ -100,6 +102,25 @@ def register_routes(app):
     def index():
         return render_template("index.html")
 
+    def _get_author_freshness(author_id):
+        """Get author existence + last_updated, with Firestore caching.
+
+        The freshness timestamp is cached for 1 hour to avoid hitting
+        BigQuery on every page load. The cache is keyed by author_id and
+        automatically invalidated when the underlying data changes (the
+        next uncached call will pick up the new timestamp).
+        """
+        cached = cache.get(Config.CACHE_AUTHOR_FRESHNESS, author_id)
+        if cached is not None:
+            ts = cached.get("last_updated")
+            return cached.get("exists", True), ts
+        exists, last_updated = bq.get_author_freshness(author_id)
+        cache.set(Config.CACHE_AUTHOR_FRESHNESS, author_id, {
+            "exists": exists,
+            "last_updated": last_updated,
+        })
+        return exists, last_updated
+
     @app.route("/results")
     def results():
         author_id = _validate_scholar_id(request.args.get("author_id", "").strip())
@@ -107,14 +128,13 @@ def register_routes(app):
             flash("A valid Google Scholar ID is required.")
             return redirect(url_for("index"))
 
-        # Check if author exists; enqueue via Component 5 if not
-        if not bq.author_exists(author_id):
+        # Check if author exists and get last_updated in one step (cached)
+        exists, last_updated = _get_author_freshness(author_id)
+        if not exists:
             _call_refresh_service("fetch_author", body={"scholar_id": author_id})
             return render_template("redirect.html", author_id=author_id)
 
-        last_updated = bq.get_author_last_updated(author_id)
-
-        # Fetch author stats, pub stats, and temporal stats in parallel
+        # Fetch author stats, pub stats, and temporal stats in parallel (all cached)
         with ThreadPoolExecutor(max_workers=3) as executor:
             author_stats_future = executor.submit(
                 _get_cached_or_query,
@@ -129,7 +149,10 @@ def register_routes(app):
                 last_updated,
             )
             temporal_stats_future = executor.submit(
-                bq.get_author_temporal_stats, author_id,
+                _get_cached_or_query,
+                Config.CACHE_AUTHOR_TEMPORAL, author_id,
+                lambda: bq.get_author_temporal_stats(author_id),
+                last_updated,
             )
 
             author_stats = author_stats_future.result()
@@ -290,6 +313,85 @@ def register_routes(app):
     def api_refresh_author_index():
         count = refresh_author_index(bq=search_svc.bq, cache=search_svc.cache)
         return jsonify({"status": "ok", "authors_indexed": count})
+
+    @app.route("/api/speed_check")
+    def api_speed_check():
+        """Verify that the cached results path is fast.
+
+        Hits the full /results data pipeline (freshness check, author stats,
+        pub stats, temporal stats) for a known author and reports per-step
+        timings.  Returns HTTP 200 with status "ok" when the cached round-trip
+        is under the threshold, or HTTP 500 with status "slow" otherwise.
+
+        Query params:
+            author_id  – scholar ID to test (default: from SPEED_CHECK_AUTHOR_ID env var)
+            threshold  – max acceptable seconds (default: 5)
+        """
+        default_author = os.environ.get("SPEED_CHECK_AUTHOR_ID", "evnr-MwAAAAJ")
+        author_id = _validate_scholar_id(
+            request.args.get("author_id", default_author).strip()
+        )
+        threshold = float(request.args.get("threshold", "5"))
+
+        if not author_id:
+            return jsonify({"status": "error", "message": "Invalid author_id"}), 400
+
+        timings = {}
+
+        # 1. Freshness check (should be cached after first visit)
+        t0 = time.monotonic()
+        exists, last_updated = _get_author_freshness(author_id)
+        timings["freshness_ms"] = round((time.monotonic() - t0) * 1000)
+
+        if not exists:
+            return jsonify({
+                "status": "error",
+                "message": f"Author {author_id} not found — pick an author already in the database",
+                "timings": timings,
+            }), 404
+
+        # 2. Author stats (cached)
+        t0 = time.monotonic()
+        author_stats = _get_cached_or_query(
+            Config.CACHE_AUTHOR_STATS, author_id,
+            lambda: bq.get_author_stats(author_id),
+            last_updated,
+        )
+        timings["author_stats_ms"] = round((time.monotonic() - t0) * 1000)
+
+        # 3. Publication stats (cached)
+        t0 = time.monotonic()
+        pub_stats = _get_cached_or_query(
+            Config.CACHE_AUTHOR_PUB_STATS, author_id,
+            lambda: bq.get_author_pub_stats(author_id),
+            last_updated,
+        )
+        timings["pub_stats_ms"] = round((time.monotonic() - t0) * 1000)
+
+        # 4. Temporal stats (cached)
+        t0 = time.monotonic()
+        temporal_stats = _get_cached_or_query(
+            Config.CACHE_AUTHOR_TEMPORAL, author_id,
+            lambda: bq.get_author_temporal_stats(author_id),
+            last_updated,
+        )
+        timings["temporal_stats_ms"] = round((time.monotonic() - t0) * 1000)
+
+        total_s = sum(timings.values()) / 1000
+        timings["total_ms"] = round(total_s * 1000)
+
+        ok = total_s <= threshold
+        result = {
+            "status": "ok" if ok else "slow",
+            "total_seconds": round(total_s, 2),
+            "threshold_seconds": threshold,
+            "author_id": author_id,
+            "has_author_stats": author_stats is not None,
+            "has_pub_stats": bool(pub_stats),
+            "has_temporal_stats": bool(temporal_stats),
+            "timings": timings,
+        }
+        return jsonify(result), 200 if ok else 500
 
     @app.errorhandler(404)
     def not_found(e):
