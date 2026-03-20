@@ -1,4 +1,10 @@
-"""Flask route handlers for the Scholar Analytics frontend."""
+"""Flask route handlers for the Scholar Analytics frontend.
+
+The frontend reads exclusively from Firestore cache. On cache miss, it
+enqueues a population task to the Cache Layer's priority queue and returns
+a loading page. Visualization (matplotlib) runs in the frontend from
+cached data.
+"""
 
 import datetime
 import io
@@ -22,9 +28,9 @@ from flask import (
     url_for,
 )
 
-from frontend.bigquery_client import BigQueryClient
 from frontend.cache import FirestoreCache
 from frontend.config import Config
+from frontend.queue_client import enqueue_cache_populate
 from frontend.visualization import (
     generate_percentile_rank_plot,
     generate_pip_plot,
@@ -85,49 +91,27 @@ def _call_refresh_service(path, params=None, body=None, timeout=10):
 
 
 def register_routes(app):
-    bq = BigQueryClient()
     cache = FirestoreCache()
 
-    def _get_cached_or_query(collection, doc_id, query_fn, valid_after=None):
-        """Get from cache or query BigQuery, then cache the result."""
-        data = cache.get(collection, doc_id, valid_after=valid_after)
-        if data is not None:
-            return data
-        data = query_fn()
-        if data:
-            cache.set(collection, doc_id, data)
-        return data
+    def _read_cache(collection, doc_id):
+        """Read from Firestore cache. Returns data or None."""
+        return cache.get(collection, doc_id)
 
     @app.route("/")
     @app.route("/index")
     def index():
-        # Cache recent authors for 5 minutes so newly analyzed authors appear quickly
-        five_min_ago = datetime.datetime.now(timezone.utc) - timedelta(minutes=5)
-        recent_authors = _get_cached_or_query(
-            "v3_recent_authors", "recent",
-            lambda: bq.get_recently_analyzed_authors(limit=20),
-            valid_after=five_min_ago,
-        )
+        recent_authors = _read_cache("v3_recent_authors", "recent")
         return render_template("index.html", recent_authors=recent_authors or [])
 
     def _get_author_freshness(author_id):
-        """Get author existence + last_updated, with Firestore caching.
+        """Read cached freshness for an author.
 
-        The freshness timestamp is cached for 1 hour to avoid hitting
-        BigQuery on every page load. The cache is keyed by author_id and
-        automatically invalidated when the underlying data changes (the
-        next uncached call will pick up the new timestamp).
+        Returns (exists: bool, last_updated: datetime|None).
         """
-        cached = cache.get(Config.CACHE_AUTHOR_FRESHNESS, author_id)
+        cached = _read_cache(Config.CACHE_AUTHOR_FRESHNESS, author_id)
         if cached is not None:
-            ts = cached.get("last_updated")
-            return cached.get("exists", True), ts
-        exists, last_updated = bq.get_author_freshness(author_id)
-        cache.set(Config.CACHE_AUTHOR_FRESHNESS, author_id, {
-            "exists": exists,
-            "last_updated": last_updated,
-        })
-        return exists, last_updated
+            return cached.get("exists", True), cached.get("last_updated")
+        return None, None
 
     def _generate_all_plots(author_stats, pub_stats, temporal_stats):
         """Generate all plots for an author and return as a cacheable dict."""
@@ -168,37 +152,34 @@ def register_routes(app):
             flash("A valid Google Scholar ID is required.")
             return redirect(url_for("index"))
 
-        # Check if author exists and get last_updated in one step (cached)
+        # Check cached freshness
         exists, last_updated = _get_author_freshness(author_id)
+
+        # If freshness not cached, enqueue population and show loading
+        if exists is None:
+            enqueue_cache_populate("populate_author_profile", {"scholar_id": author_id})
+            # Also trigger crawl in case author doesn't exist in BQ yet
+            _call_refresh_service("fetch_author", body={"scholar_id": author_id})
+            return render_template("redirect.html", author_id=author_id)
+
         if not exists:
             _call_refresh_service("fetch_author", body={"scholar_id": author_id})
             return render_template("redirect.html", author_id=author_id)
 
-        # Check if plots are already cached — if so, skip fetching pub_stats
-        cached_plots = cache.get("v3_author_plots", author_id, valid_after=last_updated)
+        # Read all data from cache
+        cached_plots = _read_cache("v3_author_plots", author_id)
 
-        # Fetch author stats and temporal stats in parallel (always needed)
-        # Only fetch pub_stats if we need to generate plots
         with ThreadPoolExecutor(max_workers=3) as executor:
             author_stats_future = executor.submit(
-                _get_cached_or_query,
-                Config.CACHE_AUTHOR_STATS, author_id,
-                lambda: bq.get_author_stats(author_id),
-                last_updated,
+                _read_cache, Config.CACHE_AUTHOR_STATS, author_id,
             )
             temporal_stats_future = executor.submit(
-                _get_cached_or_query,
-                Config.CACHE_AUTHOR_TEMPORAL, author_id,
-                lambda: bq.get_author_temporal_stats(author_id),
-                last_updated,
+                _read_cache, Config.CACHE_AUTHOR_TEMPORAL, author_id,
             )
             pub_stats_future = None
             if cached_plots is None:
                 pub_stats_future = executor.submit(
-                    _get_cached_or_query,
-                    Config.CACHE_AUTHOR_PUB_STATS, author_id,
-                    lambda: bq.get_author_pub_stats(author_id),
-                    last_updated,
+                    _read_cache, Config.CACHE_AUTHOR_PUB_STATS, author_id,
                 )
 
             author_stats = author_stats_future.result()
@@ -206,15 +187,15 @@ def register_routes(app):
             pub_stats = pub_stats_future.result() if pub_stats_future else None
 
         if not author_stats:
+            # Cache miss — enqueue population and show loading page
+            enqueue_cache_populate("populate_author_profile", {"scholar_id": author_id})
             return render_template("loading.html", author_id=author_id)
 
-        # Generate plots (cached in Firestore, invalidated when data changes)
+        # Generate plots from cached data (visualization stays in frontend)
         if cached_plots is None:
-            cached_plots = _get_cached_or_query(
-                "v3_author_plots", author_id,
-                lambda: _generate_all_plots(author_stats, pub_stats, temporal_stats),
-                last_updated,
-            ) or {}
+            cached_plots = _generate_all_plots(author_stats, pub_stats, temporal_stats)
+            # Cache the plots in Firestore for next time
+            cache.set("v3_author_plots", author_id, cached_plots)
 
         return render_template(
             "results.html",
@@ -240,21 +221,16 @@ def register_routes(app):
 
         with ThreadPoolExecutor(max_workers=2) as executor:
             author_stats_future = executor.submit(
-                _get_cached_or_query,
-                Config.CACHE_AUTHOR_STATS, author_id,
-                lambda: bq.get_author_stats(author_id),
-                last_updated,
+                _read_cache, Config.CACHE_AUTHOR_STATS, author_id,
             )
             pub_stats_future = executor.submit(
-                _get_cached_or_query,
-                Config.CACHE_AUTHOR_PUB_STATS, author_id,
-                lambda: bq.get_author_pub_stats(author_id),
-                last_updated,
+                _read_cache, Config.CACHE_AUTHOR_PUB_STATS, author_id,
             )
             author_stats = author_stats_future.result()
             pub_stats = pub_stats_future.result()
 
         if not author_stats:
+            enqueue_cache_populate("populate_author_profile", {"scholar_id": author_id})
             return render_template("loading.html", author_id=author_id)
 
         return render_template(
@@ -272,15 +248,11 @@ def register_routes(app):
         if not author_id or not pub_id:
             return render_template("error.html", error_message="Invalid parameters.")
 
-        last_updated = bq.get_author_last_updated(author_id)
-        pub_stats = _get_cached_or_query(
-            Config.CACHE_PUB_STATS, pub_id,
-            lambda: bq.get_publication_stats(pub_id),
-            valid_after=last_updated,
-        )
+        pub_stats = _read_cache(Config.CACHE_PUB_STATS, pub_id)
 
         if not pub_stats:
-            return render_template("error.html", error_message="Publication not found.")
+            enqueue_cache_populate("populate_publication_detail", {"author_pub_id": pub_id})
+            return render_template("loading.html", author_id=author_id)
 
         citations_plot = generate_pub_citation_plot(pd.DataFrame(pub_stats))
 
@@ -299,9 +271,10 @@ def register_routes(app):
             flash("Invalid author ID.")
             return redirect(url_for("index"))
 
-        pub_stats = bq.get_author_pub_stats(author_id)
+        # Read pub_stats from cache
+        pub_stats = _read_cache(Config.CACHE_AUTHOR_PUB_STATS, author_id)
         if not pub_stats:
-            flash("No publications found to download.")
+            flash("No publications found to download. Please visit the author profile first.")
             return redirect(url_for("index"))
 
         df = pd.DataFrame(pub_stats)
@@ -379,14 +352,9 @@ def register_routes(app):
     def api_speed_check():
         """Verify that the cached results path is fast.
 
-        Hits the full /results data pipeline (freshness check, author stats,
-        pub stats, temporal stats) for a known author and reports per-step
-        timings.  Returns HTTP 200 with status "ok" when the cached round-trip
-        is under the threshold, or HTTP 500 with status "slow" otherwise.
-
-        Query params:
-            author_id  – scholar ID to test (default: from SPEED_CHECK_AUTHOR_ID env var)
-            threshold  – max acceptable seconds (default: 5)
+        Hits the full data pipeline (freshness, author stats, pub stats,
+        temporal stats) for a known author using cache reads only, and
+        reports per-step timings.
         """
         default_author = os.environ.get("SPEED_CHECK_AUTHOR_ID", "evnr-MwAAAAJ")
         author_id = _validate_scholar_id(
@@ -399,7 +367,7 @@ def register_routes(app):
 
         timings = {}
 
-        # 1. Freshness check (should be cached after first visit)
+        # 1. Freshness check
         t0 = time.monotonic()
         exists, last_updated = _get_author_freshness(author_id)
         timings["freshness_ms"] = round((time.monotonic() - t0) * 1000)
@@ -411,31 +379,19 @@ def register_routes(app):
                 "timings": timings,
             }), 404
 
-        # 2. Author stats (cached)
+        # 2. Author stats
         t0 = time.monotonic()
-        author_stats = _get_cached_or_query(
-            Config.CACHE_AUTHOR_STATS, author_id,
-            lambda: bq.get_author_stats(author_id),
-            last_updated,
-        )
+        author_stats = _read_cache(Config.CACHE_AUTHOR_STATS, author_id)
         timings["author_stats_ms"] = round((time.monotonic() - t0) * 1000)
 
-        # 3. Publication stats (cached)
+        # 3. Publication stats
         t0 = time.monotonic()
-        pub_stats = _get_cached_or_query(
-            Config.CACHE_AUTHOR_PUB_STATS, author_id,
-            lambda: bq.get_author_pub_stats(author_id),
-            last_updated,
-        )
+        pub_stats = _read_cache(Config.CACHE_AUTHOR_PUB_STATS, author_id)
         timings["pub_stats_ms"] = round((time.monotonic() - t0) * 1000)
 
-        # 4. Temporal stats (cached)
+        # 4. Temporal stats
         t0 = time.monotonic()
-        temporal_stats = _get_cached_or_query(
-            Config.CACHE_AUTHOR_TEMPORAL, author_id,
-            lambda: bq.get_author_temporal_stats(author_id),
-            last_updated,
-        )
+        temporal_stats = _read_cache(Config.CACHE_AUTHOR_TEMPORAL, author_id)
         timings["temporal_stats_ms"] = round((time.monotonic() - t0) * 1000)
 
         total_s = sum(timings.values()) / 1000
@@ -452,8 +408,6 @@ def register_routes(app):
             "has_temporal_stats": bool(temporal_stats),
             "timings": timings,
         }
-        # Always return 200 so curl -f doesn't fail and the JSON is readable.
-        # The CI step inspects result["status"] to decide pass/fail.
         return jsonify(result), 200
 
     @app.errorhandler(404)

@@ -36,111 +36,58 @@ Decouple the frontend from BigQuery by introducing a dedicated **cache_layer** c
 - Two Cloud Tasks queues: **priority** (interactive, user-waiting) and **batch** (warming, rebuilds, scheduled).
 - Visualization stays in the frontend — cache serves structured data only.
 
-### Phase 1: Build the `cache_layer/` component
+### Phase 1: Build the `cache_layer/` component ✓
 
 Create the new component that owns all BigQuery reads and Firestore writes.
 
-- [ ] **Scaffold `cache_layer/` directory structure**
-  - `main.py` — Cloud Run HTTP entry points (one handler per queue)
-  - `cache_service.py` — Orchestration: dispatch by request type, coordinate queries
-  - `bigquery_client.py` — All BigQuery read queries (copy from frontend, refactor)
-  - `cache_writer.py` — Firestore write-only client (adapted from frontend `cache.py`)
-  - `config.py` — Config with env var overrides
-  - `Dockerfile` — Python 3.12-slim, same base as frontend
-  - `requirements.txt`
-  - `tests/`
+- [x] **Scaffold `cache_layer/` directory structure**
+- [x] **Implement request type handlers in `cache_service.py`**
+- [x] **Implement `bigquery_client.py`** (moved from frontend + `get_all_author_ids`)
+- [x] **Implement `cache_writer.py`** (write-only Firestore client with batch support)
+- [x] **Implement `main.py` with HTTP handlers** (`/tasks/priority`, `/tasks/batch`, `/admin/rebuild`, `/admin/populate`, `/health`)
+- [x] **Write tests for cache_layer** (50 tests)
 
-- [ ] **Implement request type handlers in `cache_service.py`**
-  - `populate_author_profile(scholar_id)` — queries author_stats, pub_stats, temporal_stats; writes all three to Firestore
-  - `populate_publication_detail(author_pub_id)` — queries pub temporal citation stats; writes to Firestore
-  - `populate_recent_authors()` — queries recently analyzed authors list; writes to Firestore
-  - `invalidate_author(scholar_id)` — checks freshness, re-populates all caches for that author
-  - `rebuild_all()` — iterates all known authors, enqueues `populate_author_profile` for each to batch queue
+### Phase 2: Cloud Tasks queues + wiring ✓ (code complete, infra pending)
 
-- [ ] **Implement `bigquery_client.py`**
-  - Move these methods from `frontend/bigquery_client.py`:
-    - `get_author_pub_stats(scholar_id)`
-    - `get_author_stats(scholar_id)`
-    - `get_publication_stats(author_pub_id)`
-    - `get_author_temporal_stats(scholar_id)`
-    - `get_author_last_updated(scholar_id)` / `get_author_freshness(scholar_id)`
-    - `get_recently_analyzed_authors(limit)`
-  - Keep `get_all_authors_stats()` in frontend for now (CSV export, reads materialized tables)
-
-- [ ] **Implement `cache_writer.py`**
-  - Write-only Firestore client
-  - Same collection names as frontend (`v3_author_stats`, `v3_author_pub_stats`, `v3_author_temporal`, `v3_pub_stats`, `v3_author_freshness`, `v3_recent_authors`)
-  - Each write includes timestamp for staleness tracking
-  - Batch write support for `rebuild_all`
-
-- [ ] **Implement `main.py` with HTTP handlers**
-  - `POST /tasks/priority` — dispatches priority queue tasks (author_profile, publication_detail, invalidate_author)
-  - `POST /tasks/batch` — dispatches batch queue tasks (recent_authors, warm_author, rebuild_all)
-  - `POST /admin/rebuild` — trigger full cache rebuild (enqueues to batch queue)
-  - Request format: `{ "type": "author_profile", "scholar_id": "XYZ" }` (or similar per type)
-  - Validate OIDC token from Cloud Tasks
-
-- [ ] **Write tests for cache_layer**
-  - Unit tests for each cache_service handler (mock BQ + Firestore)
-  - Unit tests for bigquery_client (mock BQ client)
-  - Unit tests for cache_writer (mock Firestore client)
-  - Integration test: priority task → BQ query → Firestore write
-
-### Phase 2: Cloud Tasks queues + wiring
-
-Set up the queue infrastructure and connect the cache layer to event sources.
-
-- [ ] **Create Cloud Tasks queues**
-  - `cache-priority` — high max dispatches/sec, short task timeout (~30s), high concurrency
-  - `cache-batch` — rate-limited dispatches/sec, longer timeout (~5min), lower concurrency
-  - Region: `northamerica-northeast1` (same as existing queues)
-
-- [ ] **Wire ingestion to publish cache invalidation events**
-  - After `batch_load_gcs_to_bq` successfully loads author data, enqueue `invalidate_author` to priority queue for each affected author
-  - This ensures cache stays fresh without the frontend needing to check freshness
-
+- [x] **Wire ingestion to publish cache invalidation events**
+  - `ingestion/cache_enqueuer.py` — extracts scholar IDs from NDJSON, enqueues `invalidate_author` to priority queue
+  - `ingestion/batch_load.py` — calls cache enqueuer after successful BQ load (non-fatal on failure)
+  - 8 new tests for cache_enqueuer
+- [ ] **Create Cloud Tasks queues** (infra — needs `gcloud` commands or Terraform)
+  - `cache-priority` — high concurrency, short timeout (~30s)
+  - `cache-batch` — rate-limited, longer timeout (~5min)
+  - Region: `northamerica-northeast1`
 - [ ] **Wire refresh service to publish warm events**
   - After triggering a crawl for an author, enqueue `warm_author` to batch queue
-  - Pre-populates cache before user returns to check results
-
 - [ ] **Add scheduled task for `populate_recent_authors`**
   - Cloud Scheduler → batch queue, every 5 minutes
-  - Replaces the frontend's 5-minute TTL cache for homepage
-
 - [ ] **CI/CD: deploy cache_layer as Cloud Run service**
   - Add to `.github/workflows/main.yml` or create dedicated workflow
-  - Deploy alongside frontend and refresh services
 
-### Phase 3: Migrate frontend to cache-read-only
+### Phase 3: Migrate frontend to cache-read-only ✓
 
-Make the frontend a pure cache consumer.
+- [x] **Add queue client to frontend** (`frontend/queue_client.py`)
+- [x] **Modify frontend routes to be cache-read-only**
+  - All routes read from Firestore only; enqueue on cache miss; return loading page
+  - `/download` reads pub_stats from cache (no direct BQ)
+- [x] **Remove BigQuery dependency from frontend**
+  - Deleted `frontend/bigquery_client.py`
+  - Replaced `google-cloud-bigquery` with `google-cloud-tasks` in requirements.txt
+  - Simplified `frontend/cache.py` (removed `valid_after` parameter, documented cache-layer ownership)
+  - `cache.set()` retained only for plot caching (frontend-generated)
+- [x] **Update frontend tests** (27 tests, all passing — no BQ mocks needed)
 
-- [ ] **Add queue client to frontend**
-  - Thin client to enqueue tasks to `cache-priority` queue
-  - Used on cache miss to request cache population
+### Remaining deployment tasks
 
-- [ ] **Modify frontend routes to be cache-read-only**
-  - `/results`: read Firestore → if miss, enqueue `author_profile` to priority queue → return loading page
-  - `/publications/<id>`: read Firestore → if miss, enqueue → return loading page
-  - `/publication/<id>/<pub_id>`: read Firestore → if miss, enqueue `publication_detail` → return loading page
-  - `/` (homepage): read Firestore only (populated by scheduled batch task) → if miss, show empty/fallback
-  - `/download/<id>`: keep direct BigQuery for now (on-demand CSV export, low frequency)
-
-- [ ] **Remove BigQuery dependency from frontend**
-  - Delete `frontend/bigquery_client.py` (except `get_all_authors_stats` for CSV export, or move CSV to cache_layer too)
-  - Remove `google-cloud-bigquery` from frontend `requirements.txt` (if CSV moves)
-  - Simplify `frontend/cache.py` to read-only (remove `set()` method)
-  - Remove freshness-checking logic from routes (cache layer owns freshness)
-
+- [ ] **Create Cloud Tasks queues** (`cache-priority`, `cache-batch`)
+- [ ] **Deploy cache_layer Cloud Run service**
+- [ ] **Set `CACHE_LAYER_URL` env var** on frontend, ingestion, and cache_layer services
+- [ ] **Run initial cache rebuild** (`POST /admin/rebuild`) to populate Firestore from BigQuery
+- [ ] **Add Cloud Scheduler** for `populate_recent_authors` (every 5 min)
+- [ ] **Wire refresh service** to enqueue `warm_author` after crawls
 - [ ] **Update frontend loading/polling UX**
   - Existing loading page pattern already handles "data not ready" state
-  - Add client-side polling or short auto-refresh for cache miss → enqueued → populated flow
-  - Target: user sees data within 2-5s of cache miss (priority queue latency)
-
-- [ ] **Update frontend tests**
-  - Remove all BigQuery mock tests from frontend
-  - Add tests for enqueue-on-miss behavior
-  - Add tests for cache-read-only routes
+  - Consider client-side polling or short auto-refresh for smoother cache-miss UX
 
 ---
 

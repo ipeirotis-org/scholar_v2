@@ -1,4 +1,8 @@
-"""Tests for v3 frontend route handlers."""
+"""Tests for v3 frontend route handlers.
+
+The frontend is cache-read-only — it reads from Firestore and enqueues
+tasks to the Cache Layer on cache miss. No BigQuery dependency.
+"""
 
 import datetime
 from unittest import mock
@@ -18,33 +22,29 @@ class TestIndexRoute:
 
 
 class TestResultsRoute:
-    @mock.patch("frontend.routes.BigQueryClient")
-    @mock.patch("frontend.routes.FirestoreCache")
-    def test_results_missing_author_id_redirects(self, mock_cache, mock_bq, client):
+    def test_results_missing_author_id_redirects(self, client):
         response = client.get("/results")
         assert response.status_code == 302
 
-    @mock.patch("frontend.routes.BigQueryClient")
-    @mock.patch("frontend.routes.FirestoreCache")
-    def test_results_invalid_author_id_redirects(self, mock_cache, mock_bq, client):
+    def test_results_invalid_author_id_redirects(self, client):
         response = client.get("/results?author_id=<script>alert(1)</script>")
         assert response.status_code == 302
 
-    @mock.patch("frontend.routes.BigQueryClient")
-    @mock.patch("frontend.routes.FirestoreCache")
-    def test_results_nonexistent_author_shows_redirect_page(self, mock_cache_cls, mock_bq_cls, client):
-        # The BigQueryClient is instantiated inside register_routes at import time
-        # We need to patch at the instance level
-        with mock.patch("frontend.routes.BigQueryClient") as bq_cls:
-            bq_instance = bq_cls.return_value
-            bq_instance.author_exists.return_value = False
-            # Re-register routes with patched client
-            from frontend.app import create_app
+    def test_results_cache_miss_shows_loading(self):
+        """When freshness cache is empty, enqueue and show redirect/loading."""
+        from frontend.app import create_app
+
+        with mock.patch("frontend.routes.FirestoreCache") as cache_cls, \
+             mock.patch("frontend.routes.enqueue_cache_populate") as mock_enqueue:
+            cache_instance = cache_cls.return_value
+            cache_instance.get.return_value = None  # Everything is a cache miss
+
             app = create_app(config={"TESTING": True, "SECRET_KEY": "test"})
             test_client = app.test_client()
             response = test_client.get("/results?author_id=abc123def456")
             assert response.status_code == 200
             assert b"processing" in response.data.lower() or b"queued" in response.data.lower()
+            mock_enqueue.assert_called()
 
 
 class TestInputValidation:
@@ -123,16 +123,13 @@ class TestSpeedCheck:
         assert response.json["status"] == "error"
 
     def test_speed_check_returns_timings(self):
-        """Speed check with a mocked BQ/cache returns timing data."""
+        """Speed check reads from cache only — no BigQuery."""
         from frontend.app import create_app
 
-        with mock.patch("frontend.routes.BigQueryClient") as bq_cls, \
-             mock.patch("frontend.routes.FirestoreCache") as cache_cls:
-            bq_instance = bq_cls.return_value
+        with mock.patch("frontend.routes.FirestoreCache") as cache_cls:
             cache_instance = cache_cls.return_value
 
-            # Simulate cached freshness
-            def cache_get(collection, doc_id, valid_after=None):
+            def cache_get(collection, doc_id):
                 if collection == "v3_author_freshness":
                     return {"exists": True, "last_updated": datetime.datetime(2025, 1, 1)}
                 if collection == "v3_author_stats":
