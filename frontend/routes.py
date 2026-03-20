@@ -8,6 +8,7 @@ import os
 import re
 import time
 from concurrent.futures import ThreadPoolExecutor
+from datetime import timedelta, timezone
 
 import pandas as pd
 import urllib.request
@@ -100,9 +101,12 @@ def register_routes(app):
     @app.route("/")
     @app.route("/index")
     def index():
+        # Cache recent authors for 5 minutes so newly analyzed authors appear quickly
+        five_min_ago = datetime.datetime.now(timezone.utc) - timedelta(minutes=5)
         recent_authors = _get_cached_or_query(
             "v3_recent_authors", "recent",
             lambda: bq.get_recently_analyzed_authors(limit=20),
+            valid_after=five_min_ago,
         )
         return render_template("index.html", recent_authors=recent_authors or [])
 
@@ -124,6 +128,38 @@ def register_routes(app):
             "last_updated": last_updated,
         })
         return exists, last_updated
+
+    def _generate_all_plots(author_stats, pub_stats, temporal_stats):
+        """Generate all plots for an author and return as a cacheable dict."""
+        plot1, plot2 = "", ""
+        if pub_stats:
+            df = pd.DataFrame(pub_stats)
+            author_name = author_stats.get("name", "N/A")
+            current_year = datetime.datetime.now().year
+            df["pub_year"] = pd.to_numeric(df["pub_year"], errors="coerce")
+            df.dropna(subset=["pub_year"], inplace=True)
+            df["pub_year"] = df["pub_year"].astype(int)
+            df["age"] = current_year - df["pub_year"] + 1
+            df["num_citations_percentile"] = 100 * df["num_citations_percentile"]
+            df["num_papers_percentile"] = 100 * df["num_papers_percentile"]
+            with ThreadPoolExecutor(max_workers=2) as executor:
+                plot1_future = executor.submit(generate_percentile_rank_plot, df.copy(), author_name)
+                plot2_future = executor.submit(generate_pip_plot, df.copy(), author_name)
+                plot1 = plot1_future.result()
+                plot2 = plot2_future.result()
+
+        temporal_plots = {}
+        if temporal_stats:
+            tdf = pd.DataFrame(temporal_stats)
+            tdf["state_year"] = pd.to_numeric(tdf["state_year"], errors="coerce")
+            tdf.dropna(subset=["state_year"], inplace=True)
+            if not tdf.empty:
+                temporal_plots["h_index"] = generate_author_h_index_plot(tdf)
+                temporal_plots["total_citations"] = generate_author_total_citations_plot(tdf)
+                temporal_plots["i10_index"] = generate_author_i10_index_plot(tdf)
+                temporal_plots["h_index_5y"] = generate_author_h_index_5y_plot(tdf)
+
+        return {"plot1": plot1, "plot2": plot2, "temporal_plots": temporal_plots}
 
     @app.route("/results")
     def results():
@@ -166,44 +202,21 @@ def register_routes(app):
         if not author_stats:
             return render_template("loading.html", author_id=author_id)
 
-        # Generate PiP plots in parallel
-        plot1, plot2 = "", ""
-        if pub_stats:
-            df = pd.DataFrame(pub_stats)
-            author_name = author_stats.get("name", "N/A")
-            current_year = datetime.datetime.now().year
-            df["pub_year"] = pd.to_numeric(df["pub_year"], errors="coerce")
-            df.dropna(subset=["pub_year"], inplace=True)
-            df["pub_year"] = df["pub_year"].astype(int)
-            df["age"] = current_year - df["pub_year"] + 1
-            df["num_citations_percentile"] = 100 * df["num_citations_percentile"]
-            df["num_papers_percentile"] = 100 * df["num_papers_percentile"]
-            with ThreadPoolExecutor(max_workers=2) as executor:
-                plot1_future = executor.submit(generate_percentile_rank_plot, df.copy(), author_name)
-                plot2_future = executor.submit(generate_pip_plot, df.copy(), author_name)
-                plot1 = plot1_future.result()
-                plot2 = plot2_future.result()
-
-        # Generate temporal plots
-        temporal_plots = {}
-        if temporal_stats:
-            tdf = pd.DataFrame(temporal_stats)
-            tdf["state_year"] = pd.to_numeric(tdf["state_year"], errors="coerce")
-            tdf.dropna(subset=["state_year"], inplace=True)
-            if not tdf.empty:
-                temporal_plots["h_index"] = generate_author_h_index_plot(tdf)
-                temporal_plots["total_citations"] = generate_author_total_citations_plot(tdf)
-                temporal_plots["i10_index"] = generate_author_i10_index_plot(tdf)
-                temporal_plots["h_index_5y"] = generate_author_h_index_5y_plot(tdf)
+        # Generate plots (cached in Firestore, invalidated when data changes)
+        cached_plots = _get_cached_or_query(
+            "v3_author_plots", author_id,
+            lambda: _generate_all_plots(author_stats, pub_stats, temporal_stats),
+            last_updated,
+        ) or {}
 
         return render_template(
             "results.html",
             author_id=author_id,
             stats=author_stats,
             publications=pub_stats or [],
-            plot1=plot1,
-            plot2=plot2,
-            temporal_plots=temporal_plots,
+            plot1=cached_plots.get("plot1", ""),
+            plot2=cached_plots.get("plot2", ""),
+            temporal_plots=cached_plots.get("temporal_plots", {}),
             last_updated=last_updated,
         )
 
