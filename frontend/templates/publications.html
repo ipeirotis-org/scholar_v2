@@ -48,7 +48,7 @@
                         </td>
                         <td>{{ pub.pub_year }}</td>
                         <td>{{ pub.num_citations }}</td>
-                        <td>{{ (100 * pub.num_citations_percentile)|round(2) }}%</td>
+                        <td>{{ (100 * pub.num_citations_percentile)|round(1) }}%</td>
                     </tr>
                     {% endfor %}
                 </tbody>

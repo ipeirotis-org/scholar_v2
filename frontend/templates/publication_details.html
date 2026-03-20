@@ -36,8 +36,8 @@
                         <td>{{ stat.age }}</td>
                         <td>{{ stat.yearly_citations }}</td>
                         <td>{{ stat.cumulative_citations }}</td>
-                        <td>{{ (100 * stat.perc_yearly_citations)|round(2) }}%</td>
-                        <td>{{ (100 * stat.perc_cumulative_citations)|round(2) }}%</td>
+                        <td>{{ (100 * stat.perc_yearly_citations)|round(1) }}%</td>
+                        <td>{{ (100 * stat.perc_cumulative_citations)|round(1) }}%</td>
                     </tr>
                     {% else %}
                     <tr><td colspan="6">No statistics available.</td></tr>

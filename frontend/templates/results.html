@@ -35,50 +35,50 @@
                     <span class="metrics-explanation" data-toggle="tooltip"
                           title="Total citations; percentile vs authors who started publishing in {{ stats.year_of_first_pub }}.">
                         Total Citations</span>: {{ stats.citedby }}
-                    ({{ (100 * stats.citedby_percentile)|round(2) }}% percentile)
+                    ({{ (100 * stats.citedby_percentile)|round(1) }}% percentile)
                 </li>
                 <li>
                     <span class="metrics-explanation" data-toggle="tooltip"
                           title="Citations in the last 5 years; percentile vs authors who started publishing in {{ stats.year_of_first_pub }}.">
                         Recent Citations (last 5 years)</span>: {{ stats.citedby5y }}
-                    ({{ (100 * stats.citedby5y_percentile)|round(2) }}% percentile)
+                    ({{ (100 * stats.citedby5y_percentile)|round(1) }}% percentile)
                 </li>
                 <li>
                     <span class="metrics-explanation" data-toggle="tooltip"
                           title="H-index: largest h such that h publications have at least h citations.">
                         H-index</span>: {{ stats.hindex }}
-                    ({{ (100 * stats.hindex_percentile)|round(2) }}% percentile)
+                    ({{ (100 * stats.hindex_percentile)|round(1) }}% percentile)
                 </li>
                 <li>
                     <span class="metrics-explanation" data-toggle="tooltip"
                           title="Recent h-index: largest h such that h publications have at least h new citations in the last 5 years.">
                         H-index (last 5 years)</span>: {{ stats.hindex5y }}
-                    ({{ (100 * stats.hindex5y_percentile)|round(2) }}% percentile)
+                    ({{ (100 * stats.hindex5y_percentile)|round(1) }}% percentile)
                 </li>
                 <li>
                     <span class="metrics-explanation" data-toggle="tooltip"
                           title="Number of publications with at least one citation.">
                         Total Publications</span>: {{ stats.total_publications_with_citations }}
-                    ({{ (100 * stats.total_publications_with_citations_percentile)|round(2) }}% percentile)
+                    ({{ (100 * stats.total_publications_with_citations_percentile)|round(1) }}% percentile)
                 </li>
                 <li>
                     <span class="metrics-explanation" data-toggle="tooltip"
                           title="Number of publications with at least 10 citations.">
                         i10-index</span>: {{ stats.i10index }}
-                    ({{ (100 * stats.i10index_percentile)|round(2) }}% percentile)
+                    ({{ (100 * stats.i10index_percentile)|round(1) }}% percentile)
                 </li>
                 <li>
                     <span class="metrics-explanation" data-toggle="tooltip"
                           title="Number of publications with at least 10 new citations in the last 5 years.">
                         i10-index (last 5 years)</span>: {{ stats.i10index5y }}
-                    ({{ (100 * stats.i10index5y_percentile)|round(2) }}% percentile)
+                    ({{ (100 * stats.i10index5y_percentile)|round(1) }}% percentile)
                 </li>
                 <li class="mt-2">
                     <strong>
                         <span class="metrics-explanation" data-toggle="tooltip"
                               title="PiP-AUC combines citation quality with publication productivity into a single 0-to-1 score.">
                             PiP-AUC Score</span>: {{ stats.pip_auc_score|round(4) }}
-                        ({{ (100 * stats.pip_auc_score_percentile)|round(2) }}% percentile)
+                        ({{ (100 * stats.pip_auc_score_percentile)|round(1) }}% percentile)
                     </strong>
                 </li>
             </ul>

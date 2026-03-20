@@ -54,7 +54,7 @@
                     <td>{{ '{:,}'.format(author.citedby|int) }}</td>
                     <td>
                         {% if author.pip_auc_score %}
-                            {{ author.pip_auc_score }}
+                            {{ author.pip_auc_score|round(4) }}
                             {% if author.pip_auc_percentile is not none %}
                                 <small class="text-muted">({{ "%.1f"|format(100 * author.pip_auc_percentile) }}% percentile)</small>
                             {% endif %}
