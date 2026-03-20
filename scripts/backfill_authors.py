@@ -90,7 +90,7 @@ def get_stale_authors(threshold_days, limit=None):
 
 def sanitize_task_id(raw_id):
     """Sanitize an ID for use as a Cloud Tasks task name."""
-    return raw_id.replace(":", "__").replace("/", "___")
+    return raw_id.replace(":", "__").replace("/", "___").replace(".", "_")
 
 
 def enqueue_authors(authors, spread_regions=False, batch_size=100):
