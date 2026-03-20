@@ -1,12 +1,14 @@
 """Author Search Service — Component 6.
 
 Implements the search strategy described in ARCHITECTURE.md:
-1. Search crawled authors in BigQuery (fast, free)
-2. Search coauthor network in BigQuery (fast, free)
-3. Check Firestore cache for Scholar results
-4. Fall back to Google Scholar (slow, rate-limited)
+1. Check top-level search cache (fast, avoids BigQuery on repeat queries)
+2. Search crawled authors in BigQuery (fast, free)
+3. Search coauthor network in BigQuery (fast, free)
+4. Check Firestore cache for Scholar results
+5. Fall back to Google Scholar (slow, rate-limited)
 
 Results from all sources are deduplicated by scholar_id and merged.
+The final merged results are cached so repeat queries skip BigQuery entirely.
 """
 
 import logging
@@ -34,6 +36,13 @@ class AuthorSearchService:
             return []
 
         name = author_name.strip()
+
+        # Step 0: Check top-level search results cache
+        cached_results = self.cache.get_search_results(name)
+        if cached_results is not None:
+            logger.info("Search '%s': cache hit (%d results)", name, len(cached_results))
+            return cached_results
+
         seen_ids = set()
         results = []
 
@@ -48,6 +57,7 @@ class AuthorSearchService:
 
         if len(results) >= Config.LOCAL_RESULTS_THRESHOLD:
             logger.info("Search '%s': %d results from crawled authors", name, len(results))
+            self.cache.set_search_results(name, results)
             return results
 
         # Step 2: Search coauthor network
@@ -61,6 +71,7 @@ class AuthorSearchService:
 
         if len(results) >= Config.LOCAL_RESULTS_THRESHOLD:
             logger.info("Search '%s': %d results (crawled + coauthor)", name, len(results))
+            self.cache.set_search_results(name, results)
             return results
 
         # Step 3: Check Firestore cache for Scholar results
@@ -73,6 +84,7 @@ class AuthorSearchService:
                     author["source"] = "scholar_cached"
                     results.append(author)
             logger.info("Search '%s': %d results (local + cached scholar)", name, len(results))
+            self.cache.set_search_results(name, results)
             return results
 
         # Step 4: Fall back to Google Scholar
@@ -87,4 +99,5 @@ class AuthorSearchService:
                     results.append(author)
 
         logger.info("Search '%s': %d total results (all sources)", name, len(results))
+        self.cache.set_search_results(name, results)
         return results

@@ -14,6 +14,7 @@ import os
 import logging
 import datetime
 import pandas as pd
+from concurrent.futures import ThreadPoolExecutor
 
 from shared.config import Config
 from scholar import get_similar_authors
@@ -154,8 +155,11 @@ def results():
         df["age"] = current_year - df["pub_year"] + 1
         df["num_citations_percentile"] = 100 * df["num_citations_percentile"]
         df["num_papers_percentile"] = 100 * df["num_papers_percentile"]
-        plot1 = generate_percentile_rank_plot(df, author_name)
-        plot2 = generate_pip_plot(df, author_name)
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            plot1_future = executor.submit(generate_percentile_rank_plot, df.copy(), author_name)
+            plot2_future = executor.submit(generate_pip_plot, df.copy(), author_name)
+            plot1 = plot1_future.result()
+            plot2 = plot2_future.result()
 
     
     temporal_plots = {}
