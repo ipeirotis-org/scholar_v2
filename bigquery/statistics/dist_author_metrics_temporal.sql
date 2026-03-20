@@ -1,4 +1,4 @@
--- Tier 2: Author metric percentile distribution for temporal data.
+-- Level 4: Author metric percentile distribution for temporal data.
 --
 -- Stores the distinct (year_of_first_pub, state_year, metric_name, metric_value) → percentile
 -- mapping for 7 author metrics. Partitioned by (year_of_first_pub, state_year) to compare

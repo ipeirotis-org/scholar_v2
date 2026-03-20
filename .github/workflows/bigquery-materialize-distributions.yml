@@ -38,24 +38,26 @@ jobs:
 
     # Distribution tables — the ONLY place PERCENT_RANK() runs.
     # Output is small (distinct values only).
+    # Materialized in strict DAG order — see docs/ANALYTICS.md.
 
-    # Steps 1-4 are independent of each other (read from Tier 1 views / raw data).
-    - name: 'Step 1: dist_publication_citations'
+    # ── Step 1: Level 1 (independent — read from raw data only) ────────
+    - name: 'Step 1a: dist_publication_citations (Level 1)'
       run: bq query --project_id=${{ env.PROJECT_ID }} --use_legacy_sql=false < bigquery/statistics/dist_publication_citations.sql
 
-    - name: 'Step 2: dist_author_metrics'
+    - name: 'Step 1b: dist_author_metrics (Level 1)'
       run: bq query --project_id=${{ env.PROJECT_ID }} --use_legacy_sql=false < bigquery/statistics/dist_author_metrics.sql
 
-    - name: 'Step 3: dist_publication_citations_temporal'
+    # ── Step 2: Level 2 (depends on Level 1 views) ────────────────────
+    - name: 'Step 2: dist_publication_citations_temporal (Level 2)'
       run: bq query --project_id=${{ env.PROJECT_ID }} --use_legacy_sql=false < bigquery/statistics/dist_publication_citations_temporal.sql
 
-    - name: 'Step 4: dist_author_metrics_temporal'
+    # ── Step 3: Level 4 (depends on Level 2-3 views + Step 1 tables) ──
+    - name: 'Step 3a: dist_author_metrics_temporal (Level 4)'
       run: bq query --project_id=${{ env.PROJECT_ID }} --use_legacy_sql=false < bigquery/statistics/dist_author_metrics_temporal.sql
 
-    # Step 5 depends on Steps 1+2 (underlying views use dist lookups for PiP inputs)
-    - name: 'Step 5: dist_pip_auc_scores'
+    - name: 'Step 3b: dist_pip_auc_scores (Level 4)'
       run: bq query --project_id=${{ env.PROJECT_ID }} --use_legacy_sql=false < bigquery/statistics/dist_pip_auc_scores.sql
 
-    # Step 6 depends on Steps 3+4 (temporal PiP view uses temporal dist lookups)
-    - name: 'Step 6: dist_pip_auc_scores_temporal'
+    # ── Step 4: Level 6 (depends on Level 5 views + Step 2-3 tables) ──
+    - name: 'Step 4: dist_pip_auc_scores_temporal (Level 6)'
       run: bq query --project_id=${{ env.PROJECT_ID }} --use_legacy_sql=false < bigquery/statistics/dist_pip_auc_scores_temporal.sql

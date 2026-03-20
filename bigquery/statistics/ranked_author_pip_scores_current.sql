@@ -1,6 +1,6 @@
 CREATE OR REPLACE VIEW `scholar-version2.statistics.ranked_author_pip_scores_current` AS
--- Tier 3: PiP-AUC scores enriched with percentile.
--- Joins stats_author_pip_scores_current (Tier 1) against dist_pip_auc_scores (Tier 2)
+-- Level 5: PiP-AUC scores enriched with percentile.
+-- Joins stats_author_pip_scores_current (L4) against dist_pip_auc_scores (L4)
 -- using a floor lookup: MAX(percentile WHERE dist_score <= actual_score).
 WITH
   score_percentile AS (

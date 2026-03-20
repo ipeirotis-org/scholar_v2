@@ -1,8 +1,9 @@
 CREATE OR REPLACE VIEW `scholar-version2.statistics.stats_author_current` AS
--- Tier 1: Raw author statistics — no percentiles, no PERCENT_RANK.
+-- Level 2: Raw author statistics — no percentiles, no PERCENT_RANK.
 -- Computes author metrics (h-index, citations, i10-index, publication counts)
 -- from the latest deduplicated author and publication data.
--- Percentiles are added by ranked_author_current (Tier 3) via dist_author_metrics.
+-- Depends on: base_author_publications (L1), stats_publication_current (L1).
+-- Percentiles are added by ranked_author_current (L3) via dist_author_metrics.
 WITH
   ScholarData AS (
     SELECT

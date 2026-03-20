@@ -1,6 +1,6 @@
 CREATE OR REPLACE VIEW `scholar-version2.statistics.ranked_author_current` AS
--- Tier 3: Author stats enriched with 8 metric percentiles.
--- Joins stats_author_current (Tier 1) against dist_author_metrics (Tier 2)
+-- Level 3: Author stats enriched with 8 metric percentiles.
+-- Joins stats_author_current (L2) against dist_author_metrics (L1)
 -- using floor lookups: MAX(percentile WHERE dist_value <= actual_value).
 WITH
   base AS (

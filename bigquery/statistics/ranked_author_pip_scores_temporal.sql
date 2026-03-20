@@ -1,7 +1,7 @@
 CREATE OR REPLACE VIEW `scholar-version2.statistics.ranked_author_pip_scores_temporal` AS
--- Tier 3: Temporal PiP-AUC scores enriched with percentile.
--- Joins stats_author_pip_scores_temporal_view (Tier 1) against
--- dist_pip_auc_scores_temporal (Tier 2) using floor lookups.
+-- Level 7: Temporal PiP-AUC scores enriched with percentile.
+-- Joins stats_author_pip_scores_temporal_view (L5) against
+-- dist_pip_auc_scores_temporal (L6) using floor lookups.
 WITH
   score_percentile AS (
     SELECT

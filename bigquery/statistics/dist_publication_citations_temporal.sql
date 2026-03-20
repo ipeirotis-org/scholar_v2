@@ -1,4 +1,4 @@
--- Tier 2: Publication citation percentile distribution for temporal data.
+-- Level 2: Publication citation percentile distribution for temporal data.
 --
 -- Stores distinct (partition_keys, metric_name, metric_value) → percentile mappings.
 -- Four metrics with two partitioning schemes:

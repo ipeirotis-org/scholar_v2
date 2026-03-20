@@ -1,7 +1,8 @@
--- Tier 1: Raw temporal author metrics — no percentiles, no PERCENT_RANK.
+-- Level 3: Raw temporal author metrics — no percentiles, no PERCENT_RANK.
 -- Computes per-author per-year metrics: h_index, total_citations, i10_index, etc.
--- Percentiles are added by ranked_author_metrics_temporal (Tier 3)
--- via dist_author_metrics_temporal.
+-- Depends on: intermediate_author_publication_state_temporal (L2), stats_publication_current (L1).
+-- Percentiles are added by ranked_author_metrics_temporal (L5)
+-- via dist_author_metrics_temporal (L4).
 --
 -- This view defines the temporal metrics logic. It is NOT queried directly by the app.
 -- Instead, a scheduled process materializes the ranked version into a table.

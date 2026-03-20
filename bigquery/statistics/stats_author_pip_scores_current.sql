@@ -1,8 +1,9 @@
 CREATE OR REPLACE VIEW `scholar-version2.statistics.stats_author_pip_scores_current` AS
--- Tier 1: Raw PiP-AUC score per author — no percentile column.
+-- Level 4: Raw PiP-AUC score per author — no percentile column.
 -- Computes PiP-AUC score via trapezoidal integration of the PiP chart.
--- The pip_auc_score_percentile is added by ranked_author_pip_scores_current (Tier 3)
--- via dist_pip_auc_scores.
+-- Depends on: stats_author_publication_pip_inputs_current (L3), stats_author_current (L2).
+-- The pip_auc_score_percentile is added by ranked_author_pip_scores_current (L5)
+-- via dist_pip_auc_scores (L4).
 WITH
   RankedPublications AS (
     SELECT

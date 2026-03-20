@@ -1,4 +1,4 @@
--- Tier 2: PiP-AUC score percentile distribution for temporal data.
+-- Level 6: PiP-AUC score percentile distribution for temporal data.
 --
 -- Stores the distinct (year_of_first_pub, state_year, pip_auc_score) → percentile mapping.
 -- Partitioned by (year_of_first_pub, state_year) to compare authors against their peers

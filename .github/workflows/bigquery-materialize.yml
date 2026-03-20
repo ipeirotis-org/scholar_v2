@@ -42,31 +42,31 @@ jobs:
     # quarterly schedule by bigquery-materialize-distributions.yml.
     # They change slowly and are expensive to recompute.
     #
-    # Snapshot tables source from ranked_* views (Tier 3) which include
-    # both raw metrics and percentile columns.
+    # Snapshot tables source from ranked_* views and include both raw
+    # metrics and percentile columns. Ordered by DAG level.
 
-    - name: 'Step 1: ranked_author_current_table (for all-authors list)'
+    - name: 'Step 1: ranked_author_current_table (Level 3, for all-authors list)'
       run: |
         bq query --project_id=${{ env.PROJECT_ID }} --use_legacy_sql=false \
           "CREATE OR REPLACE TABLE \`scholar-version2.statistics.ranked_author_current_table\`
            CLUSTER BY scholar_id, year_of_first_pub
            AS SELECT * FROM \`scholar-version2.statistics.ranked_author_current\`"
 
-    - name: 'Step 2: ranked_author_pip_scores_current_table (for all-authors list)'
+    - name: 'Step 2: ranked_author_pip_scores_current_table (Level 5, for all-authors list)'
       run: |
         bq query --project_id=${{ env.PROJECT_ID }} --use_legacy_sql=false \
           "CREATE OR REPLACE TABLE \`scholar-version2.statistics.ranked_author_pip_scores_current_table\`
            CLUSTER BY scholar_id
            AS SELECT * FROM \`scholar-version2.statistics.ranked_author_pip_scores_current\`"
 
-    - name: 'Step 3: ranked_author_metrics_temporal_table (temporal history)'
+    - name: 'Step 3: ranked_author_metrics_temporal_table (Level 5, temporal history)'
       run: |
         bq query --project_id=${{ env.PROJECT_ID }} --use_legacy_sql=false \
           "CREATE OR REPLACE TABLE \`scholar-version2.statistics.ranked_author_metrics_temporal_table\`
            CLUSTER BY scholar_id, state_year
            AS SELECT * FROM \`scholar-version2.statistics.ranked_author_metrics_temporal\`"
 
-    - name: 'Step 4: ranked_author_pip_scores_temporal_table (temporal PiP history)'
+    - name: 'Step 4: ranked_author_pip_scores_temporal_table (Level 7, temporal PiP history)'
       run: |
         bq query --project_id=${{ env.PROJECT_ID }} --use_legacy_sql=false \
           "CREATE OR REPLACE TABLE \`scholar-version2.statistics.ranked_author_pip_scores_temporal_table\`

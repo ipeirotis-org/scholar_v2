@@ -1,7 +1,7 @@
 CREATE OR REPLACE VIEW `scholar-version2.statistics.ranked_author_metrics_temporal` AS
--- Tier 3: Temporal author metrics enriched with 7 percentile columns.
--- Joins stats_author_metrics_temporal_view (Tier 1) against
--- dist_author_metrics_temporal (Tier 2) using floor lookups.
+-- Level 5: Temporal author metrics enriched with 7 percentile columns.
+-- Joins stats_author_metrics_temporal_view (L3) against
+-- dist_author_metrics_temporal (L4) using floor lookups.
 WITH
   base AS (
     SELECT * FROM `scholar-version2.statistics.stats_author_metrics_temporal_view`

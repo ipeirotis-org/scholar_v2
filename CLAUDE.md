@@ -45,8 +45,8 @@ scholar_v2/
 │   │   └── task_queue_service.py # Cloud Tasks enqueue (author + publication tasks)
 │   ├── repositories/             # Author + Publication CRUD (Firestore-backed)
 │   └── utils.py                  # Integer overflow handling for BigQuery JSON
-├── bigquery/                     # SQL view definitions (3-tier architecture)
-│   ├── statistics/               # Tier 1 stats, Tier 2 dist tables, Tier 3 ranked views
+├── bigquery/                     # SQL view definitions (8-level DAG)
+│   ├── statistics/               # Stats, dist tables, ranked views (Levels 1–7)
 │   └── coauthor_network/         # Co-author graph views
 ├── scripts/                      # One-off utility scripts
 ├── .github/workflows/            # CI/CD (Cloud Run + multi-region Functions)
@@ -85,19 +85,23 @@ scholar_v2/
 
 > Full details: [`docs/ANALYTICS.md`](docs/ANALYTICS.md)
 
-### Key design pattern: 3-tier architecture
+### Key design pattern: Stats → Distributions → Ranked (per metric family)
 
-**Tier 1 — Raw statistics** (`stats_*`): Compute metric values only. No percentiles, no `PERCENT_RANK()`.
-**Tier 2 — Distribution tables** (`dist_*`): The ONLY place `PERCENT_RANK()` runs. Small lookup tables, refreshed quarterly.
-**Tier 3 — Ranked views** (`ranked_*`): Cheap JOINs of Tier 1 + Tier 2 that add percentile columns. The app queries these.
+Every metric family follows: **stats** (raw values) → **dist** (PERCENT_RANK, materialized quarterly) → **ranked** (cheap JOIN). But the PiP pipeline creates cross-role dependencies, so the full DAG has **8 topological levels** (0–7), not 3 tiers.
 
-### View tiers
+### View DAG (topological levels)
 
-| Tier | Views | Purpose |
-|------|-------|---------|
-| 1 | `stats_publication_current`, `stats_author_current`, `stats_publication_citations_temporal`, `stats_author_metrics_temporal_view`, `stats_author_pip_scores_current`, `stats_author_pip_scores_temporal_view` | Raw metric values — no percentile columns |
-| 2 | `dist_publication_citations`, `dist_publication_citations_temporal`, `dist_author_metrics`, `dist_author_metrics_temporal`, `dist_pip_auc_scores`, `dist_pip_auc_scores_temporal` | Percentile distributions (materialized quarterly) |
-| 3 | `ranked_publication_current`, `ranked_publication_citations_temporal`, `ranked_author_current`, `ranked_author_metrics_temporal`, `ranked_author_pip_scores_current`, `ranked_author_pip_scores_temporal` | Tier 1 + Tier 2 JOINs — adds percentile columns |
+| Level | Views/Tables | Purpose |
+|-------|-------------|---------|
+| 1 | `base_author_publications`, `stats_publication_current`, `stats_publication_citations_temporal`, `coauthor_network`, **`dist_publication_citations`** ᵀ, **`dist_author_metrics`** ᵀ | Foundation: raw data only |
+| 2 | `stats_author_current`, `intermediate_author_publication_state_temporal`, `coauthors_to_add`, `ranked_publication_current`, **`dist_publication_citations_temporal`** ᵀ | Derived stats + first ranked + first temporal dist |
+| 3 | `stats_author_metrics_temporal_view`, `stats_author_publication_pip_inputs_current`, `ranked_author_current`, `ranked_publication_citations_temporal` | Temporal stats + PiP inputs + more ranked |
+| 4 | `stats_author_pip_scores_current`, **`dist_pip_auc_scores`** ᵀ, **`dist_author_metrics_temporal`** ᵀ | PiP scores + PiP dist + temporal author dist |
+| 5 | `ranked_author_pip_scores_current`, `ranked_author_metrics_temporal`, `stats_author_pip_scores_temporal_view` | PiP ranked + temporal ranked + temporal PiP stats |
+| 6 | **`dist_pip_auc_scores_temporal`** ᵀ | Temporal PiP distribution |
+| 7 | `ranked_author_pip_scores_temporal` | Temporal PiP ranked |
+
+ᵀ = Materialized TABLE (quarterly). All others are live VIEWs.
 
 ### Materialization schedule
 
@@ -105,7 +109,7 @@ scholar_v2/
 |------|----------|-----------|
 | Distribution tables (`dist_*`, 6 tables) | **Quarterly** | Population percentiles shift slowly; expensive to compute |
 | Snapshot tables (`ranked_*_table`, 4 tables) | **Daily** | Needed only for all-authors ranking/export; per-author pages use views directly |
-| Views (Tier 1 + Tier 3) | **Live** | Cheap per-author queries via dist table lookups; cached in Firestore |
+| Views (all non-dist, non-snapshot) | **Live** | Cheap per-author queries via dist table lookups; cached in Firestore |
 
 **Cost note:** Individual author data changes at most monthly (90-day re-crawl threshold). Daily snapshot materialization recomputes ~15,000 rows when typically <200 have changed. Per-author profile pages are unaffected — they query views directly and cache in Firestore.
 

@@ -1,7 +1,7 @@
 CREATE OR REPLACE VIEW `scholar-version2.statistics.ranked_publication_citations_temporal` AS
--- Tier 3: Temporal publication citation stats enriched with 4 percentile columns.
--- Joins stats_publication_citations_temporal (Tier 1) against
--- dist_publication_citations_temporal (Tier 2) using floor lookups.
+-- Level 3: Temporal publication citation stats enriched with 4 percentile columns.
+-- Joins stats_publication_citations_temporal (L1) against
+-- dist_publication_citations_temporal (L2) using floor lookups.
 WITH
   base AS (
     SELECT * FROM `scholar-version2.statistics.stats_publication_citations_temporal`

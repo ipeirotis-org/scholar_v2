@@ -1,6 +1,6 @@
 CREATE OR REPLACE VIEW `scholar-version2.statistics.ranked_publication_current` AS
--- Tier 3: Publication stats enriched with citation percentile.
--- Joins stats_publication_current (Tier 1) against dist_publication_citations (Tier 2)
+-- Level 2: Publication stats enriched with citation percentile.
+-- Joins stats_publication_current (L1) against dist_publication_citations (L1)
 -- using a floor lookup: MAX(percentile WHERE dist_citations <= actual_citations).
 WITH percentile_lookup AS (
   SELECT

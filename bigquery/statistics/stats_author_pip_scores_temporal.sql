@@ -1,18 +1,22 @@
--- Tier 1: Temporal PiP-AUC score per author per year — no percentile column.
+-- Level 5: Temporal PiP-AUC score per author per year — no percentile column.
 --
 -- Computes PiP-AUC at each point in time by:
 --   1. Taking all publications with pub_year <= state_year
 --   2. Looking up each pub's cumulative_citations as of state_year → citation percentile
---      (via dist_publication_citations_temporal)
+--      (via dist_publication_citations_temporal, L2)
 --   3. Counting how many papers the author had → num_papers_percentile
---      (via dist_author_metrics_temporal)
+--      (via dist_author_metrics_temporal, L4)
 --   4. Running the same trapezoidal integration → pip_auc_score
+--
+-- Depends on: intermediate_author_publication_state_temporal (L2),
+--   dist_publication_citations_temporal (L2), stats_author_metrics_temporal_view (L3),
+--   dist_author_metrics_temporal (L4).
 --
 -- This is the most expensive view in the system. It should ALWAYS be materialized
 -- (daily, like stats_author_metrics_temporal), never queried live.
 --
--- The pip_auc_score_percentile is added by ranked_author_pip_scores_temporal (Tier 3)
--- via dist_pip_auc_scores_temporal.
+-- The pip_auc_score_percentile is added by ranked_author_pip_scores_temporal (L7)
+-- via dist_pip_auc_scores_temporal (L6).
 
 CREATE OR REPLACE VIEW `scholar-version2.statistics.stats_author_pip_scores_temporal_view` AS
 
