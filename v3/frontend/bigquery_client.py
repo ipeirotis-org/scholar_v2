@@ -174,3 +174,27 @@ class BigQueryClient:
         params = [ScalarQueryParameter("scholar_id", "STRING", scholar_id)]
         df = self._query(sql, params)
         return df is not None and not df.empty
+
+    def get_recently_analyzed_authors(self, limit=20):
+        """Get the most recently updated authors with their PiP-AUC scores.
+
+        Uses materialized tables for efficiency (no live view computation).
+        """
+        sql = f"""
+            SELECT S.scholar_id, S.name, S.affiliation,
+                   S.hindex, S.citedby,
+                   ROUND(MAX(P.pip_auc_score), 3) AS pip_auc_score,
+                   ROUND(MAX(P.pip_auc_score_percentile), 1) AS pip_auc_percentile,
+                   S.last_updated
+            FROM {Config.bq_view('ranked_author_current_table')} S
+            LEFT JOIN {Config.bq_view('ranked_author_pip_scores_current_table')} P
+              ON P.scholar_id = S.scholar_id
+            GROUP BY S.scholar_id, S.name, S.affiliation, S.hindex, S.citedby, S.last_updated
+            ORDER BY S.last_updated DESC
+            LIMIT @limit
+        """
+        params = [ScalarQueryParameter("limit", "INT64", limit)]
+        df = self._query(sql, params)
+        if df is None:
+            return []
+        return df.to_dict("records")

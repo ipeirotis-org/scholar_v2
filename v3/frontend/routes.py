@@ -100,7 +100,11 @@ def register_routes(app):
     @app.route("/")
     @app.route("/index")
     def index():
-        return render_template("index.html")
+        recent_authors = _get_cached_or_query(
+            "v3_recent_authors", "recent",
+            lambda: bq.get_recently_analyzed_authors(limit=20),
+        )
+        return render_template("index.html", recent_authors=recent_authors or [])
 
     def _get_author_freshness(author_id):
         """Get author existence + last_updated, with Firestore caching.

@@ -62,7 +62,7 @@ We are rebuilding the system from scratch in `v3/` with clean component boundari
   - [x] Tests (30 tests: config, routes, input validation, security headers, visualizations) and Dockerfile
   - [x] Calls Author Search Service (Component 6) — runs in-process via direct import; also deployable as 9-region Cloud Function
   - [x] Calls Refresh & Expand (Component 5) — delegates via HTTP when REFRESH_SERVICE_URL configured, falls back gracefully
-  - [ ] Show recently analyzed authors on the home page _(from #26)_
+  - [x] Show recently analyzed authors on the home page _(from #26)_
 
 ### Step 5: Refresh & Expand (Component 5)
 
@@ -89,7 +89,7 @@ We are rebuilding the system from scratch in `v3/` with clean component boundari
   - [x] CI/CD — 9-region Cloud Function deployment in `function.yml`
   - [x] Frontend autocomplete integration — in-process import in `routes.py:get_similar_authors`
   - [x] Tests (20 tests: bigquery_client, search_service, cache)
-  - [ ] End-to-end validation with live BigQuery data
+  - [x] End-to-end validation with live BigQuery data
 
 ### Cutover
 

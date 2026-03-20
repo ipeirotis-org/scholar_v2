@@ -17,6 +17,10 @@ All author metrics (h-index, citations, i10-index) are also percentile-ranked by
 
 See the [blog post](https://www.behind-the-enemy-lines.com/2024/01/the-pip-auc-score-for-research.html) for the full methodology.
 
+## Task Tracking
+
+All current and planned tasks are tracked in [`TASKS.md`](TASKS.md). Check there for the v3 migration status, planned features, and next steps.
+
 ## Architecture
 
 ```
