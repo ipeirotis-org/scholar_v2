@@ -164,8 +164,7 @@ def register_routes(app):
             temporal_stats = temporal_stats_future.result()
 
         if not author_stats:
-            return render_template("error.html",
-                                   error_message="Author metrics not yet available. Data may still be processing.")
+            return render_template("loading.html", author_id=author_id)
 
         # Generate PiP plots in parallel
         plot1, plot2 = "", ""

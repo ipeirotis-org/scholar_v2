@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+
+{% block title %}Computing Statistics -- Scholar Analytics{% endblock %}
+
+{% block content %}
+<div class="container mt-5 text-center">
+    <h2>Computing Research Statistics</h2>
+    <div class="mt-4 mb-4">
+        <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;">
+            <span class="sr-only">Loading...</span>
+        </div>
+    </div>
+    <p>Statistics for author <strong>{{ author_id }}</strong> are being calculated.</p>
+    <p class="text-muted">This may take a moment. The page will automatically refresh.</p>
+    <p><a href="{{ url_for('index') }}">Return to search</a></p>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    setTimeout(function() {
+        window.location.href = "/results?author_id=" + encodeURIComponent("{{ author_id }}");
+    }, 10000);
+</script>
+{% endblock %}
