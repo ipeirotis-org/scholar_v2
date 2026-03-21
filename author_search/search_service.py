@@ -166,8 +166,6 @@ class AuthorSearchService:
         # Try the in-memory index first (instant)
         _ensure_index_loaded(self.cache)
         index_results = _search_in_memory(name)
-        if index_results is not None and len(index_results) >= Config.LOCAL_RESULTS_THRESHOLD:
-            return index_results
         if typeahead:
             return index_results or []
 

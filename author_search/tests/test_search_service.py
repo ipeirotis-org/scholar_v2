@@ -7,6 +7,15 @@ import pytest
 from author_search.search_service import AuthorSearchService
 
 
+@pytest.fixture(autouse=True)
+def _reset_author_index():
+    """Reset module-level index state and mock _ensure_index_loaded to avoid
+    Firestore calls (get_index_chunk on MagicMock causes infinite loop)."""
+    with mock.patch("author_search.search_service._ensure_index_loaded"), \
+         mock.patch("author_search.search_service._search_in_memory", return_value=None):
+        yield
+
+
 def _make_author(scholar_id, name="Test Author", source=None, citedby=100):
     author = {
         "scholar_id": scholar_id,
