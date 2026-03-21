@@ -25,6 +25,8 @@ WITH
     FROM ExtractedData ed
     CROSS JOIN UNNEST(JSON_KEYS(PARSE_JSON(ed.cites_per_year))) AS json_key
     WHERE ed.pub_year IS NOT NULL
+      AND CAST(ed.pub_year AS INT64) > 1950
+      AND CAST(ed.pub_year AS INT64) <= EXTRACT(YEAR FROM CURRENT_DATE())
       AND SAFE_CAST(json_key AS INT64) IS NOT NULL
       AND SAFE.PARSE_JSON(ed.cites_per_year) IS NOT NULL
   ),
@@ -35,6 +37,7 @@ WITH
       pub_year,
       GENERATE_ARRAY(pub_year, EXTRACT(YEAR FROM CURRENT_DATE())) AS year_series
     FROM ExtractedData
+    WHERE pub_year > 1950 AND pub_year <= EXTRACT(YEAR FROM CURRENT_DATE())
   ),
   ExplodedYearSeries AS (
     SELECT scholar_id, author_pub_id, pub_year, year
