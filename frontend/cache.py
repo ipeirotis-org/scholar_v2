@@ -38,6 +38,33 @@ class FirestoreCache:
             logger.exception("Firestore cache read failed: %s/%s", collection, doc_id)
             return None
 
+    def get_timestamp(self, collection, doc_id):
+        """Read the cache write timestamp for a document.
+
+        Returns datetime or None if missing.
+        """
+        try:
+            doc = self.db.collection(collection).document(doc_id).get()
+            if not doc.exists:
+                return None
+            cached = doc.to_dict()
+            return cached.get("timestamp")
+        except Exception:
+            logger.exception("Firestore timestamp read failed: %s/%s", collection, doc_id)
+            return None
+
+    def delete(self, collection, doc_id):
+        """Delete a cached document.
+
+        Returns True if deleted, False on failure.
+        """
+        try:
+            self.db.collection(collection).document(doc_id).delete()
+            return True
+        except Exception:
+            logger.exception("Firestore cache delete failed: %s/%s", collection, doc_id)
+            return False
+
     def set(self, collection, doc_id, data):
         """Write data to cache with current timestamp.
 

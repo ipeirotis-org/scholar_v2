@@ -19,6 +19,14 @@
                         role="button" aria-label="Refresh author data">Refresh</a>)
                 </li>
                 {% endif %}
+                {% if stats_cached_at %}
+                <li>
+                    <strong>Statistics Calculated:</strong> {{ stats_cached_at.strftime('%Y-%m-%d %H:%M') }}
+                    (<a href="javascript:void(0);" id="rebuildStatsButton"
+                        data-author-id="{{ author_id }}"
+                        role="button" aria-label="Rebuild author statistics">Rebuild</a>)
+                </li>
+                {% endif %}
                 <li>
                     <strong>First Year Active:</strong> {{ stats.year_of_first_pub }}
                     ({{ current_year - stats.year_of_first_pub + 1 }} years active)
@@ -169,6 +177,24 @@ if (refreshBtn) {
         fetch("/api/fetch_authors?scholar_ids=" + encodeURIComponent(authorId))
             .then(function(r) { return r.json(); })
             .then(function() { link.textContent = "Queued for Refresh"; })
+            .catch(function() {
+                link.textContent = "Error";
+                link.style.pointerEvents = "auto";
+            });
+    });
+}
+
+var rebuildStatsBtn = document.getElementById("rebuildStatsButton");
+if (rebuildStatsBtn) {
+    rebuildStatsBtn.addEventListener("click", function(e) {
+        e.preventDefault();
+        var authorId = this.getAttribute("data-author-id");
+        this.textContent = "Queuing...";
+        this.style.pointerEvents = "none";
+        var link = this;
+        fetch("/api/rebuild_statistics?scholar_ids=" + encodeURIComponent(authorId))
+            .then(function(r) { return r.json(); })
+            .then(function() { link.textContent = "Queued for Rebuild"; })
             .catch(function() {
                 link.textContent = "Error";
                 link.style.pointerEvents = "auto";
