@@ -172,7 +172,7 @@
                                     {% endif %}
                                 </td>
                                 <td class="text-right">
-                                    {% if q.task_count is not none %}
+                                    {% if q.task_count is defined and q.task_count is not none %}
                                     <strong>{{ "{:,}".format(q.task_count) }}</strong>
                                     {% else %}
                                     -
