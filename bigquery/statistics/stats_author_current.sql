@@ -18,7 +18,7 @@ WITH
       CAST(JSON_EXTRACT_SCALAR(DATA, '$.data.i10index') AS INT64) AS i10index,
       CAST(JSON_EXTRACT_SCALAR(DATA, '$.data.i10index5y') AS INT64) AS i10index5y,
       timestamp
-    FROM `scholar-version2.scholar_raw_data.author_latest`
+    FROM `scholar-version2.scholar_raw_data.author_latest_table`
     WHERE JSON_EXTRACT_SCALAR(DATA, '$.data.scholar_id') IS NOT NULL
   ),
   AuthorPubsData AS (

@@ -4,7 +4,7 @@ SELECT
   JSON_EXTRACT_SCALAR(pub, '$.author_pub_id') AS author_pub_id,
   CAST(JSON_EXTRACT_SCALAR(pub, '$.bib.pub_year') AS INT64) AS pub_year
 FROM
-  `scholar-version2.scholar_raw_data.author_latest`,
+  `scholar-version2.scholar_raw_data.author_latest_table`,
   UNNEST(JSON_EXTRACT_ARRAY(DATA, '$.data.publications')) AS pub
 WHERE
   JSON_EXTRACT_SCALAR(pub, '$.author_pub_id') IS NOT NULL

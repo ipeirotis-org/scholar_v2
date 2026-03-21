@@ -36,6 +36,11 @@ jobs:
       with:
         project_id: ${{ env.PROJECT_ID }}
 
+    # Step 0: Ensure dedup tables are fresh before computing distributions.
+    # Distribution queries read from author_latest_table / pub_latest_table.
+    - name: 'Step 0: Materialize dedup tables (author_latest_table, pub_latest_table)'
+      run: bq query --project_id=${{ env.PROJECT_ID }} --use_legacy_sql=false < bigquery/materialize_dedup_tables.sql
+
     # Distribution tables — the ONLY place PERCENT_RANK() runs.
     # Output is small (distinct values only).
     # Materialized in strict DAG order — see docs/ANALYTICS.md.
