@@ -190,8 +190,13 @@ class HealthService:
             )
             try:
                 queue = self.tasks_client.get_queue(name=queue_path)
+                # queue.stats provides approximate task counts
+                task_count = None
+                if queue.stats:
+                    task_count = queue.stats.tasks_count
                 stats[name] = {
                     "state": queue.state.name if hasattr(queue.state, "name") else str(queue.state),
+                    "task_count": task_count,
                     "rate_limits": {
                         "max_dispatches_per_second": queue.rate_limits.max_dispatches_per_second,
                         "max_concurrent_dispatches": queue.rate_limits.max_concurrent_dispatches,
