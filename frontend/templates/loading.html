@@ -10,8 +10,15 @@
             <span class="sr-only">Loading...</span>
         </div>
     </div>
-    <p>Statistics for author <strong>{{ author_id }}</strong> are being calculated.</p>
-    <p class="text-muted">This may take a moment. The page will automatically refresh.</p>
+    {% if cache_enqueued %}
+        <p>Statistics for author <strong>{{ author_id }}</strong> are being calculated from BigQuery.</p>
+        <p class="text-muted">This should complete within a few seconds.</p>
+    {% else %}
+        <p>Statistics for author <strong>{{ author_id }}</strong> need to be calculated.</p>
+        <p class="text-warning">Could not enqueue the computation task. The service may be temporarily unavailable.</p>
+        <p class="text-muted">Please try again in a few minutes.</p>
+    {% endif %}
+    <p>The page will automatically refresh.</p>
     <p><a href="{{ url_for('index') }}">Return to search</a></p>
 </div>
 {% endblock %}
