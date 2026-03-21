@@ -28,7 +28,7 @@
                 <div class="autocomplete-dropdown" id="autocomplete-dropdown"
                      role="listbox" aria-label="Author search results"></div>
                 <small id="searchHelp" class="form-text text-muted mt-1">
-                    Type to search cached authors, or press Enter to search Google Scholar.
+                    Start typing to see suggestions, or press Enter for a full search.
                 </small>
             </div>
         </form>
@@ -136,7 +136,7 @@
     // Keyboard navigation in dropdown
     authorInput.addEventListener("keydown", function(e) {
         if (dropdown.style.display !== "block") return;
-        var options = dropdown.querySelectorAll(".author-option:not(.search-scholar-option):not(.search-status)");
+        var options = dropdown.querySelectorAll(".author-option:not(.search-more-option):not(.search-status)");
         var focused = dropdown.querySelector(".author-option.focused");
         var idx = Array.prototype.indexOf.call(options, focused);
 
@@ -202,13 +202,6 @@
             }
             detailSpan.textContent = detailText;
 
-            if (author.source === "scholar" || author.source === "scholar_cached") {
-                var badge = document.createElement("span");
-                badge.className = "source-badge";
-                badge.textContent = "via Scholar";
-                nameSpan.appendChild(badge);
-            }
-
             div.appendChild(nameSpan);
             if (detailText) div.appendChild(detailSpan);
 
@@ -222,21 +215,21 @@
             dropdown.appendChild(div);
         });
 
-        // Show "Search Google Scholar" option during typeahead
+        // Show "Search for more" option during typeahead
         if (showScholarOption) {
-            var scholarDiv = document.createElement("div");
-            scholarDiv.className = "author-option search-scholar-option";
-            scholarDiv.setAttribute("role", "option");
-            scholarDiv.setAttribute("tabindex", "0");
-            scholarDiv.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 6px;"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>Search Google Scholar for "<strong>' + escapeHtml(authorInput.value.trim()) + '</strong>"';
-            scholarDiv.onclick = function() { findAuthor(); };
-            scholarDiv.onkeydown = function(e) {
+            var moreDiv = document.createElement("div");
+            moreDiv.className = "author-option search-more-option";
+            moreDiv.setAttribute("role", "option");
+            moreDiv.setAttribute("tabindex", "0");
+            moreDiv.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 6px;"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>Search for more authors matching "<strong>' + escapeHtml(authorInput.value.trim()) + '</strong>"';
+            moreDiv.onclick = function() { findAuthor(); };
+            moreDiv.onkeydown = function(e) {
                 if (e.key === "Enter" || e.key === " ") {
                     e.preventDefault();
                     findAuthor();
                 }
             };
-            dropdown.appendChild(scholarDiv);
+            dropdown.appendChild(moreDiv);
         }
 
         showDropdown();
@@ -256,7 +249,7 @@
         searchBtn.disabled = true;
 
         // Show loading state in dropdown
-        dropdown.innerHTML = '<div class="author-option search-status"><div class="spinner-border spinner-border-sm text-primary mr-2" role="status"></div> Searching Google Scholar...</div>';
+        dropdown.innerHTML = '<div class="author-option search-status"><div class="spinner-border spinner-border-sm text-primary mr-2" role="status"></div> Searching for authors...</div>';
         showDropdown();
 
         fetch("/get_similar_authors?author_name=" + encodeURIComponent(name))

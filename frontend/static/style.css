@@ -246,27 +246,15 @@ th.sortable:hover {
     margin-top: 2px;
 }
 
-.source-badge {
-    display: inline-block;
-    font-size: 0.7rem;
-    font-weight: 500;
-    color: var(--nyu-teal-deep);
-    background: #e6f7f5;
-    padding: 1px 6px;
-    border-radius: 3px;
-    margin-left: 8px;
-    vertical-align: middle;
-}
-
-.search-scholar-option {
+.search-more-option {
     color: var(--nyu-violet);
     font-size: 0.9rem;
     border-top: 1px solid var(--border-color);
     background: #faf8fc;
 }
 
-.search-scholar-option:hover,
-.search-scholar-option:focus {
+.search-more-option:hover,
+.search-more-option:focus {
     background: var(--background-hover);
 }
 
