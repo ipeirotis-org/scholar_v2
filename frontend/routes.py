@@ -162,8 +162,9 @@ def register_routes(app):
                 "populate_author_profile", {"scholar_id": author_id},
             )
             # Also trigger crawl in case author doesn't exist in BQ yet
+            # Use longer timeout: refresh service may cold-start + query BigQuery
             refresh_result = _call_refresh_service(
-                "fetch_author", body={"scholar_id": author_id},
+                "fetch_author", body={"scholar_id": author_id}, timeout=25,
             )
             return render_template(
                 "redirect.html",
@@ -175,7 +176,7 @@ def register_routes(app):
 
         if not exists:
             refresh_result = _call_refresh_service(
-                "fetch_author", body={"scholar_id": author_id},
+                "fetch_author", body={"scholar_id": author_id}, timeout=25,
             )
             return render_template(
                 "redirect.html",
