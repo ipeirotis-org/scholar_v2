@@ -25,8 +25,5 @@ if "google.api_core.exceptions" not in sys.modules:
     exc_mock.AlreadyExists = _AlreadyExists
     sys.modules["google.api_core.exceptions"] = exc_mock
 
-# Mock functions_framework decorator
-if "functions_framework" not in sys.modules:
-    ff_mock = mock.MagicMock()
-    ff_mock.http = lambda f: f
-    sys.modules["functions_framework"] = ff_mock
+# Mock flask (provide a real Flask for test client usage)
+# Flask is available as a test dependency; no mock needed
