@@ -30,6 +30,7 @@ from flask import (
 
 from frontend.cache import FirestoreCache
 from frontend.config import Config
+from frontend.health_service import HealthService
 from frontend.queue_client import enqueue_cache_populate
 from frontend.visualization import (
     generate_percentile_rank_plot,
@@ -375,6 +376,22 @@ def register_routes(app):
     def api_refresh_author_index():
         count = refresh_author_index(bq=search_svc.bq, cache=search_svc.cache)
         return jsonify({"status": "ok", "authors_indexed": count})
+
+    # ------------------------------------------------------------------
+    # Health Dashboard
+    # ------------------------------------------------------------------
+    health_service = HealthService()
+
+    @app.route("/health-dashboard")
+    def health_dashboard():
+        """System health dashboard showing queue status, data freshness, and errors."""
+        data = health_service.get_dashboard_data()
+        return render_template("health.html", data=data)
+
+    @app.route("/api/health")
+    def api_health():
+        """JSON API for health dashboard data."""
+        return jsonify(health_service.get_dashboard_data())
 
     @app.route("/api/speed_check")
     def api_speed_check():
