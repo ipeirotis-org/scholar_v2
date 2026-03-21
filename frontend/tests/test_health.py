@@ -69,6 +69,7 @@ class TestHealthDashboardRoute:
             "queues": {
                 "process-authors": {
                     "state": "RUNNING",
+                    "task_count": 42,
                     "rate_limits": {
                         "max_dispatches_per_second": 1.0,
                         "max_concurrent_dispatches": 10,
@@ -76,6 +77,7 @@ class TestHealthDashboardRoute:
                 },
                 "cache-priority": {
                     "state": "PAUSED",
+                    "task_count": 0,
                     "rate_limits": None,
                 },
             },
@@ -192,6 +194,7 @@ class TestHealthService:
         mock_queue.state.name = "RUNNING"
         mock_queue.rate_limits.max_dispatches_per_second = 1.0
         mock_queue.rate_limits.max_concurrent_dispatches = 10
+        mock_queue.stats.tasks_count = 42
 
         mock_tasks = mock.MagicMock()
         mock_tasks.get_queue.return_value = mock_queue
@@ -200,6 +203,24 @@ class TestHealthService:
         result = svc.get_queue_stats()
         assert "process-authors" in result
         assert result["process-authors"]["state"] == "RUNNING"
+        assert result["process-authors"]["task_count"] == 42
+
+    def test_get_queue_stats_no_stats(self):
+        """Queue without stats field returns task_count=None."""
+        from frontend.health_service import HealthService
+
+        mock_queue = mock.MagicMock()
+        mock_queue.state.name = "RUNNING"
+        mock_queue.stats = None
+        mock_queue.rate_limits.max_dispatches_per_second = 1.0
+        mock_queue.rate_limits.max_concurrent_dispatches = 10
+
+        mock_tasks = mock.MagicMock()
+        mock_tasks.get_queue.return_value = mock_queue
+
+        svc = HealthService(tasks_client=mock_tasks)
+        result = svc.get_queue_stats()
+        assert result["process-authors"]["task_count"] is None
 
     def test_get_queue_stats_handles_error(self):
         from frontend.health_service import HealthService

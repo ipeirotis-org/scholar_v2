@@ -151,6 +151,7 @@
                             <tr>
                                 <th>Queue</th>
                                 <th>State</th>
+                                <th class="text-right">Tasks (approx)</th>
                                 <th class="text-right">Max Dispatches/sec</th>
                                 <th class="text-right">Max Concurrent</th>
                             </tr>
@@ -170,6 +171,13 @@
                                     <span class="badge badge-secondary">{{ q.state }}</span>
                                     {% endif %}
                                 </td>
+                                <td class="text-right">
+                                    {% if q.task_count is not none %}
+                                    <strong>{{ "{:,}".format(q.task_count) }}</strong>
+                                    {% else %}
+                                    -
+                                    {% endif %}
+                                </td>
                                 {% if q.rate_limits %}
                                 <td class="text-right">{{ q.rate_limits.max_dispatches_per_second }}</td>
                                 <td class="text-right">{{ q.rate_limits.max_concurrent_dispatches }}</td>
@@ -180,7 +188,7 @@
                             </tr>
                             {% if q.error %}
                             <tr>
-                                <td colspan="4"><small class="text-danger">{{ q.error }}</small></td>
+                                <td colspan="5"><small class="text-danger">{{ q.error }}</small></td>
                             </tr>
                             {% endif %}
                             {% endfor %}
