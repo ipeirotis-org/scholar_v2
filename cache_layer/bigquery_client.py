@@ -112,21 +112,25 @@ class BigQueryClient:
         """Check author existence and get last_updated in a single query.
 
         Returns (exists: bool, last_updated: datetime|None).
+        Handles both document_id formats: 'SCHOLAR_ID' and 'SCHOLAR_ID.json'.
         """
         sql = f"""
             SELECT MAX(ts) AS last_updated FROM (
                 SELECT MAX(timestamp) AS ts
                 FROM {Config.bq_raw('author')}
-                WHERE document_id = @scholar_id
+                WHERE document_id IN (@scholar_id, @scholar_id_json)
                 UNION ALL
                 SELECT MAX(timestamp) AS ts
                 FROM {Config.bq_raw('pub')}
-                WHERE STARTS_WITH(document_id, @scholar_id_prefix)
+                WHERE STARTS_WITH(document_id, @scholar_id_colon)
+                   OR STARTS_WITH(document_id, @scholar_id_underscore)
             )
         """
         params = [
             ScalarQueryParameter("scholar_id", "STRING", scholar_id),
-            ScalarQueryParameter("scholar_id_prefix", "STRING", f"{scholar_id}:"),
+            ScalarQueryParameter("scholar_id_json", "STRING", f"{scholar_id}.json"),
+            ScalarQueryParameter("scholar_id_colon", "STRING", f"{scholar_id}:"),
+            ScalarQueryParameter("scholar_id_underscore", "STRING", f"{scholar_id}_"),
         ]
         df = self._query(sql, params)
         if df is None or df.empty or df.iloc[0]["last_updated"] is None:
@@ -155,9 +159,17 @@ class BigQueryClient:
         return df.to_dict("records")
 
     def get_all_author_ids(self):
-        """Get all author scholar_ids for full cache rebuild."""
+        """Get all author scholar_ids for full cache rebuild.
+
+        Strips '.json' suffix from document_ids to normalize to scholar_id format.
+        """
         sql = f"""
-            SELECT DISTINCT document_id AS scholar_id
+            SELECT DISTINCT
+              CASE
+                WHEN ENDS_WITH(document_id, '.json')
+                THEN SUBSTR(document_id, 1, LENGTH(document_id) - 5)
+                ELSE document_id
+              END AS scholar_id
             FROM {Config.bq_raw('author')}
         """
         df = self._query(sql)

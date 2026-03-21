@@ -75,7 +75,11 @@ def get_stale_authors(threshold_days, limit=None):
     limit_clause = f"LIMIT {limit}" if limit else ""
     sql = f"""
         SELECT
-            document_id AS scholar_id,
+            CASE
+              WHEN ENDS_WITH(document_id, '.json')
+              THEN SUBSTR(document_id, 1, LENGTH(document_id) - 5)
+              ELSE document_id
+            END AS scholar_id,
             timestamp AS last_updated
         FROM `{PROJECT_ID}.scholar_raw_data.author_latest`
         WHERE timestamp < TIMESTAMP_SUB(

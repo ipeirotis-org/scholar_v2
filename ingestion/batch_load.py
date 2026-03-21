@@ -135,7 +135,7 @@ def prepare_ndjson_line(file_info, source_prefix):
         wrapped = {"data": original}
 
         row = {
-            "document_id": os.path.basename(file_info["name"]),
+            "document_id": os.path.basename(file_info["name"]).removesuffix(".json"),
             "timestamp": file_info["updated_time"],
             "DATA": json.dumps(wrapped),
         }

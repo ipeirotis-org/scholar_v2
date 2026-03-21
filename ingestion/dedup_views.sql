@@ -18,7 +18,15 @@
 -- Needed because legacy records used document_id = scholar_id while newer
 -- records use document_id = scholar_id.json.
 CREATE OR REPLACE VIEW `scholar-version2.scholar_raw_data.author_latest` AS
-SELECT document_id, timestamp, data
+SELECT
+  -- Normalize document_id: strip .json suffix from legacy records
+  CASE
+    WHEN ENDS_WITH(document_id, '.json')
+    THEN SUBSTR(document_id, 1, LENGTH(document_id) - 5)
+    ELSE document_id
+  END AS document_id,
+  timestamp,
+  data
 FROM (
   SELECT
     document_id,
@@ -45,7 +53,15 @@ WHERE rn = 1;
 -- Needed because legacy records used document_id = scholar_id:pub_id while
 -- newer records use document_id = scholar_id_pub_id.json.
 CREATE OR REPLACE VIEW `scholar-version2.scholar_raw_data.pub_latest` AS
-SELECT document_id, timestamp, data
+SELECT
+  -- Normalize document_id: strip .json suffix from legacy records
+  CASE
+    WHEN ENDS_WITH(document_id, '.json')
+    THEN SUBSTR(document_id, 1, LENGTH(document_id) - 5)
+    ELSE document_id
+  END AS document_id,
+  timestamp,
+  data
 FROM (
   SELECT
     document_id,
