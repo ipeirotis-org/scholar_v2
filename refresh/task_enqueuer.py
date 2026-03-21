@@ -115,6 +115,10 @@ def enqueue_cache_warm(scholar_id):
                 "type": "warm_author",
                 "scholar_id": scholar_id,
             }).encode(),
+            "oidc_token": {
+                "service_account_email": Config.CLOUD_TASKS_SA_EMAIL,
+                "audience": cache_url.rstrip("/"),
+            },
         },
     }
 

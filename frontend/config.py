@@ -30,6 +30,10 @@ class Config:
 
     # Cache Layer service (Component 7)
     CACHE_LAYER_URL = os.environ.get("CACHE_LAYER_URL", "")
+    CLOUD_TASKS_SA_EMAIL = os.environ.get(
+        "CLOUD_TASKS_SA_EMAIL",
+        "875626982900-compute@developer.gserviceaccount.com",
+    )
 
     # Author search function (Component 6 — stub until built)
     SEARCH_FUNCTION_URL = os.environ.get("SEARCH_FUNCTION_URL", "")
