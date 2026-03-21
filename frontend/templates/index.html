@@ -120,7 +120,7 @@
                 .then(function(r) { return r.json(); })
                 .then(function(data) {
                     lastTypeaheadResults = Array.isArray(data) ? data : [data];
-                    renderResults(lastTypeaheadResults, true);
+                    renderResults(lastTypeaheadResults, "typeahead");
                 })
                 .catch(function(err) { console.error("Typeahead error:", err); });
         }, 300);
@@ -174,12 +174,23 @@
         authorInput.setAttribute("aria-expanded", "true");
     }
 
-    function renderResults(data, showScholarOption) {
+    // mode: "typeahead" = show "Search for more" link (full local search)
+    //        "local"    = show "Search beyond our database" link if few results
+    //        "scholar"  = final results, no extra link
+    function renderResults(data, mode) {
         dropdown.innerHTML = "";
         var authors = Array.isArray(data) ? data : [data];
 
-        if (authors.length === 0 && !showScholarOption) {
-            dropdown.innerHTML = '<div class="author-option search-status text-muted">No results found.</div>';
+        if (authors.length === 0 && mode === "scholar") {
+            dropdown.innerHTML = '<div class="author-option search-status text-muted">No authors found for "' + escapeHtml(authorInput.value.trim()) + '".</div>';
+            showDropdown();
+            return;
+        }
+
+        if (authors.length === 0 && mode === "local") {
+            dropdown.innerHTML = '<div class="author-option search-status text-muted">No authors found in our database.</div>';
+            // Still show the Scholar option
+            appendScholarOption();
             showDropdown();
             return;
         }
@@ -215,24 +226,32 @@
             dropdown.appendChild(div);
         });
 
-        // Show "Search for more" option during typeahead
-        if (showScholarOption) {
-            var moreDiv = document.createElement("div");
-            moreDiv.className = "author-option search-more-option";
-            moreDiv.setAttribute("role", "option");
-            moreDiv.setAttribute("tabindex", "0");
-            moreDiv.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 6px;"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>Search for more authors matching "<strong>' + escapeHtml(authorInput.value.trim()) + '</strong>"';
-            moreDiv.onclick = function() { findAuthor(); };
-            moreDiv.onkeydown = function(e) {
-                if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    findAuthor();
-                }
-            };
-            dropdown.appendChild(moreDiv);
+        if (mode === "typeahead") {
+            // During typeahead: offer full local search
+            appendMoreOption('Search for more authors matching "' + escapeHtml(authorInput.value.trim()) + '"', function() { findAuthor(); });
+        } else if (mode === "local") {
+            // After local search: offer Scholar search
+            appendScholarOption();
         }
 
         showDropdown();
+    }
+
+    function appendMoreOption(label, onclick) {
+        var div = document.createElement("div");
+        div.className = "author-option search-more-option";
+        div.setAttribute("role", "option");
+        div.setAttribute("tabindex", "0");
+        div.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 6px;"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>' + label;
+        div.onclick = onclick;
+        div.onkeydown = function(e) {
+            if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onclick(); }
+        };
+        dropdown.appendChild(div);
+    }
+
+    function appendScholarOption() {
+        appendMoreOption('Search beyond our database for "' + escapeHtml(authorInput.value.trim()) + '"', function() { searchScholar(); });
     }
 
     function escapeHtml(text) {
@@ -249,21 +268,43 @@
         searchBtn.disabled = true;
 
         // Show loading state in dropdown
-        dropdown.innerHTML = '<div class="author-option search-status"><div class="spinner-border spinner-border-sm text-primary mr-2" role="status"></div> Searching for authors...</div>';
+        dropdown.innerHTML = '<div class="author-option search-status"><div class="spinner-border spinner-border-sm text-primary mr-2" role="status"></div> Searching our database...</div>';
         showDropdown();
 
         fetch("/get_similar_authors?author_name=" + encodeURIComponent(name))
             .then(function(r) { return r.json(); })
             .then(function(data) {
                 var results = Array.isArray(data) ? data : [data];
-                if (results.length === 0) {
-                    dropdown.innerHTML = '<div class="author-option search-status text-muted">No authors found for "' + escapeHtml(name) + '".</div>';
-                } else {
-                    renderResults(results, false);
-                }
+                renderResults(results, "local");
             })
             .catch(function(err) {
                 console.error("Search error:", err);
+                dropdown.innerHTML = '<div class="author-option search-status text-muted">Search failed. Please try again.</div>';
+            })
+            .finally(function() {
+                isSearching = false;
+                searchBtn.disabled = false;
+            });
+    }
+
+    function searchScholar() {
+        var name = authorInput.value.trim();
+        if (!name || isSearching) return;
+
+        isSearching = true;
+        searchBtn.disabled = true;
+
+        dropdown.innerHTML = '<div class="author-option search-status"><div class="spinner-border spinner-border-sm text-primary mr-2" role="status"></div> Searching beyond our database...</div>';
+        showDropdown();
+
+        fetch("/get_similar_authors?author_name=" + encodeURIComponent(name) + "&scholar=true")
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                var results = Array.isArray(data) ? data : [data];
+                renderResults(results, "scholar");
+            })
+            .catch(function(err) {
+                console.error("Scholar search error:", err);
                 dropdown.innerHTML = '<div class="author-option search-status text-muted">Search failed. Please try again.</div>';
             })
             .finally(function() {
