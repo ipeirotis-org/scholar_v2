@@ -104,6 +104,7 @@ class TestEnqueueCacheWarm:
     def test_enqueues_task(self, mock_config, mock_get_client):
         mock_config.CACHE_LAYER_URL = "https://cache.example.com"
         mock_config.QUEUE_NAME_CACHE_BATCH = "cache-batch"
+        mock_config.CLOUD_TASKS_SA_EMAIL = "sa@project.iam.gserviceaccount.com"
         mock_config.queue_path.return_value = "projects/p/locations/l/queues/cache-batch"
         client = mock.MagicMock()
         mock_get_client.return_value = client
@@ -119,6 +120,7 @@ class TestEnqueueCacheWarm:
     def test_handles_failure(self, mock_config, mock_get_client):
         mock_config.CACHE_LAYER_URL = "https://cache.example.com"
         mock_config.QUEUE_NAME_CACHE_BATCH = "cache-batch"
+        mock_config.CLOUD_TASKS_SA_EMAIL = "sa@project.iam.gserviceaccount.com"
         mock_config.queue_path.return_value = "projects/p/locations/l/queues/cache-batch"
         client = mock.MagicMock()
         client.create_task.side_effect = Exception("fail")

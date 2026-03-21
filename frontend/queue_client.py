@@ -57,6 +57,10 @@ def enqueue_cache_populate(request_type, payload):
             "url": target_url,
             "headers": {"Content-Type": "application/json"},
             "body": json.dumps(task_body).encode(),
+            "oidc_token": {
+                "service_account_email": Config.CLOUD_TASKS_SA_EMAIL,
+                "audience": cache_layer_url.rstrip("/"),
+            },
         },
     }
 

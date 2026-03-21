@@ -43,6 +43,10 @@ class Config:
 
     # Cache Layer service
     CACHE_LAYER_URL = os.environ.get("CACHE_LAYER_URL", "")
+    CLOUD_TASKS_SA_EMAIL = os.environ.get(
+        "CLOUD_TASKS_SA_EMAIL",
+        "875626982900-compute@developer.gserviceaccount.com",
+    )
 
     # Region rotation for function URLs
     FUNCTION_LOCATION = os.environ.get("FUNCTION_LOCATION") or get_rotating_region()
