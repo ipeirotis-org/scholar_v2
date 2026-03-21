@@ -43,7 +43,11 @@ def get_stale_authors(limit=None):
     limit = limit or Config.STALE_BATCH_SIZE
     sql = f"""
         SELECT
-            document_id AS scholar_id,
+            CASE
+              WHEN ENDS_WITH(document_id, '.json')
+              THEN SUBSTR(document_id, 1, LENGTH(document_id) - 5)
+              ELSE document_id
+            END AS scholar_id,
             timestamp AS last_updated
         FROM {Config.bq_raw('author_latest')}
         WHERE timestamp < TIMESTAMP_SUB(
@@ -73,7 +77,11 @@ def get_error_authors(limit=None):
     limit = limit or Config.ERROR_BATCH_SIZE
     sql = f"""
         SELECT
-            document_id AS scholar_id,
+            CASE
+              WHEN ENDS_WITH(document_id, '.json')
+              THEN SUBSTR(document_id, 1, LENGTH(document_id) - 5)
+              ELSE document_id
+            END AS scholar_id,
             timestamp AS last_updated
         FROM {Config.bq_raw('author_latest')}
         WHERE JSON_EXTRACT_SCALAR(data, '$.error') IS NOT NULL
@@ -128,13 +136,19 @@ def get_coauthors_to_add(limit=None):
 
 
 def author_exists(scholar_id):
-    """Check whether an author exists in the raw data."""
+    """Check whether an author exists in the raw data.
+
+    Handles both document_id formats: 'SCHOLAR_ID' and 'SCHOLAR_ID.json'.
+    """
     sql = f"""
         SELECT 1
         FROM {Config.bq_raw('author')}
-        WHERE document_id = @scholar_id
+        WHERE document_id IN (@scholar_id, @scholar_id_json)
         LIMIT 1
     """
-    params = [ScalarQueryParameter("scholar_id", "STRING", scholar_id)]
+    params = [
+        ScalarQueryParameter("scholar_id", "STRING", scholar_id),
+        ScalarQueryParameter("scholar_id_json", "STRING", f"{scholar_id}.json"),
+    ]
     rows = _query(sql, params)
     return len(rows) > 0
