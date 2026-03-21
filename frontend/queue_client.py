@@ -1,13 +1,14 @@
-"""Thin client to enqueue cache population tasks on cache miss.
+"""Thin client to enqueue tasks to Cloud Tasks queues.
 
-The frontend enqueues to the cache-priority queue when Firestore
-doesn't have the requested data. The Cache Layer picks up the task
-and populates the cache.
+Supports two queue types:
+- cache-priority: for cache population tasks on cache miss
+- process-authors-priority: for user-initiated author crawl tasks
 """
 
 import json
 import logging
 
+from google.api_core.exceptions import AlreadyExists
 from google.cloud import tasks_v2
 
 from frontend.config import Config
@@ -24,11 +25,12 @@ def _get_client():
     return _client
 
 
-def _queue_path():
+def _queue_path(queue_name=None):
+    queue_name = queue_name or Config.QUEUE_NAME_CACHE_PRIORITY
     return (
         f"projects/{Config.PROJECT_ID}"
         f"/locations/{Config.QUEUE_LOCATION}"
-        f"/queues/{Config.QUEUE_NAME_CACHE_PRIORITY}"
+        f"/queues/{queue_name}"
     )
 
 
@@ -70,4 +72,47 @@ def enqueue_cache_populate(request_type, payload):
         return True
     except Exception:
         logger.exception("Failed to enqueue cache task: %s", request_type)
+        return False
+
+
+def _sanitize_task_id(raw_id):
+    """Sanitize an ID for use as a Cloud Tasks task name."""
+    return raw_id.replace(":", "__").replace("/", "___")
+
+
+def enqueue_author_crawl(scholar_id):
+    """Enqueue an author crawl task to the priority crawler queue.
+
+    Directly enqueues to process-authors-priority so the crawler Cloud
+    Function picks it up. Used for user-initiated fetches.
+
+    Returns True if enqueued, False if duplicate or on failure.
+    """
+    crawl_url = Config.CRAWL_FUNCTION_URL
+    if not crawl_url:
+        logger.warning("CRAWL_FUNCTION_URL not configured, cannot enqueue crawl task")
+        return False
+
+    queue_path = _queue_path(Config.QUEUE_NAME_CRAWL_PRIORITY)
+    task_name = f"{queue_path}/tasks/{_sanitize_task_id(scholar_id)}"
+
+    task = {
+        "name": task_name,
+        "http_request": {
+            "http_method": tasks_v2.HttpMethod.POST,
+            "url": crawl_url,
+            "headers": {"Content-Type": "application/json"},
+            "body": json.dumps({"scholar_id": scholar_id}).encode(),
+        },
+    }
+
+    try:
+        _get_client().create_task(parent=queue_path, task=task)
+        logger.info("Enqueued author crawl task: %s", scholar_id)
+        return True
+    except AlreadyExists:
+        logger.info("Author crawl task already exists: %s", scholar_id)
+        return True
+    except Exception:
+        logger.exception("Failed to enqueue crawl task: %s", scholar_id)
         return False

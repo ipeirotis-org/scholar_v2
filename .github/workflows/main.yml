@@ -16,8 +16,8 @@ env:
   IMAGE_NAME: scholar_v2
   CACHE_LAYER_SERVICE: v3-cache-layer
   CACHE_LAYER_IMAGE: cache_layer
-  REFRESH_SERVICE: v3-refresh-service
   QUEUE_LOCATION: northamerica-northeast1
+  FUNCTIONS_BASE: us-central1-scholar-version2.cloudfunctions.net
 
 jobs:
   # ── Phase 0: Infrastructure (queues) ──────────────────────────────────────
@@ -54,6 +54,22 @@ jobs:
           echo "Created cache-priority queue"
         else
           echo "cache-priority queue already exists"
+        fi
+
+    - name: Create process-authors-priority queue (if not exists)
+      run: |
+        if ! gcloud tasks queues describe process-authors-priority \
+            --location=${{ env.QUEUE_LOCATION }} > /dev/null 2>&1; then
+          gcloud tasks queues create process-authors-priority \
+            --location=${{ env.QUEUE_LOCATION }} \
+            --max-dispatches-per-second=50 \
+            --max-concurrent-dispatches=10 \
+            --max-attempts=3 \
+            --min-backoff=10s \
+            --max-backoff=60s
+          echo "Created process-authors-priority queue"
+        else
+          echo "process-authors-priority queue already exists"
         fi
 
     - name: Create cache-batch queue (if not exists)
@@ -196,7 +212,7 @@ jobs:
           --platform managed \
           --region ${{ env.GCP_REGION }} \
           --allow-unauthenticated \
-          --set-env-vars="GCP_PROJECT_ID=${{ env.GCP_PROJECT_ID }},REFRESH_SERVICE_URL=https://${{ env.REFRESH_SERVICE }}-${{ env.GCP_PROJECT_ID }}.run.app,CACHE_LAYER_URL=$CACHE_LAYER_URL,QUEUE_LOCATION=${{ env.QUEUE_LOCATION }}"
+          --set-env-vars="GCP_PROJECT_ID=${{ env.GCP_PROJECT_ID }},REFRESH_FUNCTIONS_BASE=https://${{ env.FUNCTIONS_BASE }},CRAWL_FUNCTION_URL=https://${{ env.FUNCTIONS_BASE }}/v3_fetch_author,CACHE_LAYER_URL=$CACHE_LAYER_URL,QUEUE_LOCATION=${{ env.QUEUE_LOCATION }}"
 
     - name: Get Cloud Run service URL
       id: service-url
@@ -270,9 +286,9 @@ jobs:
           exit 1
         fi
 
-  # ── Phase 2b: Deploy Refresh Service (parallel with frontend) ────────────
-  deploy-refresh-service:
-    name: Build and Deploy v3 Refresh & Expand Service
+  # ── Phase 3: Schedulers (after cache layer is deployed) ──────────────────
+  deploy-schedulers:
+    name: Set up Cloud Scheduler jobs
     needs: deploy-cache-layer
     runs-on: ubuntu-latest
 
@@ -281,9 +297,6 @@ jobs:
       id-token: 'write'
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v6
-
     - name: Authenticate to Google Cloud
       uses: google-github-actions/auth@v3
       with:
@@ -293,63 +306,6 @@ jobs:
       uses: google-github-actions/setup-gcloud@v3
       with:
         project_id: ${{ env.GCP_PROJECT_ID }}
-
-    - name: Prepare source for Refresh service
-      run: |
-        mkdir -p /tmp/deploy-refresh/refresh
-        # Copy refresh package
-        cp refresh/__init__.py /tmp/deploy-refresh/refresh/
-        cp refresh/config.py /tmp/deploy-refresh/refresh/
-        cp refresh/bigquery_client.py /tmp/deploy-refresh/refresh/
-        cp refresh/task_enqueuer.py /tmp/deploy-refresh/refresh/
-        cp refresh/refresh_service.py /tmp/deploy-refresh/refresh/
-        # Copy entry point as main.py
-        cp refresh/main.py /tmp/deploy-refresh/main.py
-        # Copy requirements
-        cp refresh/requirements.txt /tmp/deploy-refresh/requirements.txt
-
-    - name: Deploy Refresh service to Cloud Run
-      env:
-        CACHE_LAYER_URL: ${{ needs.deploy-cache-layer.outputs.cache_layer_url }}
-      run: |-
-        gcloud run deploy ${{ env.REFRESH_SERVICE }} \
-          --source /tmp/deploy-refresh/ \
-          --platform managed \
-          --region ${{ env.GCP_REGION }} \
-          --allow-unauthenticated \
-          --memory=512Mi \
-          --timeout=300 \
-          --set-env-vars="GCP_PROJECT_ID=${{ env.GCP_PROJECT_ID }},CACHE_LAYER_URL=$CACHE_LAYER_URL,QUEUE_LOCATION=${{ env.QUEUE_LOCATION }}"
-
-  # ── Phase 3: Schedulers (after services are deployed) ────────────────────
-  deploy-schedulers:
-    name: Set up Cloud Scheduler jobs
-    needs: [deploy-refresh-service, deploy-cache-layer]
-    runs-on: ubuntu-latest
-
-    permissions:
-      contents: 'read'
-      id-token: 'write'
-
-    steps:
-    - name: Authenticate to Google Cloud
-      uses: google-github-actions/auth@v3
-      with:
-        credentials_json: '${{ secrets.GCP_SA_KEY }}'
-
-    - name: Set up Cloud SDK
-      uses: google-github-actions/setup-gcloud@v3
-      with:
-        project_id: ${{ env.GCP_PROJECT_ID }}
-
-    - name: Get Refresh service URL
-      id: get-refresh-url
-      run: |
-        URL=$(gcloud run services describe ${{ env.REFRESH_SERVICE }} \
-          --region=${{ env.GCP_REGION }} \
-          --format='value(status.url)' \
-          --project=${{ env.GCP_PROJECT_ID }})
-        echo "REFRESH_URL=$URL" >> "$GITHUB_OUTPUT"
 
     - name: Get Cache Layer URL
       id: get-cache-url
@@ -364,11 +320,12 @@ jobs:
       run: |
         JOB_NAME="v3-refresh-stale-authors"
         LOCATION="${{ env.GCP_REGION }}"
+        TARGET_URL="https://${{ env.FUNCTIONS_BASE }}/v3_refresh_stale"
         if gcloud scheduler jobs describe "$JOB_NAME" --location="$LOCATION" > /dev/null 2>&1; then
           gcloud scheduler jobs update http "$JOB_NAME" \
             --location="$LOCATION" \
             --schedule="0 2 * * *" \
-            --uri="${{ steps.get-refresh-url.outputs.REFRESH_URL }}/refresh_stale" \
+            --uri="$TARGET_URL" \
             --http-method=GET \
             --time-zone=UTC \
             --attempt-deadline=300s
@@ -376,7 +333,7 @@ jobs:
           gcloud scheduler jobs create http "$JOB_NAME" \
             --location="$LOCATION" \
             --schedule="0 2 * * *" \
-            --uri="${{ steps.get-refresh-url.outputs.REFRESH_URL }}/refresh_stale" \
+            --uri="$TARGET_URL" \
             --http-method=GET \
             --time-zone=UTC \
             --attempt-deadline=300s
@@ -386,11 +343,12 @@ jobs:
       run: |
         JOB_NAME="v3-refresh-error-authors"
         LOCATION="${{ env.GCP_REGION }}"
+        TARGET_URL="https://${{ env.FUNCTIONS_BASE }}/v3_refresh_errors"
         if gcloud scheduler jobs describe "$JOB_NAME" --location="$LOCATION" > /dev/null 2>&1; then
           gcloud scheduler jobs update http "$JOB_NAME" \
             --location="$LOCATION" \
             --schedule="0 3 * * *" \
-            --uri="${{ steps.get-refresh-url.outputs.REFRESH_URL }}/refresh_errors" \
+            --uri="$TARGET_URL" \
             --http-method=GET \
             --time-zone=UTC \
             --attempt-deadline=300s
@@ -398,29 +356,30 @@ jobs:
           gcloud scheduler jobs create http "$JOB_NAME" \
             --location="$LOCATION" \
             --schedule="0 3 * * *" \
-            --uri="${{ steps.get-refresh-url.outputs.REFRESH_URL }}/refresh_errors" \
+            --uri="$TARGET_URL" \
             --http-method=GET \
             --time-zone=UTC \
             --attempt-deadline=300s
         fi
 
-    - name: Create or update scheduler — expand coauthors (every 10 min)
+    - name: Create or update scheduler — expand coauthors (daily 04:00 UTC)
       run: |
         JOB_NAME="v3-expand-coauthors"
         LOCATION="${{ env.GCP_REGION }}"
+        TARGET_URL="https://${{ env.FUNCTIONS_BASE }}/v3_expand_coauthors"
         if gcloud scheduler jobs describe "$JOB_NAME" --location="$LOCATION" > /dev/null 2>&1; then
           gcloud scheduler jobs update http "$JOB_NAME" \
             --location="$LOCATION" \
-            --schedule="*/10 * * * *" \
-            --uri="${{ steps.get-refresh-url.outputs.REFRESH_URL }}/expand_coauthors" \
+            --schedule="0 4 * * *" \
+            --uri="$TARGET_URL" \
             --http-method=GET \
             --time-zone=UTC \
             --attempt-deadline=300s
         else
           gcloud scheduler jobs create http "$JOB_NAME" \
             --location="$LOCATION" \
-            --schedule="*/10 * * * *" \
-            --uri="${{ steps.get-refresh-url.outputs.REFRESH_URL }}/expand_coauthors" \
+            --schedule="0 4 * * *" \
+            --uri="$TARGET_URL" \
             --http-method=GET \
             --time-zone=UTC \
             --attempt-deadline=300s

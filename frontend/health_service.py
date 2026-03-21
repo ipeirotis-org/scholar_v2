@@ -180,6 +180,7 @@ class HealthService:
         """Return task counts for each Cloud Tasks queue."""
         queue_names = [
             "process-authors",
+            "process-authors-priority",
             "process-pubs",
             "cache-priority",
             "cache-batch",

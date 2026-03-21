@@ -31,7 +31,7 @@ from flask import (
 from frontend.cache import FirestoreCache
 from frontend.config import Config
 from frontend.health_service import HealthService
-from frontend.queue_client import enqueue_cache_populate
+from frontend.queue_client import enqueue_author_crawl, enqueue_cache_populate
 from frontend.visualization import (
     generate_percentile_rank_plot,
     generate_pip_plot,
@@ -63,17 +63,16 @@ def _validate_author_pub_id(pub_id):
     return pub_id
 
 
-def _call_refresh_service(path, params=None, body=None, timeout=10):
-    """Call the Refresh & Expand service (Component 5).
+def _call_refresh_function(function_name, params=None, body=None, timeout=10):
+    """Call a Refresh Cloud Function by name.
 
-    Returns the parsed JSON response, or None if the service is not configured
-    or the call fails.
+    Returns the parsed JSON response, or None if not configured or the call fails.
     """
-    base_url = Config.REFRESH_SERVICE_URL
+    base_url = Config.REFRESH_FUNCTIONS_BASE
     if not base_url:
         return None
 
-    url = f"{base_url.rstrip('/')}/{path.lstrip('/')}"
+    url = f"{base_url.rstrip('/')}/{function_name}"
     if params:
         qs = "&".join(f"{k}={v}" for k, v in params.items())
         url = f"{url}?{qs}"
@@ -87,7 +86,7 @@ def _call_refresh_service(path, params=None, body=None, timeout=10):
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             return json.loads(resp.read())
     except Exception:
-        logger.exception("Refresh service call failed: %s", path)
+        logger.exception("Refresh function call failed: %s", function_name)
         return None
 
 
@@ -158,42 +157,34 @@ def register_routes(app):
         # Check cached freshness
         exists, last_updated = _get_author_freshness(author_id)
 
-        # If freshness not cached, enqueue population and show loading
+        # If freshness not cached, enqueue crawl + cache population and show loading
         if exists is None:
             cache_enqueued = enqueue_cache_populate(
                 "populate_author_profile", {"scholar_id": author_id},
             )
-            # Also trigger crawl in case author doesn't exist in BQ yet
-            # Use longer timeout: refresh service may cold-start + query BigQuery
-            refresh_result = _call_refresh_service(
-                "fetch_author", body={"scholar_id": author_id}, timeout=25,
-            )
-            # If refresh service is unreachable, check Firestore for existing
-            # author data to determine whether this is a new or known author.
-            has_cached_data = None
-            if refresh_result is None:
-                has_cached_data = _read_cache(
-                    Config.CACHE_AUTHOR_STATS, author_id,
-                ) is not None
+            # Enqueue author crawl directly to priority queue
+            crawl_enqueued = enqueue_author_crawl(author_id)
+            # Check Firestore for existing data to determine if new or known
+            has_cached_data = _read_cache(
+                Config.CACHE_AUTHOR_STATS, author_id,
+            ) is not None
             return render_template(
                 "redirect.html",
                 author_id=author_id,
                 status="unknown",
                 cache_enqueued=cache_enqueued,
-                refresh_result=refresh_result,
+                refresh_result={"enqueued": crawl_enqueued},
                 has_cached_data=has_cached_data,
             )
 
         if not exists:
-            refresh_result = _call_refresh_service(
-                "fetch_author", body={"scholar_id": author_id}, timeout=25,
-            )
+            crawl_enqueued = enqueue_author_crawl(author_id)
             return render_template(
                 "redirect.html",
                 author_id=author_id,
                 status="not_found",
                 cache_enqueued=False,
-                refresh_result=refresh_result,
+                refresh_result={"enqueued": crawl_enqueued},
             )
 
         # Read all data from cache
@@ -348,15 +339,14 @@ def register_routes(app):
                        if _validate_scholar_id(s.strip())]
         if not scholar_ids:
             return jsonify({"error": "No valid scholar IDs provided"}), 400
-        result = _call_refresh_service(
-            "fetch_authors", body={"scholar_ids": scholar_ids},
-        )
-        if result is not None:
-            return jsonify(result)
-        # Fallback if refresh service not configured
+        enqueued = 0
+        for sid in scholar_ids:
+            if enqueue_author_crawl(sid):
+                enqueued += 1
         return jsonify({
             "status": "queued",
             "total_authors": len(scholar_ids),
+            "enqueued": enqueued,
             "authors": [{"scholar_id": sid} for sid in scholar_ids],
         })
 
@@ -380,18 +370,18 @@ def register_routes(app):
     @app.route("/api/refresh_stale_authors")
     def api_refresh_stale():
         num = request.args.get("num_authors", "5")
-        result = _call_refresh_service("refresh_stale", params={"limit": num})
+        result = _call_refresh_function("v3_refresh_stale", params={"limit": num})
         if result is not None:
             return jsonify(result)
-        return jsonify({"status": "not_configured", "message": "Refresh service not yet configured"})
+        return jsonify({"status": "not_configured", "message": "Refresh functions not yet configured"})
 
     @app.route("/api/add_coauthors")
     def api_add_coauthors():
         num = request.args.get("num_authors", "1")
-        result = _call_refresh_service("expand_coauthors", params={"limit": num})
+        result = _call_refresh_function("v3_expand_coauthors", params={"limit": num})
         if result is not None:
             return jsonify(result)
-        return jsonify({"status": "not_configured", "message": "Refresh service not yet configured"})
+        return jsonify({"status": "not_configured", "message": "Refresh functions not yet configured"})
 
     from author_search.search_service import AuthorSearchService, refresh_author_index
     search_svc = AuthorSearchService()
