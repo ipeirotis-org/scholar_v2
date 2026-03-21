@@ -158,14 +158,32 @@ def register_routes(app):
 
         # If freshness not cached, enqueue population and show loading
         if exists is None:
-            enqueue_cache_populate("populate_author_profile", {"scholar_id": author_id})
+            cache_enqueued = enqueue_cache_populate(
+                "populate_author_profile", {"scholar_id": author_id},
+            )
             # Also trigger crawl in case author doesn't exist in BQ yet
-            _call_refresh_service("fetch_author", body={"scholar_id": author_id})
-            return render_template("redirect.html", author_id=author_id)
+            refresh_result = _call_refresh_service(
+                "fetch_author", body={"scholar_id": author_id},
+            )
+            return render_template(
+                "redirect.html",
+                author_id=author_id,
+                status="unknown",
+                cache_enqueued=cache_enqueued,
+                refresh_result=refresh_result,
+            )
 
         if not exists:
-            _call_refresh_service("fetch_author", body={"scholar_id": author_id})
-            return render_template("redirect.html", author_id=author_id)
+            refresh_result = _call_refresh_service(
+                "fetch_author", body={"scholar_id": author_id},
+            )
+            return render_template(
+                "redirect.html",
+                author_id=author_id,
+                status="not_found",
+                cache_enqueued=False,
+                refresh_result=refresh_result,
+            )
 
         # Read all data from cache
         cached_plots = _read_cache("v3_author_plots", author_id)
@@ -189,8 +207,13 @@ def register_routes(app):
 
         if not author_stats:
             # Cache miss — enqueue population and show loading page
-            enqueue_cache_populate("populate_author_profile", {"scholar_id": author_id})
-            return render_template("loading.html", author_id=author_id)
+            cache_enqueued = enqueue_cache_populate(
+                "populate_author_profile", {"scholar_id": author_id},
+            )
+            return render_template(
+                "loading.html", author_id=author_id,
+                cache_enqueued=cache_enqueued,
+            )
 
         # Generate plots from cached data (visualization stays in frontend)
         if cached_plots is None:
