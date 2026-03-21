@@ -150,31 +150,132 @@ th.sortable:hover {
     color: var(--nyu-deep-violet);
 }
 
-.autocomplete-dropdown, .author-option {
-    border: 1px solid var(--border-color);
-    background: white;
-    cursor: pointer;
+/* Search container */
+.search-container {
+    position: relative;
+    max-width: 500px;
+    margin: 0 auto;
+    text-align: left;
 }
 
+.search-input-wrapper {
+    position: relative;
+    display: flex;
+}
+
+.search-input-wrapper .form-control {
+    border-radius: 6px 0 0 6px;
+    border-right: none;
+    padding-right: 12px;
+    font-size: 1rem;
+}
+
+.search-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 14px;
+    border: 1px solid var(--border-color);
+    border-left: none;
+    border-radius: 0 6px 6px 0;
+    background: var(--nyu-violet);
+    color: white;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.search-btn:hover,
+.search-btn:focus {
+    background: var(--nyu-deep-violet);
+}
+
+.search-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* Autocomplete dropdown — anchored to input */
 .autocomplete-dropdown {
-    max-height: 150px;
-    overflow-y: auto;
     display: none;
     position: absolute;
-    left: 50%;
-    transform: translateX(-50%);
-    text-align: left;
+    top: 100%;
+    left: 0;
+    right: 0;
     z-index: 1000;
+    max-height: 300px;
+    overflow-y: auto;
+    background: white;
+    border: 1px solid var(--border-color);
+    border-top: none;
+    border-radius: 0 0 6px 6px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    text-align: left;
 }
 
 .author-option {
-    padding: 8px 12px;
+    padding: 10px 14px;
+    cursor: pointer;
+    border-bottom: 1px solid #f0f0f0;
+    background: white;
+}
+
+.author-option:last-child {
+    border-bottom: none;
 }
 
 .author-option:hover,
-.author-option:focus {
+.author-option:focus,
+.author-option.focused {
     background-color: var(--background-hover);
+}
+
+.author-option:focus {
     outline: 2px solid var(--nyu-violet-70);
+    outline-offset: -2px;
+}
+
+.author-option-name {
+    font-weight: 600;
+    color: var(--text-color);
+    font-size: 0.95rem;
+}
+
+.author-option-detail {
+    font-size: 0.82rem;
+    color: #666;
+    margin-top: 2px;
+}
+
+.source-badge {
+    display: inline-block;
+    font-size: 0.7rem;
+    font-weight: 500;
+    color: var(--nyu-teal-deep);
+    background: #e6f7f5;
+    padding: 1px 6px;
+    border-radius: 3px;
+    margin-left: 8px;
+    vertical-align: middle;
+}
+
+.search-scholar-option {
+    color: var(--nyu-violet);
+    font-size: 0.9rem;
+    border-top: 1px solid var(--border-color);
+    background: #faf8fc;
+}
+
+.search-scholar-option:hover,
+.search-scholar-option:focus {
+    background: var(--background-hover);
+}
+
+.search-status {
+    cursor: default;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
 
 /* Links use NYU teal accent */
