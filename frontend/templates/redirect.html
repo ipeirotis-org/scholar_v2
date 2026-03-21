@@ -12,37 +12,37 @@
     </div>
 
     {% if status == "not_found" %}
-        <p>Author <strong>{{ author_id }}</strong> is not yet in our database.</p>
+        <p>Author <strong>{{ author_id }}</strong> is not yet in our database and is being fetched from Google Scholar.</p>
         {% if refresh_result and refresh_result.enqueued %}
-            <p>A fetch request has been queued. The author's data will be crawled from Google Scholar.</p>
             <p class="text-muted">This typically takes 1-5 minutes depending on the number of publications.</p>
-        {% elif refresh_result %}
-            <p>The author was found in our system but the fetch could not be queued.</p>
-            <p class="text-muted">Please try again in a few minutes.</p>
+        {% elif refresh_result and not refresh_result.enqueued %}
+            <p class="text-warning">The fetch request could not be queued. Please try again in a few minutes.</p>
         {% else %}
-            <p class="text-warning">Could not contact the refresh service to fetch this author.</p>
-            <p class="text-muted">The service may be temporarily unavailable. Please try again later.</p>
+            <p class="text-muted">This typically takes 1-5 minutes depending on the number of publications.</p>
         {% endif %}
     {% else %}
         {# status == "unknown": freshness not cached, author may or may not exist in BQ #}
         {% if refresh_result and refresh_result.exists %}
-            <p>Author <strong>{{ author_id }}</strong> exists in our database.</p>
-            {% if cache_enqueued %}
-                <p>Statistics are being computed and cached. This should take a few seconds.</p>
+            <p>Author <strong>{{ author_id }}</strong> exists in our database. Statistics are being computed.</p>
+            {% if not cache_enqueued %}
+                <p class="text-warning">Could not enqueue the cache population task. Please try again in a few minutes.</p>
             {% else %}
-                <p class="text-warning">Could not enqueue the cache population task.</p>
-                <p class="text-muted">Please try again in a few minutes.</p>
+                <p class="text-muted">This should take a few seconds.</p>
             {% endif %}
         {% elif refresh_result and refresh_result.enqueued %}
             <p>Author <strong>{{ author_id }}</strong> is being fetched from Google Scholar.</p>
             <p class="text-muted">This typically takes 1-5 minutes depending on the number of publications.</p>
-        {% elif refresh_result %}
+        {% elif refresh_result and not refresh_result.enqueued %}
             <p>Author <strong>{{ author_id }}</strong> was not found in our database and could not be queued for fetching.</p>
             <p class="text-muted">Please try again in a few minutes.</p>
         {% else %}
-            <p>Author <strong>{{ author_id }}</strong> is being processed or queued for fetching.</p>
-            {% if not cache_enqueued %}
-                <p class="text-warning">Could not enqueue background tasks. The service may be temporarily unavailable.</p>
+            {# refresh_result is None — service unreachable. Use cache_enqueued as signal. #}
+            {% if cache_enqueued %}
+                <p>Author <strong>{{ author_id }}</strong> data is being prepared. Statistics computation has been queued.</p>
+                <p class="text-muted">If the author is new, data will also be fetched from Google Scholar (1-5 minutes).</p>
+            {% else %}
+                <p>Author <strong>{{ author_id }}</strong> data could not be processed at this time.</p>
+                <p class="text-warning">Background services may be temporarily unavailable. Please try again later.</p>
             {% endif %}
         {% endif %}
     {% endif %}

@@ -264,8 +264,8 @@ def register_routes(app):
             pub_stats = pub_stats_future.result()
 
         if not author_stats:
-            enqueue_cache_populate("populate_author_profile", {"scholar_id": author_id})
-            return render_template("loading.html", author_id=author_id)
+            cache_enqueued = enqueue_cache_populate("populate_author_profile", {"scholar_id": author_id})
+            return render_template("loading.html", author_id=author_id, cache_enqueued=cache_enqueued)
 
         return render_template(
             "publications.html",
@@ -285,8 +285,8 @@ def register_routes(app):
         pub_stats = _read_cache(Config.CACHE_PUB_STATS, pub_id)
 
         if not pub_stats:
-            enqueue_cache_populate("populate_publication_detail", {"author_pub_id": pub_id})
-            return render_template("loading.html", author_id=author_id)
+            cache_enqueued = enqueue_cache_populate("populate_publication_detail", {"author_pub_id": pub_id})
+            return render_template("loading.html", author_id=author_id, cache_enqueued=cache_enqueued)
 
         citations_plot = generate_pub_citation_plot(pd.DataFrame(pub_stats))
 
