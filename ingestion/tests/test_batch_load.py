@@ -108,7 +108,7 @@ class TestPrepareNdjsonLine:
         line, error = prepare_ndjson_line(file_info, "authors_json/")
         assert error is None
         parsed = json.loads(line)
-        assert parsed["document_id"] == "abc123.json"
+        assert parsed["document_id"] == "abc123"
         assert parsed["timestamp"] == "2026-03-19T12:00:00+00:00"
         # data should be wrapped under {"data": ...}
         data = json.loads(parsed["DATA"])

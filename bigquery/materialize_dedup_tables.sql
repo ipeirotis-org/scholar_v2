@@ -33,7 +33,12 @@ WITH deduped_by_doc AS (
 ),
 parsed AS (
   SELECT
-    document_id,
+    -- Normalize document_id: strip .json suffix from legacy records
+    CASE
+      WHEN ENDS_WITH(document_id, '.json')
+      THEN SUBSTR(document_id, 1, LENGTH(document_id) - 5)
+      ELSE document_id
+    END AS document_id,
     timestamp,
     JSON_EXTRACT_SCALAR(data, '$.data.scholar_id') AS scholar_id,
     JSON_EXTRACT_SCALAR(data, '$.data.name') AS name,
@@ -96,7 +101,12 @@ WITH deduped_by_doc AS (
 ),
 parsed AS (
   SELECT
-    document_id,
+    -- Normalize document_id: strip .json suffix from legacy records
+    CASE
+      WHEN ENDS_WITH(document_id, '.json')
+      THEN SUBSTR(document_id, 1, LENGTH(document_id) - 5)
+      ELSE document_id
+    END AS document_id,
     timestamp,
     JSON_EXTRACT_SCALAR(data, '$.data.author_pub_id') AS author_pub_id,
     SPLIT(JSON_EXTRACT_SCALAR(data, '$.data.author_pub_id'), ':')[SAFE_OFFSET(0)] AS scholar_id,
