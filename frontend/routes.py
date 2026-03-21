@@ -138,6 +138,8 @@ def register_routes(app):
             tdf = pd.DataFrame(temporal_stats)
             tdf["state_year"] = pd.to_numeric(tdf["state_year"], errors="coerce")
             tdf.dropna(subset=["state_year"], inplace=True)
+            # Filter out bogus early years (e.g., pub_year=1800 from Scholar data)
+            tdf = tdf[tdf["state_year"] > 1950]
             if not tdf.empty:
                 temporal_plots["h_index"] = generate_author_h_index_plot(tdf)
                 temporal_plots["total_citations"] = generate_author_total_citations_plot(tdf)

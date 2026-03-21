@@ -20,6 +20,7 @@ FirstPubYear AS (
   JOIN `scholar-version2.statistics.stats_publication_current` spc
       ON ps.author_pub_id = spc.author_pub_id
   WHERE spc.num_citations > 0
+    AND ps.pub_year > 1950
   GROUP BY ps.scholar_id
 ),
 
