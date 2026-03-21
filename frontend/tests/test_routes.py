@@ -43,7 +43,7 @@ class TestResultsRoute:
             test_client = app.test_client()
             response = test_client.get("/results?author_id=abc123def456")
             assert response.status_code == 200
-            assert b"processing" in response.data.lower() or b"queued" in response.data.lower()
+            assert b"processing" in response.data.lower() or b"fetched" in response.data.lower()
             mock_enqueue.assert_called()
 
 
