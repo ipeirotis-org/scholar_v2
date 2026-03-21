@@ -346,6 +346,34 @@ footer p {
     }
 }
 
+/* Health dashboard */
+.bg-violet {
+    background-color: var(--nyu-violet);
+}
+
+.card {
+    border: none;
+    border-radius: var(--border-radius);
+    box-shadow: var(--box-shadow);
+}
+
+.card .table {
+    background: transparent;
+    box-shadow: none;
+    padding: 0;
+    margin-top: 0;
+    margin-bottom: 0;
+}
+
+.progress {
+    background-color: #e9ecef;
+    border-radius: 4px;
+}
+
+.progress-bar.bg-info {
+    background-color: var(--nyu-violet-70) !important;
+}
+
 #resultsTable th:first-child, #resultsTable td:first-child {
     text-align: left;
 }
