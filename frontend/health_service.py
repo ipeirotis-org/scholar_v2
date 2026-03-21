@@ -147,7 +147,11 @@ class HealthService:
         """Return a sample of recent errored authors."""
         query = f"""
         SELECT
-            document_id AS scholar_id,
+            CASE
+              WHEN ENDS_WITH(document_id, '.json')
+              THEN SUBSTR(document_id, 1, LENGTH(document_id) - 5)
+              ELSE document_id
+            END AS scholar_id,
             JSON_EXTRACT_SCALAR(data, '$.error') AS error,
             timestamp
         FROM {Config.bq_raw('author_latest')}
