@@ -203,7 +203,7 @@ class HealthService:
                     } if queue.rate_limits else None,
                 }
             except Exception as e:
-                stats[name] = {"state": "ERROR", "error": str(e)}
+                stats[name] = {"state": "ERROR", "task_count": None, "rate_limits": None, "error": str(e)}
 
         return stats
 
