@@ -197,6 +197,9 @@ def register_routes(app):
             # Cache the plots in Firestore for next time
             cache.set("v3_author_plots", author_id, cached_plots)
 
+        # Read statistics cache timestamp (when stats were last computed)
+        stats_cached_at = cache.get_timestamp(Config.CACHE_AUTHOR_STATS, author_id)
+
         # Record this author as recently queried (fire-and-forget)
         try:
             cache.record_recent_author(author_stats)
@@ -211,6 +214,7 @@ def register_routes(app):
             plot2=cached_plots.get("plot2", ""),
             temporal_plots=cached_plots.get("temporal_plots", {}),
             last_updated=last_updated,
+            stats_cached_at=stats_cached_at,
         )
 
     @app.route("/publications/<author_id>")
@@ -315,6 +319,23 @@ def register_routes(app):
         if result is not None:
             return jsonify(result)
         # Fallback if refresh service not configured
+        return jsonify({
+            "status": "queued",
+            "total_authors": len(scholar_ids),
+            "authors": [{"scholar_id": sid} for sid in scholar_ids],
+        })
+
+    @app.route("/api/rebuild_statistics")
+    def api_rebuild_statistics():
+        scholar_ids_arg = request.args.get("scholar_ids", "")
+        scholar_ids = [s.strip() for s in scholar_ids_arg.split(",")
+                       if _validate_scholar_id(s.strip())]
+        if not scholar_ids:
+            return jsonify({"error": "No valid scholar IDs provided"}), 400
+        for sid in scholar_ids:
+            enqueue_cache_populate("populate_author_profile", {"scholar_id": sid})
+            # Invalidate cached plots so they are regenerated from fresh stats
+            cache.delete("v3_author_plots", sid)
         return jsonify({
             "status": "queued",
             "total_authors": len(scholar_ids),
