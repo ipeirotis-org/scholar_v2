@@ -76,6 +76,30 @@ HIndex5yCalculated AS (
   GROUP BY scholar_id, state_year
 ),
 
+-- Pre-aggregate yearly citations per author per state_year, then use a window
+-- function for the 5-year rolling sum. This replaces the expensive correlated
+-- subquery that previously scanned PublicationState for every (scholar, year) row.
+AuthorYearlyCitations AS (
+  SELECT
+    scholar_id,
+    state_year,
+    SUM(yearly_citations_at_state_year) AS total_yearly_citations
+  FROM PublicationState
+  GROUP BY scholar_id, state_year
+),
+
+AuthorRecentCitations5y AS (
+  SELECT
+    scholar_id,
+    state_year,
+    SUM(total_yearly_citations) OVER (
+      PARTITION BY scholar_id
+      ORDER BY state_year
+      ROWS BETWEEN 4 PRECEDING AND CURRENT ROW
+    ) AS total_recent_citations_5y
+  FROM AuthorYearlyCitations
+),
+
 AggregatedMetrics AS (
   SELECT
     ps.scholar_id,
@@ -83,11 +107,6 @@ AggregatedMetrics AS (
     COUNT(DISTINCT ps.author_pub_id) AS total_publications,
     SUM(ps.cumulative_citations_at_state_year) AS total_citations,
     COUNT(DISTINCT IF(ps.cumulative_citations_at_state_year >= 10, ps.author_pub_id, NULL)) AS i10_index,
-    (SELECT SUM(ps_inner.yearly_citations_at_state_year)
-     FROM PublicationState ps_inner
-     WHERE ps_inner.scholar_id = ps.scholar_id
-       AND ps_inner.state_year BETWEEN ps.state_year - 4 AND ps.state_year
-    ) AS total_recent_citations_5y,
     COUNT(DISTINCT IF(prc.citations_last_5_years >= 10, prc.author_pub_id, NULL)) AS i10_index_5y
   FROM PublicationState ps
   LEFT JOIN PublicationRecentCitations prc ON ps.scholar_id = prc.scholar_id AND ps.author_pub_id = prc.author_pub_id AND ps.state_year = prc.state_year
@@ -100,7 +119,7 @@ SELECT
   fpy.year_of_first_pub,
   am.total_publications,
   am.total_citations,
-  COALESCE(am.total_recent_citations_5y, 0) as total_recent_citations_5y,
+  COALESCE(arc.total_recent_citations_5y, 0) as total_recent_citations_5y,
   COALESCE(hic.h_index, 0) AS h_index,
   COALESCE(h5yc.h_index_5y, 0) AS h_index_5y,
   COALESCE(am.i10_index, 0) AS i10_index,
@@ -108,4 +127,5 @@ SELECT
 FROM AggregatedMetrics am
 LEFT JOIN FirstPubYear fpy ON am.scholar_id = fpy.scholar_id
 LEFT JOIN HIndexCalculated hic ON am.scholar_id = hic.scholar_id AND am.state_year = hic.state_year
-LEFT JOIN HIndex5yCalculated h5yc ON am.scholar_id = h5yc.scholar_id AND am.state_year = h5yc.state_year;
+LEFT JOIN HIndex5yCalculated h5yc ON am.scholar_id = h5yc.scholar_id AND am.state_year = h5yc.state_year
+LEFT JOIN AuthorRecentCitations5y arc ON am.scholar_id = arc.scholar_id AND am.state_year = arc.state_year;

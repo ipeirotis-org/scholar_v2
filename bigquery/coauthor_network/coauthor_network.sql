@@ -8,5 +8,5 @@ SELECT
   JSON_EXTRACT_SCALAR(coauthor, '$.name') AS coauthor_name,
   JSON_EXTRACT_SCALAR(coauthor, '$.affiliation') AS coauthor_affiliation
 FROM
-  `scholar-version2.scholar_raw_data.author_latest`,
+  `scholar-version2.scholar_raw_data.author_latest_table`,
   UNNEST(JSON_EXTRACT_ARRAY(DATA, '$.data.coauthors')) AS coauthor

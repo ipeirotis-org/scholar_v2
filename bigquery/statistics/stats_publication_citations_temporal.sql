@@ -11,7 +11,7 @@ WITH
       CAST(JSON_EXTRACT_SCALAR(DATA, '$.data.bib.pub_year') AS INT64) AS pub_year,
       CAST(JSON_EXTRACT_SCALAR(DATA, '$.data.num_citations') AS INT64) AS total_citations,
       JSON_QUERY(DATA, '$.data.cites_per_year') AS cites_per_year
-    FROM `scholar-version2.scholar_raw_data.pub_latest`
+    FROM `scholar-version2.scholar_raw_data.pub_latest_table`
   ),
   ExplodedData AS (
     SELECT

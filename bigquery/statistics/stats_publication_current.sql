@@ -10,7 +10,7 @@ SELECT
   JSON_EXTRACT_SCALAR(data, '$.data.bib.author') AS author,
   CAST(JSON_EXTRACT_SCALAR(data, '$.data.num_citations') AS INT64) AS num_citations,
   timestamp AS last_updated
-FROM `scholar-version2.scholar_raw_data.pub_latest`
+FROM `scholar-version2.scholar_raw_data.pub_latest_table`
 WHERE CAST(JSON_EXTRACT_SCALAR(data, '$.data.bib.pub_year') AS INT64) > 1950
   AND CAST(JSON_EXTRACT_SCALAR(data, '$.data.bib.pub_year') AS INT64) <= EXTRACT(YEAR FROM CURRENT_DATE())
   AND CAST(JSON_EXTRACT_SCALAR(data, '$.data.num_citations') AS INT64) > 0;

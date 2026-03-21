@@ -41,6 +41,10 @@ jobs:
     # and must already exist before deploying views that reference them.
     # To refresh them manually, trigger that workflow via workflow_dispatch.
     #
+    # NOTE: Dedup tables (author_latest_table, pub_latest_table) must exist
+    # before deploying views. They are refreshed daily by bigquery-materialize.yml.
+    # For first-time setup, run: bq query < bigquery/materialize_dedup_tables.sql
+    #
     # Views are deployed in strict topological (DAG) order — each view
     # depends only on views/tables deployed at earlier levels.
     # See docs/ANALYTICS.md for the full dependency DAG.
