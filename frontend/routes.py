@@ -166,12 +166,20 @@ def register_routes(app):
             refresh_result = _call_refresh_service(
                 "fetch_author", body={"scholar_id": author_id}, timeout=25,
             )
+            # If refresh service is unreachable, check Firestore for existing
+            # author data to determine whether this is a new or known author.
+            has_cached_data = None
+            if refresh_result is None:
+                has_cached_data = _read_cache(
+                    Config.CACHE_AUTHOR_STATS, author_id,
+                ) is not None
             return render_template(
                 "redirect.html",
                 author_id=author_id,
                 status="unknown",
                 cache_enqueued=cache_enqueued,
                 refresh_result=refresh_result,
+                has_cached_data=has_cached_data,
             )
 
         if not exists:

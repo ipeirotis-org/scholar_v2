@@ -36,13 +36,26 @@
             <p>Author <strong>{{ author_id }}</strong> was not found in our database and could not be queued for fetching.</p>
             <p class="text-muted">Please try again in a few minutes.</p>
         {% else %}
-            {# refresh_result is None — service unreachable. Use cache_enqueued as signal. #}
-            {% if cache_enqueued %}
-                <p>Author <strong>{{ author_id }}</strong> data is being prepared. Statistics computation has been queued.</p>
-                <p class="text-muted">If the author is new, data will also be fetched from Google Scholar (1-5 minutes).</p>
+            {# refresh_result is None — service unreachable. Use Firestore data as fallback. #}
+            {% if has_cached_data %}
+                <p>Author <strong>{{ author_id }}</strong> exists in our database. Statistics are being computed.</p>
+                {% if cache_enqueued %}
+                    <p class="text-muted">This should take a few seconds.</p>
+                {% else %}
+                    <p class="text-warning">Could not enqueue the cache population task. Please try again in a few minutes.</p>
+                {% endif %}
+            {% elif has_cached_data == false %}
+                <p>Author <strong>{{ author_id }}</strong> is being fetched from Google Scholar.</p>
+                <p class="text-muted">This typically takes 1-5 minutes depending on the number of publications.</p>
             {% else %}
-                <p>Author <strong>{{ author_id }}</strong> data could not be processed at this time.</p>
-                <p class="text-warning">Background services may be temporarily unavailable. Please try again later.</p>
+                {# has_cached_data is None — Firestore check also failed #}
+                {% if cache_enqueued %}
+                    <p>Author <strong>{{ author_id }}</strong> data is being prepared.</p>
+                    <p class="text-muted">If the author is new, data will also be fetched from Google Scholar (1-5 minutes).</p>
+                {% else %}
+                    <p>Author <strong>{{ author_id }}</strong> data could not be processed at this time.</p>
+                    <p class="text-warning">Background services may be temporarily unavailable. Please try again later.</p>
+                {% endif %}
             {% endif %}
         {% endif %}
     {% endif %}
