@@ -19,7 +19,7 @@ def _author(scholar_id, name="Author"):
         "hindex": 10,
         "citedby": 100,
         "pip_auc_score": 0.5,
-        "pip_auc_percentile": 0.75,
+        "pip_auc_score_percentile": 0.75,
     }
 
 

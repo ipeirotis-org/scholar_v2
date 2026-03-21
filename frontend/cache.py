@@ -96,7 +96,7 @@ class FirestoreCache:
             "hindex": author_stats.get("hindex"),
             "citedby": author_stats.get("citedby"),
             "pip_auc_score": author_stats.get("pip_auc_score"),
-            "pip_auc_percentile": author_stats.get("pip_auc_percentile"),
+            "pip_auc_percentile": author_stats.get("pip_auc_score_percentile"),
         }
 
         if not entry["scholar_id"]:
