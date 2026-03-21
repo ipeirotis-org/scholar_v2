@@ -58,14 +58,15 @@ WITH
       scholar_id,
       author_pub_id,
       MAX(CASE WHEN distance_type = 'positive' THEN total_publications_with_citations_percentile END)
-        OVER(PARTITION BY scholar_id, author_pub_id) AS positive_percentile,
+        AS positive_percentile,
       MAX(CASE WHEN distance_type = 'negative' THEN total_publications_with_citations_percentile END)
-        OVER(PARTITION BY scholar_id, author_pub_id) AS negative_percentile,
+        AS negative_percentile,
       MAX(CASE WHEN distance_type = 'positive' THEN ABS(distance) END)
-        OVER(PARTITION BY scholar_id, author_pub_id) AS positive_distance,
+        AS positive_distance,
       MAX(CASE WHEN distance_type = 'negative' THEN ABS(distance) END)
-        OVER(PARTITION BY scholar_id, author_pub_id) AS negative_distance
+        AS negative_distance
     FROM FilteredDistances
+    GROUP BY scholar_id, author_pub_id
   ),
   InterpolatedResults AS (
     SELECT
@@ -77,22 +78,23 @@ WITH
       fd.year_of_first_pub,
       fd.total_publications_with_citations,
       CASE
-        WHEN positive_percentile IS NULL THEN 0.0
-        WHEN negative_percentile IS NULL THEN 1.0
-        ELSE (negative_percentile * positive_distance + positive_percentile * negative_distance)
-             / (positive_distance + negative_distance)
+        WHEN ad.positive_percentile IS NULL THEN 0.0
+        WHEN ad.negative_percentile IS NULL THEN 1.0
+        ELSE (ad.negative_percentile * ad.positive_distance + ad.positive_percentile * ad.negative_distance)
+             / (ad.positive_distance + ad.negative_distance)
       END AS interpolated_percentile
     FROM FilteredDistances fd
     JOIN AggregatedDistances ad
       ON fd.scholar_id = ad.scholar_id
      AND fd.author_pub_id = ad.author_pub_id
   )
-SELECT DISTINCT
+SELECT
   scholar_id,
   author_pub_id,
-  num_citations,
-  num_citations_percentile,
-  publication_rank,
-  interpolated_percentile AS num_papers_percentile
+  MAX(num_citations) AS num_citations,
+  MAX(num_citations_percentile) AS num_citations_percentile,
+  MAX(publication_rank) AS publication_rank,
+  MAX(interpolated_percentile) AS num_papers_percentile
 FROM InterpolatedResults
+GROUP BY scholar_id, author_pub_id
 ORDER BY scholar_id, publication_rank;

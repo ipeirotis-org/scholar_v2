@@ -27,6 +27,19 @@ class TestGetAuthorPubStats:
         assert len(result) == 1
         assert result[0]["title"] == "Paper 1"
 
+    def test_deduplicates_by_author_pub_id(self):
+        import pandas as pd
+        df = pd.DataFrame([
+            {"author_pub_id": "abc:1", "title": "Paper 1", "num_citations_percentile": 0.8},
+            {"author_pub_id": "abc:1", "title": "Paper 1", "num_citations_percentile": 0.8},
+            {"author_pub_id": "abc:2", "title": "Paper 2", "num_citations_percentile": 0.6},
+        ])
+        client, _ = _make_client(df)
+        result = client.get_author_pub_stats("abc123")
+        assert len(result) == 2
+        pub_ids = [r["author_pub_id"] for r in result]
+        assert pub_ids == ["abc:1", "abc:2"]
+
     def test_returns_empty_on_failure(self):
         mock_bq = mock.MagicMock()
         mock_bq.query.side_effect = Exception("BQ error")
