@@ -10,17 +10,11 @@ import logging
 import re
 import time
 
-from flask import Flask, request
+import functions_framework
 
 from refresh import refresh_service
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s %(name)s %(levelname)s %(message)s",
-)
 logger = logging.getLogger(__name__)
-
-app = Flask(__name__)
 
 # Validate scholar_id: alphanumeric, hyphens, underscores, 4-20 chars
 SCHOLAR_ID_RE = re.compile(r"^[A-Za-z0-9_-]{4,20}$")
@@ -32,11 +26,11 @@ def _validate_scholar_id(scholar_id):
     return scholar_id
 
 
-def _get_request_id():
+def _get_request_id(request):
     return request.headers.get("Function-Execution-Id", "unknown")
 
 
-def _get_int_param(name, default):
+def _get_int_param(request, name, default):
     """Extract an integer parameter from query args or JSON body."""
     val = request.args.get(name)
     if val is not None:
@@ -54,14 +48,14 @@ def _get_int_param(name, default):
     return default
 
 
-@app.route("/refresh_stale", methods=["GET", "POST"])
-def refresh_stale():
+@functions_framework.http
+def refresh_stale(request):
     """Scheduled: find stale authors and enqueue for re-crawl."""
-    request_id = _get_request_id()
+    request_id = _get_request_id(request)
     start = time.time()
     logger.info("[%s] Starting stale author refresh", request_id)
 
-    limit = _get_int_param("limit", None)
+    limit = _get_int_param(request, "limit", None)
     result = refresh_service.refresh_stale_authors(limit=limit)
 
     elapsed = time.time() - start
@@ -69,14 +63,14 @@ def refresh_stale():
     return json.dumps(result), 200
 
 
-@app.route("/refresh_errors", methods=["GET", "POST"])
-def refresh_errors():
+@functions_framework.http
+def refresh_errors(request):
     """Scheduled: find error authors and enqueue for re-crawl."""
-    request_id = _get_request_id()
+    request_id = _get_request_id(request)
     start = time.time()
     logger.info("[%s] Starting error author refresh", request_id)
 
-    limit = _get_int_param("limit", None)
+    limit = _get_int_param(request, "limit", None)
     result = refresh_service.refresh_error_authors(limit=limit)
 
     elapsed = time.time() - start
@@ -84,14 +78,14 @@ def refresh_errors():
     return json.dumps(result), 200
 
 
-@app.route("/expand_coauthors", methods=["GET", "POST"])
-def expand_coauthors():
+@functions_framework.http
+def expand_coauthors(request):
     """Scheduled: find coauthors not in DB and enqueue for initial crawl."""
-    request_id = _get_request_id()
+    request_id = _get_request_id(request)
     start = time.time()
     logger.info("[%s] Starting coauthor expansion", request_id)
 
-    limit = _get_int_param("limit", None)
+    limit = _get_int_param(request, "limit", None)
     result = refresh_service.expand_coauthors(limit=limit)
 
     elapsed = time.time() - start
@@ -99,10 +93,10 @@ def expand_coauthors():
     return json.dumps(result), 200
 
 
-@app.route("/fetch_author", methods=["POST"])
-def fetch_author():
+@functions_framework.http
+def fetch_author(request):
     """User-triggered: enqueue a single author for crawl."""
-    request_id = _get_request_id()
+    request_id = _get_request_id(request)
     start = time.time()
 
     body = request.get_json(silent=True) or {}
@@ -120,10 +114,10 @@ def fetch_author():
     return json.dumps(result), 200
 
 
-@app.route("/fetch_authors", methods=["POST"])
-def fetch_authors():
+@functions_framework.http
+def fetch_authors(request):
     """User-triggered: enqueue multiple authors for crawl."""
-    request_id = _get_request_id()
+    request_id = _get_request_id(request)
     start = time.time()
 
     body = request.get_json(silent=True) or {}
@@ -144,9 +138,3 @@ def fetch_authors():
     elapsed = time.time() - start
     logger.info("[%s] Fetch authors complete: %s (%.1fs)", request_id, result, elapsed)
     return json.dumps(result), 200
-
-
-@app.route("/health", methods=["GET"])
-def health():
-    """Health check endpoint."""
-    return json.dumps({"status": "ok"}), 200
