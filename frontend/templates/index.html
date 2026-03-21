@@ -89,6 +89,14 @@
         document.body.appendChild(overlay);
     }
 
+    // Remove loading overlay when returning to this page via browser back/forward button
+    window.addEventListener('pageshow', function(event) {
+        var overlay = document.getElementById('loadingOverlay');
+        if (overlay) {
+            overlay.remove();
+        }
+    });
+
     const authorInput = document.getElementById("author_name");
     const analyzeBtn = document.getElementById("analyzeAuthorButton");
     const dropdown = document.getElementById("autocomplete-dropdown");
