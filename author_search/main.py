@@ -36,8 +36,10 @@ def v3_search_authors(request):
     if not author_name or len(author_name) < 2:
         return json.dumps([]), 200
 
+    scholar = request.args.get("scholar", "").lower() == "true"
+
     try:
-        results = _get_service().search(author_name)
+        results = _get_service().search(author_name, scholar=scholar)
         return json.dumps(results), 200
     except Exception:
         logger.exception("Search failed for: %s", author_name)

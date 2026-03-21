@@ -12,7 +12,6 @@ class Config:
     CACHE_COLLECTION = "v3_author_search"
 
     # Search tuning
-    LOCAL_RESULTS_THRESHOLD = 5  # Skip Scholar fallback if local returns >= this many
     MAX_SCHOLAR_RESULTS = 10
     CACHE_TTL_HOURS = 24  # Scholar search cache freshness
 

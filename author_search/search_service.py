@@ -1,15 +1,14 @@
 """Author Search Service — Component 6.
 
-Implements the search strategy described in ARCHITECTURE.md:
-0. Search in-memory author name index (instant, no I/O)
-1. Check top-level search cache (fast, avoids BigQuery on repeat queries)
-2. Search crawled authors in BigQuery (fast, free)
-3. Search coauthor network in BigQuery (fast, free)
-4. Check Firestore cache for Scholar results
-5. Fall back to Google Scholar (slow, rate-limited)
+Three search modes:
+1. Typeahead (typeahead=True): In-memory index only — instant, no I/O.
+2. Local search (default): In-memory index + BigQuery crawled + coauthor
+   network. No Scholar. Results cached in Firestore.
+3. Scholar search (scholar=True): Queries Google Scholar (with cache),
+   merges with local results.
 
 Results from all sources are deduplicated by scholar_id and merged.
-The final merged results are cached so repeat queries skip BigQuery entirely.
+Local results are cached so repeat queries skip BigQuery entirely.
 """
 
 import logging
@@ -150,10 +149,13 @@ class AuthorSearchService:
         self.bq = bq_client or BigQuerySearchClient()
         self.cache = cache or SearchCache()
 
-    def search(self, author_name, typeahead=False):
-        """Search for authors by name using the tiered strategy.
+    def search(self, author_name, typeahead=False, scholar=False):
+        """Search for authors by name.
 
-        If typeahead=True, only searches the in-memory index for speed.
+        Modes:
+            typeahead=True:  In-memory index only (instant).
+            scholar=True:    Scholar search merged with local results.
+            Default:         Local search — index + BigQuery crawled + coauthor.
 
         Returns a list of author dicts with keys:
             scholar_id, name, affiliation, email_domain, citedby, hindex, source
@@ -163,18 +165,27 @@ class AuthorSearchService:
 
         name = author_name.strip()
 
-        # Try the in-memory index first (instant)
+        # Always try the in-memory index first (instant)
         _ensure_index_loaded(self.cache)
         index_results = _search_in_memory(name)
-        if index_results is not None and len(index_results) >= Config.LOCAL_RESULTS_THRESHOLD:
-            return index_results
         if typeahead:
             return index_results or []
 
-        # Step 0: Check top-level search results cache
+        # Local search: index + BigQuery
+        local_results = self._search_local(name, index_results)
+
+        if not scholar:
+            return local_results
+
+        # Scholar search: merge Scholar results with local
+        return self._search_scholar(name, local_results)
+
+    def _search_local(self, name, index_results):
+        """Search local sources: in-memory index + BigQuery crawled + coauthor network."""
+        # Check local results cache first
         cached_results = self.cache.get_search_results(name)
         if cached_results is not None:
-            logger.info("Search '%s': cache hit (%d results)", name, len(cached_results))
+            logger.info("Search '%s': local cache hit (%d results)", name, len(cached_results))
             return cached_results
 
         seen_ids = set()
@@ -188,7 +199,7 @@ class AuthorSearchService:
                     seen_ids.add(sid)
                     results.append(author)
 
-        # Step 1: Search crawled authors
+        # Search crawled authors in BigQuery
         crawled = self.bq.search_crawled_authors(name)
         for author in crawled:
             sid = author.get("scholar_id")
@@ -197,12 +208,7 @@ class AuthorSearchService:
                 author["source"] = "database"
                 results.append(author)
 
-        if len(results) >= Config.LOCAL_RESULTS_THRESHOLD:
-            logger.info("Search '%s': %d results from crawled authors", name, len(results))
-            self.cache.set_search_results(name, results)
-            return results
-
-        # Step 2: Search coauthor network
+        # Search coauthor network in BigQuery
         coauthors = self.bq.search_coauthor_network(name)
         for author in coauthors:
             sid = author.get("scholar_id")
@@ -211,12 +217,16 @@ class AuthorSearchService:
                 author["source"] = "coauthor_network"
                 results.append(author)
 
-        if len(results) >= Config.LOCAL_RESULTS_THRESHOLD:
-            logger.info("Search '%s': %d results (crawled + coauthor)", name, len(results))
-            self.cache.set_search_results(name, results)
-            return results
+        logger.info("Search '%s': %d local results", name, len(results))
+        self.cache.set_search_results(name, results)
+        return results
 
-        # Step 3: Check Firestore cache for Scholar results
+    def _search_scholar(self, name, local_results):
+        """Search Google Scholar and merge with local results."""
+        seen_ids = {r.get("scholar_id") for r in local_results if r.get("scholar_id")}
+        results = list(local_results)
+
+        # Check Firestore cache for previous Scholar results
         cached = self.cache.get(name)
         if cached is not None:
             for author in cached:
@@ -226,10 +236,9 @@ class AuthorSearchService:
                     author["source"] = "scholar_cached"
                     results.append(author)
             logger.info("Search '%s': %d results (local + cached scholar)", name, len(results))
-            self.cache.set_search_results(name, results)
             return results
 
-        # Step 4: Fall back to Google Scholar
+        # Live Scholar search
         scholar_results = scholar_client.search_scholar(name)
         if scholar_results:
             self.cache.set(name, scholar_results)
@@ -240,6 +249,5 @@ class AuthorSearchService:
                     author["source"] = "scholar"
                     results.append(author)
 
-        logger.info("Search '%s': %d total results (all sources)", name, len(results))
-        self.cache.set_search_results(name, results)
+        logger.info("Search '%s': %d results (local + scholar)", name, len(results))
         return results

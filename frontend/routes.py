@@ -367,7 +367,8 @@ def register_routes(app):
         if not author_name or len(author_name) < 2:
             return jsonify([])
         typeahead = request.args.get("typeahead", "").lower() == "true"
-        results = search_svc.search(author_name, typeahead=typeahead)
+        scholar = request.args.get("scholar", "").lower() == "true"
+        results = search_svc.search(author_name, typeahead=typeahead, scholar=scholar)
         return jsonify(results)
 
     @app.route("/api/refresh_author_index")
