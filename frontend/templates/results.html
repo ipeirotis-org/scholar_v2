@@ -13,7 +13,7 @@
                 <li><strong>Google Scholar ID:</strong> {{ author_id }}</li>
                 {% if last_updated %}
                 <li>
-                    <strong>Last Modified:</strong> {{ last_updated.strftime('%Y-%m-%d %H:%M') }}
+                    <strong>Last Fetched from Google Scholar:</strong> {{ last_updated.strftime('%Y-%m-%d %H:%M') }}
                     (<a href="javascript:void(0);" id="refreshButton"
                         data-author-id="{{ author_id }}"
                         role="button" aria-label="Refresh author data">Refresh</a>)
