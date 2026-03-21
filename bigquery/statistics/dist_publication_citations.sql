@@ -15,12 +15,7 @@ SELECT DISTINCT
   pub_year,
   num_citations,
   PERCENT_RANK() OVER(PARTITION BY pub_year ORDER BY num_citations ASC) AS num_citations_percentile
-FROM (
-  SELECT
-    CAST(JSON_EXTRACT_SCALAR(data, '$.data.bib.pub_year') AS INT64) AS pub_year,
-    CAST(JSON_EXTRACT_SCALAR(data, '$.data.num_citations') AS INT64) AS num_citations
-  FROM `scholar-version2.scholar_raw_data.pub_latest_table`
-)
+FROM `scholar-version2.scholar_raw_data.pub_latest_table`
 WHERE pub_year > 1950
   AND pub_year <= EXTRACT(YEAR FROM CURRENT_DATE())
   AND num_citations > 0;

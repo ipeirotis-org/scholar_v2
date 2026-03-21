@@ -17,22 +17,22 @@ CLUSTER BY year_of_first_pub, metric_name
 AS
 WITH
   AuthorPubs AS (
-    -- Explode publication list from author JSON (same logic as base_author_publications)
+    -- Explode publication list from author table (same logic as base_author_publications)
     SELECT
-      JSON_EXTRACT_SCALAR(DATA, '$.data.scholar_id') AS scholar_id,
+      scholar_id,
       JSON_EXTRACT_SCALAR(pub, '$.author_pub_id') AS author_pub_id,
       CAST(JSON_EXTRACT_SCALAR(pub, '$.bib.pub_year') AS INT64) AS pub_year
     FROM `scholar-version2.scholar_raw_data.author_latest_table`,
-         UNNEST(JSON_EXTRACT_ARRAY(DATA, '$.data.publications')) AS pub
+         UNNEST(publications) AS pub
     WHERE JSON_EXTRACT_SCALAR(pub, '$.author_pub_id') IS NOT NULL
-      AND JSON_EXTRACT_SCALAR(DATA, '$.data.scholar_id') IS NOT NULL
+      AND scholar_id IS NOT NULL
       AND CAST(JSON_EXTRACT_SCALAR(pub, '$.bib.pub_year') AS INT64) IS NOT NULL
   ),
   PubCitations AS (
     -- Citation counts per publication (for filtering cited vs uncited pubs)
     SELECT
-      JSON_EXTRACT_SCALAR(data, '$.data.author_pub_id') AS author_pub_id,
-      CAST(JSON_EXTRACT_SCALAR(data, '$.data.num_citations') AS INT64) AS num_citations
+      author_pub_id,
+      num_citations
     FROM `scholar-version2.scholar_raw_data.pub_latest_table`
   ),
   AuthorPubCounts AS (
@@ -49,15 +49,15 @@ WITH
   ),
   ScholarData AS (
     SELECT
-      JSON_EXTRACT_SCALAR(DATA, '$.data.scholar_id') AS scholar_id,
-      CAST(JSON_EXTRACT_SCALAR(DATA, '$.data.hindex') AS INT64) AS hindex,
-      CAST(JSON_EXTRACT_SCALAR(DATA, '$.data.hindex5y') AS INT64) AS hindex5y,
-      CAST(JSON_EXTRACT_SCALAR(DATA, '$.data.citedby') AS INT64) AS citedby,
-      CAST(JSON_EXTRACT_SCALAR(DATA, '$.data.citedby5y') AS INT64) AS citedby5y,
-      CAST(JSON_EXTRACT_SCALAR(DATA, '$.data.i10index') AS INT64) AS i10index,
-      CAST(JSON_EXTRACT_SCALAR(DATA, '$.data.i10index5y') AS INT64) AS i10index5y
+      scholar_id,
+      hindex,
+      hindex5y,
+      citedby,
+      citedby5y,
+      i10index,
+      i10index5y
     FROM `scholar-version2.scholar_raw_data.author_latest_table`
-    WHERE JSON_EXTRACT_SCALAR(DATA, '$.data.scholar_id') IS NOT NULL
+    WHERE scholar_id IS NOT NULL
   ),
   CombinedData AS (
     -- Combine author metrics with publication counts and first-pub year

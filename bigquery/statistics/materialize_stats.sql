@@ -28,7 +28,7 @@ DROP MATERIALIZED VIEW IF EXISTS `scholar-version2.statistics.stats_author_metri
 -- ── Distribution tables (Tier 2) ───────────────────────────────────────────
 
 -- Step 1: Publication citation percentile distribution.
--- Reads raw publication data, computes PERCENT_RANK by pub_year, stores distinct
+-- Reads parsed publication data, computes PERCENT_RANK by pub_year, stores distinct
 -- (pub_year, num_citations) → percentile pairs. Enables fast per-publication
 -- percentile lookups in ranked_publication_current without live PERCENT_RANK.
 CREATE OR REPLACE TABLE `scholar-version2.statistics.dist_publication_citations`
@@ -38,19 +38,14 @@ AS SELECT * FROM (
     pub_year,
     num_citations,
     PERCENT_RANK() OVER(PARTITION BY pub_year ORDER BY num_citations ASC) AS num_citations_percentile
-  FROM (
-    SELECT
-      CAST(JSON_EXTRACT_SCALAR(data, '$.data.bib.pub_year') AS INT64) AS pub_year,
-      CAST(JSON_EXTRACT_SCALAR(data, '$.data.num_citations') AS INT64) AS num_citations
-    FROM `scholar-version2.scholar_raw_data.pub_latest_table`
-  )
+  FROM `scholar-version2.scholar_raw_data.pub_latest_table`
   WHERE pub_year > 1950
     AND pub_year <= EXTRACT(YEAR FROM CURRENT_DATE())
     AND num_citations > 0
 );
 
 -- Step 2: Author metric percentile distributions.
--- Reads raw author + publication data, computes PERCENT_RANK for all 8 metrics
+-- Reads parsed author + publication data, computes PERCENT_RANK for all 8 metrics
 -- partitioned by year_of_first_pub cohort. Stored in normalized
 -- (year_of_first_pub, metric_name, metric_value, percentile) format.
 -- Includes total_publications_with_citations so stats_author_publication_pip_inputs_current
@@ -61,19 +56,19 @@ AS SELECT * FROM (
   WITH
     AuthorPubs AS (
       SELECT
-        JSON_EXTRACT_SCALAR(DATA, '$.data.scholar_id') AS scholar_id,
+        scholar_id,
         JSON_EXTRACT_SCALAR(pub, '$.author_pub_id') AS author_pub_id,
         CAST(JSON_EXTRACT_SCALAR(pub, '$.bib.pub_year') AS INT64) AS pub_year
       FROM `scholar-version2.scholar_raw_data.author_latest_table`,
-           UNNEST(JSON_EXTRACT_ARRAY(DATA, '$.data.publications')) AS pub
+           UNNEST(publications) AS pub
       WHERE JSON_EXTRACT_SCALAR(pub, '$.author_pub_id') IS NOT NULL
-        AND JSON_EXTRACT_SCALAR(DATA, '$.data.scholar_id') IS NOT NULL
+        AND scholar_id IS NOT NULL
         AND CAST(JSON_EXTRACT_SCALAR(pub, '$.bib.pub_year') AS INT64) IS NOT NULL
     ),
     PubCitations AS (
       SELECT
-        JSON_EXTRACT_SCALAR(data, '$.data.author_pub_id') AS author_pub_id,
-        CAST(JSON_EXTRACT_SCALAR(data, '$.data.num_citations') AS INT64) AS num_citations
+        author_pub_id,
+        num_citations
       FROM `scholar-version2.scholar_raw_data.pub_latest_table`
     ),
     AuthorPubCounts AS (
@@ -89,15 +84,10 @@ AS SELECT * FROM (
     ),
     ScholarData AS (
       SELECT
-        JSON_EXTRACT_SCALAR(DATA, '$.data.scholar_id') AS scholar_id,
-        CAST(JSON_EXTRACT_SCALAR(DATA, '$.data.hindex') AS INT64) AS hindex,
-        CAST(JSON_EXTRACT_SCALAR(DATA, '$.data.hindex5y') AS INT64) AS hindex5y,
-        CAST(JSON_EXTRACT_SCALAR(DATA, '$.data.citedby') AS INT64) AS citedby,
-        CAST(JSON_EXTRACT_SCALAR(DATA, '$.data.citedby5y') AS INT64) AS citedby5y,
-        CAST(JSON_EXTRACT_SCALAR(DATA, '$.data.i10index') AS INT64) AS i10index,
-        CAST(JSON_EXTRACT_SCALAR(DATA, '$.data.i10index5y') AS INT64) AS i10index5y
+        scholar_id,
+        hindex, hindex5y, citedby, citedby5y, i10index, i10index5y
       FROM `scholar-version2.scholar_raw_data.author_latest_table`
-      WHERE JSON_EXTRACT_SCALAR(DATA, '$.data.scholar_id') IS NOT NULL
+      WHERE scholar_id IS NOT NULL
     ),
     CombinedData AS (
       SELECT

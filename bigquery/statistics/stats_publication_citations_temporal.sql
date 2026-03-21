@@ -6,11 +6,11 @@ CREATE OR REPLACE VIEW `scholar-version2.statistics.stats_publication_citations_
 WITH
   ExtractedData AS (
     SELECT
-      SPLIT(JSON_EXTRACT_SCALAR(DATA, '$.data.author_pub_id'), ':')[SAFE_OFFSET(0)] AS scholar_id,
-      JSON_EXTRACT_SCALAR(DATA, '$.data.author_pub_id') AS author_pub_id,
-      CAST(JSON_EXTRACT_SCALAR(DATA, '$.data.bib.pub_year') AS INT64) AS pub_year,
-      CAST(JSON_EXTRACT_SCALAR(DATA, '$.data.num_citations') AS INT64) AS total_citations,
-      JSON_QUERY(DATA, '$.data.cites_per_year') AS cites_per_year
+      scholar_id,
+      author_pub_id,
+      pub_year,
+      num_citations AS total_citations,
+      cites_per_year
     FROM `scholar-version2.scholar_raw_data.pub_latest_table`
   ),
   ExplodedData AS (

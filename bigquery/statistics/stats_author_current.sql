@@ -7,19 +7,19 @@ CREATE OR REPLACE VIEW `scholar-version2.statistics.stats_author_current` AS
 WITH
   ScholarData AS (
     SELECT
-      JSON_EXTRACT_SCALAR(DATA, '$.data.scholar_id') AS scholar_id,
-      JSON_EXTRACT_SCALAR(DATA, '$.data.name') AS name,
-      JSON_EXTRACT_SCALAR(DATA, '$.data.affiliation') AS affiliation,
-      JSON_EXTRACT_SCALAR(DATA, '$.data.email_domain') AS email_domain,
-      CAST(JSON_EXTRACT_SCALAR(DATA, '$.data.hindex') AS INT64) AS hindex,
-      CAST(JSON_EXTRACT_SCALAR(DATA, '$.data.hindex5y') AS INT64) AS hindex5y,
-      CAST(JSON_EXTRACT_SCALAR(DATA, '$.data.citedby') AS INT64) AS citedby,
-      CAST(JSON_EXTRACT_SCALAR(DATA, '$.data.citedby5y') AS INT64) AS citedby5y,
-      CAST(JSON_EXTRACT_SCALAR(DATA, '$.data.i10index') AS INT64) AS i10index,
-      CAST(JSON_EXTRACT_SCALAR(DATA, '$.data.i10index5y') AS INT64) AS i10index5y,
+      scholar_id,
+      name,
+      affiliation,
+      email_domain,
+      hindex,
+      hindex5y,
+      citedby,
+      citedby5y,
+      i10index,
+      i10index5y,
       timestamp
     FROM `scholar-version2.scholar_raw_data.author_latest_table`
-    WHERE JSON_EXTRACT_SCALAR(DATA, '$.data.scholar_id') IS NOT NULL
+    WHERE scholar_id IS NOT NULL
   ),
   AuthorPubsData AS (
     SELECT scholar_id, author_pub_id, pub_year
