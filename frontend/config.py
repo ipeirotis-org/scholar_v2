@@ -1,7 +1,22 @@
 """Frontend configuration with environment variable overrides."""
 
 import os
+import random
 import secrets
+
+
+# Same region list used by crawler and refresh services
+AVAILABLE_FUNCTION_REGIONS = [
+    "us-central1",
+    "us-east1",
+    "us-east4",
+    "us-east5",
+    "us-west1",
+    "us-west2",
+    "us-west3",
+    "us-west4",
+    "us-south1",
+]
 
 
 class Config:
@@ -33,10 +48,12 @@ class Config:
     QUEUE_NAME_CRAWL_PRIORITY = os.environ.get("QUEUE_NAME_CRAWL_PRIORITY", "process-authors-priority")
 
     # Crawler function URL (for enqueueing crawl tasks)
+    # This is the base/fallback URL; get_rotating_crawl_url() rotates regions.
     CRAWL_FUNCTION_URL = os.environ.get(
         "CRAWL_FUNCTION_URL",
         "https://us-central1-scholar-version2.cloudfunctions.net/v3_fetch_author",
     )
+    CRAWL_FUNCTION_NAME = os.environ.get("CRAWL_FUNCTION_NAME", "v3_fetch_author")
 
     # Cache Layer service (Component 7)
     CACHE_LAYER_URL = os.environ.get("CACHE_LAYER_URL", "")
@@ -53,6 +70,21 @@ class Config:
 
     # CSV export
     ALL_AUTHORS_CSV_BLOB = "all_authors_stats.csv"
+
+    @classmethod
+    def get_rotating_crawl_url(cls):
+        """Return a crawl function URL using a random region.
+
+        Distributes priority crawl tasks across all 9 regions to avoid
+        rate-limiting from Google Scholar on any single IP/region.
+        """
+        if not cls.CRAWL_FUNCTION_URL:
+            return ""
+        region = random.choice(AVAILABLE_FUNCTION_REGIONS)
+        return (
+            f"https://{region}-{cls.PROJECT_ID}"
+            f".cloudfunctions.net/{cls.CRAWL_FUNCTION_NAME}"
+        )
 
     @classmethod
     def bq_view(cls, view_name):

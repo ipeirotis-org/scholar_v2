@@ -56,20 +56,27 @@ jobs:
           echo "cache-priority queue already exists"
         fi
 
-    - name: Create process-authors-priority queue (if not exists)
+    - name: Create or update process-authors-priority queue
       run: |
         if ! gcloud tasks queues describe process-authors-priority \
             --location=${{ env.QUEUE_LOCATION }} > /dev/null 2>&1; then
           gcloud tasks queues create process-authors-priority \
             --location=${{ env.QUEUE_LOCATION }} \
-            --max-dispatches-per-second=50 \
-            --max-concurrent-dispatches=10 \
-            --max-attempts=3 \
-            --min-backoff=10s \
-            --max-backoff=60s
+            --max-dispatches-per-second=5 \
+            --max-concurrent-dispatches=5 \
+            --max-attempts=10 \
+            --min-backoff=30s \
+            --max-backoff=300s
           echo "Created process-authors-priority queue"
         else
-          echo "process-authors-priority queue already exists"
+          gcloud tasks queues update process-authors-priority \
+            --location=${{ env.QUEUE_LOCATION }} \
+            --max-dispatches-per-second=5 \
+            --max-concurrent-dispatches=5 \
+            --max-attempts=10 \
+            --min-backoff=30s \
+            --max-backoff=300s
+          echo "Updated process-authors-priority queue"
         fi
 
     - name: Create cache-batch queue (if not exists)

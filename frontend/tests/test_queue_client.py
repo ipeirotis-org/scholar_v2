@@ -1,9 +1,17 @@
 """Tests for frontend queue_client module."""
 
 from unittest import mock
+from urllib.error import HTTPError
+
+from google.api_core.exceptions import AlreadyExists
 
 from frontend.config import Config
-from frontend.queue_client import enqueue_cache_populate
+from frontend.queue_client import (
+    _direct_crawl_call,
+    _enqueue_author_crawl_task,
+    enqueue_author_crawl,
+    enqueue_cache_populate,
+)
 
 
 class TestEnqueueCachePopulate:
@@ -43,3 +51,129 @@ class TestEnqueueCachePopulate:
             "populate_author_profile", {"scholar_id": "abc123"},
         )
         assert result is False
+
+
+class TestDirectCrawlCall:
+    @mock.patch("frontend.queue_client.urllib.request.urlopen")
+    def test_success(self, mock_urlopen):
+        mock_resp = mock.MagicMock()
+        mock_resp.status = 200
+        mock_resp.__enter__ = mock.MagicMock(return_value=mock_resp)
+        mock_resp.__exit__ = mock.MagicMock(return_value=False)
+        mock_urlopen.return_value = mock_resp
+
+        result = _direct_crawl_call("abc123", "https://func.example.com/v3_fetch_author")
+        assert result is True
+
+    @mock.patch("frontend.queue_client.urllib.request.urlopen")
+    def test_http_error_returns_false(self, mock_urlopen):
+        mock_urlopen.side_effect = HTTPError(
+            "https://func.example.com", 429, "Too Many Requests", {}, None,
+        )
+        result = _direct_crawl_call("abc123", "https://func.example.com/v3_fetch_author")
+        assert result is False
+
+    @mock.patch("frontend.queue_client.urllib.request.urlopen")
+    def test_timeout_returns_true(self, mock_urlopen):
+        """Timeout means the function may still be running — return True."""
+        mock_urlopen.side_effect = TimeoutError("timed out")
+        result = _direct_crawl_call("abc123", "https://func.example.com/v3_fetch_author")
+        assert result is True
+
+
+class TestEnqueueAuthorCrawlTask:
+    @mock.patch("frontend.queue_client._get_client")
+    def test_enqueues_task_with_time_bucket(self, mock_get_client):
+        mock_client = mock.MagicMock()
+        mock_get_client.return_value = mock_client
+
+        result = _enqueue_author_crawl_task(
+            "abc123", "https://us-east1-scholar-version2.cloudfunctions.net/v3_fetch_author",
+        )
+
+        assert result is True
+        mock_client.create_task.assert_called_once()
+        task = mock_client.create_task.call_args[1]["task"]
+        assert "abc123-" in task["name"]
+        assert task["http_request"]["url"].endswith("/v3_fetch_author")
+
+    @mock.patch("frontend.queue_client._get_client")
+    def test_already_exists_returns_true(self, mock_get_client):
+        mock_client = mock.MagicMock()
+        mock_client.create_task.side_effect = AlreadyExists("task exists")
+        mock_get_client.return_value = mock_client
+
+        result = _enqueue_author_crawl_task("abc123", "https://func.example.com/v3")
+        assert result is True
+
+    @mock.patch("frontend.queue_client._get_client")
+    def test_handles_failure(self, mock_get_client):
+        mock_client = mock.MagicMock()
+        mock_client.create_task.side_effect = Exception("Network error")
+        mock_get_client.return_value = mock_client
+
+        result = _enqueue_author_crawl_task("abc123", "https://func.example.com/v3")
+        assert result is False
+
+    @mock.patch("frontend.queue_client.time")
+    @mock.patch("frontend.queue_client._get_client")
+    def test_time_bucket_changes_every_10_min(self, mock_get_client, mock_time):
+        mock_client = mock.MagicMock()
+        mock_get_client.return_value = mock_client
+
+        mock_time.time.return_value = 1000000.0
+        _enqueue_author_crawl_task("abc123", "https://func.example.com/v3")
+        name1 = mock_client.create_task.call_args[1]["task"]["name"]
+
+        mock_client.reset_mock()
+
+        # 10 min later — different bucket
+        mock_time.time.return_value = 1000600.0
+        _enqueue_author_crawl_task("abc123", "https://func.example.com/v3")
+        name2 = mock_client.create_task.call_args[1]["task"]["name"]
+        assert name1 != name2
+
+        mock_client.reset_mock()
+
+        # 100s after first — same bucket
+        mock_time.time.return_value = 1000100.0
+        _enqueue_author_crawl_task("abc123", "https://func.example.com/v3")
+        name3 = mock_client.create_task.call_args[1]["task"]["name"]
+        assert name1 == name3
+
+
+class TestEnqueueAuthorCrawl:
+    @mock.patch.object(Config, "CRAWL_FUNCTION_URL", "")
+    def test_skips_when_no_url(self):
+        result = enqueue_author_crawl("abc123")
+        assert result is False
+
+    @mock.patch("frontend.queue_client._direct_crawl_call", return_value=True)
+    @mock.patch.object(Config, "CRAWL_FUNCTION_URL", "https://func.example.com/v3_fetch_author")
+    def test_direct_call_success_skips_cloud_tasks(self, mock_direct):
+        result = enqueue_author_crawl("abc123")
+        assert result is True
+        mock_direct.assert_called_once()
+
+    @mock.patch("frontend.queue_client._enqueue_author_crawl_task", return_value=True)
+    @mock.patch("frontend.queue_client._direct_crawl_call", return_value=False)
+    @mock.patch.object(Config, "CRAWL_FUNCTION_URL", "https://func.example.com/v3_fetch_author")
+    def test_falls_back_to_cloud_tasks(self, mock_direct, mock_enqueue):
+        result = enqueue_author_crawl("abc123")
+        assert result is True
+        mock_direct.assert_called_once()
+        mock_enqueue.assert_called_once()
+
+    @mock.patch("frontend.queue_client._enqueue_author_crawl_task", return_value=False)
+    @mock.patch("frontend.queue_client._direct_crawl_call", return_value=False)
+    @mock.patch.object(Config, "CRAWL_FUNCTION_URL", "https://func.example.com/v3_fetch_author")
+    def test_both_fail_returns_false(self, mock_direct, mock_enqueue):
+        result = enqueue_author_crawl("abc123")
+        assert result is False
+
+    @mock.patch("frontend.queue_client._direct_crawl_call", return_value=True)
+    @mock.patch.object(Config, "CRAWL_FUNCTION_URL", "https://func.example.com/v3_fetch_author")
+    def test_uses_rotating_region(self, mock_direct):
+        enqueue_author_crawl("abc123")
+        crawl_url = mock_direct.call_args[0][1]
+        assert "scholar-version2.cloudfunctions.net/v3_fetch_author" in crawl_url
