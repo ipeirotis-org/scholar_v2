@@ -149,31 +149,36 @@ class TestEnqueueAuthorCrawl:
         assert result is False
 
     @mock.patch("frontend.queue_client._direct_crawl_call", return_value=True)
-    @mock.patch.object(Config, "CRAWL_FUNCTION_URL", "https://func.example.com/v3_fetch_author")
-    def test_direct_call_success_skips_cloud_tasks(self, mock_direct):
-        result = enqueue_author_crawl("abc123")
-        assert result is True
-        mock_direct.assert_called_once()
-
     @mock.patch("frontend.queue_client._enqueue_author_crawl_task", return_value=True)
-    @mock.patch("frontend.queue_client._direct_crawl_call", return_value=False)
     @mock.patch.object(Config, "CRAWL_FUNCTION_URL", "https://func.example.com/v3_fetch_author")
-    def test_falls_back_to_cloud_tasks(self, mock_direct, mock_enqueue):
+    def test_always_enqueues_to_cloud_tasks(self, mock_enqueue, mock_direct):
+        """Cloud Tasks is always used for reliable delivery, even when direct call succeeds."""
         result = enqueue_author_crawl("abc123")
         assert result is True
-        mock_direct.assert_called_once()
         mock_enqueue.assert_called_once()
+        mock_direct.assert_called_once()
 
-    @mock.patch("frontend.queue_client._enqueue_author_crawl_task", return_value=False)
     @mock.patch("frontend.queue_client._direct_crawl_call", return_value=False)
+    @mock.patch("frontend.queue_client._enqueue_author_crawl_task", return_value=True)
     @mock.patch.object(Config, "CRAWL_FUNCTION_URL", "https://func.example.com/v3_fetch_author")
-    def test_both_fail_returns_false(self, mock_direct, mock_enqueue):
+    def test_enqueues_even_when_direct_call_fails(self, mock_enqueue, mock_direct):
+        result = enqueue_author_crawl("abc123")
+        assert result is True
+        mock_enqueue.assert_called_once()
+        mock_direct.assert_called_once()
+
+    @mock.patch("frontend.queue_client._direct_crawl_call", return_value=True)
+    @mock.patch("frontend.queue_client._enqueue_author_crawl_task", return_value=False)
+    @mock.patch.object(Config, "CRAWL_FUNCTION_URL", "https://func.example.com/v3_fetch_author")
+    def test_returns_false_when_enqueue_fails(self, mock_enqueue, mock_direct):
+        """Result depends on Cloud Tasks enqueue, not the direct call."""
         result = enqueue_author_crawl("abc123")
         assert result is False
 
     @mock.patch("frontend.queue_client._direct_crawl_call", return_value=True)
+    @mock.patch("frontend.queue_client._enqueue_author_crawl_task", return_value=True)
     @mock.patch.object(Config, "CRAWL_FUNCTION_URL", "https://func.example.com/v3_fetch_author")
-    def test_uses_rotating_region(self, mock_direct):
+    def test_uses_rotating_region(self, mock_enqueue, mock_direct):
         enqueue_author_crawl("abc123")
         crawl_url = mock_direct.call_args[0][1]
         assert "scholar-version2.cloudfunctions.net/v3_fetch_author" in crawl_url

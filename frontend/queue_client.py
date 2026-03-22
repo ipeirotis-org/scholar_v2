@@ -118,29 +118,29 @@ def _direct_crawl_call(scholar_id, crawl_url, timeout=5):
 
 
 def enqueue_author_crawl(scholar_id):
-    """Trigger an author crawl via direct HTTP call with Cloud Tasks fallback.
+    """Trigger an author crawl via Cloud Tasks, with a direct HTTP call for speed.
 
-    For user-initiated fetches, tries a direct HTTP call first (faster and
-    bypasses Cloud Tasks dispatch delays). Falls back to Cloud Tasks if the
-    direct call fails.
+    Always enqueues to Cloud Tasks for reliable delivery. Also attempts a
+    direct HTTP call for faster processing (bypasses Cloud Tasks dispatch
+    delays). The crawler handles deduplication, so both paths are safe.
 
     Uses a rotating region URL to distribute load across Cloud Function
     regions and avoid rate-limiting from any single region.
 
-    Returns True if triggered or enqueued, False on failure.
+    Returns True if enqueued (or direct call succeeded), False on failure.
     """
     crawl_url = Config.get_rotating_crawl_url()
     if not crawl_url:
         logger.warning("CRAWL_FUNCTION_URL not configured, cannot enqueue crawl task")
         return False
 
-    # Try direct HTTP call first (fastest path)
-    if _direct_crawl_call(scholar_id, crawl_url):
-        return True
+    # Always enqueue to Cloud Tasks for reliable delivery
+    enqueued = _enqueue_author_crawl_task(scholar_id, crawl_url)
 
-    # Fallback: enqueue via Cloud Tasks with time-bucketed name
-    logger.info("Falling back to Cloud Tasks for: %s", scholar_id)
-    return _enqueue_author_crawl_task(scholar_id, crawl_url)
+    # Also try direct HTTP call for faster processing (best-effort)
+    _direct_crawl_call(scholar_id, crawl_url)
+
+    return enqueued
 
 
 def _enqueue_author_crawl_task(scholar_id, crawl_url):
