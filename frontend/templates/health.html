@@ -60,6 +60,95 @@
         </div>
     </div>
 
+    <!-- Recently Fetched / Recently Analyzed Authors -->
+    <div class="row">
+        <div class="col-md-6 mb-4">
+            <div class="card">
+                <div class="card-header bg-violet text-white">
+                    <strong>Recently Fetched Authors</strong>
+                </div>
+                <div class="card-body">
+                    {% if data.recent_fetched_authors %}
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Scholar ID</th>
+                                <th>Name</th>
+                                <th>Affiliation</th>
+                                <th>When</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for author in data.recent_fetched_authors %}
+                            <tr>
+                                <td>
+                                    <a href="{{ url_for('results', author_id=author.scholar_id) }}">
+                                        <code>{{ author.scholar_id }}</code>
+                                    </a>
+                                </td>
+                                <td><small>{{ author.name or '-' }}</small></td>
+                                <td><small>{{ author.affiliation or '-' }}</small></td>
+                                <td><small>{{ author.timestamp[:19] if author.timestamp else '-' }}</small></td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    {% else %}
+                    <p class="text-muted">No data available.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6 mb-4">
+            <div class="card">
+                <div class="card-header bg-violet text-white">
+                    <strong>Recently Analyzed Authors</strong>
+                </div>
+                <div class="card-body">
+                    {% if data.recent_analyzed_authors %}
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Scholar ID</th>
+                                <th>Name</th>
+                                <th>PiP-AUC</th>
+                                <th>When</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for author in data.recent_analyzed_authors %}
+                            <tr>
+                                <td>
+                                    <a href="{{ url_for('results', author_id=author.scholar_id) }}">
+                                        <code>{{ author.scholar_id }}</code>
+                                    </a>
+                                </td>
+                                <td><small>{{ author.name or '-' }}</small></td>
+                                <td>
+                                    {% if author.pip_auc_score is not none %}
+                                    <small>{{ "%.4f"|format(author.pip_auc_score) }}
+                                    {% if author.pip_auc_percentile is not none %}
+                                    <span class="text-muted">({{ "%.1f"|format(author.pip_auc_percentile * 100) }}%ile)</span>
+                                    {% endif %}
+                                    </small>
+                                    {% else %}
+                                    <small class="text-muted">-</small>
+                                    {% endif %}
+                                </td>
+                                <td><small>{{ author.last_updated[:19] if author.last_updated else '-' }}</small></td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    {% else %}
+                    <p class="text-muted">No data available.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Data Age Distribution -->
     <div class="row">
         <div class="col-12 mb-4">
