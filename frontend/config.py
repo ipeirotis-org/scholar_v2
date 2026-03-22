@@ -19,6 +19,13 @@ AVAILABLE_FUNCTION_REGIONS = [
 ]
 
 
+# Cloud Function names to monitor on the health dashboard
+CLOUD_FUNCTION_NAMES = [
+    "v3_fetch_author",
+    "v3_fetch_publication",
+]
+
+
 class Config:
     PROJECT_ID = os.environ.get("GCP_PROJECT_ID", "scholar-version2")
     BUCKET_NAME = os.environ.get("GCS_BUCKET", "scholar_data_share")

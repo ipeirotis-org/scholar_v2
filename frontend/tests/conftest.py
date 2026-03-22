@@ -23,6 +23,10 @@ for mod_name in [
     "google.cloud.firestore_v1.base_query",
     "google.cloud.storage",
     "google.cloud.tasks_v2",
+    "google.cloud.monitoring_v3",
+    "google.cloud.logging",
+    "google.protobuf",
+    "google.protobuf.duration_pb2",
     "google.api_core",
     "google.api_core.exceptions",
     "scholarly",
@@ -34,6 +38,15 @@ for mod_name in [
     "matplotlib.figure",
 ]:
     sys.modules.setdefault(mod_name, mock.MagicMock())
+
+# Wire up google.protobuf to the google namespace mock
+_google_mock.protobuf = sys.modules["google.protobuf"]
+
+# Wire up google.cloud.monitoring_v3 to the google.cloud namespace mock
+_google_cloud_mock.monitoring_v3 = sys.modules["google.cloud.monitoring_v3"]
+
+# Wire up google.cloud.logging to the google.cloud namespace mock
+_google_cloud_mock.logging = sys.modules["google.cloud.logging"]
 
 # Make ScalarQueryParameter a real class (used by author_search)
 sys.modules["google.cloud.bigquery"].ScalarQueryParameter = type(
