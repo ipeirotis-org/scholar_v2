@@ -44,6 +44,12 @@ sys.modules["google.cloud.bigquery"].ScalarQueryParameter = type(
 sys.modules["google.cloud.tasks_v2"].HttpMethod = mock.MagicMock()
 sys.modules["google.cloud.tasks_v2"].HttpMethod.POST = 1
 
+# Make AlreadyExists a real exception class so except clauses work
+class _AlreadyExists(Exception):
+    pass
+
+sys.modules["google.api_core.exceptions"].AlreadyExists = _AlreadyExists
+
 import pytest
 
 from frontend.app import create_app

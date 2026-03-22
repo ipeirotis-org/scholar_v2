@@ -21,12 +21,22 @@ class Config:
     CACHE_AUTHOR_TEMPORAL = "v3_author_temporal"
     CACHE_AUTHOR_FRESHNESS = "v3_author_freshness"
 
-    # Refresh & Expand service (Component 5)
-    REFRESH_SERVICE_URL = os.environ.get("REFRESH_SERVICE_URL", "")
+    # Refresh Cloud Functions base URL
+    REFRESH_FUNCTIONS_BASE = os.environ.get(
+        "REFRESH_FUNCTIONS_BASE",
+        "https://us-central1-scholar-version2.cloudfunctions.net",
+    )
 
     # Cloud Tasks
     QUEUE_LOCATION = os.environ.get("QUEUE_LOCATION", "northamerica-northeast1")
     QUEUE_NAME_CACHE_PRIORITY = os.environ.get("QUEUE_NAME_CACHE_PRIORITY", "cache-priority")
+    QUEUE_NAME_CRAWL_PRIORITY = os.environ.get("QUEUE_NAME_CRAWL_PRIORITY", "process-authors-priority")
+
+    # Crawler function URL (for enqueueing crawl tasks)
+    CRAWL_FUNCTION_URL = os.environ.get(
+        "CRAWL_FUNCTION_URL",
+        "https://us-central1-scholar-version2.cloudfunctions.net/v3_fetch_author",
+    )
 
     # Cache Layer service (Component 7)
     CACHE_LAYER_URL = os.environ.get("CACHE_LAYER_URL", "")

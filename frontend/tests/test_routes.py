@@ -35,7 +35,8 @@ class TestResultsRoute:
         from frontend.app import create_app
 
         with mock.patch("frontend.routes.FirestoreCache") as cache_cls, \
-             mock.patch("frontend.routes.enqueue_cache_populate") as mock_enqueue:
+             mock.patch("frontend.routes.enqueue_cache_populate") as mock_enqueue, \
+             mock.patch("frontend.routes.enqueue_author_crawl") as mock_crawl:
             cache_instance = cache_cls.return_value
             cache_instance.get.return_value = None  # Everything is a cache miss
 
@@ -45,6 +46,7 @@ class TestResultsRoute:
             assert response.status_code == 200
             assert b"processing" in response.data.lower() or b"fetched" in response.data.lower()
             mock_enqueue.assert_called()
+            mock_crawl.assert_called_once_with("abc123def456")
 
 
 class TestInputValidation:
