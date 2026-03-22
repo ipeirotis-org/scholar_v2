@@ -17,6 +17,8 @@ class TestHealthDashboardRoute:
                 "timestamp": "2025-01-15T12:00:00+00:00",
                 "authors": None,
                 "publications": None,
+                "recent_fetched_authors": [],
+                "recent_analyzed_authors": [],
                 "fetch_histogram": [],
                 "age_distribution": [],
                 "error_authors": [],
@@ -61,6 +63,26 @@ class TestHealthDashboardRoute:
                 {"bucket": "< 1 day", "count": 50},
                 {"bucket": "1-7 days", "count": 300},
                 {"bucket": "30-90 days", "count": 5000},
+            ],
+            "recent_fetched_authors": [
+                {
+                    "scholar_id": "xyz789",
+                    "name": "Jane Doe",
+                    "affiliation": "MIT",
+                    "timestamp": "2025-01-15T11:30:00+00:00",
+                },
+            ],
+            "recent_analyzed_authors": [
+                {
+                    "scholar_id": "abc456",
+                    "name": "John Smith",
+                    "affiliation": "Stanford",
+                    "hindex": 25,
+                    "citedby": 3000,
+                    "pip_auc_score": 0.6543,
+                    "pip_auc_percentile": 0.75,
+                    "last_updated": "2025-01-15T10:00:00+00:00",
+                },
             ],
             "error_authors": [
                 {
@@ -130,6 +152,13 @@ class TestHealthDashboardRoute:
             assert b"process-authors" in response.data
             assert b"RUNNING" in response.data
             assert b"abc123def456" in response.data
+            # Recently fetched/analyzed authors
+            assert b"Recently Fetched Authors" in response.data
+            assert b"Recently Analyzed Authors" in response.data
+            assert b"xyz789" in response.data
+            assert b"Jane Doe" in response.data
+            assert b"abc456" in response.data
+            assert b"0.6543" in response.data
             # Cloud Function execution data
             assert b"fetch_author" in response.data
             assert b"fetch_publication" in response.data
@@ -147,6 +176,8 @@ class TestHealthDashboardRoute:
                 "timestamp": "2025-01-15T12:00:00+00:00",
                 "authors": None,
                 "publications": None,
+                "recent_fetched_authors": [],
+                "recent_analyzed_authors": [],
                 "fetch_histogram": [],
                 "age_distribution": [],
                 "error_authors": [],
@@ -309,6 +340,70 @@ class TestHealthService:
         assert "error_authors" in result
         assert "function_executions" in result
         assert "function_errors" in result
+        assert "recent_fetched_authors" in result
+        assert "recent_analyzed_authors" in result
+
+    def test_get_recent_fetched_authors_success(self):
+        from frontend.health_service import HealthService
+
+        mock_row = mock.MagicMock()
+        mock_row.scholar_id = "xyz789"
+        mock_row.name = "Jane Doe"
+        mock_row.affiliation = "MIT"
+        mock_row.timestamp.isoformat.return_value = "2025-01-15T11:30:00"
+
+        mock_bq = mock.MagicMock()
+        mock_bq.query.return_value.result.return_value = [mock_row]
+
+        svc = HealthService(bq_client=mock_bq)
+        result = svc.get_recent_fetched_authors()
+        assert len(result) == 1
+        assert result[0]["scholar_id"] == "xyz789"
+        assert result[0]["name"] == "Jane Doe"
+        assert result[0]["affiliation"] == "MIT"
+
+    def test_get_recent_fetched_authors_handles_error(self):
+        from frontend.health_service import HealthService
+
+        mock_bq = mock.MagicMock()
+        mock_bq.query.side_effect = Exception("BQ error")
+
+        svc = HealthService(bq_client=mock_bq)
+        result = svc.get_recent_fetched_authors()
+        assert result == []
+
+    def test_get_recent_analyzed_authors_success(self):
+        from frontend.health_service import HealthService
+
+        mock_row = mock.MagicMock()
+        mock_row.scholar_id = "abc456"
+        mock_row.name = "John Smith"
+        mock_row.affiliation = "Stanford"
+        mock_row.hindex = 25
+        mock_row.citedby = 3000
+        mock_row.pip_auc_score = 0.6543
+        mock_row.pip_auc_percentile = 0.75
+        mock_row.last_updated.isoformat.return_value = "2025-01-15T10:00:00"
+
+        mock_bq = mock.MagicMock()
+        mock_bq.query.return_value.result.return_value = [mock_row]
+
+        svc = HealthService(bq_client=mock_bq)
+        result = svc.get_recent_analyzed_authors()
+        assert len(result) == 1
+        assert result[0]["scholar_id"] == "abc456"
+        assert result[0]["pip_auc_score"] == 0.6543
+        assert result[0]["pip_auc_percentile"] == 0.75
+
+    def test_get_recent_analyzed_authors_handles_error(self):
+        from frontend.health_service import HealthService
+
+        mock_bq = mock.MagicMock()
+        mock_bq.query.side_effect = Exception("BQ error")
+
+        svc = HealthService(bq_client=mock_bq)
+        result = svc.get_recent_analyzed_authors()
+        assert result == []
 
     def test_get_error_authors_sample(self):
         from frontend.health_service import HealthService

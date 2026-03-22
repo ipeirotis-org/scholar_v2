@@ -195,6 +195,70 @@ class HealthService:
             logger.exception("Failed to query error authors")
         return []
 
+    def get_recent_fetched_authors(self, limit=10):
+        """Return the most recently crawled/fetched authors."""
+        query = f"""
+        SELECT
+            CASE
+              WHEN ENDS_WITH(document_id, '.json')
+              THEN SUBSTR(document_id, 1, LENGTH(document_id) - 5)
+              ELSE document_id
+            END AS scholar_id,
+            JSON_EXTRACT_SCALAR(data, '$.name') AS name,
+            JSON_EXTRACT_SCALAR(data, '$.affiliation') AS affiliation,
+            timestamp
+        FROM {Config.bq_raw('author_latest')}
+        WHERE JSON_EXTRACT_SCALAR(data, '$.error') IS NULL
+        ORDER BY timestamp DESC
+        LIMIT {int(limit)}
+        """
+        try:
+            return [
+                {
+                    "scholar_id": row.scholar_id,
+                    "name": row.name,
+                    "affiliation": row.affiliation,
+                    "timestamp": row.timestamp.isoformat() if row.timestamp else None,
+                }
+                for row in self.bq.query(query).result()
+            ]
+        except Exception:
+            logger.exception("Failed to query recent fetched authors")
+        return []
+
+    def get_recent_analyzed_authors(self, limit=10):
+        """Return the most recently analyzed authors with PiP-AUC scores."""
+        query = f"""
+        SELECT S.scholar_id, S.name, S.affiliation,
+               S.hindex, S.citedby,
+               ROUND(MAX(P.pip_auc_score), 4) AS pip_auc_score,
+               ROUND(MAX(P.pip_auc_score_percentile), 4) AS pip_auc_percentile,
+               S.last_updated
+        FROM {Config.bq_view('ranked_author_current_table')} S
+        LEFT JOIN {Config.bq_view('ranked_author_pip_scores_current_table')} P
+          ON P.scholar_id = S.scholar_id
+        GROUP BY S.scholar_id, S.name, S.affiliation, S.hindex, S.citedby, S.last_updated
+        ORDER BY S.last_updated DESC
+        LIMIT {int(limit)}
+        """
+        try:
+            return [
+                {
+                    "scholar_id": row.scholar_id,
+                    "name": row.name,
+                    "affiliation": row.affiliation,
+                    "hindex": row.hindex,
+                    "citedby": row.citedby,
+                    "pip_auc_score": float(row.pip_auc_score) if row.pip_auc_score is not None else None,
+                    "pip_auc_percentile": float(row.pip_auc_percentile) if row.pip_auc_percentile is not None else None,
+                    "last_updated": row.last_updated.isoformat() if row.last_updated else None,
+                }
+                for row in self.bq.query(query).result()
+            ]
+        except Exception:
+            logger.exception("Failed to query recent analyzed authors")
+        return []
+
     # ------------------------------------------------------------------
     # Cloud Tasks metrics
     # ------------------------------------------------------------------
@@ -395,6 +459,8 @@ class HealthService:
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "authors": self.get_author_stats(),
             "publications": self.get_publication_stats(),
+            "recent_fetched_authors": self.get_recent_fetched_authors(),
+            "recent_analyzed_authors": self.get_recent_analyzed_authors(),
             "fetch_histogram": self.get_fetch_date_histogram(),
             "age_distribution": self.get_fetch_age_distribution(),
             "error_authors": self.get_error_authors_sample(),
