@@ -3,10 +3,15 @@
 Supports two queue types:
 - cache-priority: for cache population tasks on cache miss
 - process-authors-priority: for user-initiated author crawl tasks
+
+For user-initiated crawls, a direct HTTP call is tried first (faster,
+bypasses Cloud Tasks dispatch delays) with Cloud Tasks as fallback.
 """
 
 import json
 import logging
+import time
+import urllib.request
 
 from google.api_core.exceptions import AlreadyExists
 from google.cloud import tasks_v2
@@ -80,21 +85,75 @@ def _sanitize_task_id(raw_id):
     return raw_id.replace(":", "__").replace("/", "___")
 
 
-def enqueue_author_crawl(scholar_id):
-    """Enqueue an author crawl task to the priority crawler queue.
+def _direct_crawl_call(scholar_id, crawl_url, timeout=5):
+    """Fire-and-forget HTTP POST to the crawler function.
 
-    Directly enqueues to process-authors-priority so the crawler Cloud
-    Function picks it up. Used for user-initiated fetches.
-
-    Returns True if enqueued, False if duplicate or on failure.
+    Uses a short timeout so we don't block the frontend request.
+    The crawler function will continue processing after we disconnect.
+    Returns True if the request was accepted (2xx), False otherwise.
     """
-    crawl_url = Config.CRAWL_FUNCTION_URL
+    body = json.dumps({"scholar_id": scholar_id, "priority": True}).encode()
+    req = urllib.request.Request(
+        crawl_url,
+        data=body,
+        headers={"Content-Type": "application/json"},
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            logger.info(
+                "Direct crawl call accepted: %s → %s (status=%d)",
+                scholar_id, crawl_url, resp.status,
+            )
+            return True
+    except urllib.error.HTTPError as exc:
+        logger.warning(
+            "Direct crawl call rejected: %s → %s (status=%d)",
+            scholar_id, crawl_url, exc.code,
+        )
+        return False
+    except Exception:
+        # Timeout or network error — the function may still be processing
+        logger.info("Direct crawl call timed out (may still be processing): %s", scholar_id)
+        return True
+
+
+def enqueue_author_crawl(scholar_id):
+    """Trigger an author crawl via direct HTTP call with Cloud Tasks fallback.
+
+    For user-initiated fetches, tries a direct HTTP call first (faster and
+    bypasses Cloud Tasks dispatch delays). Falls back to Cloud Tasks if the
+    direct call fails.
+
+    Uses a rotating region URL to distribute load across Cloud Function
+    regions and avoid rate-limiting from any single region.
+
+    Returns True if triggered or enqueued, False on failure.
+    """
+    crawl_url = Config.get_rotating_crawl_url()
     if not crawl_url:
         logger.warning("CRAWL_FUNCTION_URL not configured, cannot enqueue crawl task")
         return False
 
+    # Try direct HTTP call first (fastest path)
+    if _direct_crawl_call(scholar_id, crawl_url):
+        return True
+
+    # Fallback: enqueue via Cloud Tasks with time-bucketed name
+    logger.info("Falling back to Cloud Tasks for: %s", scholar_id)
+    return _enqueue_author_crawl_task(scholar_id, crawl_url)
+
+
+def _enqueue_author_crawl_task(scholar_id, crawl_url):
+    """Enqueue an author crawl task to the priority Cloud Tasks queue.
+
+    Task names include a 10-minute time bucket to avoid Cloud Tasks
+    tombstone blocking (completed/failed task names can't be reused
+    for up to 1 hour) while still deduplicating rapid retries.
+    """
     queue_path = _queue_path(Config.QUEUE_NAME_CRAWL_PRIORITY)
-    task_name = f"{queue_path}/tasks/{_sanitize_task_id(scholar_id)}"
+    time_bucket = int(time.time()) // 600
+    task_id = f"{_sanitize_task_id(scholar_id)}-{time_bucket}"
+    task_name = f"{queue_path}/tasks/{task_id}"
 
     task = {
         "name": task_name,
@@ -108,7 +167,7 @@ def enqueue_author_crawl(scholar_id):
 
     try:
         _get_client().create_task(parent=queue_path, task=task)
-        logger.info("Enqueued author crawl task: %s", scholar_id)
+        logger.info("Enqueued author crawl task: %s → %s", scholar_id, crawl_url)
         return True
     except AlreadyExists:
         logger.info("Author crawl task already exists: %s", scholar_id)
