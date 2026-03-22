@@ -202,6 +202,166 @@
         </div>
     </div>
 
+    <!-- Cloud Function Execution Status -->
+    <div class="row">
+        <div class="col-12 mb-4">
+            <div class="card">
+                <div class="card-header bg-violet text-white">
+                    <strong>Cloud Function Execution Status</strong>
+                    <small class="float-right">(data may be delayed by up to 3 minutes)</small>
+                </div>
+                <div class="card-body">
+                    {% if data.function_executions and data.function_executions.totals %}
+                    {% set exec = data.function_executions %}
+                    <h6>Aggregate Execution Counts</h6>
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Function</th>
+                                <th>Window</th>
+                                <th class="text-right">Success</th>
+                                <th class="text-right">Errors</th>
+                                <th class="text-right">Timeouts</th>
+                                <th class="text-right">Total</th>
+                                <th class="text-right">Error Rate</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for fn_name, windows in exec.totals.items() %}
+                            {% for window, counts in windows.items() %}
+                            <tr{% if loop.index == 1 and not loop.first %} class="border-top-2"{% endif %}>
+                                {% if loop.index == 1 %}
+                                <td rowspan="{{ windows|length }}"><code>{{ fn_name|replace("v3_", "") }}</code></td>
+                                {% endif %}
+                                <td>{{ window }}</td>
+                                <td class="text-right text-success">{{ "{:,}".format(counts.ok) }}</td>
+                                <td class="text-right {{ 'text-danger font-weight-bold' if counts.error > 0 else '' }}">{{ "{:,}".format(counts.error) }}</td>
+                                <td class="text-right {{ 'text-warning font-weight-bold' if counts.timeout > 0 else '' }}">{{ "{:,}".format(counts.timeout) }}</td>
+                                <td class="text-right"><strong>{{ "{:,}".format(counts.total) }}</strong></td>
+                                <td class="text-right">
+                                    {% if counts.total > 0 %}
+                                    {% set error_rate = ((counts.error + counts.timeout) / counts.total * 100) %}
+                                    <span class="{{ 'text-success' if error_rate < 1 else ('text-warning font-weight-bold' if error_rate < 5 else 'text-danger font-weight-bold') }}">
+                                        {{ "%.1f"|format(error_rate) }}%
+                                    </span>
+                                    {% else %}
+                                    -
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                            {% endfor %}
+                        </tbody>
+                    </table>
+
+                    {% if data.function_errors %}
+                    {% set has_errors = [] %}
+                    {% for fn_name, windows in data.function_errors.items() %}
+                        {% for window, codes in windows.items() %}
+                            {% if codes %}{% if has_errors.append(1) %}{% endif %}{% endif %}
+                        {% endfor %}
+                    {% endfor %}
+                    {% if has_errors %}
+                    <h6 class="mt-4">Error Type Breakdown</h6>
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Function</th>
+                                <th>Window</th>
+                                <th class="text-right">429 (Rate Limited)</th>
+                                <th class="text-right">500 (Permanent)</th>
+                                <th class="text-right">400 (Bad Input)</th>
+                                <th class="text-right">Other</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for fn_name, windows in data.function_errors.items() %}
+                            {% set fn_has_errors = [] %}
+                            {% for window, codes in windows.items() %}
+                                {% if codes %}{% if fn_has_errors.append(1) %}{% endif %}{% endif %}
+                            {% endfor %}
+                            {% if fn_has_errors %}
+                            {% set fn_windows = [] %}
+                            {% for window, codes in windows.items() %}
+                                {% if codes %}{% if fn_windows.append(window) %}{% endif %}{% endif %}
+                            {% endfor %}
+                            {% for window in ["1h", "3h", "24h"] %}
+                            {% set codes = windows.get(window, {}) %}
+                            {% if codes %}
+                            <tr>
+                                {% if loop.first or fn_windows|length == 1 %}
+                                <td rowspan="{{ fn_windows|length }}"><code>{{ fn_name|replace("v3_", "") }}</code></td>
+                                {% endif %}
+                                <td>{{ window }}</td>
+                                <td class="text-right {{ 'text-danger font-weight-bold' if codes.get(429, 0) > 0 else '' }}">{{ codes.get(429, 0) }}</td>
+                                <td class="text-right {{ 'text-danger font-weight-bold' if codes.get(500, 0) > 0 else '' }}">{{ codes.get(500, 0) }}</td>
+                                <td class="text-right {{ 'text-warning' if codes.get(400, 0) > 0 else '' }}">{{ codes.get(400, 0) }}</td>
+                                {% set other = codes.values()|sum - codes.get(429, 0) - codes.get(500, 0) - codes.get(400, 0) %}
+                                <td class="text-right">{{ other if other > 0 else 0 }}</td>
+                            </tr>
+                            {% endif %}
+                            {% endfor %}
+                            {% endif %}
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    {% endif %}
+                    {% endif %}
+
+                    {% if exec.by_region %}
+                    <h6 class="mt-4">
+                        <a data-toggle="collapse" href="#regionBreakdown" role="button" aria-expanded="false" aria-controls="regionBreakdown">
+                            Per-Region Breakdown (24h) &#9660;
+                        </a>
+                    </h6>
+                    <div class="collapse" id="regionBreakdown">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Region</th>
+                                    {% for fn_name in exec.totals.keys() %}
+                                    <th class="text-center" colspan="2"><code>{{ fn_name|replace("v3_", "") }}</code></th>
+                                    {% endfor %}
+                                </tr>
+                                <tr>
+                                    <th></th>
+                                    {% for fn_name in exec.totals.keys() %}
+                                    <th class="text-right"><small>OK</small></th>
+                                    <th class="text-right"><small>Err+Timeout</small></th>
+                                    {% endfor %}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for region, funcs in exec.by_region.items() %}
+                                <tr>
+                                    <td><code>{{ region }}</code></td>
+                                    {% for fn_name in exec.totals.keys() %}
+                                    {% set rc = funcs.get(fn_name, {"ok": 0, "error": 0, "timeout": 0, "total": 0}) %}
+                                    {% set err_total = rc.error + rc.timeout %}
+                                    {% set err_rate = (err_total / rc.total * 100) if rc.total > 0 else 0 %}
+                                    <td class="text-right text-success">{{ "{:,}".format(rc.ok) }}</td>
+                                    <td class="text-right {{ 'text-danger font-weight-bold' if err_rate > 5 else ('text-warning font-weight-bold' if err_rate > 1 else '') }}">
+                                        {{ "{:,}".format(err_total) }}
+                                        {% if rc.total > 0 and err_total > 0 %}
+                                        <small>({{ "%.0f"|format(err_rate) }}%)</small>
+                                        {% endif %}
+                                    </td>
+                                    {% endfor %}
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% endif %}
+
+                    {% else %}
+                    <p class="text-muted">No function execution data available.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Error Authors -->
     <div class="row">
         <div class="col-12 mb-4">

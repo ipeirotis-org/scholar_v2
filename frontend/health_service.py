@@ -1,11 +1,19 @@
-"""Health dashboard service — queries BigQuery and Cloud Tasks for system metrics."""
+"""Health dashboard service — queries BigQuery, Cloud Tasks, and Cloud Monitoring for system metrics."""
 
 import logging
-from datetime import datetime, timezone
+from collections import defaultdict
+from datetime import datetime, timedelta, timezone
 
-from google.cloud import bigquery, tasks_v2
+from google.cloud import bigquery, monitoring_v3, tasks_v2
+from google.protobuf.duration_pb2 import Duration
 
-from frontend.config import Config
+# google.cloud.logging must be imported via importlib to avoid namespace
+# collisions with the stdlib ``logging`` module in some environments.
+import importlib as _il
+_gcl = _il.import_module("google.cloud.logging")
+LoggingClient = _gcl.Client
+
+from frontend.config import AVAILABLE_FUNCTION_REGIONS, CLOUD_FUNCTION_NAMES, Config
 
 logger = logging.getLogger(__name__)
 
@@ -13,9 +21,12 @@ logger = logging.getLogger(__name__)
 class HealthService:
     """Gathers system health metrics from BigQuery and Cloud Tasks."""
 
-    def __init__(self, bq_client=None, tasks_client=None):
+    def __init__(self, bq_client=None, tasks_client=None,
+                 monitoring_client=None, logging_client=None):
         self._bq = bq_client
         self._tasks = tasks_client
+        self._monitoring = monitoring_client
+        self._logging = logging_client
 
     @property
     def bq(self):
@@ -28,6 +39,18 @@ class HealthService:
         if self._tasks is None:
             self._tasks = tasks_v2.CloudTasksClient()
         return self._tasks
+
+    @property
+    def monitoring_client(self):
+        if self._monitoring is None:
+            self._monitoring = monitoring_v3.MetricServiceClient()
+        return self._monitoring
+
+    @property
+    def logging_client(self):
+        if self._logging is None:
+            self._logging = LoggingClient(project=Config.PROJECT_ID)
+        return self._logging
 
     # ------------------------------------------------------------------
     # BigQuery metrics
@@ -216,6 +239,153 @@ class HealthService:
         return stats
 
     # ------------------------------------------------------------------
+    # Cloud Monitoring metrics (Cloud Functions execution)
+    # ------------------------------------------------------------------
+
+    _TIME_WINDOWS = {"1h": 1, "3h": 3, "24h": 24}
+
+    def get_function_execution_stats(self):
+        """Return execution counts per function, status, and region over 1h/3h/24h.
+
+        Uses the built-in Cloud Functions metric
+        ``cloudfunctions.googleapis.com/function/execution_count``.
+        Returns ``{"totals": {func: {window: {ok,error,timeout,total}}},
+                  "by_region": {region: {func: {ok,error,timeout,total}}}}``.
+        """
+        func_filter = " OR ".join(
+            f'resource.labels.function_name = "{fn}"' for fn in CLOUD_FUNCTION_NAMES
+        )
+        metric_filter = (
+            'metric.type = "cloudfunctions.googleapis.com/function/execution_count"'
+            f" AND ({func_filter})"
+        )
+        project_name = f"projects/{Config.PROJECT_ID}"
+        now = datetime.now(timezone.utc)
+
+        # Per-window totals (aggregate across regions)
+        totals = {fn: {} for fn in CLOUD_FUNCTION_NAMES}
+        # Per-region detail for the 24h window
+        by_region = {}
+
+        try:
+            for window_label, hours in self._TIME_WINDOWS.items():
+                interval = monitoring_v3.TimeInterval(
+                    start_time=now - timedelta(hours=hours),
+                    end_time=now,
+                )
+                # Include region in grouping so we can build per-region data
+                aggregation = monitoring_v3.Aggregation(
+                    alignment_period=Duration(seconds=hours * 3600),
+                    per_series_aligner=monitoring_v3.Aggregation.Aligner.ALIGN_SUM,
+                    cross_series_reducer=monitoring_v3.Aggregation.Reducer.REDUCE_SUM,
+                    group_by_fields=[
+                        "resource.labels.function_name",
+                        "metric.labels.status",
+                        "resource.labels.region",
+                    ],
+                )
+                request = monitoring_v3.ListTimeSeriesRequest(
+                    name=project_name,
+                    filter=metric_filter,
+                    interval=interval,
+                    aggregation=aggregation,
+                    view=monitoring_v3.ListTimeSeriesRequest.TimeSeriesView.FULL,
+                )
+
+                # Accumulate counts
+                window_counts = {fn: defaultdict(int) for fn in CLOUD_FUNCTION_NAMES}
+                region_counts = defaultdict(lambda: {fn: defaultdict(int) for fn in CLOUD_FUNCTION_NAMES})
+
+                for ts in self.monitoring_client.list_time_series(request=request):
+                    fn_name = ts.resource.labels.get("function_name", "")
+                    status = ts.metric.labels.get("status", "unknown")
+                    region = ts.resource.labels.get("region", "unknown")
+                    value = sum(p.value.int64_value for p in ts.points)
+
+                    if fn_name in window_counts:
+                        window_counts[fn_name][status] += value
+                    if window_label == "24h" and fn_name in CLOUD_FUNCTION_NAMES:
+                        region_counts[region][fn_name][status] += value
+
+                for fn_name in CLOUD_FUNCTION_NAMES:
+                    counts = window_counts[fn_name]
+                    ok = counts.get("ok", 0)
+                    error = counts.get("error", 0)
+                    timeout = counts.get("timeout", 0)
+                    totals[fn_name][window_label] = {
+                        "ok": ok,
+                        "error": error,
+                        "timeout": timeout,
+                        "total": ok + error + timeout,
+                    }
+
+                if window_label == "24h":
+                    for region in AVAILABLE_FUNCTION_REGIONS:
+                        by_region[region] = {}
+                        for fn_name in CLOUD_FUNCTION_NAMES:
+                            rc = region_counts[region][fn_name]
+                            ok = rc.get("ok", 0)
+                            error = rc.get("error", 0)
+                            timeout = rc.get("timeout", 0)
+                            by_region[region][fn_name] = {
+                                "ok": ok,
+                                "error": error,
+                                "timeout": timeout,
+                                "total": ok + error + timeout,
+                            }
+
+            return {"totals": totals, "by_region": by_region}
+
+        except Exception:
+            logger.exception("Failed to query function execution stats")
+        return None
+
+    def get_function_error_breakdown(self):
+        """Return HTTP status code breakdown for failed function requests over 1h/3h/24h.
+
+        Queries Cloud Logging for non-200 responses, grouped by function name
+        and HTTP status code (429 = rate-limited, 500 = permanent, 400 = bad input).
+        Returns ``{func: {window: {status_code: count}}}``.
+        """
+        result = {fn: {} for fn in CLOUD_FUNCTION_NAMES}
+        now = datetime.now(timezone.utc)
+
+        try:
+            for window_label, hours in self._TIME_WINDOWS.items():
+                cutoff = now - timedelta(hours=hours)
+                cutoff_str = cutoff.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+                for fn_name in CLOUD_FUNCTION_NAMES:
+                    log_filter = (
+                        f'resource.type="cloud_function"'
+                        f' AND resource.labels.function_name="{fn_name}"'
+                        f' AND httpRequest.status!=200'
+                        f' AND httpRequest.status!=0'
+                        f' AND timestamp>="{cutoff_str}"'
+                    )
+                    status_counts = defaultdict(int)
+                    for entry in self.logging_client.list_entries(
+                        filter_=log_filter,
+                        page_size=1000,
+                    ):
+                        http_req = entry.http_request
+                        if http_req and hasattr(http_req, "status"):
+                            status_counts[http_req.status] += 1
+                        elif hasattr(entry, "payload") and isinstance(entry.payload, dict):
+                            # Fallback: check structured payload
+                            code = entry.payload.get("httpRequest", {}).get("status")
+                            if code:
+                                status_counts[int(code)] += 1
+
+                    result[fn_name][window_label] = dict(status_counts) if status_counts else {}
+
+            return result
+
+        except Exception:
+            logger.exception("Failed to query function error breakdown")
+        return None
+
+    # ------------------------------------------------------------------
     # Aggregated dashboard
     # ------------------------------------------------------------------
 
@@ -229,4 +399,6 @@ class HealthService:
             "age_distribution": self.get_fetch_age_distribution(),
             "error_authors": self.get_error_authors_sample(),
             "queues": self.get_queue_stats(),
+            "function_executions": self.get_function_execution_stats(),
+            "function_errors": self.get_function_error_breakdown(),
         }
