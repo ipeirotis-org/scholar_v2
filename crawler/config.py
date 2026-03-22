@@ -41,6 +41,9 @@ class Config:
     SCHOLARLY_TIMEOUT = int(os.environ.get("SCHOLARLY_TIMEOUT", "300"))
     PUB_ENQUEUE_DELAY = float(os.environ.get("PUB_ENQUEUE_DELAY", "0.1"))
 
+    # Batch load function (for triggering immediate ingestion on priority crawls)
+    BATCH_LOAD_FUNCTION = os.environ.get("BATCH_LOAD_FUNCTION", "v3_batch_load_gcs_to_bq")
+
     @classmethod
     def queue_path(cls, queue_name):
         return f"projects/{cls.PROJECT_ID}/locations/{cls.QUEUE_LOCATION}/queues/{queue_name}"

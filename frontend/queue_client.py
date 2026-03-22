@@ -102,7 +102,7 @@ def enqueue_author_crawl(scholar_id):
             "http_method": tasks_v2.HttpMethod.POST,
             "url": crawl_url,
             "headers": {"Content-Type": "application/json"},
-            "body": json.dumps({"scholar_id": scholar_id}).encode(),
+            "body": json.dumps({"scholar_id": scholar_id, "priority": True}).encode(),
         },
     }
 
