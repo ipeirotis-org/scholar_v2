@@ -139,6 +139,10 @@ def register_routes(app):
             tdf.dropna(subset=["state_year"], inplace=True)
             # Filter out bogus early years (e.g., pub_year=1800 from Scholar data)
             tdf = tdf[tdf["state_year"] > 1950]
+            # Filter to start from author's first year of activity
+            year_of_first_pub = author_stats.get("year_of_first_pub")
+            if year_of_first_pub is not None:
+                tdf = tdf[tdf["state_year"] >= int(year_of_first_pub)]
             if not tdf.empty:
                 temporal_plots["h_index"] = generate_author_h_index_plot(tdf)
                 temporal_plots["total_citations"] = generate_author_total_citations_plot(tdf)
