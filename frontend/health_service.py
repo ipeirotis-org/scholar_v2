@@ -13,7 +13,8 @@ import importlib as _il
 _gcl = _il.import_module("google.cloud.logging")
 LoggingClient = _gcl.Client
 
-from frontend.config import AVAILABLE_FUNCTION_REGIONS, CLOUD_FUNCTION_NAMES, Config
+from frontend.config import Config
+from region_health.config import AVAILABLE_FUNCTION_REGIONS, CLOUD_FUNCTION_NAMES
 
 logger = logging.getLogger(__name__)
 

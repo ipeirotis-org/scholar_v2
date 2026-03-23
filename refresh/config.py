@@ -1,31 +1,9 @@
 """Refresh & Expand configuration with environment variable overrides."""
 
 import os
-from datetime import datetime, timezone
 
-
-AVAILABLE_FUNCTION_REGIONS = [
-    "us-central1",
-    "us-east1",
-    "us-east4",
-    "us-east5",
-    "us-west1",
-    "us-west2",
-    "us-west3",
-    "us-west4",
-    "us-south1",
-]
-
-
-def get_rotating_region(regions=None):
-    """Select a region based on the current UTC day.
-
-    Rotates daily: (hours_since_epoch // 24) % len(regions).
-    """
-    regions = regions or AVAILABLE_FUNCTION_REGIONS
-    now_utc = datetime.now(timezone.utc)
-    total_hours = int(now_utc.timestamp() // 3600)
-    return regions[(total_hours // 24) % len(regions)]
+from region_health.config import AVAILABLE_FUNCTION_REGIONS  # noqa: F401
+from region_health.router import get_rotating_region  # noqa: F401
 
 
 class Config:
@@ -48,8 +26,8 @@ class Config:
         "875626982900-compute@developer.gserviceaccount.com",
     )
 
-    # Region rotation for function URLs
-    FUNCTION_LOCATION = os.environ.get("FUNCTION_LOCATION") or get_rotating_region()
+    # Optional env var override pins to a specific region (e.g. for testing)
+    _FUNCTION_LOCATION_OVERRIDE = os.environ.get("FUNCTION_LOCATION", "")
 
     # Refresh policies
     STALE_THRESHOLD_DAYS = int(os.environ.get("STALE_THRESHOLD_DAYS", "90"))
@@ -71,9 +49,17 @@ class Config:
 
     @classmethod
     def function_url(cls, function_name):
-        """Construct the Cloud Function URL for the current region."""
+        """Construct the Cloud Function URL, dynamically selecting the healthiest region.
+
+        Uses the FUNCTION_LOCATION env var if set, otherwise selects the
+        best region based on health scores (updated per call, not at import time).
+        """
+        location = cls._FUNCTION_LOCATION_OVERRIDE
+        if not location:
+            from region_health.router import select_best_region
+            location = select_best_region()
         return (
-            f"https://{cls.FUNCTION_LOCATION}-{cls.PROJECT_ID}"
+            f"https://{location}-{cls.PROJECT_ID}"
             f".cloudfunctions.net/{function_name}"
         )
 

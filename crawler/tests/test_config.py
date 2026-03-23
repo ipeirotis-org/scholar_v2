@@ -23,6 +23,10 @@ def test_get_rotating_region_custom_list():
     assert region in regions
 
 
+def test_region_list_has_15_regions():
+    assert len(AVAILABLE_FUNCTION_REGIONS) == 15
+
+
 def test_queue_path():
     path = Config.queue_path("my-queue")
     assert path == f"projects/{Config.PROJECT_ID}/locations/{Config.QUEUE_LOCATION}/queues/my-queue"

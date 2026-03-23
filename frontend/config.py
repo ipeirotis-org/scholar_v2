@@ -1,29 +1,10 @@
 """Frontend configuration with environment variable overrides."""
 
 import os
-import random
 import secrets
 
-
-# Same region list used by crawler and refresh services
-AVAILABLE_FUNCTION_REGIONS = [
-    "us-central1",
-    "us-east1",
-    "us-east4",
-    "us-east5",
-    "us-west1",
-    "us-west2",
-    "us-west3",
-    "us-west4",
-    "us-south1",
-]
-
-
-# Cloud Function names to monitor on the health dashboard
-CLOUD_FUNCTION_NAMES = [
-    "v3_fetch_author",
-    "v3_fetch_publication",
-]
+from region_health.config import AVAILABLE_FUNCTION_REGIONS  # noqa: F401
+from region_health.config import CLOUD_FUNCTION_NAMES  # noqa: F401
 
 
 class Config:
@@ -80,14 +61,15 @@ class Config:
 
     @classmethod
     def get_rotating_crawl_url(cls):
-        """Return a crawl function URL using a random region.
+        """Return a crawl function URL using health-weighted region selection.
 
-        Distributes priority crawl tasks across all 9 regions to avoid
-        rate-limiting from Google Scholar on any single IP/region.
+        Distributes priority crawl tasks across all regions, favoring
+        regions with lower error rates to avoid rate-limited regions.
         """
         if not cls.CRAWL_FUNCTION_URL:
             return ""
-        region = random.choice(AVAILABLE_FUNCTION_REGIONS)
+        from region_health.router import select_region
+        region = select_region()
         return (
             f"https://{region}-{cls.PROJECT_ID}"
             f".cloudfunctions.net/{cls.CRAWL_FUNCTION_NAME}"
