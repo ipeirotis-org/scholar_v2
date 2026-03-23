@@ -270,10 +270,11 @@ class TestHealthService:
         mock_queue.state.name = "RUNNING"
         mock_queue.rate_limits.max_dispatches_per_second = 1.0
         mock_queue.rate_limits.max_concurrent_dispatches = 10
-        mock_queue.stats.tasks_count = 42
 
         mock_tasks = mock.MagicMock()
         mock_tasks.get_queue.return_value = mock_queue
+        # Simulate 42 tasks in the queue via list_tasks
+        mock_tasks.list_tasks.return_value = [mock.MagicMock() for _ in range(42)]
 
         svc = HealthService(tasks_client=mock_tasks)
         result = svc.get_queue_stats()
@@ -281,18 +282,37 @@ class TestHealthService:
         assert result["process-authors"]["state"] == "RUNNING"
         assert result["process-authors"]["task_count"] == 42
 
-    def test_get_queue_stats_no_stats(self):
-        """Queue without stats field returns task_count=None."""
+    def test_get_queue_stats_counts_via_list_tasks(self):
+        """Task count is determined by iterating list_tasks."""
         from frontend.health_service import HealthService
 
         mock_queue = mock.MagicMock()
         mock_queue.state.name = "RUNNING"
-        mock_queue.stats = None
         mock_queue.rate_limits.max_dispatches_per_second = 1.0
         mock_queue.rate_limits.max_concurrent_dispatches = 10
 
         mock_tasks = mock.MagicMock()
         mock_tasks.get_queue.return_value = mock_queue
+        mock_tasks.list_tasks.return_value = [mock.MagicMock() for _ in range(100)]
+
+        svc = HealthService(tasks_client=mock_tasks)
+        result = svc.get_queue_stats()
+        assert result["process-authors"]["task_count"] == 100
+        # list_tasks called for each queue
+        assert mock_tasks.list_tasks.call_count == 5
+
+    def test_get_queue_stats_list_tasks_error(self):
+        """If list_tasks fails, task_count is None."""
+        from frontend.health_service import HealthService
+
+        mock_queue = mock.MagicMock()
+        mock_queue.state.name = "RUNNING"
+        mock_queue.rate_limits.max_dispatches_per_second = 1.0
+        mock_queue.rate_limits.max_concurrent_dispatches = 10
+
+        mock_tasks = mock.MagicMock()
+        mock_tasks.get_queue.return_value = mock_queue
+        mock_tasks.list_tasks.side_effect = Exception("list_tasks failed")
 
         svc = HealthService(tasks_client=mock_tasks)
         result = svc.get_queue_stats()

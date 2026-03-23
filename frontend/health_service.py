@@ -282,13 +282,14 @@ class HealthService:
             )
             try:
                 queue = self.tasks_client.get_queue(name=queue_path)
-                # Try to read queue.stats (may not exist in all client library versions)
-                task_count = None
+                # Count tasks via list_tasks (the stats field is not available
+                # in all client library versions)
+                task_count = 0
                 try:
-                    if hasattr(queue, "stats") and queue.stats:
-                        task_count = queue.stats.tasks_count
+                    for _ in self.tasks_client.list_tasks(parent=queue_path):
+                        task_count += 1
                 except Exception:
-                    pass
+                    task_count = None
                 stats[name] = {
                     "state": queue.state.name if hasattr(queue.state, "name") else str(queue.state),
                     "task_count": task_count,

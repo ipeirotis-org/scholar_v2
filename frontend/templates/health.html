@@ -262,7 +262,7 @@
                                 </td>
                                 <td class="text-right">
                                     {% if q.task_count is defined and q.task_count is not none %}
-                                    <strong>{{ "{:,}".format(q.task_count) }}</strong>
+                                    <strong class="{{ 'text-danger' if q.task_count > 1000 else ('text-warning' if q.task_count > 100 else '') }}">{{ "{:,}".format(q.task_count) }}</strong>
                                     {% else %}
                                     -
                                     {% endif %}
