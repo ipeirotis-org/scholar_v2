@@ -37,12 +37,13 @@ WITH
     GROUP BY apd.scholar_id
   ),
   FirstPubYear AS (
-    SELECT apd.scholar_id, MIN(apd.pub_year) AS year_of_first_pub
-    FROM AuthorPubsData apd
-    JOIN `scholar-version2.statistics.stats_publication_current` ps
-      ON apd.author_pub_id = ps.author_pub_id
-    WHERE ps.num_citations > 0
-    GROUP BY apd.scholar_id
+    -- Use the earliest pub_year from the author's publication list.
+    -- Falls back to base_author_publications (embedded in author record)
+    -- even when individual publication records haven't been fetched yet,
+    -- so authors are never left with NULL year_of_first_pub.
+    SELECT scholar_id, MIN(pub_year) AS year_of_first_pub
+    FROM AuthorPubsData
+    GROUP BY scholar_id
   )
 SELECT
   sd.scholar_id,
