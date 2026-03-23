@@ -17,7 +17,7 @@ class TestBlobPaths:
     def test_publication_blob_path_sanitizes_colons(self, mock_config):
         mock_config.gcs_date_prefix.return_value = "2026/03/19"
         path = publication_blob_path("abc123:XyZ789")
-        assert path == "publications_json/2026/03/19/abc123_XyZ789.json"
+        assert path == "publications_json/2026/03/19/abc123__XyZ789.json"
 
     @mock.patch("crawler.gcs_writer.Config")
     def test_publication_blob_path_sanitizes_slashes(self, mock_config):

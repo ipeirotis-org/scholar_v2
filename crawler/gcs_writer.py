@@ -58,5 +58,5 @@ def author_blob_path(scholar_id):
 
 def publication_blob_path(author_pub_id):
     """Return the GCS blob path for a publication JSON file."""
-    sanitized = author_pub_id.replace(":", "_").replace("/", "___")
+    sanitized = author_pub_id.replace(":", "__").replace("/", "___")
     return f"publications_json/{Config.gcs_date_prefix()}/{sanitized}.json"
