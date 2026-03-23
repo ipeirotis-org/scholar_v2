@@ -27,10 +27,12 @@
                         role="button" aria-label="Rebuild author statistics">Rebuild</a>)
                 </li>
                 {% endif %}
+                {% if stats.year_of_first_pub %}
                 <li>
                     <strong>First Year Active:</strong> {{ stats.year_of_first_pub }}
                     ({{ current_year - stats.year_of_first_pub + 1 }} years active)
                 </li>
+                {% endif %}
             </ul>
         </div>
     </section>
@@ -85,8 +87,13 @@
                     <strong>
                         <span class="metrics-explanation" data-toggle="tooltip"
                               title="PiP-AUC combines citation quality with publication productivity into a single 0-to-1 score.">
-                            PiP-AUC Score</span>: {{ stats.pip_auc_score|round(4) }}
-                        ({{ (100 * stats.pip_auc_score_percentile)|round(1) }}% percentile)
+                            PiP-AUC Score</span>:
+                        {% if stats.pip_auc_score is not none %}
+                            {{ stats.pip_auc_score|round(4) }}
+                            ({{ (100 * stats.pip_auc_score_percentile)|round(1) }}% percentile)
+                        {% else %}
+                            <span class="text-muted">Pending (publication data still being processed)</span>
+                        {% endif %}
                     </strong>
                 </li>
             </ul>
