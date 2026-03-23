@@ -23,6 +23,8 @@ class Config:
 
     # Batch load function (for triggering immediate ingestion on priority crawls)
     BATCH_LOAD_FUNCTION = os.environ.get("BATCH_LOAD_FUNCTION", "v3_batch_load_gcs_to_bq")
+    # Batch load is deployed only to us-central1
+    BATCH_LOAD_LOCATION = os.environ.get("BATCH_LOAD_LOCATION", "us-central1")
 
     @classmethod
     def queue_path(cls, queue_name):
@@ -30,10 +32,11 @@ class Config:
 
     @classmethod
     def function_url(cls, function_name):
-        """Construct the Cloud Function URL, dynamically selecting a region.
+        """Construct the Cloud Function URL using the function's own region.
 
-        Uses the FUNCTION_LOCATION env var if set, otherwise selects a
-        region via health-weighted random selection (per call, not at import time).
+        Uses the FUNCTION_LOCATION env var (set per-region at deploy time)
+        so publication tasks target the same region as the author fetch.
+        Falls back to health-weighted random selection for local dev.
         """
         location = cls._FUNCTION_LOCATION_OVERRIDE
         if not location:
@@ -42,6 +45,14 @@ class Config:
         return (
             f"https://{location}-{cls.PROJECT_ID}"
             f".cloudfunctions.net/{function_name}"
+        )
+
+    @classmethod
+    def batch_load_url(cls):
+        """URL for the batch_load function (deployed only to us-central1)."""
+        return (
+            f"https://{cls.BATCH_LOAD_LOCATION}-{cls.PROJECT_ID}"
+            f".cloudfunctions.net/{cls.BATCH_LOAD_FUNCTION}"
         )
 
     @classmethod

@@ -50,6 +50,22 @@ def test_gcs_date_prefix_format():
     assert len(parts[2]) == 2  # day
 
 
+def test_function_url_uses_env_override():
+    """When FUNCTION_LOCATION is set, function_url uses it directly."""
+    Config._FUNCTION_LOCATION_OVERRIDE = "europe-west1"
+    try:
+        url = Config.function_url("fetch_author")
+        assert "europe-west1" in url
+    finally:
+        Config._FUNCTION_LOCATION_OVERRIDE = ""
+
+
+def test_batch_load_url():
+    url = Config.batch_load_url()
+    assert "us-central1" in url
+    assert Config.BATCH_LOAD_FUNCTION in url
+
+
 def test_env_var_overrides():
     with mock.patch.dict(os.environ, {"GCP_PROJECT_ID": "test-project", "GCS_BUCKET": "test-bucket"}):
         # Config reads env vars at class definition time, so we need to reimport
