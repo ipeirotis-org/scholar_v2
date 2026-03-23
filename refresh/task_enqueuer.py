@@ -39,7 +39,7 @@ def enqueue_author(scholar_id):
     client = _get_client()
     queue_path = Config.queue_path()
     task_name = f"{queue_path}/tasks/{_sanitize_task_id(scholar_id)}"
-    url = Config.function_url("fetch_author")
+    url = Config.function_url("v3_fetch_author")
 
     task = {
         "name": task_name,

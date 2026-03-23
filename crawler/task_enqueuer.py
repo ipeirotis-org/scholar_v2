@@ -35,7 +35,7 @@ def enqueue_author(scholar_id):
     client = _get_client()
     queue_path = Config.queue_path(Config.QUEUE_NAME_AUTHORS)
     task_name = f"{queue_path}/tasks/{_sanitize_task_id(scholar_id)}"
-    url = Config.function_url("fetch_author")
+    url = Config.function_url("v3_fetch_author")
 
     task = {
         "name": task_name,
@@ -66,7 +66,7 @@ def enqueue_publication(pub_entry, delay=None):
     author_pub_id = pub_entry.get("author_pub_id", "")
     queue_path = Config.queue_path(Config.QUEUE_NAME_PUBS)
     task_name = f"{queue_path}/tasks/{_sanitize_task_id(author_pub_id)}"
-    url = Config.function_url("fetch_publication")
+    url = Config.function_url("v3_fetch_publication")
 
     task = {
         "name": task_name,
