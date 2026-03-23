@@ -43,7 +43,7 @@ jobs:
 
     # Distribution tables — the ONLY place PERCENT_RANK() runs.
     # Output is small (distinct values only).
-    # Materialized in strict DAG order — see docs/ANALYTICS.md.
+    # Materialized in strict DAG order — see docs/architecture-analytics-details.md.
 
     # ── Step 1: Level 1 (independent — read from raw data only) ────────
     - name: 'Step 1a: dist_publication_citations (Level 1)'

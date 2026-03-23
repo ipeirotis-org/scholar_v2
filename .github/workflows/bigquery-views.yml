@@ -47,7 +47,7 @@ jobs:
     #
     # Views are deployed in strict topological (DAG) order — each view
     # depends only on views/tables deployed at earlier levels.
-    # See docs/ANALYTICS.md for the full dependency DAG.
+    # See docs/architecture-analytics-details.md for the full dependency DAG.
 
     # ── Level 1: Foundation (raw data only) ────────────────────────────
     - name: 'Level 1: base_author_publications'

@@ -117,7 +117,7 @@ scholar_v2/
 
 ## BigQuery Analytics Framework
 
-> Full details: [`docs/ANALYTICS.md`](docs/ANALYTICS.md)
+> Full details: [`docs/architecture-analytics-details.md`](docs/architecture-analytics-details.md)
 
 ### Key design pattern: Stats → Distributions → Ranked (per metric family)
 

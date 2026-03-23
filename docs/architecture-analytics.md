@@ -50,7 +50,7 @@ Tier 3 — Ranked Views (cheap JOINs of Tier 1 + Tier 2):
 
 ## Materialization strategy
 
-> Full details: [ANALYTICS.md](ANALYTICS.md)
+> Full details: [architecture-analytics-details.md](architecture-analytics-details.md)
 
 There are two materialization schedules with different cost profiles:
 
