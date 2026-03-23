@@ -32,11 +32,13 @@ def test_queue_path():
     assert path == f"projects/{Config.PROJECT_ID}/locations/{Config.QUEUE_LOCATION}/queues/my-queue"
 
 
-def test_function_url():
+@mock.patch("region_health.router.select_region", return_value="us-west1")
+def test_function_url(_mock_select):
     url = Config.function_url("fetch_author")
     assert url.startswith("https://")
     assert "fetch_author" in url
     assert Config.PROJECT_ID in url
+    assert "us-west1" in url
 
 
 def test_gcs_date_prefix_format():

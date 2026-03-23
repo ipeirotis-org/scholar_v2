@@ -49,15 +49,17 @@ class Config:
 
     @classmethod
     def function_url(cls, function_name):
-        """Construct the Cloud Function URL, dynamically selecting the healthiest region.
+        """Construct the Cloud Function URL, dynamically selecting a region.
 
-        Uses the FUNCTION_LOCATION env var if set, otherwise selects the
-        best region based on health scores (updated per call, not at import time).
+        Uses the FUNCTION_LOCATION env var if set, otherwise selects a
+        region via health-weighted random selection (per call, not at import time).
+        This distributes batch tasks across multiple healthy regions instead of
+        sending them all to a single "best" region.
         """
         location = cls._FUNCTION_LOCATION_OVERRIDE
         if not location:
-            from region_health.router import select_best_region
-            location = select_best_region()
+            from region_health.router import select_region
+            location = select_region()
         return (
             f"https://{location}-{cls.PROJECT_ID}"
             f".cloudfunctions.net/{function_name}"
