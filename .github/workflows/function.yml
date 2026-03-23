@@ -15,7 +15,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        region: ["us-central1", "us-east1", "us-east4", "us-east5", "us-south1", "us-west1", "us-west2", "us-west3", "us-west4"]
+        region: ["us-central1", "us-east1", "us-east4", "us-east5", "us-south1", "us-west1", "us-west2", "us-west3", "us-west4", "northamerica-northeast1", "northamerica-northeast2", "europe-west1", "europe-west2", "asia-east1", "asia-northeast1"]
         function:
           - name: v3_fetch_author
             entry_point: v3_fetch_author
@@ -44,13 +44,17 @@ jobs:
 
     - name: Prepare source for ${{ matrix.function.name }}
       run: |
-        mkdir -p /tmp/deploy/crawler
+        mkdir -p /tmp/deploy/crawler /tmp/deploy/region_health
         # Copy crawler package
         cp crawler/__init__.py /tmp/deploy/crawler/
         cp crawler/config.py /tmp/deploy/crawler/
         cp crawler/scholarly_client.py /tmp/deploy/crawler/
         cp crawler/gcs_writer.py /tmp/deploy/crawler/
         cp crawler/task_enqueuer.py /tmp/deploy/crawler/
+        # Copy region_health package (config + router only; scorer not needed)
+        cp region_health/__init__.py /tmp/deploy/region_health/
+        cp region_health/config.py /tmp/deploy/region_health/
+        cp region_health/router.py /tmp/deploy/region_health/
         # Copy the entry point as main.py
         cp "${{ matrix.function.source_main }}" /tmp/deploy/main.py
         # Copy requirements
@@ -141,7 +145,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        region: ["us-central1", "us-east1", "us-east4", "us-east5", "us-south1", "us-west1", "us-west2", "us-west3", "us-west4"]
+        region: ["us-central1", "us-east1", "us-east4", "us-east5", "us-south1", "us-west1", "us-west2", "us-west3", "us-west4", "northamerica-northeast1", "northamerica-northeast2", "europe-west1", "europe-west2", "asia-east1", "asia-northeast1"]
 
     steps:
     - name: Checkout code
@@ -227,13 +231,17 @@ jobs:
 
     - name: Prepare source for ${{ matrix.function.name }}
       run: |
-        mkdir -p /tmp/deploy-refresh/refresh
+        mkdir -p /tmp/deploy-refresh/refresh /tmp/deploy-refresh/region_health
         # Copy refresh package
         cp refresh/__init__.py /tmp/deploy-refresh/refresh/
         cp refresh/config.py /tmp/deploy-refresh/refresh/
         cp refresh/bigquery_client.py /tmp/deploy-refresh/refresh/
         cp refresh/task_enqueuer.py /tmp/deploy-refresh/refresh/
         cp refresh/refresh_service.py /tmp/deploy-refresh/refresh/
+        # Copy region_health package (config + router only; scorer not needed)
+        cp region_health/__init__.py /tmp/deploy-refresh/region_health/
+        cp region_health/config.py /tmp/deploy-refresh/region_health/
+        cp region_health/router.py /tmp/deploy-refresh/region_health/
         # Copy entry point as main.py
         cp refresh/main.py /tmp/deploy-refresh/main.py
         # Copy requirements

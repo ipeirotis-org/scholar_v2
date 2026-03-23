@@ -3,6 +3,8 @@
 import os
 from unittest import mock
 
+import pytest
+
 
 class TestConfigDefaults:
     def test_project_id(self):
@@ -65,12 +67,14 @@ class TestConfigHelpers:
             "/queues/my-queue"
         )
 
-    def test_function_url(self):
+    @mock.patch("region_health.router.select_best_region", return_value="us-east1")
+    def test_function_url(self, mock_select):
         from refresh.config import Config
         url = Config.function_url("fetch_author")
         assert url.startswith("https://")
         assert "scholar-version2" in url
         assert url.endswith("/fetch_author")
+        assert "us-east1" in url
 
     def test_bq_raw(self):
         from refresh.config import Config
@@ -85,17 +89,24 @@ class TestConfigHelpers:
 
 class TestGetRotatingRegion:
     def test_returns_valid_region(self):
-        from refresh.config import get_rotating_region, AVAILABLE_FUNCTION_REGIONS
+        from region_health.config import AVAILABLE_FUNCTION_REGIONS
+        from region_health.router import get_rotating_region
         region = get_rotating_region()
         assert region in AVAILABLE_FUNCTION_REGIONS
 
     def test_custom_regions(self):
-        from refresh.config import get_rotating_region
+        from region_health.router import get_rotating_region
         regions = ["region-a", "region-b"]
         region = get_rotating_region(regions)
         assert region in regions
 
     def test_single_region(self):
-        from refresh.config import get_rotating_region
+        from region_health.router import get_rotating_region
         region = get_rotating_region(["only-region"])
         assert region == "only-region"
+
+    def test_re_exported_from_refresh_config(self):
+        """Verify backward compatibility: region functions accessible via refresh.config."""
+        from refresh.config import get_rotating_region, AVAILABLE_FUNCTION_REGIONS
+        assert callable(get_rotating_region)
+        assert len(AVAILABLE_FUNCTION_REGIONS) == 15
