@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 
 def _trigger_batch_load():
     """Fire-and-forget call to the batch_load function for immediate ingestion."""
-    url = Config.function_url(Config.BATCH_LOAD_FUNCTION)
+    url = Config.batch_load_url()
     try:
         req = urllib.request.Request(url, method="GET")
         with urllib.request.urlopen(req, timeout=10) as resp:

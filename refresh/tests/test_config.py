@@ -67,7 +67,7 @@ class TestConfigHelpers:
             "/queues/my-queue"
         )
 
-    @mock.patch("region_health.router.select_best_region", return_value="us-east1")
+    @mock.patch("region_health.router.select_region", return_value="us-east1")
     def test_function_url(self, mock_select):
         from refresh.config import Config
         url = Config.function_url("fetch_author")

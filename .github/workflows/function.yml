@@ -70,6 +70,7 @@ jobs:
           --allow-unauthenticated \
           --memory="${{ matrix.function.memory }}" \
           --timeout="${{ matrix.function.timeout }}" \
+          --set-env-vars "FUNCTION_LOCATION=${{ matrix.region }}" \
           --gen2 \
           --source /tmp/deploy/
 
