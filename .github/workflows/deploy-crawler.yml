@@ -139,7 +139,7 @@ jobs:
           echo "Created push subscription"
         else
           gcloud pubsub subscriptions update crawler-task-deadletter-push \
-            --push-config-endpoint="$DL_URL" \
+            --push-endpoint="$DL_URL" \
             --project=${{ env.PROJECT_ID }}
           echo "Updated push subscription"
         fi
