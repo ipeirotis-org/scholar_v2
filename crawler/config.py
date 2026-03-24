@@ -25,6 +25,7 @@ class Config:
     _FUNCTION_LOCATION_OVERRIDE = os.environ.get("FUNCTION_LOCATION", "")
 
     SCHOLARLY_TIMEOUT = int(os.environ.get("SCHOLARLY_TIMEOUT", "300"))
+    SCRAPER_API_KEY = os.environ.get("SCRAPER_API_KEY", "")
     PUB_ENQUEUE_DELAY = float(os.environ.get("PUB_ENQUEUE_DELAY", "0.1"))
 
     # Batch load function (for triggering immediate ingestion on priority crawls)

@@ -12,6 +12,23 @@ from crawler.config import Config
 logger = logging.getLogger(__name__)
 
 
+def _init_scholarly():
+    """Configure scholarly, using ScraperAPI proxy if a key is available."""
+    from scholarly import scholarly, ProxyGenerator
+
+    api_key = Config.SCRAPER_API_KEY
+    if api_key:
+        pg = ProxyGenerator()
+        pg.ScraperAPI(api_key)
+        scholarly.use_proxy(pg)
+        logger.info("scholarly: using ScraperAPI proxy")
+    else:
+        logger.info("scholarly: no proxy configured")
+
+
+_init_scholarly()
+
+
 class ErrorKind(Enum):
     TRANSIENT = "transient"
     PERMANENT = "permanent"
