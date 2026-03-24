@@ -8,7 +8,6 @@ invocation of Cloud Functions.
 
 import json
 import logging
-from urllib.parse import urlparse
 
 from google.api_core.exceptions import AlreadyExists
 from google.cloud import tasks_v2
@@ -32,6 +31,19 @@ def _sanitize_task_id(raw_id):
     return raw_id.replace(":", "__").replace("/", "___")
 
 
+def _oidc_token(url):
+    """Build an OIDC token dict for the given function URL.
+
+    For Cloud Functions Gen2, the audience must match the function's URL
+    (including path), which is registered as a custom-audience on the
+    underlying Cloud Run service.  Using only the domain results in 401.
+    """
+    return {
+        "service_account_email": Config.CLOUD_TASKS_SA_EMAIL,
+        "audience": url,
+    }
+
+
 def enqueue_author(scholar_id):
     """Enqueue a task to fetch an author from Google Scholar.
 
@@ -43,9 +55,6 @@ def enqueue_author(scholar_id):
     task_name = f"{queue_path}/tasks/{_sanitize_task_id(scholar_id)}"
     url = Config.function_url("v3_fetch_author")
 
-    parsed = urlparse(url)
-    audience = f"{parsed.scheme}://{parsed.netloc}"
-
     task = {
         "name": task_name,
         "http_request": {
@@ -53,10 +62,7 @@ def enqueue_author(scholar_id):
             "url": url,
             "headers": {"Content-Type": "application/json"},
             "body": json.dumps({"scholar_id": scholar_id}).encode(),
-            "oidc_token": {
-                "service_account_email": Config.CLOUD_TASKS_SA_EMAIL,
-                "audience": audience,
-            },
+            "oidc_token": _oidc_token(url),
         },
     }
 
@@ -124,10 +130,7 @@ def enqueue_cache_warm(scholar_id):
                 "type": "warm_author",
                 "scholar_id": scholar_id,
             }).encode(),
-            "oidc_token": {
-                "service_account_email": Config.CLOUD_TASKS_SA_EMAIL,
-                "audience": cache_url.rstrip("/"),
-            },
+            "oidc_token": _oidc_token(cache_url.rstrip("/")),
         },
     }
 

@@ -56,6 +56,8 @@ class TestEnqueueAuthor:
         assert "service_account_email" in oidc
         assert "audience" in oidc
         assert "cloudfunctions.net" in oidc["audience"]
+        # Audience must include the full path (not just domain) for Gen2 functions
+        assert oidc["audience"].endswith("/v3_fetch_author")
 
 
 class TestEnqueueAuthors:
