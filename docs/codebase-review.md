@@ -1,7 +1,8 @@
 # Codebase Review — Scholar Analytics v2
 
 **Date:** 2026-03-24
-**Scope:** Full codebase audit across all 7 components + shared modules + CI/CD + SQL analytics
+**Commit:** 3eedf0dda7666156424cb191fa9be86eb491e734
+**Scope:** Full codebase audit across all runtime components (frontend, cache_layer, crawler, ingestion, refresh, author_search) + shared modules + CI/CD + SQL analytics
 
 ---
 
@@ -209,15 +210,16 @@ Parameter values are not URL-encoded. While current callers pass safe integers, 
 
 ### 4.2 Hardcoded Service Account in Backfill Script
 
-**File:** `scripts/backfill_authors.py:161`
+**File:** `scripts/backfill_authors.py:160-161`
 
 ```python
-"service_account_email": "875626982900-compute@developer.gserviceaccount.com"
+"oidcToken": {
+    "serviceAccountEmail": "875626982900-compute@developer.gserviceaccount.com",
 ```
 
-This is the default Compute Engine service account, not the dedicated `claude-agent@` account. Different permissions may apply.
+The backfill script hardcodes the default Compute Engine service account directly in the REST payload. The same email is also hardcoded as the default for `CLOUD_TASKS_SA_EMAIL` in `crawler/config.py:19-21`, `frontend/config.py:48-50`, and `refresh/config.py:24-26` — though those at least support env var overrides.
 
-**Fix:** Read from config or environment variable.
+**Fix:** Read from config or environment variable in the backfill script, matching the pattern used by other components.
 
 ### 4.3 No CSRF Protection on State-Changing GET Endpoints
 
