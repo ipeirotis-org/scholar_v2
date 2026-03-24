@@ -26,6 +26,7 @@ class TestDispatch:
         svc.bq.get_author_stats.return_value = {"name": "Test"}
         svc.bq.get_author_pub_stats.return_value = []
         svc.bq.get_author_temporal_stats.return_value = []
+        svc.bq.refresh_author_pubs.return_value = 0
         svc.writer.write_batch.return_value = 1
 
         result = svc.dispatch("populate_author_profile", {"scholar_id": "abc123"})
@@ -95,6 +96,7 @@ class TestPopulateAuthorProfile:
         bq.get_author_stats.return_value = {"name": "Test"}
         bq.get_author_pub_stats.return_value = []  # No publications
         bq.get_author_temporal_stats.return_value = []  # No temporal data
+        bq.refresh_author_pubs.return_value = 0  # No raw pubs either
         writer.write.return_value = True
         writer.write_batch.return_value = 1
 
@@ -106,6 +108,31 @@ class TestPopulateAuthorProfile:
 
         writes = writer.write_batch.call_args[0][0]
         assert len(writes) == 1  # Only author_stats
+
+    def test_refreshes_stale_pub_table_and_retries(self):
+        """When pub stats are empty but author exists, refresh pub_latest_table."""
+        bq = mock.MagicMock()
+        writer = mock.MagicMock()
+        svc = CacheService(bq=bq, writer=writer)
+
+        bq.get_author_freshness.return_value = (True, datetime.now(timezone.utc))
+        bq.get_author_stats.return_value = {"name": "Test", "hindex": 10}
+        # First call returns empty, second (after refresh) returns data
+        bq.get_author_pub_stats.side_effect = [
+            [],
+            [{"author_pub_id": "abc:1", "title": "Paper 1"}],
+        ]
+        bq.refresh_author_pubs.return_value = 5
+        bq.get_author_temporal_stats.return_value = []
+        writer.write.return_value = True
+        writer.write_batch.return_value = 2
+
+        result = svc.dispatch("populate_author_profile", {"scholar_id": "abc123"})
+
+        assert result["status"] == "ok"
+        assert result["cached"]["pub_stats"] is True
+        bq.refresh_author_pubs.assert_called_once_with("abc123")
+        assert bq.get_author_pub_stats.call_count == 2
 
 
 class TestPopulatePublicationDetail:
@@ -181,6 +208,7 @@ class TestInvalidateAuthor:
         bq.get_author_stats.return_value = {"name": "Test"}
         bq.get_author_pub_stats.return_value = []
         bq.get_author_temporal_stats.return_value = []
+        bq.refresh_author_pubs.return_value = 0
         writer.write.return_value = True
         writer.write_batch.return_value = 1
 

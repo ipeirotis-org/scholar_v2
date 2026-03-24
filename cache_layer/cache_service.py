@@ -72,6 +72,16 @@ class CacheService:
         # Query all data
         author_stats = self.bq.get_author_stats(scholar_id)
         pub_stats = self.bq.get_author_pub_stats(scholar_id)
+
+        # If no pub stats found, the materialized pub_latest_table may be stale
+        # (publications ingested after the last daily materialization).
+        # Incrementally refresh this author's publications and retry.
+        if not pub_stats and author_stats is not None:
+            rows = self.bq.refresh_author_pubs(scholar_id)
+            if rows > 0:
+                logger.info("Retrying pub stats after refresh for %s", scholar_id)
+                pub_stats = self.bq.get_author_pub_stats(scholar_id)
+
         temporal_stats = self.bq.get_author_temporal_stats(scholar_id)
 
         # Write to cache

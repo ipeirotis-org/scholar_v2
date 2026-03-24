@@ -108,6 +108,77 @@ class BigQueryClient:
             return []
         return df.to_dict("records")
 
+    def refresh_author_pubs(self, scholar_id):
+        """Incrementally refresh pub_latest_table for a specific author.
+
+        When publications are newly ingested but the daily materialization
+        hasn't run yet, pub_latest_table is stale and analytics views return
+        no data. This method updates just the rows for one author by:
+        1. Deleting existing entries for the author
+        2. Inserting fresh deduplicated+parsed entries from the raw pub table
+
+        Returns the number of rows inserted, or -1 on failure.
+        """
+        prefix_colon = f"{scholar_id}:"
+        prefix_underscore = f"{scholar_id}_"
+
+        sql = f"""
+            DELETE FROM {Config.bq_raw('pub_latest_table')}
+            WHERE scholar_id = @scholar_id;
+
+            INSERT INTO {Config.bq_raw('pub_latest_table')}
+            WITH raw_filtered AS (
+                SELECT document_id, timestamp, data,
+                    ROW_NUMBER() OVER (PARTITION BY document_id ORDER BY timestamp DESC) AS rn
+                FROM {Config.bq_raw('pub')}
+                WHERE STARTS_WITH(document_id, @prefix_colon)
+                   OR STARTS_WITH(document_id, @prefix_underscore)
+            ),
+            parsed AS (
+                SELECT
+                    CASE
+                        WHEN ENDS_WITH(document_id, '.json')
+                        THEN SUBSTR(document_id, 1, LENGTH(document_id) - 5)
+                        ELSE document_id
+                    END AS document_id,
+                    timestamp,
+                    JSON_EXTRACT_SCALAR(data, '$.data.author_pub_id') AS author_pub_id,
+                    SPLIT(JSON_EXTRACT_SCALAR(data, '$.data.author_pub_id'), ':')[SAFE_OFFSET(0)] AS scholar_id,
+                    CAST(JSON_EXTRACT_SCALAR(data, '$.data.bib.pub_year') AS INT64) AS pub_year,
+                    JSON_EXTRACT_SCALAR(data, '$.data.bib.title') AS title,
+                    JSON_EXTRACT_SCALAR(data, '$.data.bib.author') AS author,
+                    CAST(JSON_EXTRACT_SCALAR(data, '$.data.num_citations') AS INT64) AS num_citations,
+                    JSON_QUERY(data, '$.data.cites_per_year') AS cites_per_year,
+                    data
+                FROM raw_filtered
+                WHERE rn = 1
+            ),
+            deduped AS (
+                SELECT *,
+                    ROW_NUMBER() OVER (PARTITION BY author_pub_id ORDER BY timestamp DESC) AS rn2
+                FROM parsed
+            )
+            SELECT document_id, timestamp, author_pub_id, scholar_id, pub_year,
+                   title, author, num_citations, cites_per_year, data
+            FROM deduped
+            WHERE rn2 = 1;
+        """
+        params = [
+            ScalarQueryParameter("scholar_id", "STRING", scholar_id),
+            ScalarQueryParameter("prefix_colon", "STRING", prefix_colon),
+            ScalarQueryParameter("prefix_underscore", "STRING", prefix_underscore),
+        ]
+        try:
+            job_config = bigquery.QueryJobConfig(query_parameters=params)
+            job = self.client.query(sql, job_config=job_config)
+            job.result()
+            rows = job.num_dml_affected_rows or 0
+            logger.info("Refreshed pub_latest_table for %s: %d rows", scholar_id, rows)
+            return rows
+        except Exception:
+            logger.exception("Failed to refresh pub_latest_table for %s", scholar_id)
+            return -1
+
     def get_author_freshness(self, scholar_id):
         """Check author existence and get last_updated in a single query.
 
