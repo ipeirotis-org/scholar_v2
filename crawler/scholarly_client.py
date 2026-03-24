@@ -13,17 +13,24 @@ logger = logging.getLogger(__name__)
 
 
 def _init_scholarly():
-    """Configure scholarly, using ScraperAPI proxy if a key is available."""
+    """Configure scholarly, using ScraperAPI proxy if a key is available.
+
+    Failures during proxy setup are caught and logged so a transient error at
+    cold-start does not prevent the Cloud Function from handling requests.
+    """
     from scholarly import scholarly, ProxyGenerator
 
     api_key = Config.SCRAPER_API_KEY
-    if api_key:
+    if not api_key:
+        logger.info("scholarly: no proxy configured")
+        return
+    try:
         pg = ProxyGenerator()
         pg.ScraperAPI(api_key)
         scholarly.use_proxy(pg)
         logger.info("scholarly: using ScraperAPI proxy")
-    else:
-        logger.info("scholarly: no proxy configured")
+    except Exception:
+        logger.exception("scholarly: ScraperAPI proxy setup failed; falling back to no proxy")
 
 
 _init_scholarly()
