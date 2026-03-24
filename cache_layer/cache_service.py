@@ -75,9 +75,12 @@ class CacheService:
 
         # If no pub stats found, the materialized pub_latest_table may be stale
         # (publications ingested after the last daily materialization).
-        # Only attempt refresh if the author actually has raw pub data —
-        # empty pub_stats is valid for authors with no cited publications.
-        if not pub_stats and author_stats is not None and self.bq.author_has_raw_pubs(scholar_id):
+        # Only attempt refresh if the author has raw pub data but is NOT yet
+        # in pub_latest_table. If already materialized, empty pub_stats is a
+        # valid steady state (e.g., uncited publications) and refresh is pointless.
+        if (not pub_stats and author_stats is not None
+                and self.bq.author_has_raw_pubs(scholar_id)
+                and not self.bq.author_pubs_materialized(scholar_id)):
             rows = self.bq.refresh_author_pubs(scholar_id)
             if rows > 0:
                 logger.info("Retrying after refresh for %s", scholar_id)

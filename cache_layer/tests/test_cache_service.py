@@ -126,6 +126,7 @@ class TestPopulateAuthorProfile:
             [],
             [{"author_pub_id": "abc:1", "title": "Paper 1"}],
         ]
+        bq.author_pubs_materialized.return_value = False
         bq.refresh_author_pubs.return_value = 5
         bq.get_author_temporal_stats.return_value = []
         writer.write.return_value = True
@@ -139,6 +140,28 @@ class TestPopulateAuthorProfile:
         assert bq.get_author_pub_stats.call_count == 2
         # Author stats must be re-fetched after pub refresh (PiP depends on pubs)
         assert bq.get_author_stats.call_count == 2
+
+    def test_skips_refresh_when_pubs_already_materialized(self):
+        """When pubs are already in pub_latest_table, empty pub_stats is valid (uncited)."""
+        bq = mock.MagicMock()
+        writer = mock.MagicMock()
+        svc = CacheService(bq=bq, writer=writer)
+
+        bq.get_author_freshness.return_value = (True, datetime.now(timezone.utc))
+        bq.get_author_stats.return_value = {"name": "Test", "hindex": 5}
+        bq.get_author_pub_stats.return_value = []
+        bq.author_has_raw_pubs.return_value = True
+        bq.author_pubs_materialized.return_value = True  # already materialized
+        bq.get_author_temporal_stats.return_value = []
+        writer.write.return_value = True
+        writer.write_batch.return_value = 1
+
+        result = svc.dispatch("populate_author_profile", {"scholar_id": "abc123"})
+
+        assert result["status"] == "ok"
+        assert result["cached"]["pub_stats"] is False  # legitimately empty
+        bq.refresh_author_pubs.assert_not_called()
+        assert bq.get_author_pub_stats.call_count == 1
 
 
 class TestPopulatePublicationDetail:

@@ -124,6 +124,26 @@ class BigQueryClient:
         df = self._query(sql, params)
         return df is not None and not df.empty
 
+    def author_pubs_materialized(self, scholar_id):
+        """Check if the author already has rows in pub_latest_table.
+
+        Returns True if the author's publications are already materialized.
+        When True, empty pub_stats is a valid steady state (e.g., uncited pubs)
+        and refresh would be pointless. When False, materialization is stale
+        and a refresh may produce new data.
+        """
+        sql = f"""
+            SELECT 1
+            FROM {Config.bq_raw('pub_latest_table')}
+            WHERE STARTS_WITH(author_pub_id, @prefix)
+            LIMIT 1
+        """
+        params = [
+            ScalarQueryParameter("prefix", "STRING", f"{scholar_id}:"),
+        ]
+        df = self._query(sql, params)
+        return df is not None and not df.empty
+
     def refresh_author_pubs(self, scholar_id):
         """Incrementally refresh pub_latest_table for a specific author.
 
@@ -145,7 +165,7 @@ class BigQueryClient:
             BEGIN TRANSACTION;
 
             DELETE FROM {Config.bq_raw('pub_latest_table')}
-            WHERE scholar_id = @scholar_id;
+            WHERE STARTS_WITH(author_pub_id, @prefix_colon);
 
             INSERT INTO {Config.bq_raw('pub_latest_table')}
             WITH raw_filtered AS (
@@ -187,7 +207,6 @@ class BigQueryClient:
             COMMIT TRANSACTION;
         """
         params = [
-            ScalarQueryParameter("scholar_id", "STRING", scholar_id),
             ScalarQueryParameter("prefix_colon", "STRING", prefix_colon),
             ScalarQueryParameter("prefix_underscore", "STRING", prefix_underscore),
         ]
