@@ -116,7 +116,11 @@ class TestPopulateAuthorProfile:
         svc = CacheService(bq=bq, writer=writer)
 
         bq.get_author_freshness.return_value = (True, datetime.now(timezone.utc))
-        bq.get_author_stats.return_value = {"name": "Test", "hindex": 10}
+        # First call returns stale stats (no PiP), second returns fresh stats
+        bq.get_author_stats.side_effect = [
+            {"name": "Test", "hindex": 10, "pip_auc_score": None},
+            {"name": "Test", "hindex": 10, "pip_auc_score": 0.65},
+        ]
         # First call returns empty, second (after refresh) returns data
         bq.get_author_pub_stats.side_effect = [
             [],
@@ -133,6 +137,8 @@ class TestPopulateAuthorProfile:
         assert result["cached"]["pub_stats"] is True
         bq.refresh_author_pubs.assert_called_once_with("abc123")
         assert bq.get_author_pub_stats.call_count == 2
+        # Author stats must be re-fetched after pub refresh (PiP depends on pubs)
+        assert bq.get_author_stats.call_count == 2
 
 
 class TestPopulatePublicationDetail:

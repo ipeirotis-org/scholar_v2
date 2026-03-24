@@ -172,7 +172,11 @@ class BigQueryClient:
             job_config = bigquery.QueryJobConfig(query_parameters=params)
             job = self.client.query(sql, job_config=job_config)
             job.result()
-            rows = job.num_dml_affected_rows or 0
+            # For multi-statement scripts, num_dml_affected_rows on the parent
+            # job is unreliable (may be None/0). Sum rows from child jobs instead.
+            rows = 0
+            for child_job in self.client.list_jobs(parent_job=job.job_id):
+                rows += child_job.num_dml_affected_rows or 0
             logger.info("Refreshed pub_latest_table for %s: %d rows", scholar_id, rows)
             return rows
         except Exception:
