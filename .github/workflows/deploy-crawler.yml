@@ -85,6 +85,18 @@ jobs:
           sleep $((attempt * 30))
         done
 
+    - name: Grant Cloud Tasks invoker permission on ${{ matrix.function.name }} (${{ matrix.region }})
+      run: |
+        # Gen2 Cloud Functions use Cloud Run under the hood.  Each deploy may
+        # reset the Cloud Run IAM policy, so we must re-grant run.invoker to
+        # the service account used by Cloud Tasks OIDC tokens.
+        SERVICE_NAME=$(echo "${{ matrix.function.name }}" | tr '_' '-')
+        gcloud run services add-iam-policy-binding "$SERVICE_NAME" \
+          --region="${{ matrix.region }}" \
+          --member="serviceAccount:875626982900-compute@developer.gserviceaccount.com" \
+          --role="roles/run.invoker" \
+          --quiet
+
   deploy-dead-letter-handler:
     runs-on: ubuntu-latest
 

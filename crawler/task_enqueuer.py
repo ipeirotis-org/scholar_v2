@@ -7,8 +7,6 @@ Cloud Functions that require authentication.
 import json
 import logging
 import time
-from urllib.parse import urlparse
-
 from google.api_core.exceptions import AlreadyExists
 from google.cloud import tasks_v2
 
@@ -32,11 +30,15 @@ def _sanitize_task_id(raw_id):
 
 
 def _oidc_token(url):
-    """Build an OIDC token dict for the given function URL."""
-    parsed = urlparse(url)
+    """Build an OIDC token dict for the given function URL.
+
+    For Cloud Functions Gen2, the audience must match the function's URL
+    (including path), which is registered as a custom-audience on the
+    underlying Cloud Run service.  Using only the domain results in 401.
+    """
     return {
         "service_account_email": Config.CLOUD_TASKS_SA_EMAIL,
-        "audience": f"{parsed.scheme}://{parsed.netloc}",
+        "audience": url,
     }
 
 
@@ -86,7 +88,10 @@ def enqueue_publication(pub_entry, delay=None, priority=False):
     author_pub_id = pub_entry.get("author_pub_id", "")
     queue_name = Config.QUEUE_NAME_PUBS_PRIORITY if priority else Config.QUEUE_NAME_PUBS
     queue_path = Config.queue_path(queue_name)
-    task_name = f"{queue_path}/tasks/{_sanitize_task_id(author_pub_id)}"
+    # Include a 10-minute time bucket to avoid Cloud Tasks tombstone blocking:
+    # completed/failed task names can't be reused for ~1 hour.
+    time_bucket = int(time.time()) // 600
+    task_name = f"{queue_path}/tasks/{_sanitize_task_id(author_pub_id)}-{time_bucket}"
     url = Config.function_url("v3_fetch_publication")
 
     body = {"pub": pub_entry}

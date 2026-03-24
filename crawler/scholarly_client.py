@@ -97,11 +97,15 @@ def fetch_publication(pub_data, timeout=None):
     timeout = timeout or 60
 
     def _fetch():
-        from scholarly import scholarly, PublicationSource
+        from scholarly import scholarly
 
         pub = copy.deepcopy(pub_data)
         if "source" not in pub:
-            pub["source"] = PublicationSource.AUTHOR_PUBLICATION_ENTRY
+            try:
+                from scholarly import PublicationSource
+                pub["source"] = PublicationSource.AUTHOR_PUBLICATION_ENTRY
+            except ImportError:
+                pub["source"] = "AUTHOR_PUBLICATION_ENTRY"
         if "container_type" not in pub:
             pub["container_type"] = "Publication"
         return scholarly.fill(pub)
