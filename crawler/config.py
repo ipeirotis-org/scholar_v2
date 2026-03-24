@@ -66,3 +66,4 @@ class Config:
     def gcs_date_prefix(cls):
         now = datetime.now(timezone.utc)
         return now.strftime("%Y/%m/%d")
+
