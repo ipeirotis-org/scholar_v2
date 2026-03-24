@@ -164,6 +164,37 @@ class TestPopulateAuthorProfile:
         assert bq.get_author_pub_stats.call_count == 1
 
 
+    def test_refreshes_stale_pub_table_even_when_pub_stats_nonempty(self):
+        """When pub stats exist but materialization is stale, refresh to pick up new pubs."""
+        bq = mock.MagicMock()
+        writer = mock.MagicMock()
+        svc = CacheService(bq=bq, writer=writer)
+
+        bq.get_author_freshness.return_value = (True, datetime.now(timezone.utc))
+        bq.get_author_stats.side_effect = [
+            {"name": "Test", "hindex": 10, "pip_auc_score": 0.5},
+            {"name": "Test", "hindex": 10, "pip_auc_score": 0.65},
+        ]
+        # First call returns stale subset, second returns full data after refresh
+        bq.get_author_pub_stats.side_effect = [
+            [{"author_pub_id": "abc:1", "title": "Old Paper"}],
+            [{"author_pub_id": "abc:1", "title": "Old Paper"},
+             {"author_pub_id": "abc:2", "title": "New Paper"}],
+        ]
+        bq.author_has_raw_pubs.return_value = True
+        bq.author_pubs_freshly_materialized.return_value = False  # stale
+        bq.refresh_author_pubs.return_value = 5
+        bq.get_author_temporal_stats.return_value = []
+        writer.write.return_value = True
+        writer.write_batch.return_value = 2
+
+        result = svc.dispatch("populate_author_profile", {"scholar_id": "abc123"})
+
+        assert result["status"] == "ok"
+        bq.refresh_author_pubs.assert_called_once_with("abc123")
+        assert bq.get_author_pub_stats.call_count == 2
+        assert bq.get_author_stats.call_count == 2
+
     def test_skips_refresh_when_freshness_check_fails(self):
         """When the materialization freshness query fails, skip refresh to avoid DML on read errors."""
         bq = mock.MagicMock()
