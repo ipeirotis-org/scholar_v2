@@ -126,7 +126,7 @@ class TestPopulateAuthorProfile:
             [],
             [{"author_pub_id": "abc:1", "title": "Paper 1"}],
         ]
-        bq.author_pubs_materialized.return_value = False
+        bq.author_pubs_freshly_materialized.return_value = False
         bq.refresh_author_pubs.return_value = 5
         bq.get_author_temporal_stats.return_value = []
         writer.write.return_value = True
@@ -151,7 +151,7 @@ class TestPopulateAuthorProfile:
         bq.get_author_stats.return_value = {"name": "Test", "hindex": 5}
         bq.get_author_pub_stats.return_value = []
         bq.author_has_raw_pubs.return_value = True
-        bq.author_pubs_materialized.return_value = True  # already materialized
+        bq.author_pubs_freshly_materialized.return_value = True  # freshly materialized
         bq.get_author_temporal_stats.return_value = []
         writer.write.return_value = True
         writer.write_batch.return_value = 1
@@ -160,6 +160,28 @@ class TestPopulateAuthorProfile:
 
         assert result["status"] == "ok"
         assert result["cached"]["pub_stats"] is False  # legitimately empty
+        bq.refresh_author_pubs.assert_not_called()
+        assert bq.get_author_pub_stats.call_count == 1
+
+
+    def test_skips_refresh_when_freshness_check_fails(self):
+        """When the materialization freshness query fails, skip refresh to avoid DML on read errors."""
+        bq = mock.MagicMock()
+        writer = mock.MagicMock()
+        svc = CacheService(bq=bq, writer=writer)
+
+        bq.get_author_freshness.return_value = (True, datetime.now(timezone.utc))
+        bq.get_author_stats.return_value = {"name": "Test", "hindex": 5}
+        bq.get_author_pub_stats.return_value = []
+        bq.author_has_raw_pubs.return_value = True
+        bq.author_pubs_freshly_materialized.return_value = None  # query error
+        bq.get_author_temporal_stats.return_value = []
+        writer.write.return_value = True
+        writer.write_batch.return_value = 1
+
+        result = svc.dispatch("populate_author_profile", {"scholar_id": "abc123"})
+
+        assert result["status"] == "ok"
         bq.refresh_author_pubs.assert_not_called()
         assert bq.get_author_pub_stats.call_count == 1
 

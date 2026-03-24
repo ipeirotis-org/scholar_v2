@@ -124,25 +124,52 @@ class BigQueryClient:
         df = self._query(sql, params)
         return df is not None and not df.empty
 
-    def author_pubs_materialized(self, scholar_id):
-        """Check if the author already has rows in pub_latest_table.
+    def author_pubs_freshly_materialized(self, scholar_id):
+        """Check if the author's materialized pubs are up-to-date with raw data.
 
-        Returns True if the author's publications are already materialized.
-        When True, empty pub_stats is a valid steady state (e.g., uncited pubs)
-        and refresh would be pointless. When False, materialization is stale
-        and a refresh may produce new data.
+        Compares the latest timestamp in pub_latest_table against the latest
+        timestamp in the raw pub table for this author. Returns:
+          - True if materialized rows exist and are at least as fresh as raw data
+          - False if raw data is newer than materialized data (stale) or no
+            materialized rows exist at all
+          - None on query failure (caller should skip refresh to avoid
+            unnecessary DML driven by read errors)
         """
         sql = f"""
-            SELECT 1
-            FROM {Config.bq_raw('pub_latest_table')}
-            WHERE STARTS_WITH(author_pub_id, @prefix)
-            LIMIT 1
+            WITH materialized AS (
+                SELECT MAX(timestamp) AS ts
+                FROM {Config.bq_raw('pub_latest_table')}
+                WHERE STARTS_WITH(author_pub_id, @prefix)
+            ),
+            raw AS (
+                SELECT MAX(timestamp) AS ts
+                FROM {Config.bq_raw('pub')}
+                WHERE STARTS_WITH(document_id, @prefix_colon)
+                   OR STARTS_WITH(document_id, @prefix_underscore)
+            )
+            SELECT
+                materialized.ts AS mat_ts,
+                raw.ts AS raw_ts
+            FROM materialized, raw
         """
         params = [
             ScalarQueryParameter("prefix", "STRING", f"{scholar_id}:"),
+            ScalarQueryParameter("prefix_colon", "STRING", f"{scholar_id}:"),
+            ScalarQueryParameter("prefix_underscore", "STRING", f"{scholar_id}_"),
         ]
         df = self._query(sql, params)
-        return df is not None and not df.empty
+        if df is None:
+            return None  # query error — caller should not trigger refresh
+        if df.empty:
+            return False
+        row = df.iloc[0]
+        mat_ts = row.get("mat_ts")
+        raw_ts = row.get("raw_ts")
+        if mat_ts is None:
+            return False  # no materialized rows
+        if raw_ts is None:
+            return True  # materialized but no raw (shouldn't happen, but safe)
+        return mat_ts >= raw_ts
 
     def refresh_author_pubs(self, scholar_id):
         """Incrementally refresh pub_latest_table for a specific author.
