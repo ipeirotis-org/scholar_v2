@@ -229,13 +229,15 @@ class BigQueryClient:
             SELECT document_id, timestamp, author_pub_id, scholar_id, pub_year,
                    title, author, num_citations, cites_per_year, data
             FROM deduped
-            WHERE rn2 = 1;
+            WHERE rn2 = 1
+              AND scholar_id = @scholar_id;
 
             COMMIT TRANSACTION;
         """
         params = [
             ScalarQueryParameter("prefix_colon", "STRING", prefix_colon),
             ScalarQueryParameter("prefix_underscore", "STRING", prefix_underscore),
+            ScalarQueryParameter("scholar_id", "STRING", scholar_id),
         ]
         try:
             job_config = bigquery.QueryJobConfig(query_parameters=params)
