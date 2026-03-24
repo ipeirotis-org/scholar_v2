@@ -1,8 +1,13 @@
-"""Enqueue author and publication fetch tasks to Cloud Tasks."""
+"""Enqueue author and publication fetch tasks to Cloud Tasks.
+
+All tasks include OIDC tokens for authenticated invocation of
+Cloud Functions that require authentication.
+"""
 
 import json
 import logging
 import time
+from urllib.parse import urlparse
 
 from google.api_core.exceptions import AlreadyExists
 from google.cloud import tasks_v2
@@ -26,6 +31,15 @@ def _sanitize_task_id(raw_id):
     return raw_id.replace(":", "__").replace("/", "___")
 
 
+def _oidc_token(url):
+    """Build an OIDC token dict for the given function URL."""
+    parsed = urlparse(url)
+    return {
+        "service_account_email": Config.CLOUD_TASKS_SA_EMAIL,
+        "audience": f"{parsed.scheme}://{parsed.netloc}",
+    }
+
+
 def enqueue_author(scholar_id):
     """Enqueue a task to fetch an author from Google Scholar.
 
@@ -44,6 +58,7 @@ def enqueue_author(scholar_id):
             "url": url,
             "headers": {"Content-Type": "application/json"},
             "body": json.dumps({"scholar_id": scholar_id}).encode(),
+            "oidc_token": _oidc_token(url),
         },
     }
 
@@ -56,17 +71,27 @@ def enqueue_author(scholar_id):
         return False
 
 
-def enqueue_publication(pub_entry, delay=None):
+def enqueue_publication(pub_entry, delay=None, priority=False):
     """Enqueue a task to fetch a publication from Google Scholar.
+
+    Args:
+        pub_entry: Publication dict with author_pub_id.
+        delay: Not used (kept for API compat); stagger is in enqueue_publications.
+        priority: If True, use priority queue and include priority flag in body.
 
     Returns True if enqueued, False if duplicate.
     Raises on other errors.
     """
     client = _get_client()
     author_pub_id = pub_entry.get("author_pub_id", "")
-    queue_path = Config.queue_path(Config.QUEUE_NAME_PUBS)
+    queue_name = Config.QUEUE_NAME_PUBS_PRIORITY if priority else Config.QUEUE_NAME_PUBS
+    queue_path = Config.queue_path(queue_name)
     task_name = f"{queue_path}/tasks/{_sanitize_task_id(author_pub_id)}"
     url = Config.function_url("v3_fetch_publication")
+
+    body = {"pub": pub_entry}
+    if priority:
+        body["priority"] = True
 
     task = {
         "name": task_name,
@@ -74,25 +99,27 @@ def enqueue_publication(pub_entry, delay=None):
             "http_method": tasks_v2.HttpMethod.POST,
             "url": url,
             "headers": {"Content-Type": "application/json"},
-            "body": json.dumps({"pub": pub_entry}).encode(),
+            "body": json.dumps(body).encode(),
+            "oidc_token": _oidc_token(url),
         },
     }
 
     try:
         client.create_task(parent=queue_path, task=task)
-        logger.info(f"Enqueued publication task: {author_pub_id}")
+        logger.info(f"Enqueued publication task: {author_pub_id} (priority={priority})")
         return True
     except AlreadyExists:
         logger.info(f"Publication task already exists: {author_pub_id}")
         return False
 
 
-def enqueue_publications(publications, delay=None):
+def enqueue_publications(publications, delay=None, priority=False):
     """Enqueue tasks for a list of publications with stagger delay.
 
     Args:
         publications: List of publication dicts (from author.publications).
         delay: Seconds between enqueue calls (default: Config.PUB_ENQUEUE_DELAY).
+        priority: If True, use priority queue and pass priority flag through.
 
     Returns:
         Count of newly enqueued tasks.
@@ -100,9 +127,9 @@ def enqueue_publications(publications, delay=None):
     delay = delay if delay is not None else Config.PUB_ENQUEUE_DELAY
     count = 0
     for pub in publications:
-        if enqueue_publication(pub):
+        if enqueue_publication(pub, priority=priority):
             count += 1
         if delay > 0:
             time.sleep(delay)
-    logger.info(f"Enqueued {count}/{len(publications)} publication tasks")
+    logger.info(f"Enqueued {count}/{len(publications)} publication tasks (priority={priority})")
     return count

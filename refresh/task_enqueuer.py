@@ -2,11 +2,13 @@
 
 This is the only module that writes to Cloud Tasks queues.
 The Refresh & Expand service uses this to instruct the Crawler
-what to fetch.
+what to fetch. All tasks include OIDC tokens for authenticated
+invocation of Cloud Functions.
 """
 
 import json
 import logging
+from urllib.parse import urlparse
 
 from google.api_core.exceptions import AlreadyExists
 from google.cloud import tasks_v2
@@ -41,6 +43,9 @@ def enqueue_author(scholar_id):
     task_name = f"{queue_path}/tasks/{_sanitize_task_id(scholar_id)}"
     url = Config.function_url("v3_fetch_author")
 
+    parsed = urlparse(url)
+    audience = f"{parsed.scheme}://{parsed.netloc}"
+
     task = {
         "name": task_name,
         "http_request": {
@@ -48,6 +53,10 @@ def enqueue_author(scholar_id):
             "url": url,
             "headers": {"Content-Type": "application/json"},
             "body": json.dumps({"scholar_id": scholar_id}).encode(),
+            "oidc_token": {
+                "service_account_email": Config.CLOUD_TASKS_SA_EMAIL,
+                "audience": audience,
+            },
         },
     }
 

@@ -43,6 +43,20 @@ class TestEnqueueAuthor:
         with pytest.raises(RuntimeError, match="network error"):
             enqueue_author("abc123")
 
+    @mock.patch("refresh.task_enqueuer._get_client")
+    def test_includes_oidc_token(self, mock_get_client):
+        client = mock.MagicMock()
+        mock_get_client.return_value = client
+
+        from refresh.task_enqueuer import enqueue_author
+        enqueue_author("abc123")
+
+        task = client.create_task.call_args[1]["task"]
+        oidc = task["http_request"]["oidc_token"]
+        assert "service_account_email" in oidc
+        assert "audience" in oidc
+        assert "cloudfunctions.net" in oidc["audience"]
+
 
 class TestEnqueueAuthors:
     @mock.patch("refresh.task_enqueuer.enqueue_author")

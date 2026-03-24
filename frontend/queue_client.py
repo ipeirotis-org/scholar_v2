@@ -4,14 +4,13 @@ Supports two queue types:
 - cache-priority: for cache population tasks on cache miss
 - process-authors-priority: for user-initiated author crawl tasks
 
-For user-initiated crawls, a direct HTTP call is tried first (faster,
-bypasses Cloud Tasks dispatch delays) with Cloud Tasks as fallback.
+All crawler invocations go through Cloud Tasks queues with OIDC
+authentication. No direct HTTP calls to crawler functions.
 """
 
 import json
 import logging
 import time
-import urllib.request
 
 from google.api_core.exceptions import AlreadyExists
 from google.cloud import tasks_v2
@@ -85,62 +84,21 @@ def _sanitize_task_id(raw_id):
     return raw_id.replace(":", "__").replace("/", "___")
 
 
-def _direct_crawl_call(scholar_id, crawl_url, timeout=5):
-    """Fire-and-forget HTTP POST to the crawler function.
-
-    Uses a short timeout so we don't block the frontend request.
-    The crawler function will continue processing after we disconnect.
-    Returns True if the request was accepted (2xx), False otherwise.
-    """
-    body = json.dumps({"scholar_id": scholar_id, "priority": True}).encode()
-    req = urllib.request.Request(
-        crawl_url,
-        data=body,
-        headers={"Content-Type": "application/json"},
-    )
-    try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
-            logger.info(
-                "Direct crawl call accepted: %s → %s (status=%d)",
-                scholar_id, crawl_url, resp.status,
-            )
-            return True
-    except urllib.error.HTTPError as exc:
-        logger.warning(
-            "Direct crawl call rejected: %s → %s (status=%d)",
-            scholar_id, crawl_url, exc.code,
-        )
-        return False
-    except Exception:
-        # Timeout or network error — the function may still be processing
-        logger.info("Direct crawl call timed out (may still be processing): %s", scholar_id)
-        return True
-
-
 def enqueue_author_crawl(scholar_id):
-    """Trigger an author crawl via Cloud Tasks, with a direct HTTP call for speed.
+    """Trigger an author crawl via Cloud Tasks queue.
 
-    Always enqueues to Cloud Tasks for reliable delivery. Also attempts a
-    direct HTTP call for faster processing (bypasses Cloud Tasks dispatch
-    delays). The crawler handles deduplication, so both paths are safe.
-
+    All crawler invocations go through Cloud Tasks with OIDC authentication.
     Uses a rotating region URL to distribute load across Cloud Function
     regions and avoid rate-limiting from any single region.
 
-    Returns True if enqueued (or direct call succeeded), False on failure.
+    Returns True if enqueued, False on failure.
     """
     crawl_url = Config.get_rotating_crawl_url()
     if not crawl_url:
         logger.warning("CRAWL_FUNCTION_URL not configured, cannot enqueue crawl task")
         return False
 
-    # Always enqueue to Cloud Tasks for reliable delivery
-    enqueued = _enqueue_author_crawl_task(scholar_id, crawl_url)
-
-    # Also try direct HTTP call for faster processing (best-effort)
-    _direct_crawl_call(scholar_id, crawl_url)
-
-    return enqueued
+    return _enqueue_author_crawl_task(scholar_id, crawl_url)
 
 
 def _enqueue_author_crawl_task(scholar_id, crawl_url):
@@ -155,6 +113,11 @@ def _enqueue_author_crawl_task(scholar_id, crawl_url):
     task_id = f"{_sanitize_task_id(scholar_id)}-{time_bucket}"
     task_name = f"{queue_path}/tasks/{task_id}"
 
+    # Extract base URL (scheme + host) for OIDC audience
+    from urllib.parse import urlparse
+    parsed = urlparse(crawl_url)
+    audience = f"{parsed.scheme}://{parsed.netloc}"
+
     task = {
         "name": task_name,
         "http_request": {
@@ -162,6 +125,10 @@ def _enqueue_author_crawl_task(scholar_id, crawl_url):
             "url": crawl_url,
             "headers": {"Content-Type": "application/json"},
             "body": json.dumps({"scholar_id": scholar_id, "priority": True}).encode(),
+            "oidc_token": {
+                "service_account_email": Config.CLOUD_TASKS_SA_EMAIL,
+                "audience": audience,
+            },
         },
     }
 

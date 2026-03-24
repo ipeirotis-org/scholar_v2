@@ -65,8 +65,8 @@ def v3_fetch_author(request):
 
     if not skip_pubs:
         pubs = author.get("publications", [])
-        enqueue_publications(pubs)
-        logger.info(f"[{request_id}] Enqueued {len(pubs)} publication tasks for {scholar_id}")
+        enqueue_publications(pubs, priority=priority)
+        logger.info(f"[{request_id}] Enqueued {len(pubs)} publication tasks for {scholar_id} (priority={priority})")
 
     # For user-initiated crawls, trigger immediate GCS→BigQuery ingestion
     if priority:

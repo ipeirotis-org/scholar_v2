@@ -95,6 +95,111 @@ jobs:
           echo "cache-batch queue already exists"
         fi
 
+    - name: Create or update process-authors queue
+      run: |
+        if ! gcloud tasks queues describe process-authors \
+            --location=${{ env.QUEUE_LOCATION }} > /dev/null 2>&1; then
+          gcloud tasks queues create process-authors \
+            --location=${{ env.QUEUE_LOCATION }} \
+            --max-dispatches-per-second=5 \
+            --max-concurrent-dispatches=5 \
+            --max-attempts=10 \
+            --min-backoff=30s \
+            --max-backoff=300s
+          echo "Created process-authors queue"
+        else
+          gcloud tasks queues update process-authors \
+            --location=${{ env.QUEUE_LOCATION }} \
+            --max-dispatches-per-second=5 \
+            --max-concurrent-dispatches=5 \
+            --max-attempts=10 \
+            --min-backoff=30s \
+            --max-backoff=300s
+          echo "Updated process-authors queue"
+        fi
+
+    - name: Create or update process-pubs queue
+      run: |
+        if ! gcloud tasks queues describe process-pubs \
+            --location=${{ env.QUEUE_LOCATION }} > /dev/null 2>&1; then
+          gcloud tasks queues create process-pubs \
+            --location=${{ env.QUEUE_LOCATION }} \
+            --max-dispatches-per-second=10 \
+            --max-concurrent-dispatches=10 \
+            --max-attempts=10 \
+            --min-backoff=30s \
+            --max-backoff=300s
+          echo "Created process-pubs queue"
+        else
+          gcloud tasks queues update process-pubs \
+            --location=${{ env.QUEUE_LOCATION }} \
+            --max-dispatches-per-second=10 \
+            --max-concurrent-dispatches=10 \
+            --max-attempts=10 \
+            --min-backoff=30s \
+            --max-backoff=300s
+          echo "Updated process-pubs queue"
+        fi
+
+    - name: Create or update process-pub-priority queue
+      run: |
+        if ! gcloud tasks queues describe process-pub-priority \
+            --location=${{ env.QUEUE_LOCATION }} > /dev/null 2>&1; then
+          gcloud tasks queues create process-pub-priority \
+            --location=${{ env.QUEUE_LOCATION }} \
+            --max-dispatches-per-second=10 \
+            --max-concurrent-dispatches=10 \
+            --max-attempts=10 \
+            --min-backoff=30s \
+            --max-backoff=300s
+          echo "Created process-pub-priority queue"
+        else
+          gcloud tasks queues update process-pub-priority \
+            --location=${{ env.QUEUE_LOCATION }} \
+            --max-dispatches-per-second=10 \
+            --max-concurrent-dispatches=10 \
+            --max-attempts=10 \
+            --min-backoff=30s \
+            --max-backoff=300s
+          echo "Updated process-pub-priority queue"
+        fi
+
+    # ── Dead-letter infrastructure for priority queues ──
+    - name: Create dead-letter Pub/Sub topic (if not exists)
+      run: |
+        if ! gcloud pubsub topics describe crawler-task-deadletter \
+            --project=${{ env.GCP_PROJECT_ID }} > /dev/null 2>&1; then
+          gcloud pubsub topics create crawler-task-deadletter \
+            --project=${{ env.GCP_PROJECT_ID }}
+          echo "Created crawler-task-deadletter topic"
+        else
+          echo "crawler-task-deadletter topic already exists"
+        fi
+
+    - name: Configure dead-letter on process-authors-priority queue
+      run: |
+        gcloud tasks queues update process-authors-priority \
+          --location=${{ env.QUEUE_LOCATION }} \
+          --dead-letter-topic=projects/${{ env.GCP_PROJECT_ID }}/topics/crawler-task-deadletter \
+          --dead-letter-task-ttl=0
+        echo "Configured dead-letter on process-authors-priority"
+
+    - name: Configure dead-letter on process-pub-priority queue
+      run: |
+        gcloud tasks queues update process-pub-priority \
+          --location=${{ env.QUEUE_LOCATION }} \
+          --dead-letter-topic=projects/${{ env.GCP_PROJECT_ID }}/topics/crawler-task-deadletter \
+          --dead-letter-task-ttl=0
+        echo "Configured dead-letter on process-pub-priority"
+
+    # NOTE: To set up Cloud Monitoring alerts for dead-lettered tasks:
+    # 1. Create a log-based metric in Cloud Logging:
+    #    Name: task_dead_lettered
+    #    Filter: jsonPayload.event="task_dead_lettered"
+    # 2. Create an alert policy in Cloud Monitoring:
+    #    Condition: metric task_dead_lettered > 0 in any 5-minute window
+    #    Notification: email to project owner
+
   # ── Phase 1: Deploy Cache Layer (no dependencies on other services) ──────
   deploy-cache-layer:
     name: Build and Deploy Cache Layer

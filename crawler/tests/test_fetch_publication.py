@@ -56,3 +56,29 @@ class TestHandleFetchPublication:
         body, status = handle(req)
 
         assert status == 500
+
+    @mock.patch("crawler.fetch_publication._trigger_batch_load")
+    @mock.patch("crawler.fetch_publication.upload_json")
+    @mock.patch("crawler.fetch_publication.publication_blob_path", return_value="pubs/test.json")
+    @mock.patch("crawler.fetch_publication._fetch_publication")
+    def test_priority_triggers_batch_load(self, mock_fetch, mock_path, mock_upload, mock_batch):
+        mock_fetch.return_value = {"author_pub_id": "abc:pub1", "num_citations": 42}
+
+        req = _make_request(json_data={"pub": {"author_pub_id": "abc:pub1"}, "priority": True})
+        body, status = handle(req)
+
+        assert status == 200
+        mock_batch.assert_called_once()
+
+    @mock.patch("crawler.fetch_publication._trigger_batch_load")
+    @mock.patch("crawler.fetch_publication.upload_json")
+    @mock.patch("crawler.fetch_publication.publication_blob_path", return_value="pubs/test.json")
+    @mock.patch("crawler.fetch_publication._fetch_publication")
+    def test_non_priority_does_not_trigger_batch_load(self, mock_fetch, mock_path, mock_upload, mock_batch):
+        mock_fetch.return_value = {"author_pub_id": "abc:pub1", "num_citations": 42}
+
+        req = _make_request(json_data={"pub": {"author_pub_id": "abc:pub1"}})
+        body, status = handle(req)
+
+        assert status == 200
+        mock_batch.assert_not_called()
