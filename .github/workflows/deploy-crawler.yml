@@ -77,6 +77,7 @@ jobs:
             --memory="${{ matrix.function.memory }}" \
             --timeout="${{ matrix.function.timeout }}" \
             --set-env-vars "FUNCTION_LOCATION=${{ matrix.region }}" \
+            --set-secrets "SCRAPER_API_KEY=scraper-api-key:latest" \
             --gen2 \
             --source /tmp/deploy/ \
           && break
