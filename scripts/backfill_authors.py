@@ -140,11 +140,14 @@ def enqueue_authors(authors, spread_regions=False, batch_size=100):
             total_hours = int(now_utc.timestamp() // 3600)
             region = REGIONS[(total_hours // 24) % len(REGIONS)]
 
-        function_url = f"https://{region}-{PROJECT_ID}.cloudfunctions.net/fetch_author"
+        function_url = f"https://{region}-{PROJECT_ID}.cloudfunctions.net/v3_fetch_author"
         task_name = f"{queue_path}/tasks/backfill-{backfill_id}-{sanitize_task_id(scholar_id)}"
 
         body_bytes = json.dumps({"scholar_id": scholar_id}).encode()
         body_b64 = base64.b64encode(body_bytes).decode()
+
+        # OIDC audience is the base URL (scheme + host) of the function
+        audience = f"https://{region}-{PROJECT_ID}.cloudfunctions.net"
 
         task_body = {
             "task": {
@@ -154,6 +157,10 @@ def enqueue_authors(authors, spread_regions=False, batch_size=100):
                     "url": function_url,
                     "headers": {"Content-Type": "application/json"},
                     "body": body_b64,
+                    "oidcToken": {
+                        "serviceAccountEmail": "875626982900-compute@developer.gserviceaccount.com",
+                        "audience": audience,
+                    },
                 },
             }
         }

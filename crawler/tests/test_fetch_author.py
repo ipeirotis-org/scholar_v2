@@ -70,3 +70,48 @@ class TestHandleFetchAuthor:
         body, status = handle(req)
 
         assert status == 500
+
+    @mock.patch("crawler.fetch_author._trigger_batch_load")
+    @mock.patch("crawler.fetch_author.enqueue_publications")
+    @mock.patch("crawler.fetch_author.upload_json")
+    @mock.patch("crawler.fetch_author.author_blob_path", return_value="test.json")
+    @mock.patch("crawler.fetch_author._fetch_author")
+    def test_priority_flag_passed_to_enqueue_publications(
+        self, mock_fetch, mock_path, mock_upload, mock_enqueue, mock_batch_load,
+    ):
+        mock_fetch.return_value = {
+            "scholar_id": "abc",
+            "publications": [{"author_pub_id": "abc:p1"}],
+        }
+
+        req = _make_request(json_data={"scholar_id": "abc", "priority": True})
+        body, status = handle(req)
+
+        assert status == 200
+        mock_enqueue.assert_called_once()
+        # Verify priority=True was passed through
+        call_kwargs = mock_enqueue.call_args
+        assert call_kwargs[1]["priority"] is True
+        mock_batch_load.assert_called_once()
+
+    @mock.patch("crawler.fetch_author.enqueue_publications")
+    @mock.patch("crawler.fetch_author.upload_json")
+    @mock.patch("crawler.fetch_author.author_blob_path", return_value="test.json")
+    @mock.patch("crawler.fetch_author._fetch_author")
+    def test_non_priority_does_not_trigger_batch_load(
+        self, mock_fetch, mock_path, mock_upload, mock_enqueue,
+    ):
+        mock_fetch.return_value = {
+            "scholar_id": "abc",
+            "publications": [{"author_pub_id": "abc:p1"}],
+        }
+
+        with mock.patch("crawler.fetch_author._trigger_batch_load") as mock_batch:
+            req = _make_request(json_data={"scholar_id": "abc"})
+            body, status = handle(req)
+
+            assert status == 200
+            mock_batch.assert_not_called()
+            # priority defaults to False
+            call_kwargs = mock_enqueue.call_args
+            assert call_kwargs[1]["priority"] is False

@@ -14,6 +14,12 @@ class Config:
     QUEUE_LOCATION = os.environ.get("QUEUE_LOCATION", "northamerica-northeast1")
     QUEUE_NAME_AUTHORS = os.environ.get("QUEUE_NAME_AUTHORS", "process-authors")
     QUEUE_NAME_PUBS = os.environ.get("QUEUE_NAME_PUBS", "process-pubs")
+    QUEUE_NAME_PUBS_PRIORITY = os.environ.get("QUEUE_NAME_PUBS_PRIORITY", "process-pub-priority")
+
+    CLOUD_TASKS_SA_EMAIL = os.environ.get(
+        "CLOUD_TASKS_SA_EMAIL",
+        "875626982900-compute@developer.gserviceaccount.com",
+    )
 
     # Optional env var override pins to a specific region (e.g. for testing)
     _FUNCTION_LOCATION_OVERRIDE = os.environ.get("FUNCTION_LOCATION", "")

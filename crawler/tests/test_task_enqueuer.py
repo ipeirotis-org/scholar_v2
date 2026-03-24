@@ -1,9 +1,11 @@
 """Tests for task_enqueuer module."""
 
+import json
 from unittest import mock
 
 from google.api_core.exceptions import AlreadyExists
 
+from crawler.config import Config
 from crawler.task_enqueuer import enqueue_author, enqueue_publication, enqueue_publications
 
 
@@ -37,6 +39,18 @@ class TestEnqueueAuthor:
         task = call_kwargs["task"]
         assert b"abc123" in task["http_request"]["body"]
 
+    @mock.patch("crawler.task_enqueuer._get_client")
+    def test_includes_oidc_token(self, mock_get_client):
+        mock_client = mock.MagicMock()
+        mock_get_client.return_value = mock_client
+
+        enqueue_author("abc123")
+
+        task = mock_client.create_task.call_args[1]["task"]
+        oidc = task["http_request"]["oidc_token"]
+        assert oidc["service_account_email"] == Config.CLOUD_TASKS_SA_EMAIL
+        assert "cloudfunctions.net" in oidc["audience"]
+
 
 class TestEnqueuePublication:
     @mock.patch("crawler.task_enqueuer._get_client")
@@ -56,6 +70,60 @@ class TestEnqueuePublication:
 
         result = enqueue_publication({"author_pub_id": "abc:pub1"})
         assert result is False
+
+    @mock.patch("crawler.task_enqueuer._get_client")
+    def test_includes_oidc_token(self, mock_get_client):
+        mock_client = mock.MagicMock()
+        mock_get_client.return_value = mock_client
+
+        enqueue_publication({"author_pub_id": "abc:pub1"})
+
+        task = mock_client.create_task.call_args[1]["task"]
+        oidc = task["http_request"]["oidc_token"]
+        assert oidc["service_account_email"] == Config.CLOUD_TASKS_SA_EMAIL
+
+    @mock.patch("crawler.task_enqueuer._get_client")
+    def test_standard_queue_when_not_priority(self, mock_get_client):
+        mock_client = mock.MagicMock()
+        mock_get_client.return_value = mock_client
+
+        enqueue_publication({"author_pub_id": "abc:pub1"}, priority=False)
+
+        parent = mock_client.create_task.call_args[1]["parent"]
+        assert "process-pubs" in parent
+        assert "priority" not in parent
+
+    @mock.patch("crawler.task_enqueuer._get_client")
+    def test_priority_queue_when_priority(self, mock_get_client):
+        mock_client = mock.MagicMock()
+        mock_get_client.return_value = mock_client
+
+        enqueue_publication({"author_pub_id": "abc:pub1"}, priority=True)
+
+        parent = mock_client.create_task.call_args[1]["parent"]
+        assert "process-pub-priority" in parent
+
+    @mock.patch("crawler.task_enqueuer._get_client")
+    def test_priority_flag_in_body_when_priority(self, mock_get_client):
+        mock_client = mock.MagicMock()
+        mock_get_client.return_value = mock_client
+
+        enqueue_publication({"author_pub_id": "abc:pub1"}, priority=True)
+
+        task = mock_client.create_task.call_args[1]["task"]
+        body = json.loads(task["http_request"]["body"])
+        assert body["priority"] is True
+
+    @mock.patch("crawler.task_enqueuer._get_client")
+    def test_no_priority_flag_in_body_when_not_priority(self, mock_get_client):
+        mock_client = mock.MagicMock()
+        mock_get_client.return_value = mock_client
+
+        enqueue_publication({"author_pub_id": "abc:pub1"}, priority=False)
+
+        task = mock_client.create_task.call_args[1]["task"]
+        body = json.loads(task["http_request"]["body"])
+        assert "priority" not in body
 
 
 class TestEnqueuePublications:
@@ -93,3 +161,18 @@ class TestEnqueuePublications:
         ]
         count = enqueue_publications(pubs, delay=0)
         assert count == 2
+
+    @mock.patch("crawler.task_enqueuer.time.sleep")
+    @mock.patch("crawler.task_enqueuer._get_client")
+    def test_priority_flag_passed_through(self, mock_get_client, mock_sleep):
+        mock_client = mock.MagicMock()
+        mock_get_client.return_value = mock_client
+
+        pubs = [{"author_pub_id": "abc:pub1"}]
+        enqueue_publications(pubs, delay=0, priority=True)
+
+        parent = mock_client.create_task.call_args[1]["parent"]
+        assert "process-pub-priority" in parent
+        task = mock_client.create_task.call_args[1]["task"]
+        body = json.loads(task["http_request"]["body"])
+        assert body["priority"] is True
