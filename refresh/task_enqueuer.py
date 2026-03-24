@@ -130,7 +130,7 @@ def enqueue_cache_warm(scholar_id):
                 "type": "warm_author",
                 "scholar_id": scholar_id,
             }).encode(),
-            "oidc_token": _oidc_token(target_url),
+            "oidc_token": _oidc_token(cache_url.rstrip("/")),
         },
     }
 
