@@ -51,7 +51,7 @@ class BigQueryClient:
         params = [ScalarQueryParameter("scholar_id", "STRING", scholar_id)]
         df = self._query(sql, params)
         if df is None:
-            return []
+            return None
         # Deduplicate by author_pub_id to guard against upstream view issues
         df = df.drop_duplicates(subset=["author_pub_id"], keep="first")
         return df.to_dict("records")

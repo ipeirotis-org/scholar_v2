@@ -88,7 +88,7 @@ class CacheService:
                 # Re-fetch pub and author stats after refresh;
                 # keep originals as fallback if retry reads fail transiently.
                 refreshed_pub_stats = self.bq.get_author_pub_stats(scholar_id)
-                if refreshed_pub_stats:
+                if refreshed_pub_stats is not None:
                     pub_stats = refreshed_pub_stats
                 refreshed_stats = self.bq.get_author_stats(scholar_id)
                 if refreshed_stats is not None:
