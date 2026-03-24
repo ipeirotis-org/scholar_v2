@@ -79,7 +79,7 @@ class TestEnqueueAuthorCrawlTask:
         task = mock_client.create_task.call_args[1]["task"]
         oidc = task["http_request"]["oidc_token"]
         assert oidc["service_account_email"] == Config.CLOUD_TASKS_SA_EMAIL
-        assert oidc["audience"] == "https://us-east1-scholar-version2.cloudfunctions.net"
+        assert oidc["audience"] == "https://us-east1-scholar-version2.cloudfunctions.net/v3_fetch_author"
 
     @mock.patch("frontend.queue_client._get_client")
     def test_already_exists_returns_true(self, mock_get_client):

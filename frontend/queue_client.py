@@ -113,11 +113,6 @@ def _enqueue_author_crawl_task(scholar_id, crawl_url):
     task_id = f"{_sanitize_task_id(scholar_id)}-{time_bucket}"
     task_name = f"{queue_path}/tasks/{task_id}"
 
-    # Extract base URL (scheme + host) for OIDC audience
-    from urllib.parse import urlparse
-    parsed = urlparse(crawl_url)
-    audience = f"{parsed.scheme}://{parsed.netloc}"
-
     task = {
         "name": task_name,
         "http_request": {
@@ -127,7 +122,7 @@ def _enqueue_author_crawl_task(scholar_id, crawl_url):
             "body": json.dumps({"scholar_id": scholar_id, "priority": True}).encode(),
             "oidc_token": {
                 "service_account_email": Config.CLOUD_TASKS_SA_EMAIL,
-                "audience": audience,
+                "audience": crawl_url,
             },
         },
     }
