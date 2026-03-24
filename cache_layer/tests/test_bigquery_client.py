@@ -40,12 +40,12 @@ class TestGetAuthorPubStats:
         pub_ids = [r["author_pub_id"] for r in result]
         assert pub_ids == ["abc:1", "abc:2"]
 
-    def test_returns_empty_on_failure(self):
+    def test_returns_none_on_failure(self):
         mock_bq = mock.MagicMock()
         mock_bq.query.side_effect = Exception("BQ error")
         client = BigQueryClient(client=mock_bq)
         result = client.get_author_pub_stats("abc123")
-        assert result == []
+        assert result is None
 
 
 class TestGetAuthorStats:

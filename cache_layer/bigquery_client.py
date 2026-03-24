@@ -51,7 +51,7 @@ class BigQueryClient:
         params = [ScalarQueryParameter("scholar_id", "STRING", scholar_id)]
         df = self._query(sql, params)
         if df is None:
-            return []
+            return None
         # Deduplicate by author_pub_id to guard against upstream view issues
         df = df.drop_duplicates(subset=["author_pub_id"], keep="first")
         return df.to_dict("records")
@@ -107,6 +107,155 @@ class BigQueryClient:
         if df is None:
             return []
         return df.to_dict("records")
+
+    def author_has_raw_pubs(self, scholar_id):
+        """Check if the author has any raw publication data in the pub table."""
+        sql = f"""
+            SELECT 1
+            FROM {Config.bq_raw('pub')}
+            WHERE (STARTS_WITH(document_id, @prefix_colon)
+               OR STARTS_WITH(document_id, @prefix_underscore))
+              AND STARTS_WITH(JSON_EXTRACT_SCALAR(data, '$.data.author_pub_id'), @prefix_colon)
+            LIMIT 1
+        """
+        params = [
+            ScalarQueryParameter("prefix_colon", "STRING", f"{scholar_id}:"),
+            ScalarQueryParameter("prefix_underscore", "STRING", f"{scholar_id}_"),
+        ]
+        df = self._query(sql, params)
+        return df is not None and not df.empty
+
+    def author_pubs_freshly_materialized(self, scholar_id):
+        """Check if the author's materialized pubs are up-to-date with raw data.
+
+        Compares the latest timestamp in pub_latest_table against the latest
+        timestamp in the raw pub table for this author. Returns:
+          - True if materialized rows exist and are at least as fresh as raw data
+          - False if raw data is newer than materialized data (stale) or no
+            materialized rows exist at all
+          - None on query failure (caller should skip refresh to avoid
+            unnecessary DML driven by read errors)
+        """
+        sql = f"""
+            WITH materialized AS (
+                SELECT MAX(timestamp) AS ts
+                FROM {Config.bq_raw('pub_latest_table')}
+                WHERE STARTS_WITH(author_pub_id, @prefix)
+            ),
+            raw AS (
+                SELECT MAX(timestamp) AS ts
+                FROM {Config.bq_raw('pub')}
+                WHERE (STARTS_WITH(document_id, @prefix_colon)
+                   OR STARTS_WITH(document_id, @prefix_underscore))
+                  AND STARTS_WITH(JSON_EXTRACT_SCALAR(data, '$.data.author_pub_id'), @prefix_colon)
+            )
+            SELECT
+                materialized.ts AS mat_ts,
+                raw.ts AS raw_ts
+            FROM materialized, raw
+        """
+        params = [
+            ScalarQueryParameter("prefix", "STRING", f"{scholar_id}:"),
+            ScalarQueryParameter("prefix_colon", "STRING", f"{scholar_id}:"),
+            ScalarQueryParameter("prefix_underscore", "STRING", f"{scholar_id}_"),
+        ]
+        df = self._query(sql, params)
+        if df is None:
+            return None  # query error — caller should not trigger refresh
+        if df.empty:
+            return False
+        row = df.iloc[0]
+        mat_ts = row.get("mat_ts")
+        raw_ts = row.get("raw_ts")
+        if mat_ts is None:
+            return False  # no materialized rows
+        if raw_ts is None:
+            return True  # materialized but no raw (shouldn't happen, but safe)
+        return mat_ts >= raw_ts
+
+    def refresh_author_pubs(self, scholar_id):
+        """Incrementally refresh pub_latest_table for a specific author.
+
+        When publications are newly ingested but the daily materialization
+        hasn't run yet, pub_latest_table is stale and analytics views return
+        no data. This method updates just the rows for one author by:
+        1. Deleting existing entries for the author
+        2. Inserting fresh deduplicated+parsed entries from the raw pub table
+
+        The DELETE+INSERT is wrapped in a transaction so a failed INSERT
+        rolls back the DELETE, preventing data loss on partial failure.
+
+        Returns the number of rows inserted, or -1 on failure.
+        """
+        prefix_colon = f"{scholar_id}:"
+        prefix_underscore = f"{scholar_id}_"
+
+        sql = f"""
+            BEGIN TRANSACTION;
+
+            DELETE FROM {Config.bq_raw('pub_latest_table')}
+            WHERE STARTS_WITH(author_pub_id, @prefix_colon);
+
+            INSERT INTO {Config.bq_raw('pub_latest_table')}
+            WITH raw_filtered AS (
+                SELECT document_id, timestamp, data,
+                    ROW_NUMBER() OVER (PARTITION BY document_id ORDER BY timestamp DESC) AS rn
+                FROM {Config.bq_raw('pub')}
+                WHERE (STARTS_WITH(document_id, @prefix_colon)
+                   OR STARTS_WITH(document_id, @prefix_underscore))
+                  AND STARTS_WITH(JSON_EXTRACT_SCALAR(data, '$.data.author_pub_id'), @prefix_colon)
+            ),
+            parsed AS (
+                SELECT
+                    CASE
+                        WHEN ENDS_WITH(document_id, '.json')
+                        THEN SUBSTR(document_id, 1, LENGTH(document_id) - 5)
+                        ELSE document_id
+                    END AS document_id,
+                    timestamp,
+                    JSON_EXTRACT_SCALAR(data, '$.data.author_pub_id') AS author_pub_id,
+                    SPLIT(JSON_EXTRACT_SCALAR(data, '$.data.author_pub_id'), ':')[SAFE_OFFSET(0)] AS scholar_id,
+                    CAST(JSON_EXTRACT_SCALAR(data, '$.data.bib.pub_year') AS INT64) AS pub_year,
+                    JSON_EXTRACT_SCALAR(data, '$.data.bib.title') AS title,
+                    JSON_EXTRACT_SCALAR(data, '$.data.bib.author') AS author,
+                    CAST(JSON_EXTRACT_SCALAR(data, '$.data.num_citations') AS INT64) AS num_citations,
+                    JSON_QUERY(data, '$.data.cites_per_year') AS cites_per_year,
+                    data
+                FROM raw_filtered
+                WHERE rn = 1
+            ),
+            deduped AS (
+                SELECT *,
+                    ROW_NUMBER() OVER (PARTITION BY author_pub_id ORDER BY timestamp DESC) AS rn2
+                FROM parsed
+            )
+            SELECT document_id, timestamp, author_pub_id, scholar_id, pub_year,
+                   title, author, num_citations, cites_per_year, data
+            FROM deduped
+            WHERE rn2 = 1
+              AND scholar_id = @scholar_id;
+
+            COMMIT TRANSACTION;
+        """
+        params = [
+            ScalarQueryParameter("prefix_colon", "STRING", prefix_colon),
+            ScalarQueryParameter("prefix_underscore", "STRING", prefix_underscore),
+            ScalarQueryParameter("scholar_id", "STRING", scholar_id),
+        ]
+        try:
+            job_config = bigquery.QueryJobConfig(query_parameters=params)
+            job = self.client.query(sql, job_config=job_config)
+            job.result()
+            # For multi-statement scripts, num_dml_affected_rows on the parent
+            # job is unreliable (may be None/0). Sum rows from child jobs instead.
+            rows = 0
+            for child_job in self.client.list_jobs(parent_job=job.job_id):
+                rows += child_job.num_dml_affected_rows or 0
+            logger.info("Refreshed pub_latest_table for %s: %d rows", scholar_id, rows)
+            return rows
+        except Exception:
+            logger.exception("Failed to refresh pub_latest_table for %s", scholar_id)
+            return -1
 
     def get_author_freshness(self, scholar_id):
         """Check author existence and get last_updated in a single query.

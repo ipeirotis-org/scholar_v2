@@ -72,6 +72,28 @@ class CacheService:
         # Query all data
         author_stats = self.bq.get_author_stats(scholar_id)
         pub_stats = self.bq.get_author_pub_stats(scholar_id)
+
+        # Check if pub_latest_table is stale (raw data newer than materialized).
+        # This covers both empty pub_stats (new author, never materialized) and
+        # non-empty but stale pub_stats (new raw pubs ingested since last
+        # materialization). If the freshness check returns None (query error),
+        # skip refresh to avoid unnecessary DML driven by read errors.
+        materialized_fresh = None
+        if author_stats is not None and self.bq.author_has_raw_pubs(scholar_id):
+            materialized_fresh = self.bq.author_pubs_freshly_materialized(scholar_id)
+        if materialized_fresh is False:
+            rows = self.bq.refresh_author_pubs(scholar_id)
+            if rows > 0:
+                logger.info("Retrying after refresh for %s", scholar_id)
+                # Re-fetch pub and author stats after refresh;
+                # keep originals as fallback if retry reads fail transiently.
+                refreshed_pub_stats = self.bq.get_author_pub_stats(scholar_id)
+                if refreshed_pub_stats is not None:
+                    pub_stats = refreshed_pub_stats
+                refreshed_stats = self.bq.get_author_stats(scholar_id)
+                if refreshed_stats is not None:
+                    author_stats = refreshed_stats
+
         temporal_stats = self.bq.get_author_temporal_stats(scholar_id)
 
         # Write to cache
