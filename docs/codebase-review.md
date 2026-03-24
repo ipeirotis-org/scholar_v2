@@ -56,13 +56,13 @@ No single source of truth is used by both CI/CD and Python code.
 
 **Fix:** CI/CD should read region lists from `region_health/config.py` or a shared config file, not hardcode them.
 
-### 1.5 Dead Script: `scripts/resolve_authors.py`
+### 1.5 Stale Script: `scripts/resolve_authors.py`
 
 **Risk: Low | Code Hygiene**
 
-Imports from `app.scholar` (line 7), a module that no longer exists. Will crash on import.
+The docstring (line 7) references an `app/` directory with `scholar.py` that no longer exists in the codebase. The script itself runs against Firestore collections (`scholar_raw_pub`, `scholar_raw_author`) that predate the current BigQuery-based architecture. It is functional but operates on a data model the system no longer uses.
 
-**Fix:** Delete or rewrite against the current codebase.
+**Fix:** Delete if the Firestore collections are no longer populated, or update the docstring and verify it still serves a purpose.
 
 ---
 
@@ -377,7 +377,7 @@ Documentation hasn't been updated to reflect the expansion to 15 regions. New de
 14. **Region list not single-sourced** — CI/CD vs scripts vs config
 
 ### Low (Code Hygiene / DX)
-15. **Dead script** — `scripts/resolve_authors.py`
+15. **Stale script** — `scripts/resolve_authors.py`
 16. **Missing type annotations** — throughout
 17. **No linting/pre-commit config** — project-wide
 18. **Config defaults target production** — no `.env.example`

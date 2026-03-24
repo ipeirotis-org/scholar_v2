@@ -192,8 +192,9 @@ Findings from a full codebase audit, ordered by priority. See `docs/codebase-rev
 
 ### P3 — Low (Code Hygiene / Developer Experience)
 
-- [ ] **Delete dead `scripts/resolve_authors.py`** _(review §1.5)_
-  - Imports `app.scholar`, a module that no longer exists; crashes on import
+- [ ] **Clean up stale `scripts/resolve_authors.py`** _(review §1.5)_
+  - Docstring references `app/scholar.py` which no longer exists; script operates on legacy Firestore collections (`scholar_raw_pub`, `scholar_raw_author`) from pre-BigQuery architecture
+  - Delete if Firestore collections are no longer populated, or update docstring
 
 - [ ] **Add `region_health/` to architecture documentation** _(review §1.3)_
   - Module is imported by crawler, frontend, and refresh but absent from CLAUDE.md and docs/ARCHITECTURE.md
