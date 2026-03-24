@@ -85,9 +85,11 @@ class CacheService:
             rows = self.bq.refresh_author_pubs(scholar_id)
             if rows > 0:
                 logger.info("Retrying after refresh for %s", scholar_id)
-                pub_stats = self.bq.get_author_pub_stats(scholar_id)
-                # Re-fetch author stats since PiP scores depend on publication data;
-                # keep original stats as fallback if the retry fails transiently.
+                # Re-fetch pub and author stats after refresh;
+                # keep originals as fallback if retry reads fail transiently.
+                refreshed_pub_stats = self.bq.get_author_pub_stats(scholar_id)
+                if refreshed_pub_stats:
+                    pub_stats = refreshed_pub_stats
                 refreshed_stats = self.bq.get_author_stats(scholar_id)
                 if refreshed_stats is not None:
                     author_stats = refreshed_stats
