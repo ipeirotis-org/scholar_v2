@@ -14,6 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
+      max-parallel: 4
       matrix:
         region: ["us-central1", "us-east1", "us-east4", "us-east5", "us-south1", "us-west1", "us-west2", "us-west3", "us-west4", "northamerica-northeast1", "northamerica-northeast2", "europe-west1", "europe-west2", "asia-east1", "asia-northeast1"]
         function:
@@ -62,17 +63,22 @@ jobs:
 
     - name: Deploy ${{ matrix.function.name }} to ${{ matrix.region }}
       run: |
-        gcloud functions deploy "${{ matrix.function.name }}" \
-          --region "${{ matrix.region }}" \
-          --entry-point "${{ matrix.function.entry_point }}" \
-          --runtime python312 \
-          --trigger-http \
-          --no-allow-unauthenticated \
-          --memory="${{ matrix.function.memory }}" \
-          --timeout="${{ matrix.function.timeout }}" \
-          --set-env-vars "FUNCTION_LOCATION=${{ matrix.region }}" \
-          --gen2 \
-          --source /tmp/deploy/
+        for attempt in 1 2 3 4; do
+          gcloud functions deploy "${{ matrix.function.name }}" \
+            --region "${{ matrix.region }}" \
+            --entry-point "${{ matrix.function.entry_point }}" \
+            --runtime python312 \
+            --trigger-http \
+            --no-allow-unauthenticated \
+            --memory="${{ matrix.function.memory }}" \
+            --timeout="${{ matrix.function.timeout }}" \
+            --set-env-vars "FUNCTION_LOCATION=${{ matrix.region }}" \
+            --gen2 \
+            --source /tmp/deploy/ \
+          && break
+          echo "Attempt $attempt failed. Retrying in $((attempt * 30))s..."
+          sleep $((attempt * 30))
+        done
 
   # --- Ingestion function (batch_load) ---
   deploy-ingestion:
@@ -145,6 +151,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
+      max-parallel: 4
       matrix:
         region: ["us-central1", "us-east1", "us-east4", "us-east5", "us-south1", "us-west1", "us-west2", "us-west3", "us-west4", "northamerica-northeast1", "northamerica-northeast2", "europe-west1", "europe-west2", "asia-east1", "asia-northeast1"]
 
@@ -179,16 +186,21 @@ jobs:
 
     - name: Deploy v3_search_authors to ${{ matrix.region }}
       run: |
-        gcloud functions deploy "v3_search_authors" \
-          --region "${{ matrix.region }}" \
-          --entry-point "v3_search_authors" \
-          --runtime python312 \
-          --trigger-http \
-          --allow-unauthenticated \
-          --memory="512MB" \
-          --timeout="60s" \
-          --gen2 \
-          --source /tmp/deploy-search/
+        for attempt in 1 2 3 4; do
+          gcloud functions deploy "v3_search_authors" \
+            --region "${{ matrix.region }}" \
+            --entry-point "v3_search_authors" \
+            --runtime python312 \
+            --trigger-http \
+            --allow-unauthenticated \
+            --memory="512MB" \
+            --timeout="60s" \
+            --gen2 \
+            --source /tmp/deploy-search/ \
+          && break
+          echo "Attempt $attempt failed. Retrying in $((attempt * 30))s..."
+          sleep $((attempt * 30))
+        done
 
   # --- Refresh functions (refresh_stale, refresh_errors, expand_coauthors) ---
   deploy-refresh:
@@ -250,17 +262,22 @@ jobs:
 
     - name: Deploy ${{ matrix.function.name }} to us-central1
       run: |
-        gcloud functions deploy "${{ matrix.function.name }}" \
-          --region "us-central1" \
-          --entry-point "${{ matrix.function.entry_point }}" \
-          --runtime python312 \
-          --trigger-http \
-          --allow-unauthenticated \
-          --memory="512MB" \
-          --timeout="${{ matrix.function.timeout }}" \
-          --gen2 \
-          --set-env-vars="GCP_PROJECT_ID=${{ env.PROJECT_ID }},CACHE_LAYER_URL=${{ steps.cache-url.outputs.URL }},QUEUE_LOCATION=northamerica-northeast1" \
-          --source /tmp/deploy-refresh/
+        for attempt in 1 2 3 4; do
+          gcloud functions deploy "${{ matrix.function.name }}" \
+            --region "us-central1" \
+            --entry-point "${{ matrix.function.entry_point }}" \
+            --runtime python312 \
+            --trigger-http \
+            --allow-unauthenticated \
+            --memory="512MB" \
+            --timeout="${{ matrix.function.timeout }}" \
+            --gen2 \
+            --set-env-vars="GCP_PROJECT_ID=${{ env.PROJECT_ID }},CACHE_LAYER_URL=${{ steps.cache-url.outputs.URL }},QUEUE_LOCATION=northamerica-northeast1" \
+            --source /tmp/deploy-refresh/ \
+          && break
+          echo "Attempt $attempt failed. Retrying in $((attempt * 30))s..."
+          sleep $((attempt * 30))
+        done
 
   # --- Dead-letter handler (for priority queue failures) ---
   deploy-dead-letter-handler:
