@@ -113,8 +113,9 @@ class BigQueryClient:
         sql = f"""
             SELECT 1
             FROM {Config.bq_raw('pub')}
-            WHERE STARTS_WITH(document_id, @prefix_colon)
-               OR STARTS_WITH(document_id, @prefix_underscore)
+            WHERE (STARTS_WITH(document_id, @prefix_colon)
+               OR STARTS_WITH(document_id, @prefix_underscore))
+              AND STARTS_WITH(JSON_EXTRACT_SCALAR(data, '$.data.author_pub_id'), @prefix_colon)
             LIMIT 1
         """
         params = [
@@ -144,8 +145,9 @@ class BigQueryClient:
             raw AS (
                 SELECT MAX(timestamp) AS ts
                 FROM {Config.bq_raw('pub')}
-                WHERE STARTS_WITH(document_id, @prefix_colon)
-                   OR STARTS_WITH(document_id, @prefix_underscore)
+                WHERE (STARTS_WITH(document_id, @prefix_colon)
+                   OR STARTS_WITH(document_id, @prefix_underscore))
+                  AND STARTS_WITH(JSON_EXTRACT_SCALAR(data, '$.data.author_pub_id'), @prefix_colon)
             )
             SELECT
                 materialized.ts AS mat_ts,
@@ -199,8 +201,9 @@ class BigQueryClient:
                 SELECT document_id, timestamp, data,
                     ROW_NUMBER() OVER (PARTITION BY document_id ORDER BY timestamp DESC) AS rn
                 FROM {Config.bq_raw('pub')}
-                WHERE STARTS_WITH(document_id, @prefix_colon)
-                   OR STARTS_WITH(document_id, @prefix_underscore)
+                WHERE (STARTS_WITH(document_id, @prefix_colon)
+                   OR STARTS_WITH(document_id, @prefix_underscore))
+                  AND STARTS_WITH(JSON_EXTRACT_SCALAR(data, '$.data.author_pub_id'), @prefix_colon)
             ),
             parsed AS (
                 SELECT
