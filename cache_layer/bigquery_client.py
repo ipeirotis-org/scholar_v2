@@ -108,6 +108,22 @@ class BigQueryClient:
             return []
         return df.to_dict("records")
 
+    def author_has_raw_pubs(self, scholar_id):
+        """Check if the author has any raw publication data in the pub table."""
+        sql = f"""
+            SELECT 1
+            FROM {Config.bq_raw('pub')}
+            WHERE STARTS_WITH(document_id, @prefix_colon)
+               OR STARTS_WITH(document_id, @prefix_underscore)
+            LIMIT 1
+        """
+        params = [
+            ScalarQueryParameter("prefix_colon", "STRING", f"{scholar_id}:"),
+            ScalarQueryParameter("prefix_underscore", "STRING", f"{scholar_id}_"),
+        ]
+        df = self._query(sql, params)
+        return df is not None and not df.empty
+
     def refresh_author_pubs(self, scholar_id):
         """Incrementally refresh pub_latest_table for a specific author.
 
@@ -117,12 +133,17 @@ class BigQueryClient:
         1. Deleting existing entries for the author
         2. Inserting fresh deduplicated+parsed entries from the raw pub table
 
+        The DELETE+INSERT is wrapped in a transaction so a failed INSERT
+        rolls back the DELETE, preventing data loss on partial failure.
+
         Returns the number of rows inserted, or -1 on failure.
         """
         prefix_colon = f"{scholar_id}:"
         prefix_underscore = f"{scholar_id}_"
 
         sql = f"""
+            BEGIN TRANSACTION;
+
             DELETE FROM {Config.bq_raw('pub_latest_table')}
             WHERE scholar_id = @scholar_id;
 
@@ -162,6 +183,8 @@ class BigQueryClient:
                    title, author, num_citations, cites_per_year, data
             FROM deduped
             WHERE rn2 = 1;
+
+            COMMIT TRANSACTION;
         """
         params = [
             ScalarQueryParameter("scholar_id", "STRING", scholar_id),
