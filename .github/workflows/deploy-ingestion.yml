@@ -1,0 +1,121 @@
+name: Deploy Ingestion Function
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'ingestion/**'
+      - '.github/workflows/deploy-ingestion.yml'
+
+  workflow_dispatch:
+
+env:
+  PROJECT_ID: scholar-version2
+
+jobs:
+  deploy-ingestion:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v6
+
+    - name: Authenticate to Google Cloud
+      uses: google-github-actions/auth@v3
+      with:
+        credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+    - name: Set up Cloud SDK
+      uses: google-github-actions/setup-gcloud@v3
+      with:
+        project_id: ${{ env.PROJECT_ID }}
+
+    - name: Prepare source for batch_load
+      run: |
+        mkdir -p /tmp/deploy-ingestion/ingestion
+        # Copy ingestion package
+        cp ingestion/__init__.py /tmp/deploy-ingestion/ingestion/
+        cp ingestion/config.py /tmp/deploy-ingestion/ingestion/
+        cp ingestion/batch_load.py /tmp/deploy-ingestion/ingestion/
+        cp ingestion/cache_enqueuer.py /tmp/deploy-ingestion/ingestion/
+        # Create main.py entry point
+        cp ingestion/batch_load.py /tmp/deploy-ingestion/main.py
+        # Copy requirements
+        cp ingestion/requirements.txt /tmp/deploy-ingestion/requirements.txt
+
+    - name: Deploy v3_batch_load to us-central1
+      run: |
+        gcloud functions deploy "v3_batch_load_gcs_to_bq" \
+          --region "us-central1" \
+          --entry-point "batch_load_gcs_to_bq" \
+          --runtime python312 \
+          --trigger-http \
+          --allow-unauthenticated \
+          --memory="512MB" \
+          --timeout="3600s" \
+          --gen2 \
+          --source /tmp/deploy-ingestion/
+
+  deploy-dedup-views:
+    needs: deploy-ingestion
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v6
+
+    - name: Authenticate to Google Cloud
+      uses: google-github-actions/auth@v3
+      with:
+        credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+    - name: Set up Cloud SDK
+      uses: google-github-actions/setup-gcloud@v3
+      with:
+        project_id: ${{ env.PROJECT_ID }}
+
+    - name: Deploy dedup views (author_latest, pub_latest)
+      run: bq query --project_id=${{ env.PROJECT_ID }} --use_legacy_sql=false < ingestion/dedup_views.sql
+
+  deploy-batch-load-scheduler:
+    needs: deploy-ingestion
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Authenticate to Google Cloud
+      uses: google-github-actions/auth@v3
+      with:
+        credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+    - name: Set up Cloud SDK
+      uses: google-github-actions/setup-gcloud@v3
+      with:
+        project_id: ${{ env.PROJECT_ID }}
+
+    - name: Create or update Cloud Scheduler job for batch loading
+      run: |
+        JOB_NAME="batch-load-gcs-to-bq"
+        LOCATION="us-central1"
+        SCHEDULE="0 * * * *"
+        TARGET_URL="https://${LOCATION}-${{ env.PROJECT_ID }}.cloudfunctions.net/v3_batch_load_gcs_to_bq"
+        TIME_ZONE="UTC"
+
+        if gcloud scheduler jobs describe "$JOB_NAME" --location="$LOCATION" --project="${{ env.PROJECT_ID }}" > /dev/null 2>&1; then
+          echo "Updating existing scheduler job: $JOB_NAME"
+          gcloud scheduler jobs update http "$JOB_NAME" \
+            --location="$LOCATION" \
+            --schedule="$SCHEDULE" \
+            --uri="$TARGET_URL" \
+            --http-method=GET \
+            --time-zone="$TIME_ZONE" \
+            --attempt-deadline=1800s
+        else
+          echo "Creating new scheduler job: $JOB_NAME"
+          gcloud scheduler jobs create http "$JOB_NAME" \
+            --location="$LOCATION" \
+            --schedule="$SCHEDULE" \
+            --uri="$TARGET_URL" \
+            --http-method=GET \
+            --time-zone="$TIME_ZONE" \
+            --attempt-deadline=1800s
+        fi

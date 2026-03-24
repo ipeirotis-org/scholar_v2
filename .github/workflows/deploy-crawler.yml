@@ -1,0 +1,144 @@
+name: Deploy Crawler Functions
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'crawler/**'
+      - 'region_health/**'
+      - '.github/workflows/deploy-crawler.yml'
+
+  workflow_dispatch:
+
+env:
+  PROJECT_ID: scholar-version2
+
+jobs:
+  deploy-crawler:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        region: ["us-central1", "us-east1", "us-east4", "us-east5", "us-south1", "us-west1", "us-west2", "us-west3", "us-west4", "northamerica-northeast1", "northamerica-northeast2", "europe-west1", "europe-west2", "asia-east1", "asia-northeast1"]
+        function:
+          - name: v3_fetch_author
+            entry_point: v3_fetch_author
+            timeout: "3600s"
+            memory: 512MB
+            source_main: crawler/fetch_author.py
+          - name: v3_fetch_publication
+            entry_point: v3_fetch_publication
+            timeout: "60s"
+            memory: 512MB
+            source_main: crawler/fetch_publication.py
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v6
+
+    - name: Authenticate to Google Cloud
+      uses: google-github-actions/auth@v3
+      with:
+        credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+    - name: Set up Cloud SDK
+      uses: google-github-actions/setup-gcloud@v3
+      with:
+        project_id: ${{ env.PROJECT_ID }}
+
+    - name: Prepare source for ${{ matrix.function.name }}
+      run: |
+        mkdir -p /tmp/deploy/crawler /tmp/deploy/region_health
+        # Copy crawler package
+        cp crawler/__init__.py /tmp/deploy/crawler/
+        cp crawler/config.py /tmp/deploy/crawler/
+        cp crawler/scholarly_client.py /tmp/deploy/crawler/
+        cp crawler/gcs_writer.py /tmp/deploy/crawler/
+        cp crawler/task_enqueuer.py /tmp/deploy/crawler/
+        # Copy region_health package (config + router only; scorer not needed)
+        cp region_health/__init__.py /tmp/deploy/region_health/
+        cp region_health/config.py /tmp/deploy/region_health/
+        cp region_health/router.py /tmp/deploy/region_health/
+        # Copy the entry point as main.py
+        cp "${{ matrix.function.source_main }}" /tmp/deploy/main.py
+        # Copy requirements
+        cp crawler/requirements.txt /tmp/deploy/requirements.txt
+
+    - name: Deploy ${{ matrix.function.name }} to ${{ matrix.region }}
+      run: |
+        for attempt in 1 2 3 4; do
+          gcloud functions deploy "${{ matrix.function.name }}" \
+            --region "${{ matrix.region }}" \
+            --entry-point "${{ matrix.function.entry_point }}" \
+            --runtime python312 \
+            --trigger-http \
+            --no-allow-unauthenticated \
+            --memory="${{ matrix.function.memory }}" \
+            --timeout="${{ matrix.function.timeout }}" \
+            --set-env-vars "FUNCTION_LOCATION=${{ matrix.region }}" \
+            --gen2 \
+            --source /tmp/deploy/ \
+          && break
+          echo "Attempt $attempt failed. Retrying in $((attempt * 30))s..."
+          sleep $((attempt * 30))
+        done
+
+  deploy-dead-letter-handler:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v6
+
+    - name: Authenticate to Google Cloud
+      uses: google-github-actions/auth@v3
+      with:
+        credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+    - name: Set up Cloud SDK
+      uses: google-github-actions/setup-gcloud@v3
+      with:
+        project_id: ${{ env.PROJECT_ID }}
+
+    - name: Prepare source for v3_dead_letter_handler
+      run: |
+        mkdir -p /tmp/deploy-deadletter/crawler
+        cp crawler/__init__.py /tmp/deploy-deadletter/crawler/
+        cp crawler/dead_letter_handler.py /tmp/deploy-deadletter/crawler/
+        cp crawler/dead_letter_handler.py /tmp/deploy-deadletter/main.py
+        cp crawler/requirements.txt /tmp/deploy-deadletter/requirements.txt
+
+    - name: Deploy v3_dead_letter_handler to us-central1
+      run: |
+        gcloud functions deploy "v3_dead_letter_handler" \
+          --region "us-central1" \
+          --entry-point "v3_dead_letter_handler" \
+          --runtime python312 \
+          --trigger-http \
+          --no-allow-unauthenticated \
+          --memory="256MB" \
+          --timeout="30s" \
+          --gen2 \
+          --source /tmp/deploy-deadletter/
+
+    - name: Create or update Pub/Sub push subscription
+      run: |
+        DL_URL=$(gcloud functions describe v3_dead_letter_handler \
+          --region=us-central1 \
+          --format='value(serviceConfig.uri)' \
+          --project=${{ env.PROJECT_ID }})
+        if ! gcloud pubsub subscriptions describe crawler-task-deadletter-push \
+            --project=${{ env.PROJECT_ID }} > /dev/null 2>&1; then
+          gcloud pubsub subscriptions create crawler-task-deadletter-push \
+            --topic=crawler-task-deadletter \
+            --push-endpoint="$DL_URL" \
+            --ack-deadline=30 \
+            --project=${{ env.PROJECT_ID }}
+          echo "Created push subscription"
+        else
+          gcloud pubsub subscriptions update crawler-task-deadletter-push \
+            --push-config-endpoint="$DL_URL" \
+            --project=${{ env.PROJECT_ID }}
+          echo "Updated push subscription"
+        fi
