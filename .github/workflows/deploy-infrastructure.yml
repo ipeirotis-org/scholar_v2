@@ -177,21 +177,30 @@ jobs:
           echo "crawler-task-deadletter topic already exists"
         fi
 
-    - name: Configure dead-letter on process-authors-priority queue
+    - name: Configure dead-letter on priority queues via REST API
       run: |
-        gcloud tasks queues update process-authors-priority \
-          --location=${{ env.QUEUE_LOCATION }} \
-          --dead-letter-topic=projects/${{ env.GCP_PROJECT_ID }}/topics/crawler-task-deadletter \
-          --dead-letter-task-ttl=0
-        echo "Configured dead-letter on process-authors-priority"
+        TOKEN=$(gcloud auth print-access-token)
+        API_BASE="https://cloudtasks.googleapis.com/v2beta3"
+        PROJECT="${{ env.GCP_PROJECT_ID }}"
+        LOCATION="${{ env.QUEUE_LOCATION }}"
+        TOPIC="projects/$PROJECT/topics/crawler-task-deadletter"
 
-    - name: Configure dead-letter on process-pub-priority queue
-      run: |
-        gcloud tasks queues update process-pub-priority \
-          --location=${{ env.QUEUE_LOCATION }} \
-          --dead-letter-topic=projects/${{ env.GCP_PROJECT_ID }}/topics/crawler-task-deadletter \
-          --dead-letter-task-ttl=0
-        echo "Configured dead-letter on process-pub-priority"
+        for QUEUE in process-authors-priority process-pub-priority; do
+          echo "Configuring dead-letter on $QUEUE..."
+          QUEUE_PATH="projects/$PROJECT/locations/$LOCATION/queues/$QUEUE"
+          HTTP_CODE=$(curl -s -o /tmp/dl-response.json -w "%{http_code}" \
+            -X PATCH \
+            -H "Authorization: Bearer $TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "{\"name\":\"$QUEUE_PATH\",\"deadLetterConfig\":{\"deadLetterTopic\":\"$TOPIC\",\"maxDeliveryAttempts\":10}}" \
+            "$API_BASE/$QUEUE_PATH?updateMask=deadLetterConfig")
+          if [ "$HTTP_CODE" = "200" ]; then
+            echo "Configured dead-letter on $QUEUE"
+          else
+            echo "::warning::Dead-letter config on $QUEUE returned HTTP $HTTP_CODE"
+            cat /tmp/dl-response.json
+          fi
+        done
 
   deploy-schedulers:
     name: Set up Cloud Scheduler jobs
