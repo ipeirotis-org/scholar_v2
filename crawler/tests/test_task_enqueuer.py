@@ -164,6 +164,42 @@ class TestEnqueuePublications:
 
     @mock.patch("crawler.task_enqueuer.time.sleep")
     @mock.patch("crawler.task_enqueuer._get_client")
+    def test_continues_on_transient_error(self, mock_get_client, mock_sleep):
+        """A transient error on one pub should not stop the rest from being enqueued."""
+        mock_client = mock.MagicMock()
+        mock_get_client.return_value = mock_client
+        mock_client.create_task.side_effect = [
+            mock.MagicMock(),  # pub1 succeeds
+            Exception("DeadlineExceeded"),  # pub2 fails
+            mock.MagicMock(),  # pub3 succeeds
+        ]
+
+        pubs = [
+            {"author_pub_id": "abc:pub1"},
+            {"author_pub_id": "abc:pub2"},
+            {"author_pub_id": "abc:pub3"},
+        ]
+        count = enqueue_publications(pubs, delay=0)
+        assert count == 2
+        assert mock_client.create_task.call_count == 3
+
+    @mock.patch("crawler.task_enqueuer.time.sleep")
+    @mock.patch("crawler.task_enqueuer._get_client")
+    def test_all_failures_returns_zero(self, mock_get_client, mock_sleep):
+        """If every enqueue fails, count should be zero but no exception raised."""
+        mock_client = mock.MagicMock()
+        mock_get_client.return_value = mock_client
+        mock_client.create_task.side_effect = Exception("service unavailable")
+
+        pubs = [
+            {"author_pub_id": "abc:pub1"},
+            {"author_pub_id": "abc:pub2"},
+        ]
+        count = enqueue_publications(pubs, delay=0)
+        assert count == 0
+
+    @mock.patch("crawler.task_enqueuer.time.sleep")
+    @mock.patch("crawler.task_enqueuer._get_client")
     def test_priority_flag_passed_through(self, mock_get_client, mock_sleep):
         mock_client = mock.MagicMock()
         mock_get_client.return_value = mock_client
