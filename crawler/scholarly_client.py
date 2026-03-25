@@ -29,7 +29,10 @@ def _enable_scraper_api():
         from scholarly import scholarly, ProxyGenerator
         pg = ProxyGenerator()
         pg.ScraperAPI(api_key)
-        scholarly.use_proxy(pg)
+        # Pass pg as both primary and secondary to prevent scholarly from
+        # bootstrapping a FreeProxies secondary proxy (which it does when
+        # only one ProxyGenerator is supplied).
+        scholarly.use_proxy(pg, pg)
         _scraper_api_active = True
         logger.info("scholarly: enabled ScraperAPI proxy for retry")
         return True
@@ -42,17 +45,17 @@ def _clear_proxy():
     """Clear ScraperAPI proxy so scholarly uses direct requests.
 
     Only runs when ScraperAPI was previously enabled (e.g. by a prior request
-    on the same Cloud Function instance).  Resets scholarly's internal session
-    directly instead of creating a new ProxyGenerator, which would trigger a
-    free-proxy bootstrap and could leave stale proxy state.
+    on the same Cloud Function instance).  Passes a bare ProxyGenerator as both
+    primary and secondary to avoid the FreeProxies bootstrap that scholarly
+    triggers when only one ProxyGenerator is supplied.
     """
     global _scraper_api_active
     if not _scraper_api_active:
         return
     try:
-        from scholarly import scholarly
-        scholarly._proxy_generator = None
-        scholarly._session = None
+        from scholarly import scholarly, ProxyGenerator
+        pg = ProxyGenerator()
+        scholarly.use_proxy(pg, pg)
         _scraper_api_active = False
         logger.info("scholarly: cleared ScraperAPI proxy for direct fetch")
     except Exception:
