@@ -30,7 +30,9 @@ def _enable_scraper_api():
     try:
         from scholarly import scholarly, ProxyGenerator
         pg = ProxyGenerator()
-        pg.ScraperAPI(api_key)
+        if not pg.ScraperAPI(api_key):
+            logger.warning("scholarly: ScraperAPI key rejected (invalid or exhausted)")
+            return False
         # Pass pg as both primary and secondary to prevent scholarly from
         # bootstrapping a FreeProxies secondary proxy (which it does when
         # only one ProxyGenerator is supplied).
