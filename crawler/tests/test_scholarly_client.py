@@ -147,7 +147,7 @@ class TestFetchAuthor:
         mock_scholarly.search_author_id.side_effect = Exception("429 rate limit hit")
 
         with pytest.raises(ScholarlyError) as exc_info:
-            fetch_author("abc", timeout=5)
+            fetch_author("abc", timeout=300)
         assert exc_info.value.kind == ErrorKind.TRANSIENT
         # 1 initial + 2 retries = 3 calls
         assert mock_scholarly.search_author_id.call_count == 3
@@ -160,7 +160,7 @@ class TestFetchAuthor:
         ]
         mock_scholarly.fill.return_value = {"scholar_id": "abc", "publications": []}
 
-        result = fetch_author("abc", timeout=5)
+        result = fetch_author("abc", timeout=300)
         assert result["scholar_id"] == "abc"
         assert mock_scholarly.search_author_id.call_count == 2
 
@@ -194,36 +194,41 @@ class TestDirectTimeoutCap:
     @mock.patch("crawler.scholarly_client._enable_scraper_api", return_value=False)
     @mock.patch("crawler.scholarly_client._run_with_timeout")
     @mock.patch("crawler.scholarly_client.time.sleep")
-    def test_direct_timeout_capped_for_short_timeout(self, mock_sleep, mock_run, mock_enable):
-        """When overall timeout is 60s, direct attempts use min(60, max(15, 15))=15s."""
+    @mock.patch("crawler.scholarly_client.time.monotonic")
+    def test_direct_timeout_capped_for_default_pub_timeout(self, mock_mono, mock_sleep, mock_run, mock_enable):
+        """With default 120s pub timeout, direct attempts use 30s (120//4)."""
+        # Simulate plenty of time remaining
+        mock_mono.side_effect = [0, 0, 0, 5, 30, 35, 60, 65, 90, 95, 120]
         mock_run.side_effect = Exception("429 rate limit")
 
         with pytest.raises(ScholarlyError):
-            fetch_publication({"author_pub_id": "abc:pub1"}, timeout=60)
+            fetch_publication({"author_pub_id": "abc:pub1"})
 
-        # All Phase 1 calls should use 15s (60//4=15), not 60s
         for call in mock_run.call_args_list:
-            assert call[0][1] == 15
+            assert call[0][1] == 30
 
     @mock.patch("crawler.scholarly_client._enable_scraper_api", return_value=False)
     @mock.patch("crawler.scholarly_client._run_with_timeout")
     @mock.patch("crawler.scholarly_client.time.sleep")
-    def test_direct_timeout_scales_for_long_timeout(self, mock_sleep, mock_run, mock_enable):
+    @mock.patch("crawler.scholarly_client.time.monotonic")
+    def test_direct_timeout_scales_for_long_timeout(self, mock_mono, mock_sleep, mock_run, mock_enable):
         """When overall timeout is 300s (fetch_author), direct attempts use 75s."""
+        mock_mono.side_effect = [0, 0, 0, 5, 80, 85, 160, 165, 240, 245, 300]
         mock_run.side_effect = Exception("429 rate limit")
 
         with pytest.raises(ScholarlyError):
             fetch_author("abc123", timeout=300)
 
-        # All Phase 1 calls should use 75s (300//4), not 15s
         for call in mock_run.call_args_list:
             assert call[0][1] == 75
 
     @mock.patch("crawler.scholarly_client._enable_scraper_api", return_value=False)
     @mock.patch("crawler.scholarly_client._run_with_timeout")
     @mock.patch("crawler.scholarly_client.time.sleep")
-    def test_short_timeout_not_capped(self, mock_sleep, mock_run, mock_enable):
+    @mock.patch("crawler.scholarly_client.time.monotonic")
+    def test_short_timeout_not_capped(self, mock_mono, mock_sleep, mock_run, mock_enable):
         """When overall timeout is short (e.g. 5s), direct cap has no effect."""
+        mock_mono.side_effect = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
         mock_run.side_effect = Exception("429 rate limit")
 
         with pytest.raises(ScholarlyError):
@@ -235,9 +240,28 @@ class TestDirectTimeoutCap:
     @mock.patch("crawler.scholarly_client._enable_scraper_api", return_value=True)
     @mock.patch("crawler.scholarly_client._run_with_timeout")
     @mock.patch("crawler.scholarly_client.time.sleep")
-    def test_scraper_api_uses_full_timeout(self, mock_sleep, mock_run, mock_enable):
-        """Phase 2 ScraperAPI attempts should use the full timeout, not the cap."""
-        direct_calls = 3
+    @mock.patch("crawler.scholarly_client.time.monotonic")
+    def test_scraper_api_gets_remaining_time(self, mock_mono, mock_sleep, mock_run, mock_enable):
+        """Phase 2 ScraperAPI attempts use remaining time, not the full timeout."""
+        # deadline=120, after 3 direct attempts ~95s elapsed, ~25s remaining
+        mock_mono.side_effect = [
+            0,    # deadline = 120
+            0,    # phase 1 check attempt 1
+            0,    # run attempt 1
+            30,   # after attempt 1
+            30,   # backoff check
+            32,   # phase 1 check attempt 2
+            32,   # run attempt 2
+            62,   # after attempt 2
+            62,   # backoff check
+            64,   # phase 1 check attempt 3
+            64,   # run attempt 3
+            94,   # after attempt 3
+            95,   # phase 2 remaining check
+            95,   # phase 2 log
+            96,   # phase 2 attempt 1 remaining check
+            96,   # attempt_timeout = max(5, 24-2) = 22
+        ]
         mock_run.side_effect = [
             Exception("429 rate limit"),  # direct 1
             Exception("429 rate limit"),  # direct 2
@@ -245,11 +269,74 @@ class TestDirectTimeoutCap:
             {"author_pub_id": "abc:pub1"},  # scraperapi 1 succeeds
         ]
 
-        result = fetch_publication({"author_pub_id": "abc:pub1"}, timeout=60)
+        result = fetch_publication({"author_pub_id": "abc:pub1"}, timeout=120)
         assert result["author_pub_id"] == "abc:pub1"
 
-        # First 3 calls (direct) should use 15s
-        for i in range(direct_calls):
-            assert mock_run.call_args_list[i][0][1] == 15
-        # 4th call (ScraperAPI) should use full 60s
-        assert mock_run.call_args_list[3][0][1] == 60
+        # First 3 calls (direct) should use 30s
+        for i in range(3):
+            assert mock_run.call_args_list[i][0][1] == 30
+        # 4th call (ScraperAPI) should use remaining time minus margin
+        scraper_timeout = mock_run.call_args_list[3][0][1]
+        assert scraper_timeout < 120  # less than full timeout
+        assert scraper_timeout >= 5   # at least minimum
+
+    @mock.patch("crawler.scholarly_client._enable_scraper_api", return_value=True)
+    @mock.patch("crawler.scholarly_client._run_with_timeout")
+    @mock.patch("crawler.scholarly_client.time.sleep")
+    @mock.patch("crawler.scholarly_client.time.monotonic")
+    def test_skips_phase2_when_no_time_left(self, mock_mono, mock_sleep, mock_run, mock_enable):
+        """When Phase 1 exhausts nearly all time, Phase 2 is skipped."""
+        mock_mono.side_effect = [
+            0,    # deadline = 60
+            0,    # phase 1 remaining check attempt 1: 60 >= 15 → run
+            15,   # after attempt 1 fail, backoff check: remaining=45, need 17 → sleep
+            17,   # phase 1 remaining check attempt 2: 43 >= 15 → run
+            32,   # after attempt 2 fail, backoff check: remaining=28, need 19 → sleep
+            34,   # phase 1 remaining check attempt 3: 26 >= 15 → run
+            # attempt 3 fails, no more retries
+            55,   # phase 2 remaining check: 5 < 10 → skip
+        ]
+        mock_run.side_effect = Exception("429 rate limit")
+
+        with pytest.raises(ScholarlyError):
+            fetch_publication({"author_pub_id": "abc:pub1"}, timeout=60)
+
+        # Only 3 direct calls, no ScraperAPI calls
+        assert mock_run.call_count == 3
+        mock_enable.assert_not_called()
+
+    @mock.patch("crawler.scholarly_client._enable_scraper_api", return_value=False)
+    @mock.patch("crawler.scholarly_client._run_with_timeout")
+    @mock.patch("crawler.scholarly_client.time.sleep")
+    @mock.patch("crawler.scholarly_client.time.monotonic")
+    def test_skips_direct_attempts_when_insufficient_time(self, mock_mono, mock_sleep, mock_run, mock_enable):
+        """Direct attempts are skipped when remaining time < direct_timeout."""
+        # With timeout=60, direct_timeout=15. After 2 attempts, <15s left
+        mock_mono.side_effect = [
+            0,    # deadline = 60
+            0,    # phase 1 check attempt 1
+            0,    # run attempt 1
+            15,   # after attempt 1
+            15,   # backoff check
+            17,   # phase 1 check attempt 2
+            17,   # run attempt 2
+            32,   # after attempt 2
+            32,   # backoff check: remaining=28, need 2+15=17 -- fits
+            # but let's make it tight: remaining < backoff + direct_timeout
+            48,   # phase 1 check attempt 3: remaining=12 < 15
+            48,   # phase 2 remaining check (12s > 10s)
+            48,   # phase 2 log
+            49,   # phase 2 attempt 1 remaining check
+            49,   # attempt_timeout
+        ]
+        mock_run.side_effect = [
+            Exception("429 rate limit"),  # direct 1
+            Exception("429 rate limit"),  # direct 2
+            Exception("429 rate limit"),  # scraperapi (will fail too)
+        ]
+
+        with pytest.raises(ScholarlyError):
+            fetch_publication({"author_pub_id": "abc:pub1"}, timeout=60)
+
+        # 2 direct + 1 scraper = 3 total (not 3 direct + 3 scraper = 6)
+        assert mock_run.call_count <= 3

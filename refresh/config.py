@@ -3,7 +3,6 @@
 import os
 
 from region_health.config import AVAILABLE_FUNCTION_REGIONS  # noqa: F401
-from region_health.router import get_rotating_region  # noqa: F401
 
 
 class Config:
