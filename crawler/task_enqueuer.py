@@ -128,6 +128,11 @@ def enqueue_publications(publications, delay=None, priority=False):
 
     Returns:
         Count of newly enqueued tasks.
+
+    Raises:
+        RuntimeError: If every publication in a non-empty list failed to enqueue
+            (indicates Cloud Tasks is unavailable). This lets the caller return
+            an error status so Cloud Tasks retries the parent author task.
     """
     delay = delay if delay is not None else Config.PUB_ENQUEUE_DELAY
     count = 0
@@ -146,4 +151,8 @@ def enqueue_publications(publications, delay=None, priority=False):
         f"Enqueued {count}/{len(publications)} publication tasks "
         f"(priority={priority}, errors={errors})"
     )
+    if publications and count == 0 and errors > 0:
+        raise RuntimeError(
+            f"All {errors} publication enqueue attempts failed"
+        )
     return count
