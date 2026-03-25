@@ -225,7 +225,7 @@ def _call_with_retry_locked(fn, timeout, context, max_retries):
     logger.info(f"Falling back to ScraperAPI for {context} ({remaining:.0f}s remaining)")
     for attempt in range(1 + max_retries):
         remaining = deadline - time.monotonic()
-        if attempt > 0 and remaining < 10:
+        if remaining < 10:
             logger.info(f"Skipping ScraperAPI attempt {attempt + 1} for {context}: only {remaining:.0f}s left")
             break
         # Leave a 2 s margin for response handling
