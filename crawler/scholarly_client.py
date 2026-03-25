@@ -168,9 +168,11 @@ def _call_with_retry_locked(fn, timeout, context, max_retries):
     last_error = None
 
     # Cap Phase 1 per-attempt timeout so we don't exhaust the Cloud Function
-    # budget before reaching the ScraperAPI fallback.  For long timeouts
-    # (e.g. fetch_author at 300 s) the cap has no effect.
-    direct_timeout = min(timeout, 15)
+    # budget before reaching the ScraperAPI fallback.  Use 1/4 of the total
+    # timeout (floor 15 s) so short-timeout callers (fetch_publication, 60 s)
+    # leave room for Phase 2, while long-timeout callers (fetch_author, 300 s)
+    # keep a reasonable direct budget.
+    direct_timeout = min(timeout, max(15, timeout // 4))
 
     # Phase 1: Direct attempts (no proxy)
     _clear_proxy()

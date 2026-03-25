@@ -194,16 +194,30 @@ class TestDirectTimeoutCap:
     @mock.patch("crawler.scholarly_client._enable_scraper_api", return_value=False)
     @mock.patch("crawler.scholarly_client._run_with_timeout")
     @mock.patch("crawler.scholarly_client.time.sleep")
-    def test_direct_timeout_capped_at_15s(self, mock_sleep, mock_run, mock_enable):
-        """When overall timeout is 60s, direct attempts should use 15s cap."""
+    def test_direct_timeout_capped_for_short_timeout(self, mock_sleep, mock_run, mock_enable):
+        """When overall timeout is 60s, direct attempts use min(60, max(15, 15))=15s."""
         mock_run.side_effect = Exception("429 rate limit")
 
         with pytest.raises(ScholarlyError):
             fetch_publication({"author_pub_id": "abc:pub1"}, timeout=60)
 
-        # All Phase 1 calls should use 15s, not 60s
+        # All Phase 1 calls should use 15s (60//4=15), not 60s
         for call in mock_run.call_args_list:
             assert call[0][1] == 15
+
+    @mock.patch("crawler.scholarly_client._enable_scraper_api", return_value=False)
+    @mock.patch("crawler.scholarly_client._run_with_timeout")
+    @mock.patch("crawler.scholarly_client.time.sleep")
+    def test_direct_timeout_scales_for_long_timeout(self, mock_sleep, mock_run, mock_enable):
+        """When overall timeout is 300s (fetch_author), direct attempts use 75s."""
+        mock_run.side_effect = Exception("429 rate limit")
+
+        with pytest.raises(ScholarlyError):
+            fetch_author("abc123", timeout=300)
+
+        # All Phase 1 calls should use 75s (300//4), not 15s
+        for call in mock_run.call_args_list:
+            assert call[0][1] == 75
 
     @mock.patch("crawler.scholarly_client._enable_scraper_api", return_value=False)
     @mock.patch("crawler.scholarly_client._run_with_timeout")
@@ -223,8 +237,6 @@ class TestDirectTimeoutCap:
     @mock.patch("crawler.scholarly_client.time.sleep")
     def test_scraper_api_uses_full_timeout(self, mock_sleep, mock_run, mock_enable):
         """Phase 2 ScraperAPI attempts should use the full timeout, not the cap."""
-        # Phase 1: all fail with transient error
-        # Phase 2: first attempt succeeds
         direct_calls = 3
         mock_run.side_effect = [
             Exception("429 rate limit"),  # direct 1
