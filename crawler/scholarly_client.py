@@ -3,6 +3,7 @@
 import copy
 import json
 import logging
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
 from enum import Enum
@@ -12,28 +13,57 @@ from crawler.config import Config
 logger = logging.getLogger(__name__)
 
 
-def _init_scholarly():
-    """Configure scholarly, using ScraperAPI proxy if a key is available.
+_scraper_api_active = False
+_proxy_lock = threading.Lock()
 
-    Failures during proxy setup (including ImportError on mismatched scholarly
-    versions) are caught and logged so a cold-start error does not prevent the
-    Cloud Function from handling requests.
+
+def _enable_scraper_api():
+    """Enable ScraperAPI proxy on scholarly.
+
+    Returns True if proxy was successfully configured, False otherwise.
     """
+    global _scraper_api_active
     api_key = Config.SCRAPER_API_KEY
     if not api_key:
-        logger.info("scholarly: no proxy configured")
+        logger.debug("scholarly: no ScraperAPI key available for fallback")
+        return False
+    try:
+        from scholarly import scholarly, ProxyGenerator
+        pg = ProxyGenerator()
+        if not pg.ScraperAPI(api_key):
+            logger.warning("scholarly: ScraperAPI key rejected (invalid or exhausted)")
+            return False
+        # Pass pg as both primary and secondary to prevent scholarly from
+        # bootstrapping a FreeProxies secondary proxy (which it does when
+        # only one ProxyGenerator is supplied).
+        scholarly.use_proxy(pg, pg)
+        _scraper_api_active = True
+        logger.info("scholarly: enabled ScraperAPI proxy for retry")
+        return True
+    except Exception:
+        logger.exception("scholarly: ScraperAPI proxy setup failed")
+        return False
+
+
+def _clear_proxy():
+    """Clear ScraperAPI proxy so scholarly uses direct requests.
+
+    Only runs when ScraperAPI was previously enabled (e.g. by a prior request
+    on the same Cloud Function instance).  Passes a bare ProxyGenerator as both
+    primary and secondary to avoid the FreeProxies bootstrap that scholarly
+    triggers when only one ProxyGenerator is supplied.
+    """
+    global _scraper_api_active
+    if not _scraper_api_active:
         return
     try:
         from scholarly import scholarly, ProxyGenerator
         pg = ProxyGenerator()
-        pg.ScraperAPI(api_key)
-        scholarly.use_proxy(pg)
-        logger.info("scholarly: using ScraperAPI proxy")
+        scholarly.use_proxy(pg, pg)
+        _scraper_api_active = False
+        logger.info("scholarly: cleared ScraperAPI proxy for direct fetch")
     except Exception:
-        logger.exception("scholarly: ScraperAPI proxy setup failed; falling back to no proxy")
-
-
-_init_scholarly()
+        logger.exception("scholarly: failed to clear proxy")
 
 
 class ErrorKind(Enum):
@@ -116,17 +146,34 @@ def fetch_publication(pub_data, timeout=None):
 def _call_with_retry(fn, timeout, context, max_retries=2):
     """Call fn with timeout and retry on transient errors.
 
-    Retries up to max_retries times with exponential backoff (2s, 4s).
+    Strategy: try direct (no proxy) first with retries, then fall back to
+    ScraperAPI proxy with retries if all direct attempts fail with transient errors.
+
+    A lock serializes proxy state changes so concurrent requests on the same
+    Cloud Function instance (if concurrency > 1) cannot interfere with each
+    other's proxy configuration.  scholarly is a process-wide singleton, so
+    this is necessary for correctness.
     """
+    with _proxy_lock:
+        return _call_with_retry_locked(fn, timeout, context, max_retries)
+
+
+def _call_with_retry_locked(fn, timeout, context, max_retries):
+    """Inner retry logic, must be called while holding _proxy_lock."""
     last_error = None
+
+    # Phase 1: Direct attempts (no proxy)
+    _clear_proxy()
     for attempt in range(1 + max_retries):
         try:
-            return _run_with_timeout(fn, timeout)
+            result = _run_with_timeout(fn, timeout)
+            logger.info(f"Direct fetch succeeded for {context} on attempt {attempt + 1}")
+            return result
         except FuturesTimeoutError:
             last_error = ScholarlyError(
                 f"Timeout after {timeout}s fetching {context}", ErrorKind.TRANSIENT
             )
-            logger.warning(f"Attempt {attempt + 1}: {last_error}")
+            logger.warning(f"Direct attempt {attempt + 1}: {last_error}")
         except Exception as exc:
             kind = _classify_error(exc)
             last_error = ScholarlyError(
@@ -134,7 +181,35 @@ def _call_with_retry(fn, timeout, context, max_retries=2):
             )
             if kind == ErrorKind.PERMANENT:
                 raise last_error
-            logger.warning(f"Attempt {attempt + 1}: transient error fetching {context}: {exc}")
+            logger.warning(f"Direct attempt {attempt + 1}: transient error fetching {context}: {exc}")
+
+        if attempt < max_retries:
+            backoff = 2 ** (attempt + 1)
+            time.sleep(backoff)
+
+    # Phase 2: ScraperAPI fallback
+    if not _enable_scraper_api():
+        raise last_error
+
+    logger.info(f"Falling back to ScraperAPI for {context}")
+    for attempt in range(1 + max_retries):
+        try:
+            result = _run_with_timeout(fn, timeout)
+            logger.info(f"ScraperAPI fetch succeeded for {context} on attempt {attempt + 1}")
+            return result
+        except FuturesTimeoutError:
+            last_error = ScholarlyError(
+                f"Timeout after {timeout}s fetching {context} (ScraperAPI)", ErrorKind.TRANSIENT
+            )
+            logger.warning(f"ScraperAPI attempt {attempt + 1}: {last_error}")
+        except Exception as exc:
+            kind = _classify_error(exc)
+            last_error = ScholarlyError(
+                f"Error fetching {context} (ScraperAPI): {exc}", kind
+            )
+            if kind == ErrorKind.PERMANENT:
+                raise last_error
+            logger.warning(f"ScraperAPI attempt {attempt + 1}: transient error fetching {context}: {exc}")
 
         if attempt < max_retries:
             backoff = 2 ** (attempt + 1)
