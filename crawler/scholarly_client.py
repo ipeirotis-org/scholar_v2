@@ -12,11 +12,15 @@ from crawler.config import Config
 logger = logging.getLogger(__name__)
 
 
+_scraper_api_active = False
+
+
 def _enable_scraper_api():
     """Enable ScraperAPI proxy on scholarly.
 
     Returns True if proxy was successfully configured, False otherwise.
     """
+    global _scraper_api_active
     api_key = Config.SCRAPER_API_KEY
     if not api_key:
         logger.debug("scholarly: no ScraperAPI key available for fallback")
@@ -26,6 +30,7 @@ def _enable_scraper_api():
         pg = ProxyGenerator()
         pg.ScraperAPI(api_key)
         scholarly.use_proxy(pg)
+        _scraper_api_active = True
         logger.info("scholarly: enabled ScraperAPI proxy for retry")
         return True
     except Exception:
@@ -33,12 +38,23 @@ def _enable_scraper_api():
         return False
 
 
-def _disable_proxy():
-    """Clear any proxy configuration on scholarly so it uses direct requests."""
+def _clear_proxy():
+    """Clear ScraperAPI proxy so scholarly uses direct requests.
+
+    Only runs when ScraperAPI was previously enabled (e.g. by a prior request
+    on the same Cloud Function instance).  Resets scholarly's internal session
+    directly instead of creating a new ProxyGenerator, which would trigger a
+    free-proxy bootstrap and could leave stale proxy state.
+    """
+    global _scraper_api_active
+    if not _scraper_api_active:
+        return
     try:
-        from scholarly import scholarly, ProxyGenerator
-        pg = ProxyGenerator()
-        scholarly.use_proxy(pg)
+        from scholarly import scholarly
+        scholarly._proxy_generator = None
+        scholarly._session = None
+        _scraper_api_active = False
+        logger.info("scholarly: cleared ScraperAPI proxy for direct fetch")
     except Exception:
         logger.exception("scholarly: failed to clear proxy")
 
@@ -129,7 +145,7 @@ def _call_with_retry(fn, timeout, context, max_retries=2):
     last_error = None
 
     # Phase 1: Direct attempts (no proxy)
-    _disable_proxy()
+    _clear_proxy()
     for attempt in range(1 + max_retries):
         try:
             result = _run_with_timeout(fn, timeout)
