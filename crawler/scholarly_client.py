@@ -3,6 +3,7 @@
 import copy
 import json
 import logging
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
 from enum import Enum
@@ -13,6 +14,7 @@ logger = logging.getLogger(__name__)
 
 
 _scraper_api_active = False
+_proxy_lock = threading.Lock()
 
 
 def _enable_scraper_api():
@@ -144,7 +146,18 @@ def _call_with_retry(fn, timeout, context, max_retries=2):
 
     Strategy: try direct (no proxy) first with retries, then fall back to
     ScraperAPI proxy with retries if all direct attempts fail with transient errors.
+
+    A lock serializes proxy state changes so concurrent requests on the same
+    Cloud Function instance (if concurrency > 1) cannot interfere with each
+    other's proxy configuration.  scholarly is a process-wide singleton, so
+    this is necessary for correctness.
     """
+    with _proxy_lock:
+        return _call_with_retry_locked(fn, timeout, context, max_retries)
+
+
+def _call_with_retry_locked(fn, timeout, context, max_retries):
+    """Inner retry logic, must be called while holding _proxy_lock."""
     last_error = None
 
     # Phase 1: Direct attempts (no proxy)
