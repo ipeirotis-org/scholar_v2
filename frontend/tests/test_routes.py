@@ -14,7 +14,7 @@ class TestIndexRoute:
     def test_index_returns_200(self, client):
         response = client.get("/")
         assert response.status_code == 200
-        assert b"Scholar Analytics" in response.data
+        assert b"PiP Score" in response.data
 
     def test_index_alias(self, client):
         response = client.get("/index")

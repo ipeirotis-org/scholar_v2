@@ -1,8 +1,8 @@
-# TASKS: Scholar Analytics
+# TASKS: PiP Score
 
-> Maintain and improve the Scholar Analytics platform — percentile-based, age-aware research metrics with PiP-AUC scoring.
+> Maintain and improve the PiP Score platform — percentile-based, age-aware research metrics with PiP-AUC scoring.
 >
-> Live at [scholar-analytics.org](https://www.scholar-analytics.org/)
+> Live at [pip-score.org](https://www.pip-score.org/)
 >
 > **System architecture:** [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 
