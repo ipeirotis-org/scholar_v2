@@ -1,8 +1,8 @@
-# System Architecture: Scholar Analytics
+# System Architecture: PiP Score
 
 ## Overview
 
-Scholar Analytics is a system for analyzing Google Scholar data using percentile-based, age-aware research metrics (PiP-AUC). It consists of seven components with strict boundaries around what each reads and writes.
+PiP Score is a system for analyzing Google Scholar data using percentile-based, age-aware research metrics (PiP-AUC). It consists of seven components with strict boundaries around what each reads and writes.
 
 ```
                          Google Scholar

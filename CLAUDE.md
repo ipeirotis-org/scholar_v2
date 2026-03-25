@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Scholar Analytics is a distributed system for analyzing Google Scholar data using percentile-based, age-aware research metrics. It implements the **PiP-AUC (Paper-in-Percentile Area Under Curve)** scoring methodology and serves an interactive Flask web app at [scholar-analytics.org](https://www.scholar-analytics.org/).
+PiP Score is a distributed system for analyzing Google Scholar data using percentile-based, age-aware research metrics. It implements the **PiP-AUC (Percentile-in-Percentile Area Under Curve)** scoring methodology and serves an interactive Flask web app at [pip-score.org](https://www.pip-score.org/).
 
 ### What is PiP-AUC?
 

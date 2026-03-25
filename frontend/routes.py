@@ -1,4 +1,4 @@
-"""Flask route handlers for the Scholar Analytics frontend.
+"""Flask route handlers for the PiP Score frontend.
 
 The frontend reads exclusively from Firestore cache. On cache miss, it
 enqueues a population task to the Cache Layer's priority queue and returns

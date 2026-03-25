@@ -1,13 +1,13 @@
 {% extends "base.html" %}
 
-{% block title %}Scholar Analytics{% endblock %}
+{% block title %}PiP Score{% endblock %}
 
 {% block content %}
 <section id="content" class="container mt-4">
     <div class="text-center">
-        <h1>Scholar Analytics</h1>
+        <h1>PiP Score</h1>
         <p style="font-style: italic; color: #702b9d;">by NYU Stern</p>
-        <p>Percentile-based, age-aware research impact analysis using PiP-AUC scoring.</p>
+        <p>Percentile-in-Percentile research impact analysis using PiP-AUC scoring.</p>
 
         <form id="searchForm" class="mt-4" role="search" aria-label="Author search"
               onsubmit="event.preventDefault(); findAuthor();">

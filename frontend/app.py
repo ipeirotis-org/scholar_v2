@@ -3,7 +3,7 @@
 import datetime
 import logging
 
-from flask import Flask
+from flask import Flask, redirect, request
 
 from frontend.config import Config
 
@@ -20,6 +20,14 @@ def create_app(config=None):
     app.config.from_object(Config)
     if config:
         app.config.update(config)
+
+    @app.before_request
+    def redirect_old_domain():
+        """Redirect scholar-analytics.org traffic to pip-score.org."""
+        host = request.host.lower()
+        if "scholar-analytics.org" in host:
+            new_url = request.url.replace(request.host, "www.pip-score.org", 1)
+            return redirect(new_url, code=301)
 
     @app.after_request
     def set_security_headers(response):
