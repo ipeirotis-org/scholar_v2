@@ -3,6 +3,7 @@
 import json
 from unittest import mock
 
+import pytest
 from google.api_core.exceptions import AlreadyExists
 
 from crawler.config import Config
@@ -161,6 +162,60 @@ class TestEnqueuePublications:
         ]
         count = enqueue_publications(pubs, delay=0)
         assert count == 2
+
+    @mock.patch("crawler.task_enqueuer.time.sleep")
+    @mock.patch("crawler.task_enqueuer._get_client")
+    def test_continues_on_transient_error(self, mock_get_client, mock_sleep):
+        """A transient error on one pub should not stop the rest from being enqueued."""
+        mock_client = mock.MagicMock()
+        mock_get_client.return_value = mock_client
+        mock_client.create_task.side_effect = [
+            mock.MagicMock(),  # pub1 succeeds
+            Exception("DeadlineExceeded"),  # pub2 fails
+            mock.MagicMock(),  # pub3 succeeds
+        ]
+
+        pubs = [
+            {"author_pub_id": "abc:pub1"},
+            {"author_pub_id": "abc:pub2"},
+            {"author_pub_id": "abc:pub3"},
+        ]
+        count = enqueue_publications(pubs, delay=0)
+        assert count == 2
+        assert mock_client.create_task.call_count == 3
+
+    @mock.patch("crawler.task_enqueuer.time.sleep")
+    @mock.patch("crawler.task_enqueuer._get_client")
+    def test_all_failures_raises(self, mock_get_client, mock_sleep):
+        """If every enqueue fails, raise so the parent task is retried."""
+        mock_client = mock.MagicMock()
+        mock_get_client.return_value = mock_client
+        mock_client.create_task.side_effect = Exception("service unavailable")
+
+        pubs = [
+            {"author_pub_id": "abc:pub1"},
+            {"author_pub_id": "abc:pub2"},
+        ]
+        with pytest.raises(RuntimeError, match="All 2 publication enqueue attempts failed"):
+            enqueue_publications(pubs, delay=0)
+
+    @mock.patch("crawler.task_enqueuer.time.sleep")
+    @mock.patch("crawler.task_enqueuer._get_client")
+    def test_partial_failure_does_not_raise(self, mock_get_client, mock_sleep):
+        """If some enqueues succeed, return count without raising."""
+        mock_client = mock.MagicMock()
+        mock_get_client.return_value = mock_client
+        mock_client.create_task.side_effect = [
+            mock.MagicMock(),  # pub1 succeeds
+            Exception("service unavailable"),  # pub2 fails
+        ]
+
+        pubs = [
+            {"author_pub_id": "abc:pub1"},
+            {"author_pub_id": "abc:pub2"},
+        ]
+        count = enqueue_publications(pubs, delay=0)
+        assert count == 1
 
     @mock.patch("crawler.task_enqueuer.time.sleep")
     @mock.patch("crawler.task_enqueuer._get_client")

@@ -159,19 +159,31 @@ def _call_with_retry(fn, timeout, context, max_retries=2):
 
 
 def _call_with_retry_locked(fn, timeout, context, max_retries):
-    """Inner retry logic, must be called while holding _proxy_lock."""
+    """Inner retry logic, must be called while holding _proxy_lock.
+
+    Phase 1 (direct) uses a reduced per-attempt timeout so that the
+    ScraperAPI fallback in Phase 2 still has time to run within the
+    Cloud Function's overall timeout (60 s for publications).
+    """
     last_error = None
+
+    # Cap Phase 1 per-attempt timeout so we don't exhaust the Cloud Function
+    # budget before reaching the ScraperAPI fallback.  Use 1/4 of the total
+    # timeout (floor 15 s) so short-timeout callers (fetch_publication, 60 s)
+    # leave room for Phase 2, while long-timeout callers (fetch_author, 300 s)
+    # keep a reasonable direct budget.
+    direct_timeout = min(timeout, max(15, timeout // 4))
 
     # Phase 1: Direct attempts (no proxy)
     _clear_proxy()
     for attempt in range(1 + max_retries):
         try:
-            result = _run_with_timeout(fn, timeout)
+            result = _run_with_timeout(fn, direct_timeout)
             logger.info(f"Direct fetch succeeded for {context} on attempt {attempt + 1}")
             return result
         except FuturesTimeoutError:
             last_error = ScholarlyError(
-                f"Timeout after {timeout}s fetching {context}", ErrorKind.TRANSIENT
+                f"Timeout after {direct_timeout}s fetching {context}", ErrorKind.TRANSIENT
             )
             logger.warning(f"Direct attempt {attempt + 1}: {last_error}")
         except Exception as exc:
