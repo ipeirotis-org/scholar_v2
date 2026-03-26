@@ -406,6 +406,38 @@ def register_routes(app):
         return jsonify({"status": "ok", "authors_indexed": count})
 
     # ------------------------------------------------------------------
+    # Task Failures Dashboard
+    # ------------------------------------------------------------------
+
+    @app.route("/admin/failures")
+    def admin_failures():
+        """Dashboard showing tasks that exhausted all retries."""
+        show_resolved = request.args.get("show_resolved", "").lower() == "true"
+        failures = _get_task_failures(show_resolved=show_resolved)
+        return render_template("failures.html", failures=failures)
+
+    @app.route("/api/failures")
+    def api_failures():
+        """JSON API for task failure data."""
+        show_resolved = request.args.get("show_resolved", "").lower() == "true"
+        failures = _get_task_failures(show_resolved=show_resolved)
+        return jsonify(failures)
+
+    def _get_task_failures(show_resolved=False):
+        """Query Firestore task_failures collection."""
+        try:
+            db = cache.db
+            query = db.collection("task_failures")
+            if not show_resolved:
+                query = query.where("status", "in", ["failed", "retrying"])
+            query = query.order_by("last_failure", direction="DESCENDING").limit(100)
+            docs = query.stream()
+            return [doc.to_dict() for doc in docs]
+        except Exception:
+            logger.exception("Failed to query task failures")
+            return []
+
+    # ------------------------------------------------------------------
     # Health Dashboard
     # ------------------------------------------------------------------
     health_service = HealthService()

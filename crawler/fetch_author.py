@@ -18,6 +18,7 @@ from crawler.scholarly_client import (
     fetch_author as _fetch_author,
     serialize_author,
 )
+from crawler.failure_tracker import resolve_failure
 from crawler.gcs_writer import author_blob_path, upload_json
 from crawler.task_enqueuer import enqueue_publications
 
@@ -62,6 +63,9 @@ def v3_fetch_author(request):
     serialized = serialize_author(author)
     blob_path = author_blob_path(scholar_id)
     upload_json(serialized, blob_path)
+
+    # Mark any previous failure as resolved now that the crawl succeeded
+    resolve_failure("fetch_author", scholar_id)
 
     if not skip_pubs:
         pubs = author.get("publications", [])

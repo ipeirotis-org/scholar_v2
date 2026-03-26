@@ -31,7 +31,8 @@ class TestDeadLetterHandler:
         body, status = handle(req)
         assert status == 400
 
-    def test_author_task_logged(self):
+    @mock.patch("crawler.dead_letter_handler.record_failure")
+    def test_author_task_logged(self, mock_record):
         envelope = _pubsub_envelope({"scholar_id": "abc123", "priority": True})
         req = _make_request(json_data=envelope)
         body, status = handle(req)
@@ -41,7 +42,8 @@ class TestDeadLetterHandler:
         assert data["task_type"] == "fetch_author"
         assert data["identifier"] == "abc123"
 
-    def test_publication_task_logged(self):
+    @mock.patch("crawler.dead_letter_handler.record_failure")
+    def test_publication_task_logged(self, mock_record):
         envelope = _pubsub_envelope({
             "pub": {"author_pub_id": "abc:pub1"},
             "priority": True,
@@ -54,7 +56,8 @@ class TestDeadLetterHandler:
         assert data["task_type"] == "fetch_publication"
         assert data["identifier"] == "abc:pub1"
 
-    def test_unknown_task_type(self):
+    @mock.patch("crawler.dead_letter_handler.record_failure")
+    def test_unknown_task_type(self, mock_record):
         envelope = _pubsub_envelope({"something": "else"})
         req = _make_request(json_data=envelope)
         body, status = handle(req)
@@ -63,7 +66,8 @@ class TestDeadLetterHandler:
         data = json.loads(body)
         assert data["task_type"] == "unknown"
 
-    def test_malformed_data_handled(self):
+    @mock.patch("crawler.dead_letter_handler.record_failure")
+    def test_malformed_data_handled(self, mock_record):
         envelope = {
             "message": {
                 "data": base64.b64encode(b"not json").decode(),
@@ -75,3 +79,110 @@ class TestDeadLetterHandler:
         assert status == 200
         data = json.loads(body)
         assert data["task_type"] == "unknown"
+
+    # ── Firestore integration tests ──
+
+    @mock.patch("crawler.dead_letter_handler.record_failure")
+    def test_record_failure_called_for_author_task(self, mock_record):
+        envelope = _pubsub_envelope({"scholar_id": "abc123", "priority": True})
+        req = _make_request(json_data=envelope)
+        handle(req)
+
+        mock_record.assert_called_once_with(
+            task_type="fetch_author",
+            identifier="abc123",
+            priority=True,
+            source_subscription="projects/scholar-version2/subscriptions/crawler-task-deadletter-push",
+            scholar_id="abc123",
+            author_pub_id="",
+            attributes={"queue": "process-authors-priority"},
+        )
+
+    @mock.patch("crawler.dead_letter_handler.record_failure")
+    def test_record_failure_called_for_publication_task(self, mock_record):
+        envelope = _pubsub_envelope({
+            "pub": {"author_pub_id": "abc:pub1"},
+            "priority": False,
+        })
+        req = _make_request(json_data=envelope)
+        handle(req)
+
+        mock_record.assert_called_once_with(
+            task_type="fetch_publication",
+            identifier="abc:pub1",
+            priority=False,
+            source_subscription="projects/scholar-version2/subscriptions/crawler-task-deadletter-push",
+            scholar_id="",
+            author_pub_id="abc:pub1",
+            attributes={"queue": "process-authors-priority"},
+        )
+
+    # ── Cache task type tests ──
+
+    @mock.patch("crawler.dead_letter_handler.record_failure")
+    def test_cache_populate_author_profile_task(self, mock_record):
+        envelope = _pubsub_envelope({
+            "type": "populate_author_profile",
+            "scholar_id": "xyz789",
+        })
+        req = _make_request(json_data=envelope)
+        body, status = handle(req)
+
+        assert status == 200
+        data = json.loads(body)
+        assert data["task_type"] == "populate_author_profile"
+        assert data["identifier"] == "xyz789"
+
+    @mock.patch("crawler.dead_letter_handler.record_failure")
+    def test_cache_invalidate_author_task(self, mock_record):
+        envelope = _pubsub_envelope({
+            "type": "invalidate_author",
+            "scholar_id": "xyz789",
+        })
+        req = _make_request(json_data=envelope)
+        body, status = handle(req)
+
+        assert status == 200
+        data = json.loads(body)
+        assert data["task_type"] == "invalidate_author"
+
+    @mock.patch("crawler.dead_letter_handler.record_failure")
+    def test_cache_warm_author_task(self, mock_record):
+        envelope = _pubsub_envelope({
+            "type": "warm_author",
+            "scholar_id": "xyz789",
+        })
+        req = _make_request(json_data=envelope)
+        body, status = handle(req)
+
+        assert status == 200
+        data = json.loads(body)
+        assert data["task_type"] == "warm_author"
+
+    @mock.patch("crawler.dead_letter_handler.record_failure")
+    def test_cache_populate_publication_detail_task(self, mock_record):
+        envelope = _pubsub_envelope({
+            "type": "populate_publication_detail",
+            "author_pub_id": "abc:pub1",
+        })
+        req = _make_request(json_data=envelope)
+        body, status = handle(req)
+
+        assert status == 200
+        data = json.loads(body)
+        assert data["task_type"] == "populate_publication_detail"
+        assert data["identifier"] == "abc:pub1"
+
+    @mock.patch("crawler.dead_letter_handler.record_failure")
+    def test_cache_populate_recent_authors_task(self, mock_record):
+        envelope = _pubsub_envelope({
+            "type": "populate_recent_authors",
+        })
+        req = _make_request(json_data=envelope)
+        body, status = handle(req)
+
+        assert status == 200
+        data = json.loads(body)
+        assert data["task_type"] == "populate_recent_authors"
+        # Falls back to task type as identifier
+        assert data["identifier"] == "populate_recent_authors"

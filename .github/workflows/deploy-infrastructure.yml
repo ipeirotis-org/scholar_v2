@@ -165,34 +165,56 @@ jobs:
           echo "Updated process-pub-priority queue"
         fi
 
-    # ── Dead-letter infrastructure for priority queues ──
-    - name: Create dead-letter Pub/Sub topic (if not exists)
+    # ── Dead-letter infrastructure ──
+    - name: Create dead-letter Pub/Sub topics (if not exist)
       run: |
-        if ! gcloud pubsub topics describe crawler-task-deadletter \
-            --project=${{ env.GCP_PROJECT_ID }} > /dev/null 2>&1; then
-          gcloud pubsub topics create crawler-task-deadletter \
-            --project=${{ env.GCP_PROJECT_ID }}
-          echo "Created crawler-task-deadletter topic"
-        else
-          echo "crawler-task-deadletter topic already exists"
-        fi
+        for TOPIC in crawler-task-deadletter cache-task-deadletter; do
+          if ! gcloud pubsub topics describe "$TOPIC" \
+              --project=${{ env.GCP_PROJECT_ID }} > /dev/null 2>&1; then
+            gcloud pubsub topics create "$TOPIC" \
+              --project=${{ env.GCP_PROJECT_ID }}
+            echo "Created $TOPIC topic"
+          else
+            echo "$TOPIC topic already exists"
+          fi
+        done
 
-    - name: Configure dead-letter on priority queues via REST API
+    - name: Configure dead-letter on all queues via REST API
       run: |
         TOKEN=$(gcloud auth print-access-token)
         API_BASE="https://cloudtasks.googleapis.com/v2beta3"
         PROJECT="${{ env.GCP_PROJECT_ID }}"
         LOCATION="${{ env.QUEUE_LOCATION }}"
-        TOPIC="projects/$PROJECT/topics/crawler-task-deadletter"
+        CRAWLER_TOPIC="projects/$PROJECT/topics/crawler-task-deadletter"
+        CACHE_TOPIC="projects/$PROJECT/topics/cache-task-deadletter"
 
-        for QUEUE in process-authors-priority process-pub-priority; do
+        # Crawler queues → crawler dead-letter topic
+        for QUEUE in process-authors process-authors-priority process-pubs process-pub-priority; do
           echo "Configuring dead-letter on $QUEUE..."
           QUEUE_PATH="projects/$PROJECT/locations/$LOCATION/queues/$QUEUE"
           HTTP_CODE=$(curl -s -o /tmp/dl-response.json -w "%{http_code}" \
             -X PATCH \
             -H "Authorization: Bearer $TOKEN" \
             -H "Content-Type: application/json" \
-            -d "{\"name\":\"$QUEUE_PATH\",\"deadLetterConfig\":{\"deadLetterTopic\":\"$TOPIC\",\"maxDeliveryAttempts\":10}}" \
+            -d "{\"name\":\"$QUEUE_PATH\",\"deadLetterConfig\":{\"deadLetterTopic\":\"$CRAWLER_TOPIC\",\"maxDeliveryAttempts\":10}}" \
+            "$API_BASE/$QUEUE_PATH?updateMask=deadLetterConfig")
+          if [ "$HTTP_CODE" = "200" ]; then
+            echo "Configured dead-letter on $QUEUE"
+          else
+            echo "::warning::Dead-letter config on $QUEUE returned HTTP $HTTP_CODE"
+            cat /tmp/dl-response.json
+          fi
+        done
+
+        # Cache queues → cache dead-letter topic
+        for QUEUE in cache-priority cache-batch; do
+          echo "Configuring dead-letter on $QUEUE..."
+          QUEUE_PATH="projects/$PROJECT/locations/$LOCATION/queues/$QUEUE"
+          HTTP_CODE=$(curl -s -o /tmp/dl-response.json -w "%{http_code}" \
+            -X PATCH \
+            -H "Authorization: Bearer $TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "{\"name\":\"$QUEUE_PATH\",\"deadLetterConfig\":{\"deadLetterTopic\":\"$CACHE_TOPIC\",\"maxDeliveryAttempts\":3}}" \
             "$API_BASE/$QUEUE_PATH?updateMask=deadLetterConfig")
           if [ "$HTTP_CODE" = "200" ]; then
             echo "Configured dead-letter on $QUEUE"
