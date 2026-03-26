@@ -424,15 +424,23 @@ def register_routes(app):
         return jsonify(failures)
 
     def _get_task_failures(show_resolved=False):
-        """Query Firestore task_failures collection."""
+        """Query Firestore task_failures collection.
+
+        Avoids requiring a composite Firestore index by filtering and
+        sorting client-side. The collection is small (only dead-lettered
+        tasks), so this is fine.
+        """
         try:
             db = cache.db
-            query = db.collection("task_failures")
-            if not show_resolved:
-                query = query.where("status", "in", ["failed", "retrying"])
-            query = query.order_by("last_failure", direction="DESCENDING").limit(100)
-            docs = query.stream()
-            return [doc.to_dict() for doc in docs]
+            docs = db.collection("task_failures").stream()
+            results = []
+            for doc in docs:
+                data = doc.to_dict()
+                if not show_resolved and data.get("status") == "resolved":
+                    continue
+                results.append(data)
+            results.sort(key=lambda d: d.get("last_failure", ""), reverse=True)
+            return results[:100]
         except Exception:
             logger.exception("Failed to query task failures")
             return []

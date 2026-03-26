@@ -148,6 +148,7 @@ jobs:
           --region=us-central1 \
           --format='value(serviceConfig.uri)' \
           --project=${{ env.PROJECT_ID }})
+        SA_EMAIL="875626982900-compute@developer.gserviceaccount.com"
 
         # Crawler dead-letter subscription
         if ! gcloud pubsub subscriptions describe crawler-task-deadletter-push \
@@ -155,12 +156,14 @@ jobs:
           gcloud pubsub subscriptions create crawler-task-deadletter-push \
             --topic=crawler-task-deadletter \
             --push-endpoint="$DL_URL" \
+            --push-auth-service-account="$SA_EMAIL" \
             --ack-deadline=30 \
             --project=${{ env.PROJECT_ID }}
           echo "Created crawler dead-letter push subscription"
         else
           gcloud pubsub subscriptions update crawler-task-deadletter-push \
             --push-endpoint="$DL_URL" \
+            --push-auth-service-account="$SA_EMAIL" \
             --project=${{ env.PROJECT_ID }}
           echo "Updated crawler dead-letter push subscription"
         fi
@@ -171,12 +174,14 @@ jobs:
           gcloud pubsub subscriptions create cache-task-deadletter-push \
             --topic=cache-task-deadletter \
             --push-endpoint="$DL_URL" \
+            --push-auth-service-account="$SA_EMAIL" \
             --ack-deadline=30 \
             --project=${{ env.PROJECT_ID }}
           echo "Created cache dead-letter push subscription"
         else
           gcloud pubsub subscriptions update cache-task-deadletter-push \
             --push-endpoint="$DL_URL" \
+            --push-auth-service-account="$SA_EMAIL" \
             --project=${{ env.PROJECT_ID }}
           echo "Updated cache dead-letter push subscription"
         fi
