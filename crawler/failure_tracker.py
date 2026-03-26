@@ -66,6 +66,7 @@ def record_failure(task_type, identifier, *, priority=False,
                     "status": "failed",
                     "priority": priority,
                     "source_subscription": source_subscription,
+                    "resolved_at": None,
                 })
             else:
                 txn.set(doc_ref, {

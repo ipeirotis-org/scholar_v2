@@ -127,10 +127,12 @@ class TestEnqueuePublication:
         assert "priority" not in body
 
 
+@mock.patch("crawler.task_enqueuer.resolve_failure")
+@mock.patch("crawler.task_enqueuer.record_partial_enqueue_failure")
 class TestEnqueuePublications:
     @mock.patch("crawler.task_enqueuer.time.sleep")
     @mock.patch("crawler.task_enqueuer._get_client")
-    def test_enqueues_all_with_delay(self, mock_get_client, mock_sleep):
+    def test_enqueues_all_with_delay(self, mock_get_client, mock_sleep, _mock_partial, _mock_resolve):
         mock_client = mock.MagicMock()
         mock_get_client.return_value = mock_client
 
@@ -146,7 +148,18 @@ class TestEnqueuePublications:
 
     @mock.patch("crawler.task_enqueuer.time.sleep")
     @mock.patch("crawler.task_enqueuer._get_client")
-    def test_counts_only_new_tasks(self, mock_get_client, mock_sleep):
+    def test_enqueues_all_resolves_prior_failure(self, mock_get_client, mock_sleep, _mock_partial, mock_resolve):
+        """When all pubs enqueue successfully, resolve any prior partial failure."""
+        mock_client = mock.MagicMock()
+        mock_get_client.return_value = mock_client
+
+        pubs = [{"author_pub_id": "abc:pub1"}, {"author_pub_id": "abc:pub2"}]
+        enqueue_publications(pubs, delay=0)
+        mock_resolve.assert_called_once_with("enqueue_publications", "abc")
+
+    @mock.patch("crawler.task_enqueuer.time.sleep")
+    @mock.patch("crawler.task_enqueuer._get_client")
+    def test_counts_only_new_tasks(self, mock_get_client, mock_sleep, _mock_partial, _mock_resolve):
         mock_client = mock.MagicMock()
         mock_get_client.return_value = mock_client
         mock_client.create_task.side_effect = [
@@ -165,7 +178,7 @@ class TestEnqueuePublications:
 
     @mock.patch("crawler.task_enqueuer.time.sleep")
     @mock.patch("crawler.task_enqueuer._get_client")
-    def test_continues_on_transient_error(self, mock_get_client, mock_sleep):
+    def test_continues_on_transient_error(self, mock_get_client, mock_sleep, _mock_partial, _mock_resolve):
         """A transient error on one pub should not stop the rest from being enqueued."""
         mock_client = mock.MagicMock()
         mock_get_client.return_value = mock_client
@@ -186,7 +199,7 @@ class TestEnqueuePublications:
 
     @mock.patch("crawler.task_enqueuer.time.sleep")
     @mock.patch("crawler.task_enqueuer._get_client")
-    def test_all_failures_raises(self, mock_get_client, mock_sleep):
+    def test_all_failures_raises(self, mock_get_client, mock_sleep, _mock_partial, _mock_resolve):
         """If every enqueue fails, raise so the parent task is retried."""
         mock_client = mock.MagicMock()
         mock_get_client.return_value = mock_client
@@ -201,7 +214,7 @@ class TestEnqueuePublications:
 
     @mock.patch("crawler.task_enqueuer.time.sleep")
     @mock.patch("crawler.task_enqueuer._get_client")
-    def test_partial_failure_does_not_raise(self, mock_get_client, mock_sleep):
+    def test_partial_failure_does_not_raise(self, mock_get_client, mock_sleep, _mock_partial, _mock_resolve):
         """If some enqueues succeed, return count without raising."""
         mock_client = mock.MagicMock()
         mock_get_client.return_value = mock_client
@@ -219,7 +232,7 @@ class TestEnqueuePublications:
 
     @mock.patch("crawler.task_enqueuer.time.sleep")
     @mock.patch("crawler.task_enqueuer._get_client")
-    def test_priority_flag_passed_through(self, mock_get_client, mock_sleep):
+    def test_priority_flag_passed_through(self, mock_get_client, mock_sleep, _mock_partial, _mock_resolve):
         mock_client = mock.MagicMock()
         mock_get_client.return_value = mock_client
 
