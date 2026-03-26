@@ -90,6 +90,12 @@ def v3_dead_letter_handler(request):
     attributes = message.get("attributes", {})
     subscription = envelope.get("subscription", "")
 
+    # Use Pub/Sub message ID as fallback when payload can't be classified
+    if not identifier:
+        message_id = message.get("messageId", message.get("message_id", ""))
+        if message_id:
+            identifier = f"msg_{message_id}"
+
     # Log structured error for Cloud Logging / Monitoring
     error_event = {
         "event": "task_dead_lettered",

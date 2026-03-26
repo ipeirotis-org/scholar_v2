@@ -80,6 +80,24 @@ class TestDeadLetterHandler:
         data = json.loads(body)
         assert data["task_type"] == "unknown"
 
+    @mock.patch("crawler.dead_letter_handler.record_failure")
+    def test_unknown_task_uses_message_id_fallback(self, mock_record):
+        """When task can't be classified, use Pub/Sub message ID as identifier."""
+        envelope = {
+            "message": {
+                "data": base64.b64encode(json.dumps({"something": "else"}).encode()).decode(),
+                "messageId": "12345678",
+                "attributes": {},
+            },
+            "subscription": "projects/scholar-version2/subscriptions/test-sub",
+        }
+        req = _make_request(json_data=envelope)
+        body, status = handle(req)
+
+        assert status == 200
+        mock_record.assert_called_once()
+        assert mock_record.call_args[1]["identifier"] == "msg_12345678"
+
     # ── Firestore integration tests ──
 
     @mock.patch("crawler.dead_letter_handler.record_failure")
