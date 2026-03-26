@@ -232,6 +232,26 @@ class TestEnqueuePublications:
 
     @mock.patch("crawler.task_enqueuer.time.sleep")
     @mock.patch("crawler.task_enqueuer._get_client")
+    def test_null_author_pub_id_does_not_raise(self, mock_get_client, mock_sleep, mock_partial, _mock_resolve):
+        """A publication with None author_pub_id should not cause TypeError in scholar_id derivation."""
+        mock_client = mock.MagicMock()
+        mock_get_client.return_value = mock_client
+        # enqueue_publication will fail on None id, but the scholar_id
+        # derivation afterwards must not raise TypeError.
+        pubs = [
+            {"author_pub_id": "abc:pub1"},
+            {"author_pub_id": None},
+        ]
+        mock_client.create_task.side_effect = [
+            mock.MagicMock(),  # pub1 succeeds
+            AttributeError("NoneType"),  # pub2 fails inside enqueue_publication
+        ]
+        count = enqueue_publications(pubs, delay=0)
+        assert count == 1
+        mock_partial.assert_called_once()
+
+    @mock.patch("crawler.task_enqueuer.time.sleep")
+    @mock.patch("crawler.task_enqueuer._get_client")
     def test_priority_flag_passed_through(self, mock_get_client, mock_sleep, _mock_partial, _mock_resolve):
         mock_client = mock.MagicMock()
         mock_get_client.return_value = mock_client

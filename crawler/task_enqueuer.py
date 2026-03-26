@@ -159,7 +159,7 @@ def enqueue_publications(publications, delay=None, priority=False):
             f"All {errors} publication enqueue attempts failed"
         )
     # Extract scholar_id from the first pub's author_pub_id (format: "scholar_id:pub_id")
-    first_pub_id = publications[0].get("author_pub_id", "") if publications else ""
+    first_pub_id = (publications[0].get("author_pub_id") or "") if publications else ""
     scholar_id = first_pub_id.split(":")[0] if ":" in first_pub_id else "unknown"
 
     # Track partial failures so they're visible in the failure dashboard
