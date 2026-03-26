@@ -29,15 +29,31 @@ class TestDocIdHelpers:
 
 
 class TestRecordFailure:
+    @mock.patch("crawler.failure_tracker.firestore.transactional")
     @mock.patch("crawler.failure_tracker._get_db")
-    def test_creates_new_failure_record(self, mock_get_db):
+    def test_creates_new_failure_record(self, mock_get_db, mock_txn_decorator):
+        """Verify record_failure writes a new doc via transaction when doc doesn't exist."""
         mock_db = mock.MagicMock()
         mock_get_db.return_value = mock_db
         mock_doc_ref = mock.MagicMock()
         mock_db.collection.return_value.document.return_value = mock_doc_ref
+
+        # Make the transactional decorator pass-through: it calls the
+        # wrapped function with the transaction as first arg.
+        mock_txn = mock.MagicMock()
+        mock_db.transaction.return_value = mock_txn
+
         mock_doc = mock.MagicMock()
         mock_doc.exists = False
         mock_doc_ref.get.return_value = mock_doc
+
+        def run_decorated(fn):
+            """Simulate @firestore.transactional: return a callable that invokes fn(txn)."""
+            def wrapper(txn):
+                return fn(txn)
+            return wrapper
+
+        mock_txn_decorator.side_effect = run_decorated
 
         record_failure(
             task_type="fetch_author",
@@ -47,8 +63,9 @@ class TestRecordFailure:
             scholar_id="abc123",
         )
 
-        mock_doc_ref.set.assert_called_once()
-        data = mock_doc_ref.set.call_args[0][0]
+        # The transaction should have called set on the txn object
+        mock_txn.set.assert_called_once()
+        data = mock_txn.set.call_args[0][1]
         assert data["task_type"] == "fetch_author"
         assert data["identifier"] == "abc123"
         assert data["scholar_id"] == "abc123"
@@ -57,26 +74,39 @@ class TestRecordFailure:
         assert data["status"] == "failed"
         assert data["resolved_at"] is None
 
+    @mock.patch("crawler.failure_tracker.firestore.transactional")
     @mock.patch("crawler.failure_tracker._get_db")
-    def test_increments_existing_failure(self, mock_get_db):
+    def test_increments_existing_failure(self, mock_get_db, mock_txn_decorator):
+        """Verify record_failure increments failure_count via transaction for existing doc."""
         mock_db = mock.MagicMock()
         mock_get_db.return_value = mock_db
         mock_doc_ref = mock.MagicMock()
         mock_db.collection.return_value.document.return_value = mock_doc_ref
+
+        mock_txn = mock.MagicMock()
+        mock_db.transaction.return_value = mock_txn
+
         mock_doc = mock.MagicMock()
         mock_doc.exists = True
+        mock_doc.to_dict.return_value = {"failure_count": 2}
         mock_doc_ref.get.return_value = mock_doc
+
+        def run_decorated(fn):
+            def wrapper(txn):
+                return fn(txn)
+            return wrapper
+
+        mock_txn_decorator.side_effect = run_decorated
 
         record_failure(
             task_type="fetch_author",
             identifier="abc123",
         )
 
-        mock_doc_ref.update.assert_called_once()
-        update_data = mock_doc_ref.update.call_args[0][0]
+        mock_txn.update.assert_called_once()
+        update_data = mock_txn.update.call_args[0][1]
+        assert update_data["failure_count"] == 3
         assert update_data["status"] == "failed"
-        # Increment sentinel used for failure_count
-        assert "failure_count" in update_data
 
     @mock.patch("crawler.failure_tracker._get_db")
     def test_empty_identifier_skipped(self, mock_get_db):
@@ -96,8 +126,9 @@ class TestRecordFailure:
         # Should not raise
         record_failure(task_type="fetch_author", identifier="abc123")
 
+    @mock.patch("crawler.failure_tracker.firestore.transactional")
     @mock.patch("crawler.failure_tracker._get_db")
-    def test_correct_collection_and_doc_id(self, mock_get_db):
+    def test_correct_collection_and_doc_id(self, mock_get_db, mock_txn_decorator):
         mock_db = mock.MagicMock()
         mock_get_db.return_value = mock_db
         mock_doc_ref = mock.MagicMock()
@@ -105,6 +136,16 @@ class TestRecordFailure:
         mock_doc.exists = False
         mock_doc_ref.get.return_value = mock_doc
         mock_db.collection.return_value.document.return_value = mock_doc_ref
+
+        mock_txn = mock.MagicMock()
+        mock_db.transaction.return_value = mock_txn
+
+        def run_decorated(fn):
+            def wrapper(txn):
+                return fn(txn)
+            return wrapper
+
+        mock_txn_decorator.side_effect = run_decorated
 
         record_failure(
             task_type="fetch_publication",

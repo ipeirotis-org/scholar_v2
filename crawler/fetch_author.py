@@ -64,13 +64,15 @@ def v3_fetch_author(request):
     blob_path = author_blob_path(scholar_id)
     upload_json(serialized, blob_path)
 
-    # Mark any previous failure as resolved now that the crawl succeeded
-    resolve_failure("fetch_author", scholar_id)
-
     if not skip_pubs:
         pubs = author.get("publications", [])
         enqueued = enqueue_publications(pubs, priority=priority)
         logger.info(f"[{request_id}] Enqueued {enqueued}/{len(pubs)} publication tasks for {scholar_id} (priority={priority})")
+
+    # Mark any previous failure as resolved only after all work succeeds.
+    # enqueue_publications can raise RuntimeError if Cloud Tasks is down,
+    # which would cause a retry — we don't want to mark resolved prematurely.
+    resolve_failure("fetch_author", scholar_id)
 
     # For user-initiated crawls, trigger immediate GCS→BigQuery ingestion
     if priority:

@@ -54,29 +54,35 @@ def record_failure(task_type, identifier, *, priority=False,
     try:
         db = _get_db()
         doc_ref = db.collection(COLLECTION).document(_doc_id(task_type, identifier))
-        doc = doc_ref.get()
-        if doc.exists:
-            doc_ref.update({
-                "failure_count": firestore.Increment(1),
-                "last_failure": now,
-                "status": "failed",
-                "priority": priority,
-                "source_subscription": source_subscription,
-            })
-        else:
-            doc_ref.set({
-                "task_type": task_type,
-                "identifier": identifier,
-                "scholar_id": scholar_id,
-                "author_pub_id": author_pub_id,
-                "priority": priority,
-                "failure_count": 1,
-                "first_failure": now,
-                "last_failure": now,
-                "source_subscription": source_subscription,
-                "status": "failed",
-                "resolved_at": None,
-            })
+
+        @firestore.transactional
+        def _update_in_txn(txn):
+            doc = doc_ref.get(transaction=txn)
+            if doc.exists:
+                data = doc.to_dict()
+                txn.update(doc_ref, {
+                    "failure_count": data.get("failure_count", 0) + 1,
+                    "last_failure": now,
+                    "status": "failed",
+                    "priority": priority,
+                    "source_subscription": source_subscription,
+                })
+            else:
+                txn.set(doc_ref, {
+                    "task_type": task_type,
+                    "identifier": identifier,
+                    "scholar_id": scholar_id,
+                    "author_pub_id": author_pub_id,
+                    "priority": priority,
+                    "failure_count": 1,
+                    "first_failure": now,
+                    "last_failure": now,
+                    "source_subscription": source_subscription,
+                    "status": "failed",
+                    "resolved_at": None,
+                })
+
+        _update_in_txn(db.transaction())
         logger.info("Recorded failure: %s %s", task_type, identifier)
     except Exception:
         logger.exception("Failed to write failure record: %s %s", task_type, identifier)
