@@ -118,13 +118,14 @@ class TestRecordFailure:
         mock_db.collection.assert_not_called()
 
     @mock.patch("crawler.failure_tracker._get_db")
-    def test_firestore_error_logged_not_raised(self, mock_get_db):
+    def test_firestore_error_propagated(self, mock_get_db):
         mock_db = mock.MagicMock()
         mock_get_db.return_value = mock_db
         mock_db.collection.side_effect = Exception("Firestore unavailable")
 
-        # Should not raise
-        record_failure(task_type="fetch_author", identifier="abc123")
+        import pytest
+        with pytest.raises(Exception, match="Firestore unavailable"):
+            record_failure(task_type="fetch_author", identifier="abc123")
 
     @mock.patch("crawler.failure_tracker.firestore.transactional")
     @mock.patch("crawler.failure_tracker._get_db")

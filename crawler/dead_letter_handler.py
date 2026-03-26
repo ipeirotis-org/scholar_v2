@@ -104,15 +104,20 @@ def v3_dead_letter_handler(request):
 
     logger.error(json.dumps(error_event))
 
-    # Persist failure record to Firestore for dashboard and recovery
-    record_failure(
-        task_type=task_type,
-        identifier=identifier,
-        priority=priority,
-        source_subscription=subscription,
-        scholar_id=scholar_id,
-        author_pub_id=author_pub_id,
-        attributes=attributes,
-    )
+    # Persist failure record to Firestore for dashboard and recovery.
+    # Let Firestore errors propagate as 500 so Pub/Sub retries delivery.
+    try:
+        record_failure(
+            task_type=task_type,
+            identifier=identifier,
+            priority=priority,
+            source_subscription=subscription,
+            scholar_id=scholar_id,
+            author_pub_id=author_pub_id,
+            attributes=attributes,
+        )
+    except Exception:
+        logger.exception("Failed to write failure record to Firestore: %s %s", task_type, identifier)
+        return json.dumps({"error": "Firestore write failed", "task_type": task_type}), 500
 
     return json.dumps({"status": "logged", "task_type": task_type, "identifier": identifier}), 200

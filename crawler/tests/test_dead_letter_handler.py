@@ -174,6 +174,18 @@ class TestDeadLetterHandler:
         assert data["identifier"] == "abc:pub1"
 
     @mock.patch("crawler.dead_letter_handler.record_failure")
+    def test_firestore_error_returns_500(self, mock_record):
+        """When Firestore write fails, return 500 so Pub/Sub retries delivery."""
+        mock_record.side_effect = Exception("Firestore unavailable")
+        envelope = _pubsub_envelope({"scholar_id": "abc123"})
+        req = _make_request(json_data=envelope)
+        body, status = handle(req)
+
+        assert status == 500
+        data = json.loads(body)
+        assert data["error"] == "Firestore write failed"
+
+    @mock.patch("crawler.dead_letter_handler.record_failure")
     def test_cache_populate_recent_authors_task(self, mock_record):
         envelope = _pubsub_envelope({
             "type": "populate_recent_authors",

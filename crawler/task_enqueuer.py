@@ -158,9 +158,13 @@ def enqueue_publications(publications, delay=None, priority=False):
         raise RuntimeError(
             f"All {errors} publication enqueue attempts failed"
         )
-    # Extract scholar_id from the first pub's author_pub_id (format: "scholar_id:pub_id")
-    first_pub_id = (publications[0].get("author_pub_id") or "") if publications else ""
-    scholar_id = first_pub_id.split(":")[0] if ":" in first_pub_id else "unknown"
+    # Extract scholar_id from the first valid author_pub_id (format: "scholar_id:pub_id")
+    scholar_id = "unknown"
+    for pub in publications:
+        pub_id = pub.get("author_pub_id") or ""
+        if ":" in pub_id:
+            scholar_id = pub_id.split(":")[0]
+            break
 
     # Track partial failures so they're visible in the failure dashboard
     if failed_pub_ids and count > 0:
