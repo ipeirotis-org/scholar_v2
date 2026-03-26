@@ -29,7 +29,7 @@ jobs:
             source_main: crawler/fetch_author.py
           - name: v3_fetch_publication
             entry_point: v3_fetch_publication
-            timeout: "60s"
+            timeout: "180s"
             memory: 512MB
             source_main: crawler/fetch_publication.py
 

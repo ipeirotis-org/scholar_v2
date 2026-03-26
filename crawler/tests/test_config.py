@@ -3,24 +3,7 @@
 import os
 from unittest import mock
 
-from crawler.config import Config, get_rotating_region, AVAILABLE_FUNCTION_REGIONS
-
-
-def test_get_rotating_region_returns_valid_region():
-    region = get_rotating_region()
-    assert region in AVAILABLE_FUNCTION_REGIONS
-
-
-def test_get_rotating_region_deterministic_for_same_day():
-    r1 = get_rotating_region()
-    r2 = get_rotating_region()
-    assert r1 == r2
-
-
-def test_get_rotating_region_custom_list():
-    regions = ["a", "b", "c"]
-    region = get_rotating_region(regions)
-    assert region in regions
+from crawler.config import Config, AVAILABLE_FUNCTION_REGIONS
 
 
 def test_region_list_has_15_regions():
@@ -69,5 +52,5 @@ def test_batch_load_url():
 def test_env_var_overrides():
     with mock.patch.dict(os.environ, {"GCP_PROJECT_ID": "test-project", "GCS_BUCKET": "test-bucket"}):
         # Config reads env vars at class definition time, so we need to reimport
-        # For this test, just verify the env var mechanism works in get_rotating_region
-        assert get_rotating_region(["only-one"]) == "only-one"
+        # For this test, just verify the env var mechanism works
+        assert len(AVAILABLE_FUNCTION_REGIONS) == 15

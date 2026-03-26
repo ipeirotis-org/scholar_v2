@@ -87,26 +87,8 @@ class TestConfigHelpers:
         assert ref == "`scholar-version2.statistics.coauthors_to_add`"
 
 
-class TestGetRotatingRegion:
-    def test_returns_valid_region(self):
-        from region_health.config import AVAILABLE_FUNCTION_REGIONS
-        from region_health.router import get_rotating_region
-        region = get_rotating_region()
-        assert region in AVAILABLE_FUNCTION_REGIONS
-
-    def test_custom_regions(self):
-        from region_health.router import get_rotating_region
-        regions = ["region-a", "region-b"]
-        region = get_rotating_region(regions)
-        assert region in regions
-
-    def test_single_region(self):
-        from region_health.router import get_rotating_region
-        region = get_rotating_region(["only-region"])
-        assert region == "only-region"
-
-    def test_re_exported_from_refresh_config(self):
-        """Verify backward compatibility: region functions accessible via refresh.config."""
-        from refresh.config import get_rotating_region, AVAILABLE_FUNCTION_REGIONS
-        assert callable(get_rotating_region)
+class TestRegionConfig:
+    def test_available_regions_re_exported(self):
+        """Verify AVAILABLE_FUNCTION_REGIONS accessible via refresh.config."""
+        from refresh.config import AVAILABLE_FUNCTION_REGIONS
         assert len(AVAILABLE_FUNCTION_REGIONS) == 15

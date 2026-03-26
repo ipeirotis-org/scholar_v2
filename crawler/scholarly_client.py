@@ -124,7 +124,7 @@ def fetch_publication(pub_data, timeout=None):
     Returns the filled publication dict.
     Raises ScholarlyError on failure.
     """
-    timeout = timeout or 60
+    timeout = timeout or 120
 
     def _fetch():
         from scholarly import scholarly
@@ -161,22 +161,29 @@ def _call_with_retry(fn, timeout, context, max_retries=2):
 def _call_with_retry_locked(fn, timeout, context, max_retries):
     """Inner retry logic, must be called while holding _proxy_lock.
 
+    Uses a wall-clock deadline so the total retry time never exceeds
+    ``timeout``, ensuring the Cloud Function returns a proper HTTP
+    response (429/500) instead of being killed with a 504.
+
     Phase 1 (direct) uses a reduced per-attempt timeout so that the
-    ScraperAPI fallback in Phase 2 still has time to run within the
-    Cloud Function's overall timeout (60 s for publications).
+    ScraperAPI fallback in Phase 2 still has time to run.
     """
+    deadline = time.monotonic() + timeout
     last_error = None
 
-    # Cap Phase 1 per-attempt timeout so we don't exhaust the Cloud Function
-    # budget before reaching the ScraperAPI fallback.  Use 1/4 of the total
-    # timeout (floor 15 s) so short-timeout callers (fetch_publication, 60 s)
-    # leave room for Phase 2, while long-timeout callers (fetch_author, 300 s)
-    # keep a reasonable direct budget.
+    # Cap Phase 1 per-attempt timeout: 1/4 of total (floor 15 s).
     direct_timeout = min(timeout, max(15, timeout // 4))
 
     # Phase 1: Direct attempts (no proxy)
     _clear_proxy()
     for attempt in range(1 + max_retries):
+        remaining = deadline - time.monotonic()
+        if attempt > 0 and remaining < direct_timeout:
+            logger.info(
+                f"Skipping direct attempt {attempt + 1} for {context}: "
+                f"only {remaining:.0f}s left, need {direct_timeout}s"
+            )
+            break
         try:
             result = _run_with_timeout(fn, direct_timeout)
             logger.info(f"Direct fetch succeeded for {context} on attempt {attempt + 1}")
@@ -197,21 +204,39 @@ def _call_with_retry_locked(fn, timeout, context, max_retries):
 
         if attempt < max_retries:
             backoff = 2 ** (attempt + 1)
+            remaining = deadline - time.monotonic()
+            if remaining < backoff + direct_timeout:
+                logger.info(f"Skipping direct backoff for {context}: insufficient time for next attempt")
+                break
             time.sleep(backoff)
 
     # Phase 2: ScraperAPI fallback
+    remaining = deadline - time.monotonic()
+    # Need at least 10 s for a meaningful ScraperAPI attempt
+    if remaining < 10:
+        logger.info(f"Skipping ScraperAPI for {context}: only {remaining:.0f}s left")
+        if last_error:
+            raise last_error
+        raise ScholarlyError(f"Timeout fetching {context}: no time for any attempt", ErrorKind.TRANSIENT)
+
     if not _enable_scraper_api():
         raise last_error
 
-    logger.info(f"Falling back to ScraperAPI for {context}")
+    logger.info(f"Falling back to ScraperAPI for {context} ({remaining:.0f}s remaining)")
     for attempt in range(1 + max_retries):
+        remaining = deadline - time.monotonic()
+        if remaining < 10:
+            logger.info(f"Skipping ScraperAPI attempt {attempt + 1} for {context}: only {remaining:.0f}s left")
+            break
+        # Leave a 2 s margin for response handling
+        attempt_timeout = max(5, remaining - 2)
         try:
-            result = _run_with_timeout(fn, timeout)
+            result = _run_with_timeout(fn, attempt_timeout)
             logger.info(f"ScraperAPI fetch succeeded for {context} on attempt {attempt + 1}")
             return result
         except FuturesTimeoutError:
             last_error = ScholarlyError(
-                f"Timeout after {timeout}s fetching {context} (ScraperAPI)", ErrorKind.TRANSIENT
+                f"Timeout after {attempt_timeout:.0f}s fetching {context} (ScraperAPI)", ErrorKind.TRANSIENT
             )
             logger.warning(f"ScraperAPI attempt {attempt + 1}: {last_error}")
         except Exception as exc:
@@ -225,6 +250,9 @@ def _call_with_retry_locked(fn, timeout, context, max_retries):
 
         if attempt < max_retries:
             backoff = 2 ** (attempt + 1)
+            remaining = deadline - time.monotonic()
+            if remaining < backoff + 10:
+                break
             time.sleep(backoff)
 
     raise last_error
