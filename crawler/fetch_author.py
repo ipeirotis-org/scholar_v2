@@ -18,6 +18,7 @@ from crawler.scholarly_client import (
     fetch_author as _fetch_author,
     serialize_author,
 )
+from crawler.failure_tracker import resolve_failure
 from crawler.gcs_writer import author_blob_path, upload_json
 from crawler.task_enqueuer import enqueue_publications
 
@@ -67,6 +68,11 @@ def v3_fetch_author(request):
         pubs = author.get("publications", [])
         enqueued = enqueue_publications(pubs, priority=priority)
         logger.info(f"[{request_id}] Enqueued {enqueued}/{len(pubs)} publication tasks for {scholar_id} (priority={priority})")
+
+    # Mark any previous failure as resolved only after all work succeeds.
+    # enqueue_publications can raise RuntimeError if Cloud Tasks is down,
+    # which would cause a retry — we don't want to mark resolved prematurely.
+    resolve_failure("fetch_author", scholar_id)
 
     # For user-initiated crawls, trigger immediate GCS→BigQuery ingestion
     if priority:

@@ -1,9 +1,13 @@
-"""Cloud Function: handle dead-lettered Cloud Tasks from priority queues.
+"""Cloud Function: handle dead-lettered Cloud Tasks from all queues.
 
-When a task in process-authors-priority or process-pub-priority exhausts
-all retries, Cloud Tasks forwards it to the crawler-task-deadletter
-Pub/Sub topic. This function subscribes to that topic and logs structured
-error events so they appear in Cloud Logging and can trigger alerts.
+When a task in any queue exhausts all retries, Cloud Tasks forwards it
+to a dead-letter Pub/Sub topic. This function subscribes to those topics
+and:
+1. Logs structured error events to Cloud Logging (for alerting).
+2. Writes a persistent failure record to Firestore (for dashboards and recovery).
+
+Handles both crawler tasks (fetch_author, fetch_publication) and cache
+tasks (populate_author_profile, invalidate_author, warm_author, etc.).
 """
 
 import base64
@@ -12,7 +16,52 @@ import logging
 
 import functions_framework
 
+from crawler.failure_tracker import record_failure
+
 logger = logging.getLogger(__name__)
+
+# Cache task types use a "type" field in the body
+_CACHE_TASK_TYPES = {
+    "populate_author_profile",
+    "populate_publication_detail",
+    "invalidate_author",
+    "warm_author",
+    "populate_recent_authors",
+    "rebuild_all",
+}
+
+
+def _classify_task(task_body):
+    """Determine the task type and identifier from the task body.
+
+    Returns (task_type, identifier, scholar_id, author_pub_id).
+    """
+    # Crawler tasks: identified by scholar_id or pub dict
+    scholar_id = task_body.get("scholar_id", "")
+    pub_data = task_body.get("pub", {})
+    author_pub_id = (
+        pub_data.get("author_pub_id", "") if isinstance(pub_data, dict) else ""
+    )
+
+    # Cache tasks: identified by "type" field
+    cache_type = task_body.get("type", "")
+
+    if cache_type in _CACHE_TASK_TYPES:
+        # Cache task — identifier is scholar_id or author_pub_id from payload
+        identifier = (
+            scholar_id
+            or task_body.get("author_pub_id", "")
+            or cache_type
+        )
+        return cache_type, identifier, scholar_id, task_body.get("author_pub_id", "")
+
+    if scholar_id:
+        return "fetch_author", scholar_id, scholar_id, ""
+
+    if author_pub_id:
+        return "fetch_publication", author_pub_id, "", author_pub_id
+
+    return "unknown", "", "", ""
 
 
 @functions_framework.http
@@ -34,26 +83,18 @@ def v3_dead_letter_handler(request):
         except Exception:
             logger.warning("Could not decode dead-letter message data")
 
-    # Extract identifiers from the task body
-    scholar_id = task_body.get("scholar_id", "")
-    pub_data = task_body.get("pub", {})
-    author_pub_id = pub_data.get("author_pub_id", "") if isinstance(pub_data, dict) else ""
+    task_type, identifier, scholar_id, author_pub_id = _classify_task(task_body)
     priority = task_body.get("priority", False)
-
-    # Determine task type
-    if scholar_id:
-        task_type = "fetch_author"
-        identifier = scholar_id
-    elif author_pub_id:
-        task_type = "fetch_publication"
-        identifier = author_pub_id
-    else:
-        task_type = "unknown"
-        identifier = ""
 
     # Extract Pub/Sub message attributes (Cloud Tasks may include queue info)
     attributes = message.get("attributes", {})
     subscription = envelope.get("subscription", "")
+
+    # Use Pub/Sub message ID as fallback when payload can't be classified
+    if not identifier:
+        message_id = message.get("messageId", message.get("message_id", ""))
+        if message_id:
+            identifier = f"msg_{message_id}"
 
     # Log structured error for Cloud Logging / Monitoring
     error_event = {
@@ -68,5 +109,21 @@ def v3_dead_letter_handler(request):
     }
 
     logger.error(json.dumps(error_event))
+
+    # Persist failure record to Firestore for dashboard and recovery.
+    # Let Firestore errors propagate as 500 so Pub/Sub retries delivery.
+    try:
+        record_failure(
+            task_type=task_type,
+            identifier=identifier,
+            priority=priority,
+            source_subscription=subscription,
+            scholar_id=scholar_id,
+            author_pub_id=author_pub_id,
+            attributes=attributes,
+        )
+    except Exception:
+        logger.exception("Failed to write failure record to Firestore: %s %s", task_type, identifier)
+        return json.dumps({"error": "Firestore write failed", "task_type": task_type}), 500
 
     return json.dumps({"status": "logged", "task_type": task_type, "identifier": identifier}), 200

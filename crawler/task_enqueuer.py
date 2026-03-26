@@ -11,6 +11,7 @@ from google.api_core.exceptions import AlreadyExists
 from google.cloud import tasks_v2
 
 from crawler.config import Config
+from crawler.failure_tracker import record_partial_enqueue_failure, resolve_failure
 
 logger = logging.getLogger(__name__)
 
@@ -137,6 +138,7 @@ def enqueue_publications(publications, delay=None, priority=False):
     delay = delay if delay is not None else Config.PUB_ENQUEUE_DELAY
     count = 0
     errors = 0
+    failed_pub_ids = []
     for pub in publications:
         try:
             if enqueue_publication(pub, priority=priority):
@@ -144,6 +146,7 @@ def enqueue_publications(publications, delay=None, priority=False):
         except Exception:
             errors += 1
             pub_id = pub.get("author_pub_id", "unknown")
+            failed_pub_ids.append(pub_id)
             logger.exception(f"Failed to enqueue publication task: {pub_id}")
         if delay > 0:
             time.sleep(delay)
@@ -155,4 +158,18 @@ def enqueue_publications(publications, delay=None, priority=False):
         raise RuntimeError(
             f"All {errors} publication enqueue attempts failed"
         )
+    # Extract scholar_id from the first valid author_pub_id (format: "scholar_id:pub_id")
+    scholar_id = "unknown"
+    for pub in publications:
+        pub_id = pub.get("author_pub_id") or ""
+        if ":" in pub_id:
+            scholar_id = pub_id.split(":")[0]
+            break
+
+    # Track partial failures so they're visible in the failure dashboard
+    if failed_pub_ids and count > 0:
+        record_partial_enqueue_failure(scholar_id, failed_pub_ids)
+    elif publications and not failed_pub_ids:
+        # All pubs enqueued successfully — resolve any prior partial failure
+        resolve_failure("enqueue_publications", scholar_id)
     return count

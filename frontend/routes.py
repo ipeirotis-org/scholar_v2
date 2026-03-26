@@ -406,6 +406,46 @@ def register_routes(app):
         return jsonify({"status": "ok", "authors_indexed": count})
 
     # ------------------------------------------------------------------
+    # Task Failures Dashboard
+    # ------------------------------------------------------------------
+
+    @app.route("/admin/failures")
+    def admin_failures():
+        """Dashboard showing tasks that exhausted all retries."""
+        show_resolved = request.args.get("show_resolved", "").lower() == "true"
+        failures = _get_task_failures(show_resolved=show_resolved)
+        return render_template("failures.html", failures=failures)
+
+    @app.route("/api/failures")
+    def api_failures():
+        """JSON API for task failure data."""
+        show_resolved = request.args.get("show_resolved", "").lower() == "true"
+        failures = _get_task_failures(show_resolved=show_resolved)
+        return jsonify(failures)
+
+    def _get_task_failures(show_resolved=False):
+        """Query Firestore task_failures collection.
+
+        Avoids requiring a composite Firestore index by filtering and
+        sorting client-side. The collection is small (only dead-lettered
+        tasks), so this is fine.
+        """
+        try:
+            db = cache.db
+            docs = db.collection("task_failures").stream()
+            results = []
+            for doc in docs:
+                data = doc.to_dict()
+                if not show_resolved and data.get("status") == "resolved":
+                    continue
+                results.append(data)
+            results.sort(key=lambda d: d.get("last_failure", ""), reverse=True)
+            return results[:100]
+        except Exception:
+            logger.exception("Failed to query task failures")
+            return []
+
+    # ------------------------------------------------------------------
     # Health Dashboard
     # ------------------------------------------------------------------
     health_service = HealthService()

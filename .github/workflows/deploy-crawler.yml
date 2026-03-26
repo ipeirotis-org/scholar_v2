@@ -56,6 +56,7 @@ jobs:
         cp crawler/scholarly_client.py /tmp/deploy/crawler/
         cp crawler/gcs_writer.py /tmp/deploy/crawler/
         cp crawler/task_enqueuer.py /tmp/deploy/crawler/
+        cp crawler/failure_tracker.py /tmp/deploy/crawler/
         # Copy region_health package (config + router only; scorer not needed)
         cp region_health/__init__.py /tmp/deploy/region_health/
         cp region_health/config.py /tmp/deploy/region_health/
@@ -118,8 +119,14 @@ jobs:
       run: |
         mkdir -p /tmp/deploy-deadletter/crawler
         cp crawler/__init__.py /tmp/deploy-deadletter/crawler/
+        cp crawler/config.py /tmp/deploy-deadletter/crawler/
+        cp crawler/failure_tracker.py /tmp/deploy-deadletter/crawler/
         cp crawler/dead_letter_handler.py /tmp/deploy-deadletter/crawler/
         cp crawler/dead_letter_handler.py /tmp/deploy-deadletter/main.py
+        # Copy region_health for config dependency
+        mkdir -p /tmp/deploy-deadletter/region_health
+        cp region_health/__init__.py /tmp/deploy-deadletter/region_health/
+        cp region_health/config.py /tmp/deploy-deadletter/region_health/
         cp crawler/requirements.txt /tmp/deploy-deadletter/requirements.txt
 
     - name: Deploy v3_dead_letter_handler to us-central1
@@ -135,23 +142,46 @@ jobs:
           --gen2 \
           --source /tmp/deploy-deadletter/
 
-    - name: Create or update Pub/Sub push subscription
+    - name: Create or update Pub/Sub push subscriptions
       run: |
         DL_URL=$(gcloud functions describe v3_dead_letter_handler \
           --region=us-central1 \
           --format='value(serviceConfig.uri)' \
           --project=${{ env.PROJECT_ID }})
+        SA_EMAIL="875626982900-compute@developer.gserviceaccount.com"
+
+        # Crawler dead-letter subscription
         if ! gcloud pubsub subscriptions describe crawler-task-deadletter-push \
             --project=${{ env.PROJECT_ID }} > /dev/null 2>&1; then
           gcloud pubsub subscriptions create crawler-task-deadletter-push \
             --topic=crawler-task-deadletter \
             --push-endpoint="$DL_URL" \
+            --push-auth-service-account="$SA_EMAIL" \
             --ack-deadline=30 \
             --project=${{ env.PROJECT_ID }}
-          echo "Created push subscription"
+          echo "Created crawler dead-letter push subscription"
         else
           gcloud pubsub subscriptions update crawler-task-deadletter-push \
             --push-endpoint="$DL_URL" \
+            --push-auth-service-account="$SA_EMAIL" \
             --project=${{ env.PROJECT_ID }}
-          echo "Updated push subscription"
+          echo "Updated crawler dead-letter push subscription"
+        fi
+
+        # Cache dead-letter subscription (same handler, different topic)
+        if ! gcloud pubsub subscriptions describe cache-task-deadletter-push \
+            --project=${{ env.PROJECT_ID }} > /dev/null 2>&1; then
+          gcloud pubsub subscriptions create cache-task-deadletter-push \
+            --topic=cache-task-deadletter \
+            --push-endpoint="$DL_URL" \
+            --push-auth-service-account="$SA_EMAIL" \
+            --ack-deadline=30 \
+            --project=${{ env.PROJECT_ID }}
+          echo "Created cache dead-letter push subscription"
+        else
+          gcloud pubsub subscriptions update cache-task-deadletter-push \
+            --push-endpoint="$DL_URL" \
+            --push-auth-service-account="$SA_EMAIL" \
+            --project=${{ env.PROJECT_ID }}
+          echo "Updated cache dead-letter push subscription"
         fi

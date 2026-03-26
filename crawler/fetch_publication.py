@@ -18,6 +18,7 @@ from crawler.scholarly_client import (
     fetch_publication as _fetch_publication,
     serialize_publication,
 )
+from crawler.failure_tracker import resolve_failure
 from crawler.gcs_writer import publication_blob_path, upload_json
 
 logger = logging.getLogger(__name__)
@@ -64,6 +65,9 @@ def v3_fetch_publication(request):
     serialized = serialize_publication(filled)
     blob_path = publication_blob_path(author_pub_id)
     upload_json(serialized, blob_path)
+
+    # Mark any previous failure as resolved now that the crawl succeeded
+    resolve_failure("fetch_publication", author_pub_id)
 
     # For user-initiated crawls, trigger immediate GCS→BigQuery ingestion
     if priority:

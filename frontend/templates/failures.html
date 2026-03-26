@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+
+{% block title %}Task Failures -- Scholar Analytics{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Task Failures</h2>
+    <p class="text-muted">
+        Tasks that exhausted all retries and were dead-lettered.
+        <a href="{{ url_for('api_failures') }}">JSON API</a>
+    </p>
+
+    {% if failures %}
+    <table class="table table-sm">
+        <thead>
+            <tr>
+                <th>Type</th>
+                <th>Identifier</th>
+                <th class="text-right">Failures</th>
+                <th>First Failure</th>
+                <th>Last Failure</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for f in failures %}
+            <tr class="{{ 'table-success' if f.status == 'resolved' else ('table-warning' if f.status == 'retrying' else '') }}">
+                <td><code>{{ f.task_type }}</code></td>
+                <td>
+                    {% if f.scholar_id and f.task_type in ('fetch_author', 'populate_author_profile', 'invalidate_author', 'warm_author', 'enqueue_publications') %}
+                    <a href="{{ url_for('results', author_id=f.scholar_id) }}">
+                        <code>{{ f.identifier }}</code>
+                    </a>
+                    {% else %}
+                    <code>{{ f.identifier }}</code>
+                    {% endif %}
+                </td>
+                <td class="text-right"><strong>{{ f.failure_count }}</strong></td>
+                <td><small>{{ f.first_failure[:19] if f.first_failure else '-' }}</small></td>
+                <td><small>{{ f.last_failure[:19] if f.last_failure else '-' }}</small></td>
+                <td>
+                    {% if f.status == 'failed' %}
+                    <span class="badge badge-danger">failed</span>
+                    {% elif f.status == 'retrying' %}
+                    <span class="badge badge-warning">retrying</span>
+                    {% elif f.status == 'resolved' %}
+                    <span class="badge badge-success">resolved</span>
+                    {% else %}
+                    <span class="badge badge-secondary">{{ f.status }}</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% if f.failed_pub_ids %}
+            <tr>
+                <td colspan="6">
+                    <small class="text-muted">
+                        Failed publications: {{ f.failed_pub_ids | join(', ') }}
+                    </small>
+                </td>
+            </tr>
+            {% endif %}
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="alert alert-success">No task failures recorded.</div>
+    {% endif %}
+</div>
+{% endblock %}
