@@ -172,13 +172,13 @@ def build_author_paper_stats():
     AS
     WITH author_papers AS (
       SELECT
-        STRING(a.authorId) AS authorid,
+        LAX_STRING(a.authorId) AS authorid,
         p.corpusid,
         p.year,
         p.citationcount
       FROM {papers_ref} p,
-           UNNEST(JSON_EXTRACT_ARRAY(p.authors)) AS a
-      WHERE STRING(a.authorId) IS NOT NULL
+           UNNEST(JSON_QUERY_ARRAY(p.authors)) AS a
+      WHERE LAX_STRING(a.authorId) IS NOT NULL
         AND p.year IS NOT NULL
         AND p.year > 1900
         AND p.year <= EXTRACT(YEAR FROM CURRENT_DATE())
