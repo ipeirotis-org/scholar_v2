@@ -93,7 +93,7 @@ jobs:
             --cpu=2 \
             --task-timeout=14400 \
             --max-retries=1 \
-            --set-env-vars="GCP_PROJECT_ID=${{ env.GCP_PROJECT_ID }},INGESTION_MODE=auto"
+            --set-env-vars="GCP_PROJECT_ID=${{ env.GCP_PROJECT_ID }},INGESTION_MODE=${{ github.event.inputs.ingestion_mode || 'auto' }}"
         else
           gcloud run jobs create ${{ env.JOB_NAME }} \
             --image "$IMAGE_PATH" \
@@ -102,7 +102,7 @@ jobs:
             --cpu=2 \
             --task-timeout=14400 \
             --max-retries=1 \
-            --set-env-vars="GCP_PROJECT_ID=${{ env.GCP_PROJECT_ID }},INGESTION_MODE=auto"
+            --set-env-vars="GCP_PROJECT_ID=${{ env.GCP_PROJECT_ID }},INGESTION_MODE=${{ github.event.inputs.ingestion_mode || 'auto' }}"
         fi
 
     - name: Create or update weekly scheduler
