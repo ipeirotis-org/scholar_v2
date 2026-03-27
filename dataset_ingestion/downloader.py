@@ -43,6 +43,10 @@ def _blob_exists(blob_name):
 def download_file(release_id, dataset_name, file_url):
     """Download a single file from S2 to GCS via streaming.
 
+    Uses a temp blob + rename pattern to avoid leaving partial uploads
+    that would be incorrectly skipped on retry. The final blob only
+    appears after the upload completes successfully.
+
     Args:
         release_id: S2 release ID.
         dataset_name: e.g. "papers", "citations", "authors".
@@ -60,17 +64,21 @@ def download_file(release_id, dataset_name, file_url):
     logger.info("Downloading %s -> gs://%s/%s", dataset_name, Config.BUCKET_NAME, blob_name)
 
     bucket = _get_storage_client().bucket(Config.BUCKET_NAME)
-    blob = bucket.blob(blob_name)
+    temp_blob_name = blob_name + ".tmp"
+    temp_blob = bucket.blob(temp_blob_name)
 
-    # Stream from S2 URL directly to GCS using resumable upload
+    # Stream to a temp blob first
     with requests.get(file_url, stream=True, timeout=3600) as r:
         r.raise_for_status()
         content_type = r.headers.get("Content-Type", "application/gzip")
 
-        with blob.open("wb", content_type=content_type) as gcs_writer:
+        with temp_blob.open("wb", content_type=content_type) as gcs_writer:
             for chunk in r.iter_content(chunk_size=Config.DOWNLOAD_CHUNK_SIZE):
                 if chunk:
                     gcs_writer.write(chunk)
+
+    # Promote temp blob to final location (atomic rename)
+    bucket.rename_blob(temp_blob, blob_name)
 
     logger.info("Completed %s", blob_name)
     return blob_name, False

@@ -141,6 +141,9 @@ def _drop_temp_tables(dataset_name):
 def apply_diff(release_id, dataset_name, diff):
     """Apply a single diff (one release step) for a dataset.
 
+    Stages both delete and update temp tables before applying any DML,
+    so the main table is never left in a partially applied state.
+
     Args:
         release_id: Target release ID (for GCS paths).
         dataset_name: "papers", "citations", or "authors".
@@ -154,7 +157,10 @@ def apply_diff(release_id, dataset_name, diff):
     result = {"deleted": 0, "upserted": 0}
 
     try:
-        # Download and load delete files
+        # Phase 1: Download and stage both temp tables (no DML yet)
+        delete_table = None
+        update_table = None
+
         if delete_files:
             dl = download_dataset(release_id, f"{dataset_name}_diff_deletes", delete_files)
             if dl["failed"] > 0:
@@ -162,9 +168,7 @@ def apply_diff(release_id, dataset_name, diff):
             delete_table = _load_temp_table(
                 release_id, dataset_name, "deletes", DELETE_SCHEMAS[dataset_name]
             )
-            result["deleted"] = _apply_deletes(dataset_name, delete_table)
 
-        # Download and load update files
         if update_files:
             dl = download_dataset(release_id, f"{dataset_name}_diff_updates", update_files)
             if dl["failed"] > 0:
@@ -172,6 +176,11 @@ def apply_diff(release_id, dataset_name, diff):
             update_table = _load_temp_table(
                 release_id, dataset_name, "updates", DATASET_SCHEMAS[dataset_name]
             )
+
+        # Phase 2: Apply DML only after both temp tables are ready
+        if delete_table:
+            result["deleted"] = _apply_deletes(dataset_name, delete_table)
+        if update_table:
             result["upserted"] = _apply_upserts(dataset_name, update_table)
 
     finally:
