@@ -107,8 +107,21 @@ class TestGetLastLoadedRelease:
 
     @patch.object(loader, "_get_bq_client")
     def test_returns_none_when_no_table(self, mock_get_client):
+        from google.api_core import exceptions as google_exceptions
+
         mock_client = MagicMock()
         mock_get_client.return_value = mock_client
-        mock_client.query.return_value.result.side_effect = Exception("Table not found")
+        mock_client.query.return_value.result.side_effect = google_exceptions.NotFound("Table not found")
 
         assert loader.get_last_loaded_release() is None
+
+    @patch.object(loader, "_get_bq_client")
+    def test_raises_on_transient_error(self, mock_get_client):
+        from google.api_core import exceptions as google_exceptions
+
+        mock_client = MagicMock()
+        mock_get_client.return_value = mock_client
+        mock_client.query.return_value.result.side_effect = google_exceptions.ServiceUnavailable("503")
+
+        with pytest.raises(google_exceptions.ServiceUnavailable):
+            loader.get_last_loaded_release()

@@ -6,6 +6,7 @@ materialization.
 
 import logging
 
+from google.api_core import exceptions as google_exceptions
 from google.cloud import bigquery
 
 from dataset_ingestion.config import Config
@@ -266,6 +267,6 @@ def get_last_loaded_release():
         result = list(client.query(sql).result())
         if result:
             return result[0].release_id
-    except Exception:
+    except google_exceptions.NotFound:
         logger.info("No release_log table found — assuming first run")
     return None

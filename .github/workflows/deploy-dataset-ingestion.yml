@@ -118,7 +118,7 @@ jobs:
             --uri="$JOB_URI" \
             --http-method=POST \
             --time-zone=UTC \
-            --attempt-deadline=14400s \
+            --attempt-deadline=600s \
             --oauth-service-account-email="$SA_EMAIL"
         else
           gcloud scheduler jobs create http "$SCHEDULER_NAME" \
@@ -127,6 +127,6 @@ jobs:
             --uri="$JOB_URI" \
             --http-method=POST \
             --time-zone=UTC \
-            --attempt-deadline=14400s \
+            --attempt-deadline=600s \
             --oauth-service-account-email="$SA_EMAIL"
         fi
