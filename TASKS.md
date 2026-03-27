@@ -230,6 +230,111 @@ Findings from a full codebase audit, ordered by priority. See `docs/codebase-rev
 
 ---
 
+## Semantic Scholar Migration
+
+Replace Google Scholar (scraped via `scholarly`) with Semantic Scholar **bulk datasets** (200M papers, 2.4B citations, 75M authors). This eliminates the entire crawling infrastructure, gives a stable data source (no more scraping/CAPTCHAs), and enables better percentile calculations with the full scholarly graph.
+
+**Key findings from API evaluation:**
+- S2 bulk datasets provide all needed data: h-index, citation counts, paper year, paper citations
+- i10-index not in S2 directly, but trivially computed in BigQuery (`COUNTIF(citationcount >= 10)`)
+- `cites_per_year` not available per-paper, but reconstructable by JOINing citations dataset with papers dataset and grouping by citing paper's year — actually better as a relational table than the current JSON blob
+- 5-year metrics (`hindex5y`, `citedby5y`, `i10index5y`) dropped
+- Datasets released weekly, ~300GB compressed total, license: ODC-BY (open)
+- **API key required** for full dataset download (free, via [partner form](https://www.semanticscholar.org/product/api#Partner-Form))
+- Estimated BigQuery cost: **~$2-5/month** (storage + queries)
+
+**Architecture change:**
+```
+CURRENT: User request → Cloud Tasks → scholarly scrape (per author, 15 regions)
+           → GCS → BigQuery → Cache → Frontend
+
+NEW:     Weekly cron → Download S2 dataset diffs → GCS → BigQuery (bulk load)
+           → Materialization → Cache → Frontend
+         On-demand: S2 Author Search API for search only
+```
+
+### Phase 0: Prerequisites
+
+- [ ] **Apply for Semantic Scholar API key** via [partner form](https://www.semanticscholar.org/product/api#Partner-Form)
+- [ ] **Validate S2 data coverage** for 10 known authors
+  - Find S2 author IDs, compare h-index, citation counts, paper counts, yearly citations
+  - Check for missing papers that Google Scholar has
+- [ ] **Validate faculty reference population coverage**
+  - Check how many of the ~15K faculty can be found in S2 via name/affiliation or ORCID/DBLP crosswalk
+
+### Phase 1: Dataset ingestion pipeline
+
+Build `dataset_ingestion/` component (Cloud Run job):
+
+- [ ] **Download S2 datasets to GCS**
+  - Call Datasets API (`/datasets/v1/release/`) to find latest release
+  - Download papers, citations (stripped of contexts/intents), authors → `gs://scholar_data_share/s2_datasets/{release_id}/`
+- [ ] **Load into BigQuery raw tables**
+  - `s2_papers` (200M rows): corpusid, title, year, citationcount, authors, externalids, venue, publicationdate
+  - `s2_citations` (2.4B rows): citationid, citingcorpusid, citedcorpusid, isinfluential
+  - `s2_authors` (75M rows): authorid, name, affiliations, papercount, citationcount, hindex, externalids
+- [ ] **Build incremental update pipeline**
+  - Use `/diffs/{start}/{end}/{dataset}` endpoint for weekly updates instead of full re-download
+- [ ] **Create materialized derived tables**
+  - `s2_paper_citations_by_year`: JOIN citations with papers, GROUP BY (citedcorpusid, citing_paper_year) — replaces `cites_per_year` JSON
+  - `s2_author_paper_stats`: i10-index, total_publications, total_publications_with_citations per author
+
+### Phase 2: Adapt BigQuery statistics views
+
+Rewrite the 8-level analytics DAG to query S2 tables instead of `author_latest`/`pub_latest`:
+
+- [ ] **Update Level 1 foundation views** (`base_author_publications`, `stats_publication_current`)
+  - Source: `s2_papers` (has embedded authors array — no separate author-pub join needed)
+- [ ] **Update temporal citation views** (`stats_publication_citations_temporal`)
+  - Source: `s2_paper_citations_by_year` table instead of JSON-parsed `cites_per_year`
+- [ ] **Update author stats views** (`stats_author_current`)
+  - Source: `s2_authors` + `s2_author_paper_stats`
+- [ ] **Update distribution tables** (`dist_*`)
+  - Same PERCENT_RANK logic, now over full S2 population (200M papers, 75M authors)
+- [ ] **Validate PiP-AUC scores** match between old and new views for test authors
+
+### Phase 3: Multiple benchmark populations
+
+- [ ] **Create benchmark population views/tables**
+  - `benchmark_all_authors`: all 75M authors (unfiltered)
+  - `benchmark_active_authors`: authors with hindex >= 3, papercount >= 3
+  - `benchmark_faculty`: curated table of known faculty S2 author IDs with institution/department/group
+- [ ] **Compute distribution tables per benchmark**
+  - `dist_author_metrics_by_benchmark`: PERCENT_RANK partitioned by (benchmark_name, year_of_first_pub)
+- [ ] **Migrate faculty reference list**
+  - Map ~15K faculty Google Scholar IDs → S2 author IDs via name + affiliation or ORCID/DBLP crosswalk
+
+### Phase 4: Adapt author search + frontend
+
+- [ ] **Replace author search fallback** (`author_search/scholar_client.py`)
+  - Swap scholarly fallback → S2 Author Search API (`GET /author/search?query={name}`)
+  - BigQuery-first search now covers 75M authors
+- [ ] **Update frontend for S2 author IDs**
+  - URL parameter: `scholar_id` → `author_id`
+  - Add redirect/lookup for old Google Scholar ID URLs
+- [ ] **Add benchmark selector to profile pages**
+  - Let users choose which reference population to view percentiles against
+- [ ] **Remove Google Scholar-specific references** (links, email_domain field)
+
+### Phase 5: Remove crawler infrastructure
+
+- [ ] **Remove `crawler/` component** (Cloud Functions, scholarly, ScraperAPI, proxy rotation)
+- [ ] **Remove Cloud Tasks queues** (process-authors, process-pubs, process-pub-priority)
+- [ ] **Remove `refresh/` component** (replaced by weekly bulk dataset refresh)
+- [ ] **Remove region rotation / health scoring** (no longer scraping)
+- [ ] **Consolidate CI/CD** (remove multi-region function deployment)
+- [ ] **Update CLAUDE.md** architecture docs
+
+### Open questions
+
+- **Coverage gap**: S2 has 200M papers but may miss some Google Scholar entries. Validate overlap for key authors.
+- **Author disambiguation**: S2 may split/merge authors differently than Google Scholar.
+- **URL backwards compatibility**: Strategy for existing bookmarked Google Scholar ID URLs.
+- **Schema mapping**: `scholar_id` → `authorid`, `author_pub_id` → `corpusid` (integer vs string).
+- **email_domain**: Not available in S2; drop or find alternative source.
+
+---
+
 ## Future Features
 
 - [ ] **REST API for authors, publications, and stats** _(from #28)_
@@ -260,4 +365,4 @@ Findings from a full codebase audit, ordered by priority. See `docs/codebase-rev
 
 ---
 
-_Last updated: 2026-03-24_
+_Last updated: 2026-03-27_
