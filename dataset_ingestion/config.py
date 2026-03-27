@@ -54,4 +54,4 @@ class Config:
 
     @classmethod
     def gcs_uri_pattern(cls, release_id, dataset_name):
-        return f"gs://{cls.BUCKET_NAME}/{cls.gcs_dataset_prefix(release_id, dataset_name)}*"
+        return f"gs://{cls.BUCKET_NAME}/{cls.gcs_dataset_prefix(release_id, dataset_name)}*.gz"

@@ -271,7 +271,7 @@ def get_last_loaded_release():
         WHERE rn = 1 AND status = 'success'
         GROUP BY release_id
         HAVING COUNT(DISTINCT dataset_name) = {required_count}
-        ORDER BY release_id DESC
+        ORDER BY MAX(timestamp) DESC
         LIMIT 1
         """
         result = list(client.query(sql).result())
