@@ -80,6 +80,7 @@ def run_full_load(release_id):
     logger.info("Building derived tables...")
     build_paper_citations_by_year()
     build_author_paper_stats()
+    log_release(release_id, "derived_tables", "full", "success")
 
     logger.info("Full load complete for release %s", release_id)
 
@@ -161,6 +162,7 @@ def run_diff_load(last_release, target_release):
     logger.info("Building derived tables...")
     build_paper_citations_by_year()
     build_author_paper_stats()
+    log_release(target_release, "derived_tables", "diff", "success")
 
     logger.info("Diff load complete: %s -> %s", last_release, target_release)
 

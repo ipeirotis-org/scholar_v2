@@ -49,13 +49,13 @@ def download_file(release_id, dataset_name, file_url):
         file_url: Pre-signed S3 URL.
 
     Returns:
-        GCS blob name of the uploaded file.
+        Tuple of (blob_name, was_skipped).
     """
     blob_name = _gcs_blob_name(release_id, dataset_name, file_url)
 
     if _blob_exists(blob_name):
         logger.info("Skipping %s (already exists)", blob_name)
-        return blob_name
+        return blob_name, True
 
     logger.info("Downloading %s -> gs://%s/%s", dataset_name, Config.BUCKET_NAME, blob_name)
 
@@ -73,7 +73,7 @@ def download_file(release_id, dataset_name, file_url):
                     gcs_writer.write(chunk)
 
     logger.info("Completed %s", blob_name)
-    return blob_name
+    return blob_name, False
 
 
 def download_dataset(release_id, dataset_name, file_urls):
@@ -105,10 +105,9 @@ def download_dataset(release_id, dataset_name, file_urls):
         for future in as_completed(future_to_url):
             url = future_to_url[future]
             try:
-                blob_name = future.result()
+                blob_name, was_skipped = future.result()
                 results["blobs"].append(blob_name)
-                # Check if it was a skip or a fresh download
-                if _blob_exists(blob_name):
+                if was_skipped:
                     results["skipped"] += 1
                 results["downloaded"] += 1
             except Exception:

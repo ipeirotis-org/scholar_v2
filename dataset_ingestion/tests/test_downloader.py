@@ -23,8 +23,9 @@ class TestDownloadFile:
     @patch.object(downloader, "_blob_exists", return_value=True)
     @patch.object(downloader, "_get_storage_client")
     def test_skips_existing_file(self, mock_client, mock_exists):
-        result = downloader.download_file("2026-03-10", "papers", "https://example.com/file.gz")
-        assert "file.gz" in result
+        blob_name, was_skipped = downloader.download_file("2026-03-10", "papers", "https://example.com/file.gz")
+        assert "file.gz" in blob_name
+        assert was_skipped is True
         mock_client.return_value.bucket.return_value.blob.return_value.open.assert_not_called()
 
     @patch.object(downloader, "_blob_exists", return_value=False)
@@ -46,40 +47,53 @@ class TestDownloadFile:
         mock_writer.__exit__ = MagicMock(return_value=False)
         mock_storage.return_value.bucket.return_value.blob.return_value.open.return_value = mock_writer
 
-        result = downloader.download_file("2026-03-10", "papers", "https://example.com/file.gz")
-        assert "file.gz" in result
+        blob_name, was_skipped = downloader.download_file("2026-03-10", "papers", "https://example.com/file.gz")
+        assert "file.gz" in blob_name
+        assert was_skipped is False
         assert mock_writer.write.call_count == 2
 
 
 class TestDownloadDataset:
     @patch.object(downloader, "download_file")
     def test_downloads_all_files(self, mock_download):
-        mock_download.return_value = "s2_datasets/2026-03-10/papers/file.gz"
+        mock_download.return_value = ("s2_datasets/2026-03-10/papers/file.gz", False)
 
-        with patch.object(downloader, "_blob_exists", return_value=True):
-            result = downloader.download_dataset(
-                "2026-03-10",
-                "papers",
-                ["https://example.com/f1.gz", "https://example.com/f2.gz"],
-            )
+        result = downloader.download_dataset(
+            "2026-03-10",
+            "papers",
+            ["https://example.com/f1.gz", "https://example.com/f2.gz"],
+        )
 
         assert result["total"] == 2
         assert result["downloaded"] == 2
+        assert result["skipped"] == 0
         assert mock_download.call_count == 2
+
+    @patch.object(downloader, "download_file")
+    def test_counts_skipped_files(self, mock_download):
+        mock_download.return_value = ("s2_datasets/2026-03-10/papers/file.gz", True)
+
+        result = downloader.download_dataset(
+            "2026-03-10",
+            "papers",
+            ["https://example.com/f1.gz", "https://example.com/f2.gz"],
+        )
+
+        assert result["downloaded"] == 2
+        assert result["skipped"] == 2
 
     @patch.object(downloader, "download_file")
     def test_handles_failures(self, mock_download):
         mock_download.side_effect = [
-            "s2_datasets/2026-03-10/papers/f1.gz",
+            ("s2_datasets/2026-03-10/papers/f1.gz", False),
             Exception("Network error"),
         ]
 
-        with patch.object(downloader, "_blob_exists", return_value=True):
-            result = downloader.download_dataset(
-                "2026-03-10",
-                "papers",
-                ["https://example.com/f1.gz", "https://example.com/f2.gz"],
-            )
+        result = downloader.download_dataset(
+            "2026-03-10",
+            "papers",
+            ["https://example.com/f1.gz", "https://example.com/f2.gz"],
+        )
 
         assert result["total"] == 2
         assert result["downloaded"] == 1

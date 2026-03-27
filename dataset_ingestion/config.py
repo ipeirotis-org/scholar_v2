@@ -31,6 +31,10 @@ class Config:
     # Datasets to ingest (order matters: papers first for derived tables)
     DATASETS = ["papers", "citations", "authors"]
 
+    # All dataset_name values that must have status='success' for a release
+    # to be considered complete (base datasets + derived tables).
+    REQUIRED_SUCCESS_MARKERS = ["papers", "citations", "authors", "derived_tables"]
+
     # Download settings
     DOWNLOAD_WORKERS = int(os.environ.get("DOWNLOAD_WORKERS", "4"))
     DOWNLOAD_CHUNK_SIZE = 64 * 1024 * 1024  # 64 MB chunks for streaming

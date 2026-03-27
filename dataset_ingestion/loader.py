@@ -243,14 +243,16 @@ def log_release(release_id, dataset_name, load_type, status, rows_loaded=0):
 def get_last_loaded_release():
     """Get the most recent release where ALL base datasets loaded successfully.
 
-    A release is only considered complete when papers, citations, and authors
-    all have a 'success' entry. This prevents treating a partially failed
-    release as current, which would cause subsequent runs to skip recovery.
+    A release is only considered complete when all base datasets AND
+    derived tables have a 'success' entry. This prevents treating a
+    partially failed release (e.g. base loads succeeded but derived
+    table build failed) as current.
 
     Returns None if no fully successful release has been recorded.
     """
     table_id = Config.bq_table(Config.RELEASE_LOG_TABLE)
-    required_count = len(Config.DATASETS)
+    markers = Config.REQUIRED_SUCCESS_MARKERS
+    required_count = len(markers)
     client = _get_bq_client()
 
     try:
@@ -258,7 +260,7 @@ def get_last_loaded_release():
         SELECT release_id
         FROM `{table_id}`
         WHERE status = 'success'
-          AND dataset_name IN ({', '.join(f"'{d}'" for d in Config.DATASETS)})
+          AND dataset_name IN ({', '.join(f"'{d}'" for d in markers)})
         GROUP BY release_id
         HAVING COUNT(DISTINCT dataset_name) = {required_count}
         ORDER BY release_id DESC
