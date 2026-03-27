@@ -100,14 +100,25 @@ class TestDropTempTables:
         assert any("deletes" in c for c in calls)
 
 
+def _mock_bq_client_for_counts():
+    """Create a mock BQ client that returns row counts for get_table."""
+    mock_client = MagicMock()
+    mock_table = MagicMock()
+    mock_table.num_rows = 42
+    mock_client.get_table.return_value = mock_table
+    return mock_client
+
+
 class TestApplyDiff:
+    @patch.object(diff_updater, "_get_bq_client")
     @patch.object(diff_updater, "_drop_temp_tables")
     @patch.object(diff_updater, "_apply_diff_dml")
     @patch.object(diff_updater, "_load_temp_table", return_value="tmp_table")
     @patch.object(diff_updater, "download_dataset")
     def test_applies_deletes_and_upserts(
-        self, mock_download, mock_load, mock_dml, mock_drop
+        self, mock_download, mock_load, mock_dml, mock_drop, mock_bq
     ):
+        mock_bq.return_value = _mock_bq_client_for_counts()
         mock_download.return_value = {"failed": 0, "downloaded": 5}
 
         diff = {
@@ -115,23 +126,29 @@ class TestApplyDiff:
             "delete_files": ["https://example.com/d1.gz"],
         }
 
-        diff_updater.apply_diff("2026-03-10", "papers", diff)
+        result = diff_updater.apply_diff("2026-03-10", "papers", diff)
 
         mock_dml.assert_called_once_with("papers", "tmp_table", "tmp_table")
         mock_drop.assert_called_once_with("papers")
+        assert result["deleted"] == 42
+        assert result["upserted"] == 42
 
+    @patch.object(diff_updater, "_get_bq_client")
     @patch.object(diff_updater, "_drop_temp_tables")
     @patch.object(diff_updater, "_apply_diff_dml")
     @patch.object(diff_updater, "_load_temp_table", return_value="tmp_table")
     @patch.object(diff_updater, "download_dataset")
-    def test_handles_updates_only(self, mock_download, mock_load, mock_dml, mock_drop):
+    def test_handles_updates_only(self, mock_download, mock_load, mock_dml, mock_drop, mock_bq):
+        mock_bq.return_value = _mock_bq_client_for_counts()
         mock_download.return_value = {"failed": 0, "downloaded": 5}
 
         diff = {"update_files": ["https://example.com/u1.gz"], "delete_files": []}
 
-        diff_updater.apply_diff("2026-03-10", "papers", diff)
+        result = diff_updater.apply_diff("2026-03-10", "papers", diff)
 
         mock_dml.assert_called_once_with("papers", None, "tmp_table")
+        assert result["deleted"] == 0
+        assert result["upserted"] == 42
 
     @patch.object(diff_updater, "_drop_temp_tables")
     @patch.object(diff_updater, "download_dataset")
@@ -146,8 +163,9 @@ class TestApplyDiff:
         # Temp tables should still be cleaned up
         mock_drop.assert_called_once()
 
+    @patch.object(diff_updater, "_get_bq_client")
     @patch.object(diff_updater, "_drop_temp_tables")
-    def test_empty_diff(self, mock_drop):
+    def test_empty_diff(self, mock_drop, mock_bq):
         diff = {"update_files": [], "delete_files": []}
 
         result = diff_updater.apply_diff("2026-03-10", "papers", diff)

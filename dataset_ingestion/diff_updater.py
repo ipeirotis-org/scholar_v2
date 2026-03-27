@@ -175,6 +175,13 @@ def apply_diff(release_id, dataset_name, diff):
                 release_id, dataset_name, "updates", DATASET_SCHEMAS[dataset_name]
             )
 
+        # Record staged row counts for telemetry before DML
+        client = _get_bq_client()
+        if delete_table:
+            result["deleted"] = client.get_table(delete_table).num_rows
+        if update_table:
+            result["upserted"] = client.get_table(update_table).num_rows
+
         # Phase 2: Apply delete + upsert atomically in a single transaction
         if delete_table or update_table:
             _apply_diff_dml(dataset_name, delete_table, update_table)
