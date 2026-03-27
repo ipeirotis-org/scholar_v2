@@ -16,6 +16,7 @@ import sys
 
 from dataset_ingestion import s2_api_client
 from dataset_ingestion.config import Config
+from dataset_ingestion.diff_updater import apply_diff
 from dataset_ingestion.downloader import download_dataset
 from dataset_ingestion.loader import (
     build_author_paper_stats,
@@ -71,6 +72,17 @@ def run_full_load(release_id):
     logger.info("Full load complete for release %s", release_id)
 
 
+def _full_load_fallback(target_release, dataset_name):
+    """Fall back to full reload for a single dataset."""
+    file_urls = s2_api_client.get_dataset_files(target_release, dataset_name)
+    dl_result = download_dataset(target_release, dataset_name, file_urls)
+    if dl_result["failed"] == 0:
+        rows = load_dataset(target_release, dataset_name, write_disposition="WRITE_TRUNCATE")
+        log_release(target_release, dataset_name, "full_fallback", "success", rows)
+    else:
+        log_release(target_release, dataset_name, "full_fallback", "failed")
+
+
 def run_diff_load(last_release, target_release):
     """Apply incremental diffs from last_release to target_release."""
     logger.info("Starting diff load: %s -> %s", last_release, target_release)
@@ -82,13 +94,7 @@ def run_diff_load(last_release, target_release):
             diff_data = s2_api_client.get_diffs(last_release, target_release, dataset_name)
         except Exception:
             logger.exception("Failed to get diffs for %s — falling back to full load", dataset_name)
-            file_urls = s2_api_client.get_dataset_files(target_release, dataset_name)
-            dl_result = download_dataset(target_release, dataset_name, file_urls)
-            if dl_result["failed"] == 0:
-                rows = load_dataset(target_release, dataset_name, write_disposition="WRITE_TRUNCATE")
-                log_release(target_release, dataset_name, "full_fallback", "success", rows)
-            else:
-                log_release(target_release, dataset_name, "full_fallback", "failed")
+            _full_load_fallback(target_release, dataset_name)
             continue
 
         diffs = diff_data.get("diffs", [])
@@ -97,32 +103,26 @@ def run_diff_load(last_release, target_release):
             log_release(target_release, dataset_name, "diff", "success", 0)
             continue
 
-        # For each diff step, download update files and apply
-        for diff in diffs:
-            update_files = diff.get("update_files", [])
-            delete_files = diff.get("delete_files", [])
-            step_release = diff.get("to_release", target_release)
+        # Apply each diff step sequentially
+        total_deleted = 0
+        total_upserted = 0
+        try:
+            for diff in diffs:
+                step_release = diff.get("to_release", target_release)
+                logger.info("Applying diff step -> %s for %s", step_release, dataset_name)
+                result = apply_diff(step_release, dataset_name, diff)
+                total_deleted += result["deleted"]
+                total_upserted += result["upserted"]
 
-            if update_files:
-                dl_result = download_dataset(step_release, f"{dataset_name}_updates", update_files)
-                if dl_result["failed"] > 0:
-                    logger.error("Some update downloads failed for %s", dataset_name)
+            logger.info(
+                "Diff applied for %s: %d deleted, %d upserted",
+                dataset_name, total_deleted, total_upserted,
+            )
+            log_release(target_release, dataset_name, "diff", "success", total_upserted)
 
-                # Load updates using WRITE_APPEND into a temp staging approach
-                # For simplicity in v1, we do a full reload on diff
-                # TODO: Implement proper MERGE-based incremental updates
-                logger.warning(
-                    "Diff updates for %s: falling back to full reload (MERGE not yet implemented)",
-                    dataset_name,
-                )
-                all_file_urls = s2_api_client.get_dataset_files(target_release, dataset_name)
-                download_dataset(target_release, dataset_name, all_file_urls)
-                rows = load_dataset(target_release, dataset_name, write_disposition="WRITE_TRUNCATE")
-                log_release(target_release, dataset_name, "diff_fallback", "success", rows)
-                break  # Skip remaining diffs for this dataset
-
-            if delete_files:
-                logger.info("Delete files for %s: %d (skipping — using full reload)", dataset_name, len(delete_files))
+        except Exception:
+            logger.exception("Diff apply failed for %s — falling back to full load", dataset_name)
+            _full_load_fallback(target_release, dataset_name)
 
     # Rebuild derived tables
     logger.info("Building derived tables...")

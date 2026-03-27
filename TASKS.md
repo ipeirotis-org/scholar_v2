@@ -315,10 +315,14 @@ Built `dataset_ingestion/` component (Cloud Run job):
   - Papers: 60 files, ~13 min BQ load
   - Citations: 358 files, ~38 min download + ~12 min BQ load
   - Derived tables: ~44s total materialization
-- [ ] **Build incremental update pipeline**
-  - Diff API client implemented (`get_diffs()`), but MERGE-based apply not yet implemented
-  - Currently falls back to full reload on diff mode
-- [ ] **CI/CD: deploy as Cloud Run Job with weekly Cloud Scheduler**
+- [x] **Build incremental update pipeline**
+  - `diff_updater.py`: Downloads diff files, loads into temp tables, applies DELETE + MERGE
+  - Falls back to full reload on diff failure
+  - 11 tests for diff updater
+- [x] **CI/CD: deploy as Cloud Run Job with weekly Cloud Scheduler**
+  - `.github/workflows/deploy-dataset-ingestion.yml`: test → build → deploy Cloud Run Job → create scheduler
+  - Weekly schedule: Mondays at 02:00 UTC
+  - 4GB memory, 2 CPU, 4-hour timeout
 
 ### Phase 2: Adapt BigQuery statistics views
 
