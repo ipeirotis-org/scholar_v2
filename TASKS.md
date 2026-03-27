@@ -255,10 +255,16 @@ NEW:     Weekly cron → Download S2 dataset diffs → GCS → BigQuery (bulk lo
 
 ### Phase 0: Prerequisites
 
-- [ ] **Apply for Semantic Scholar API key** via [partner form](https://www.semanticscholar.org/product/api#Partner-Form)
+- [x] **Apply for Semantic Scholar API key** via [partner form](https://www.semanticscholar.org/product/api#Partner-Form)
+  - Key stored in Secret Manager: `projects/875626982900/secrets/s2-api-key`
+  - Verified: datasets API works (papers: 60 files, citations: 358 files, authors: 30 files)
+  - Verified: Graph API works (author search, paper lookup, citation pagination)
+  - Note: Graph API citation endpoint caps at ~2,000 results per paper (misses older citations). Bulk dataset has no such limit — further validates the bulk approach.
 - [ ] **Validate S2 data coverage** for 10 known authors
   - Find S2 author IDs, compare h-index, citation counts, paper counts, yearly citations
   - Check for missing papers that Google Scholar has
+  - Initial test: Panos Ipeirotis found as authorId `2942126` (h-index 48, 125 papers, 21,660 citations)
+  - Note: S2 has author disambiguation issues (duplicate entry `11143475` with 12 papers)
 - [ ] **Validate faculty reference population coverage**
   - Check how many of the ~15K faculty can be found in S2 via name/affiliation or ORCID/DBLP crosswalk
 
