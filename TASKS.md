@@ -230,6 +230,143 @@ Findings from a full codebase audit, ordered by priority. See `docs/codebase-rev
 
 ---
 
+## Semantic Scholar Migration
+
+Replace Google Scholar (scraped via `scholarly`) with Semantic Scholar **bulk datasets** (200M papers, 2.4B citations, 75M authors). This eliminates the entire crawling infrastructure, gives a stable data source (no more scraping/CAPTCHAs), and enables better percentile calculations with the full scholarly graph.
+
+**Key findings from API evaluation:**
+- S2 bulk datasets provide all needed data: h-index, citation counts, paper year, paper citations
+- i10-index not in S2 directly, but trivially computed in BigQuery (`COUNTIF(citationcount >= 10)`)
+- `cites_per_year` not available per-paper, but reconstructable by JOINing citations dataset with papers dataset and grouping by citing paper's year — actually better as a relational table than the current JSON blob
+- 5-year metrics (`hindex5y`, `citedby5y`, `i10index5y`) dropped
+- Datasets released weekly, ~300GB compressed total, license: ODC-BY (open)
+- **API key required** for full dataset download (free, via [partner form](https://www.semanticscholar.org/product/api#Partner-Form))
+- Estimated BigQuery cost: **~$2-5/month** (storage + queries)
+
+**Architecture change:**
+```
+CURRENT: User request → Cloud Tasks → scholarly scrape (per author, 15 regions)
+           → GCS → BigQuery → Cache → Frontend
+
+NEW:     Weekly cron → Download S2 dataset diffs → GCS → BigQuery (bulk load)
+           → Materialization → Cache → Frontend
+         On-demand: S2 Author Search API for search only
+```
+
+### Phase 0: Prerequisites
+
+- [x] **Apply for Semantic Scholar API key** via [partner form](https://www.semanticscholar.org/product/api#Partner-Form)
+  - Key stored in Secret Manager: `projects/875626982900/secrets/s2-api-key`
+  - Verified: datasets API works (papers: 60 files, citations: 358 files, authors: 30 files)
+  - Verified: Graph API works (author search, paper lookup, citation pagination)
+  - Note: Graph API citation endpoint caps at ~2,000 results per paper (misses older citations). Bulk dataset has no such limit — further validates the bulk approach.
+- [x] **Validate S2 data coverage** for 10+ known authors
+  - Compared 15 authors across Google Scholar and Semantic Scholar (sorted by GS h-index):
+
+  | Author | GS h | S2 h | Δ | GS cites | S2 cites | Δ% | GS pubs | S2 pubs | Δ% | S2 ID |
+  |--------|------|------|---|----------|----------|-----|---------|---------|-----|-------|
+  | Ronald C Kessler | 348 | 235 | -113 | 599K | 300K | -50% | 2163 | 1113 | -49% | 2350669 |
+  | JoAnn Manson | 326 | 263 | -63 | 498K | 267K | -46% | 2999 | 2218 | -26% | 3988124 |
+  | Eric Lander | 314 | 290 | -24 | 671K | 537K | -20% | 1101 | 779 | -29% | 9311320 |
+  | Frank B. Hu | 312 | 269 | -43 | 488K | 295K | -40% | 2525 | 1906 | -25% | 2242100447 |
+  | Bert Vogelstein | 290 | 268 | -22 | 499K | 366K | -27% | 1307 | 859 | -34% | 1965563 |
+  | Christopher Murray | 272 | 195 | -77 | 563K | 279K | -50% | 1427 | 627 | -56% | 145882172 |
+  | John P.A. Ioannidis | 254 | 195 | -59 | 548K | 203K | -63% | 2783 | 1237 | -56% | 145441750 |
+  | Mark Daly | 249 | 203 | -46 | 472K | 312K | -34% | 1317 | 786 | -40% | 144524355 |
+  | Yoshua Bengio | 229 | 212 | -17 | 755K | 565K | -25% | 1346 | 812 | -40% | 1751762 |
+  | Geoffrey Hinton | 182 | 162 | -20 | 756K | 578K | -24% | 668 | 467 | -30% | 1695689 |
+  | Robert Tibshirani | 180 | 160 | -20 | 493K | 296K | -40% | 1069 | 687 | -36% | 1761784 |
+  | Daniel Kahneman | 160 | 124 | -36 | 550K | 236K | -57% | 802 | 291 | -64% | 3683465 |
+  | Ilya Sutskever | 101 | 75 | -26 | 627K | 512K | -18% | 181 | 164 | -9% | 1701686 |
+  | Ross Girshick | 87 | 79 | -8 | 572K | 404K | -29% | 110 | 112 | +2% | 2983898 |
+  | Kaiming He | 76 | 67 | -9 | 806K | 544K | -33% | 95 | 84 | -12% | 39353098 |
+  | Panos Ipeirotis | 59 | 48 | -11 | 30K | 22K | -28% | 209 | 125 | -40% | 2942126 |
+
+  **Findings:**
+  - S2 consistently has **fewer citations (18-63% less)** and **fewer papers (9-64% less)** than Google Scholar
+  - h-index is **10-30% lower** on S2 for most authors; more for medical/social science researchers (up to -113 for Kessler)
+  - Medical/biomedical researchers show the **largest gap** (Kessler -50%, Murray -50%, Ioannidis -63%, Kahneman -57%) — GS indexes more clinical/grey literature
+  - CS researchers show the **smallest gap** (Girshick +2% pubs, Sutskever -9% pubs, He -12% pubs)
+  - **Author disambiguation is a real problem**: S2 fragments high-output authors across multiple profiles (Kahneman had 20+ profiles; Ioannidis had 13+). The correct main profile must be identified carefully.
+  - Panos Ipeirotis also has a duplicate profile (id `11143475` with 12 papers vs main id `2942126` with 125)
+  - **API rate limits are very aggressive**: ~1 req/30-60s effective rate for search endpoints, even with API key. Batch endpoints work better. This further validates the bulk dataset approach.
+  - **Yearly citation reconstruction works**: tested on a 4,667-cite paper, 100% of citing papers had year data (though API caps at ~2000 results)
+- [ ] **Validate faculty reference population coverage**
+  - Check how many of the ~15K faculty can be found in S2 via name/affiliation or ORCID/DBLP crosswalk
+
+### Phase 1: Dataset ingestion pipeline
+
+Build `dataset_ingestion/` component (Cloud Run job):
+
+- [ ] **Download S2 datasets to GCS**
+  - Call Datasets API (`/datasets/v1/release/`) to find latest release
+  - Download papers, citations (stripped of contexts/intents), authors → `gs://scholar_data_share/s2_datasets/{release_id}/`
+- [ ] **Load into BigQuery raw tables**
+  - `s2_papers` (200M rows): corpusid, title, year, citationcount, authors, externalids, venue, publicationdate
+  - `s2_citations` (2.4B rows): citationid, citingcorpusid, citedcorpusid, isinfluential
+  - `s2_authors` (75M rows): authorid, name, affiliations, papercount, citationcount, hindex, externalids
+- [ ] **Build incremental update pipeline**
+  - Use `/diffs/{start}/{end}/{dataset}` endpoint for weekly updates instead of full re-download
+- [ ] **Create materialized derived tables**
+  - `s2_paper_citations_by_year`: JOIN citations with papers, GROUP BY (citedcorpusid, citing_paper_year) — replaces `cites_per_year` JSON
+  - `s2_author_paper_stats`: i10-index, total_publications, total_publications_with_citations per author
+
+### Phase 2: Adapt BigQuery statistics views
+
+Rewrite the 8-level analytics DAG to query S2 tables instead of `author_latest`/`pub_latest`:
+
+- [ ] **Update Level 1 foundation views** (`base_author_publications`, `stats_publication_current`)
+  - Source: `s2_papers` (has embedded authors array — no separate author-pub join needed)
+- [ ] **Update temporal citation views** (`stats_publication_citations_temporal`)
+  - Source: `s2_paper_citations_by_year` table instead of JSON-parsed `cites_per_year`
+- [ ] **Update author stats views** (`stats_author_current`)
+  - Source: `s2_authors` + `s2_author_paper_stats`
+- [ ] **Update distribution tables** (`dist_*`)
+  - Same PERCENT_RANK logic, now over full S2 population (200M papers, 75M authors)
+- [ ] **Validate PiP-AUC scores** match between old and new views for test authors
+
+### Phase 3: Multiple benchmark populations
+
+- [ ] **Create benchmark population views/tables**
+  - `benchmark_all_authors`: all 75M authors (unfiltered)
+  - `benchmark_active_authors`: authors with hindex >= 3, papercount >= 3
+  - `benchmark_faculty`: curated table of known faculty S2 author IDs with institution/department/group
+- [ ] **Compute distribution tables per benchmark**
+  - `dist_author_metrics_by_benchmark`: PERCENT_RANK partitioned by (benchmark_name, year_of_first_pub)
+- [ ] **Migrate faculty reference list**
+  - Map ~15K faculty Google Scholar IDs → S2 author IDs via name + affiliation or ORCID/DBLP crosswalk
+
+### Phase 4: Adapt author search + frontend
+
+- [ ] **Replace author search fallback** (`author_search/scholar_client.py`)
+  - Swap scholarly fallback → S2 Author Search API (`GET /author/search?query={name}`)
+  - BigQuery-first search now covers 75M authors
+- [ ] **Update frontend for S2 author IDs**
+  - URL parameter: `scholar_id` → `author_id`
+  - Add redirect/lookup for old Google Scholar ID URLs
+- [ ] **Add benchmark selector to profile pages**
+  - Let users choose which reference population to view percentiles against
+- [ ] **Remove Google Scholar-specific references** (links, email_domain field)
+
+### Phase 5: Remove crawler infrastructure
+
+- [ ] **Remove `crawler/` component** (Cloud Functions, scholarly, ScraperAPI, proxy rotation)
+- [ ] **Remove Cloud Tasks queues** (process-authors, process-pubs, process-pub-priority)
+- [ ] **Remove `refresh/` component** (replaced by weekly bulk dataset refresh)
+- [ ] **Remove region rotation / health scoring** (no longer scraping)
+- [ ] **Consolidate CI/CD** (remove multi-region function deployment)
+- [ ] **Update CLAUDE.md** architecture docs
+
+### Open questions
+
+- **Coverage gap**: S2 has 200M papers but may miss some Google Scholar entries. Validate overlap for key authors.
+- **Author disambiguation**: S2 may split/merge authors differently than Google Scholar.
+- **URL backwards compatibility**: Strategy for existing bookmarked Google Scholar ID URLs.
+- **Schema mapping**: `scholar_id` → `authorid`, `author_pub_id` → `corpusid` (integer vs string).
+- **email_domain**: Not available in S2; drop or find alternative source.
+
+---
+
 ## Future Features
 
 - [ ] **REST API for authors, publications, and stats** _(from #28)_
@@ -260,4 +397,4 @@ Findings from a full codebase audit, ordered by priority. See `docs/codebase-rev
 
 ---
 
-_Last updated: 2026-03-24_
+_Last updated: 2026-03-27_
