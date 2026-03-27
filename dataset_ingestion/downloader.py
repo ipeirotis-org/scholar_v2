@@ -6,6 +6,7 @@ the entire file in memory.
 
 import logging
 import os
+import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from urllib.parse import urlparse
 
@@ -64,7 +65,7 @@ def download_file(release_id, dataset_name, file_url):
     logger.info("Downloading %s -> gs://%s/%s", dataset_name, Config.BUCKET_NAME, blob_name)
 
     bucket = _get_storage_client().bucket(Config.BUCKET_NAME)
-    temp_blob_name = blob_name + ".tmp"
+    temp_blob_name = blob_name + f".tmp.{uuid.uuid4().hex[:8]}"
     temp_blob = bucket.blob(temp_blob_name)
 
     try:
