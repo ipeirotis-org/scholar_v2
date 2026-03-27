@@ -80,53 +80,51 @@ def _load_temp_table(release_id, dataset_name, file_type, schema):
     return temp_table_id
 
 
-def _apply_deletes(dataset_name, delete_table_id):
-    """Delete rows from the main table matching keys in the delete table."""
-    pk = DATASET_PRIMARY_KEYS[dataset_name]
-    main_table = Config.bq_table_ref(dataset_name)
+def _apply_diff_dml(dataset_name, delete_table_id, update_table_id):
+    """Apply delete and upsert atomically in a BigQuery transaction.
 
-    sql = f"""
-    DELETE FROM {main_table} t
-    WHERE t.{pk} IN (SELECT {pk} FROM `{delete_table_id}`)
+    Wraps both DML statements in BEGIN TRANSACTION / COMMIT TRANSACTION
+    so they succeed or fail together. If either statement fails, BigQuery
+    rolls back both, avoiding a partially applied state.
     """
-
-    logger.info("Applying deletes for %s...", dataset_name)
-    client = _get_bq_client()
-    job = client.query(sql)
-    result = job.result()
-    logger.info("Deleted %d rows from %s", job.num_dml_affected_rows, dataset_name)
-    return job.num_dml_affected_rows
-
-
-def _apply_upserts(dataset_name, update_table_id):
-    """MERGE upsert rows from the update table into the main table."""
     pk = DATASET_PRIMARY_KEYS[dataset_name]
     main_table = Config.bq_table_ref(dataset_name)
     schema = DATASET_SCHEMAS[dataset_name]
 
-    # Build column lists for the MERGE statement
-    all_columns = [f.name for f in schema]
-    update_sets = ", ".join(f"t.{col} = s.{col}" for col in all_columns if col != pk)
-    insert_columns = ", ".join(all_columns)
-    insert_values = ", ".join(f"s.{col}" for col in all_columns)
+    statements = ["BEGIN TRANSACTION;"]
 
-    sql = f"""
-    MERGE {main_table} t
-    USING `{update_table_id}` s
-    ON t.{pk} = s.{pk}
-    WHEN MATCHED THEN
-      UPDATE SET {update_sets}
-    WHEN NOT MATCHED THEN
-      INSERT ({insert_columns})
-      VALUES ({insert_values})
-    """
+    if delete_table_id:
+        statements.append(
+            f"DELETE FROM {main_table} t "
+            f"WHERE t.{pk} IN (SELECT {pk} FROM `{delete_table_id}`);"
+        )
 
-    logger.info("Applying upserts for %s...", dataset_name)
+    if update_table_id:
+        all_columns = [f.name for f in schema]
+        update_sets = ", ".join(f"t.{col} = s.{col}" for col in all_columns if col != pk)
+        insert_columns = ", ".join(all_columns)
+        insert_values = ", ".join(f"s.{col}" for col in all_columns)
+
+        statements.append(f"""
+        MERGE {main_table} t
+        USING `{update_table_id}` s
+        ON t.{pk} = s.{pk}
+        WHEN MATCHED THEN
+          UPDATE SET {update_sets}
+        WHEN NOT MATCHED THEN
+          INSERT ({insert_columns})
+          VALUES ({insert_values});
+        """)
+
+    statements.append("COMMIT TRANSACTION;")
+
+    script = "\n".join(statements)
+
+    logger.info("Applying diff DML for %s (atomic transaction)...", dataset_name)
     client = _get_bq_client()
-    job = client.query(sql)
+    job = client.query(script)
     job.result()
-    logger.info("Upserted into %s (affected %d rows)", dataset_name, job.num_dml_affected_rows)
-    return job.num_dml_affected_rows
+    logger.info("Diff DML committed for %s", dataset_name)
 
 
 def _drop_temp_tables(dataset_name):
@@ -177,11 +175,9 @@ def apply_diff(release_id, dataset_name, diff):
                 release_id, dataset_name, "updates", DATASET_SCHEMAS[dataset_name]
             )
 
-        # Phase 2: Apply DML only after both temp tables are ready
-        if delete_table:
-            result["deleted"] = _apply_deletes(dataset_name, delete_table)
-        if update_table:
-            result["upserted"] = _apply_upserts(dataset_name, update_table)
+        # Phase 2: Apply delete + upsert atomically in a single transaction
+        if delete_table or update_table:
+            _apply_diff_dml(dataset_name, delete_table, update_table)
 
     finally:
         _drop_temp_tables(dataset_name)

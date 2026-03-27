@@ -88,14 +88,20 @@ def run_full_load(release_id):
 def _full_load_fallback(target_release, dataset_name):
     """Fall back to full reload for a single dataset.
 
-    Raises RuntimeError if the fallback also fails.
+    Raises RuntimeError if the fallback also fails. Always logs the
+    outcome to release_log before raising so the latest status is
+    accurate for subsequent auto-mode runs.
     """
     file_urls = s2_api_client.get_dataset_files(target_release, dataset_name)
     dl_result = download_dataset(target_release, dataset_name, file_urls)
     if dl_result["failed"] > 0:
         log_release(target_release, dataset_name, "full_fallback", "failed")
         raise RuntimeError(f"Full-load fallback failed for {dataset_name}")
-    rows = load_dataset(target_release, dataset_name, write_disposition="WRITE_TRUNCATE")
+    try:
+        rows = load_dataset(target_release, dataset_name, write_disposition="WRITE_TRUNCATE")
+    except Exception:
+        log_release(target_release, dataset_name, "full_fallback", "failed")
+        raise
     log_release(target_release, dataset_name, "full_fallback", "success", rows)
 
 
