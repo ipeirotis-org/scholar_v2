@@ -1,0 +1,263 @@
+"""Load S2 dataset files from GCS into BigQuery.
+
+Handles schema definition, load job configuration, and derived table
+materialization.
+"""
+
+import logging
+
+from google.cloud import bigquery
+
+from dataset_ingestion.config import Config
+
+logger = logging.getLogger(__name__)
+
+_bq_client = None
+
+
+def _get_bq_client():
+    global _bq_client
+    if _bq_client is None:
+        _bq_client = bigquery.Client(project=Config.PROJECT_ID)
+    return _bq_client
+
+
+# ── BigQuery schemas matching the actual S2 JSONL record format ──────────
+
+PAPERS_SCHEMA = [
+    bigquery.SchemaField("corpusid", "INTEGER", mode="REQUIRED"),
+    bigquery.SchemaField("externalids", "JSON"),
+    bigquery.SchemaField("url", "STRING"),
+    bigquery.SchemaField("title", "STRING"),
+    bigquery.SchemaField("authors", "JSON"),  # [{authorId, name}]
+    bigquery.SchemaField("venue", "STRING"),
+    bigquery.SchemaField("publicationvenueid", "STRING"),
+    bigquery.SchemaField("year", "INTEGER"),
+    bigquery.SchemaField("referencecount", "INTEGER"),
+    bigquery.SchemaField("citationcount", "INTEGER"),
+    bigquery.SchemaField("influentialcitationcount", "INTEGER"),
+    bigquery.SchemaField("isopenaccess", "BOOLEAN"),
+    bigquery.SchemaField("s2fieldsofstudy", "JSON"),
+    bigquery.SchemaField("publicationtypes", "JSON"),
+    bigquery.SchemaField("publicationdate", "STRING"),
+    bigquery.SchemaField("journal", "JSON"),
+]
+
+CITATIONS_SCHEMA = [
+    bigquery.SchemaField("citationid", "INTEGER"),
+    bigquery.SchemaField("citingcorpusid", "INTEGER"),
+    bigquery.SchemaField("citedcorpusid", "INTEGER"),
+    bigquery.SchemaField("isinfluential", "BOOLEAN"),
+    bigquery.SchemaField("contexts", "JSON"),
+    bigquery.SchemaField("intents", "JSON"),
+]
+
+AUTHORS_SCHEMA = [
+    bigquery.SchemaField("authorid", "STRING"),
+    bigquery.SchemaField("externalids", "JSON"),
+    bigquery.SchemaField("url", "STRING"),
+    bigquery.SchemaField("name", "STRING"),
+    bigquery.SchemaField("aliases", "JSON"),
+    bigquery.SchemaField("affiliations", "JSON"),
+    bigquery.SchemaField("homepage", "STRING"),
+    bigquery.SchemaField("papercount", "INTEGER"),
+    bigquery.SchemaField("citationcount", "INTEGER"),
+    bigquery.SchemaField("hindex", "INTEGER"),
+]
+
+DATASET_SCHEMAS = {
+    "papers": PAPERS_SCHEMA,
+    "citations": CITATIONS_SCHEMA,
+    "authors": AUTHORS_SCHEMA,
+}
+
+
+def ensure_dataset_exists():
+    """Create the s2_data BigQuery dataset if it doesn't exist."""
+    client = _get_bq_client()
+    dataset_ref = bigquery.DatasetReference(Config.PROJECT_ID, Config.BQ_DATASET)
+    dataset = bigquery.Dataset(dataset_ref)
+    dataset.location = "US"
+    client.create_dataset(dataset, exists_ok=True)
+    logger.info("BigQuery dataset %s ready", Config.BQ_DATASET)
+
+
+def load_dataset(release_id, dataset_name, write_disposition="WRITE_TRUNCATE"):
+    """Load a dataset from GCS into BigQuery.
+
+    Args:
+        release_id: S2 release ID (used to find GCS files).
+        dataset_name: "papers", "citations", or "authors".
+        write_disposition: WRITE_TRUNCATE for full load, WRITE_APPEND for incremental.
+
+    Returns:
+        Number of rows loaded.
+    """
+    schema = DATASET_SCHEMAS.get(dataset_name)
+    if schema is None:
+        raise ValueError(f"Unknown dataset: {dataset_name}")
+
+    table_id = Config.bq_table(dataset_name)
+    source_uri = Config.gcs_uri_pattern(release_id, dataset_name)
+
+    logger.info("Loading %s from %s into %s", dataset_name, source_uri, table_id)
+
+    job_config = bigquery.LoadJobConfig(
+        source_format=bigquery.SourceFormat.NEWLINE_DELIMITED_JSON,
+        schema=schema,
+        write_disposition=write_disposition,
+        max_bad_records=100,  # tolerate some bad records
+        ignore_unknown_values=True,  # S2 may add fields
+    )
+
+    client = _get_bq_client()
+    load_job = client.load_table_from_uri(source_uri, table_id, job_config=job_config)
+
+    logger.info("BigQuery load job %s started for %s", load_job.job_id, dataset_name)
+    load_job.result()  # Wait for completion
+
+    table = client.get_table(table_id)
+    logger.info("Loaded %s: %d rows", dataset_name, table.num_rows)
+    return table.num_rows
+
+
+def build_paper_citations_by_year():
+    """Materialize the paper_citations_by_year derived table.
+
+    Joins citations with papers to get the year of each citing paper,
+    then groups by (cited paper, citing year).
+    """
+    table_ref = Config.bq_table_ref(Config.PAPER_CITATIONS_BY_YEAR_TABLE)
+    citations_ref = Config.bq_table_ref(Config.CITATIONS_TABLE)
+    papers_ref = Config.bq_table_ref(Config.PAPERS_TABLE)
+
+    sql = f"""
+    CREATE OR REPLACE TABLE {table_ref}
+    CLUSTER BY citedcorpusid
+    AS
+    SELECT
+      c.citedcorpusid,
+      p.year AS citing_year,
+      COUNT(*) AS citation_count,
+      COUNTIF(c.isinfluential) AS influential_count
+    FROM {citations_ref} c
+    JOIN {papers_ref} p ON c.citingcorpusid = p.corpusid
+    WHERE c.citedcorpusid IS NOT NULL
+      AND p.year IS NOT NULL
+      AND p.year > 1900
+      AND p.year <= EXTRACT(YEAR FROM CURRENT_DATE())
+    GROUP BY c.citedcorpusid, p.year
+    """
+    logger.info("Building paper_citations_by_year...")
+    client = _get_bq_client()
+    job = client.query(sql)
+    job.result()
+    table = client.get_table(Config.bq_table(Config.PAPER_CITATIONS_BY_YEAR_TABLE))
+    logger.info("paper_citations_by_year: %d rows", table.num_rows)
+    return table.num_rows
+
+
+def build_author_paper_stats():
+    """Materialize the author_paper_stats derived table.
+
+    Flattens the authors array from papers and computes per-author
+    publication and citation statistics.
+    """
+    table_ref = Config.bq_table_ref(Config.AUTHOR_PAPER_STATS_TABLE)
+    papers_ref = Config.bq_table_ref(Config.PAPERS_TABLE)
+
+    sql = f"""
+    CREATE OR REPLACE TABLE {table_ref}
+    CLUSTER BY authorid
+    AS
+    WITH author_papers AS (
+      SELECT
+        STRING(a.authorId) AS authorid,
+        p.corpusid,
+        p.year,
+        p.citationcount
+      FROM {papers_ref} p,
+           UNNEST(JSON_EXTRACT_ARRAY(p.authors)) AS a
+      WHERE STRING(a.authorId) IS NOT NULL
+        AND p.year IS NOT NULL
+        AND p.year > 1900
+        AND p.year <= EXTRACT(YEAR FROM CURRENT_DATE())
+    )
+    SELECT
+      authorid,
+      COUNT(*) AS total_publications,
+      COUNTIF(citationcount > 0) AS total_publications_with_citations,
+      COUNTIF(citationcount >= 10) AS i10_index,
+      SUM(citationcount) AS total_citations,
+      MIN(year) AS year_of_first_pub,
+      MIN(IF(citationcount > 0, year, NULL)) AS year_of_first_cited_pub
+    FROM author_papers
+    GROUP BY authorid
+    """
+    logger.info("Building author_paper_stats...")
+    client = _get_bq_client()
+    job = client.query(sql)
+    job.result()
+    table = client.get_table(Config.bq_table(Config.AUTHOR_PAPER_STATS_TABLE))
+    logger.info("author_paper_stats: %d rows", table.num_rows)
+    return table.num_rows
+
+
+def log_release(release_id, dataset_name, load_type, status, rows_loaded=0):
+    """Record a load operation in the release_log table."""
+    table_id = Config.bq_table(Config.RELEASE_LOG_TABLE)
+    client = _get_bq_client()
+
+    # Ensure release_log table exists
+    schema = [
+        bigquery.SchemaField("release_id", "STRING"),
+        bigquery.SchemaField("dataset_name", "STRING"),
+        bigquery.SchemaField("load_type", "STRING"),
+        bigquery.SchemaField("status", "STRING"),
+        bigquery.SchemaField("rows_loaded", "INTEGER"),
+        bigquery.SchemaField("timestamp", "TIMESTAMP"),
+    ]
+    table = bigquery.Table(table_id, schema=schema)
+    client.create_table(table, exists_ok=True)
+
+    rows = [
+        {
+            "release_id": release_id,
+            "dataset_name": dataset_name,
+            "load_type": load_type,
+            "status": status,
+            "rows_loaded": rows_loaded,
+            "timestamp": "AUTO",
+        }
+    ]
+    # Use SQL INSERT for the timestamp
+    sql = f"""
+    INSERT INTO `{table_id}` (release_id, dataset_name, load_type, status, rows_loaded, timestamp)
+    VALUES ('{release_id}', '{dataset_name}', '{load_type}', '{status}', {rows_loaded}, CURRENT_TIMESTAMP())
+    """
+    client.query(sql).result()
+    logger.info("Logged release %s/%s: %s", release_id, dataset_name, status)
+
+
+def get_last_loaded_release():
+    """Get the most recently loaded release ID from the release_log.
+
+    Returns None if no successful loads have been recorded.
+    """
+    table_id = Config.bq_table(Config.RELEASE_LOG_TABLE)
+    client = _get_bq_client()
+
+    try:
+        sql = f"""
+        SELECT release_id
+        FROM `{table_id}`
+        WHERE status = 'success'
+        ORDER BY timestamp DESC
+        LIMIT 1
+        """
+        result = list(client.query(sql).result())
+        if result:
+            return result[0].release_id
+    except Exception:
+        logger.info("No release_log table found — assuming first run")
+    return None
