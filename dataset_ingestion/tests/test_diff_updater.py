@@ -9,13 +9,24 @@ from dataset_ingestion.config import Config
 
 
 class TestTempTable:
-    def test_generates_temp_table_name(self):
+    def test_generates_temp_table_name_with_execution_id(self):
         result = diff_updater._temp_table("papers", "updates")
-        assert result == f"{Config.PROJECT_ID}.{Config.BQ_DATASET}._tmp_papers_updates"
+        assert result.startswith(f"{Config.PROJECT_ID}.{Config.BQ_DATASET}._tmp_papers_updates_")
+        # Should contain an 8-char hex execution ID suffix
+        suffix = result.split("_tmp_papers_updates_")[1]
+        assert len(suffix) == 8
 
     def test_generates_delete_table_name(self):
         result = diff_updater._temp_table("citations", "deletes")
-        assert "_tmp_citations_deletes" in result
+        assert "_tmp_citations_deletes_" in result
+
+    def test_consistent_execution_id_within_run(self):
+        a = diff_updater._temp_table("papers", "updates")
+        b = diff_updater._temp_table("papers", "deletes")
+        # Both should share the same execution ID suffix
+        id_a = a.rsplit("_", 1)[1]
+        id_b = b.rsplit("_", 1)[1]
+        assert id_a == id_b
 
 
 class TestApplyDeletes:

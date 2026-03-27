@@ -36,10 +36,15 @@ logger = logging.getLogger(__name__)
 
 
 def run_full_load(release_id):
-    """Download and load all datasets for a release."""
+    """Download and load all datasets for a release.
+
+    Raises RuntimeError if any dataset fails to download or load,
+    preventing derived table rebuilds on inconsistent data.
+    """
     logger.info("Starting full load for release %s", release_id)
 
     ensure_dataset_exists()
+    failed_datasets = []
 
     for dataset_name in Config.DATASETS:
         logger.info("Processing dataset: %s", dataset_name)
@@ -52,19 +57,26 @@ def run_full_load(release_id):
         dl_result = download_dataset(release_id, dataset_name, file_urls)
         if dl_result["failed"] > 0:
             logger.error(
-                "  %d/%d downloads failed for %s — aborting this dataset",
+                "  %d/%d downloads failed for %s",
                 dl_result["failed"],
                 dl_result["total"],
                 dataset_name,
             )
             log_release(release_id, dataset_name, "full", "failed")
+            failed_datasets.append(dataset_name)
             continue
 
         # Load from GCS into BigQuery
         rows = load_dataset(release_id, dataset_name, write_disposition="WRITE_TRUNCATE")
         log_release(release_id, dataset_name, "full", "success", rows)
 
-    # Build derived tables after all base tables are loaded
+    if failed_datasets:
+        raise RuntimeError(
+            f"Full load aborted: {', '.join(failed_datasets)} failed. "
+            "Derived tables NOT rebuilt to avoid inconsistent data."
+        )
+
+    # Build derived tables only when all base tables loaded successfully
     logger.info("Building derived tables...")
     build_paper_citations_by_year()
     build_author_paper_stats()
@@ -73,19 +85,26 @@ def run_full_load(release_id):
 
 
 def _full_load_fallback(target_release, dataset_name):
-    """Fall back to full reload for a single dataset."""
+    """Fall back to full reload for a single dataset.
+
+    Raises RuntimeError if the fallback also fails.
+    """
     file_urls = s2_api_client.get_dataset_files(target_release, dataset_name)
     dl_result = download_dataset(target_release, dataset_name, file_urls)
-    if dl_result["failed"] == 0:
-        rows = load_dataset(target_release, dataset_name, write_disposition="WRITE_TRUNCATE")
-        log_release(target_release, dataset_name, "full_fallback", "success", rows)
-    else:
+    if dl_result["failed"] > 0:
         log_release(target_release, dataset_name, "full_fallback", "failed")
+        raise RuntimeError(f"Full-load fallback failed for {dataset_name}")
+    rows = load_dataset(target_release, dataset_name, write_disposition="WRITE_TRUNCATE")
+    log_release(target_release, dataset_name, "full_fallback", "success", rows)
 
 
 def run_diff_load(last_release, target_release):
-    """Apply incremental diffs from last_release to target_release."""
+    """Apply incremental diffs from last_release to target_release.
+
+    Raises RuntimeError if any dataset fails to update (including fallback).
+    """
     logger.info("Starting diff load: %s -> %s", last_release, target_release)
+    failed_datasets = []
 
     for dataset_name in Config.DATASETS:
         logger.info("Getting diffs for %s", dataset_name)
@@ -94,7 +113,11 @@ def run_diff_load(last_release, target_release):
             diff_data = s2_api_client.get_diffs(last_release, target_release, dataset_name)
         except Exception:
             logger.exception("Failed to get diffs for %s — falling back to full load", dataset_name)
-            _full_load_fallback(target_release, dataset_name)
+            try:
+                _full_load_fallback(target_release, dataset_name)
+            except Exception:
+                logger.exception("Full-load fallback also failed for %s", dataset_name)
+                failed_datasets.append(dataset_name)
             continue
 
         diffs = diff_data.get("diffs", [])
@@ -122,9 +145,19 @@ def run_diff_load(last_release, target_release):
 
         except Exception:
             logger.exception("Diff apply failed for %s — falling back to full load", dataset_name)
-            _full_load_fallback(target_release, dataset_name)
+            try:
+                _full_load_fallback(target_release, dataset_name)
+            except Exception:
+                logger.exception("Full-load fallback also failed for %s", dataset_name)
+                failed_datasets.append(dataset_name)
 
-    # Rebuild derived tables
+    if failed_datasets:
+        raise RuntimeError(
+            f"Diff load aborted: {', '.join(failed_datasets)} failed. "
+            "Derived tables NOT rebuilt to avoid inconsistent data."
+        )
+
+    # Rebuild derived tables only when all base tables updated successfully
     logger.info("Building derived tables...")
     build_paper_citations_by_year()
     build_author_paper_stats()

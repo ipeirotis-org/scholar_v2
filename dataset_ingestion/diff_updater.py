@@ -12,7 +12,7 @@ Strategy:
 """
 
 import logging
-import time
+import uuid
 
 from google.cloud import bigquery
 
@@ -36,10 +36,14 @@ DELETE_SCHEMAS = {
     "authors": [bigquery.SchemaField("authorid", "STRING", mode="REQUIRED")],
 }
 
+# Execution-scoped suffix to prevent temp table collisions between
+# overlapping runs (e.g. manual trigger + scheduler, or retries).
+_execution_id = uuid.uuid4().hex[:8]
+
 
 def _temp_table(dataset_name, suffix):
-    """Generate a temporary table ID."""
-    return Config.bq_table(f"_tmp_{dataset_name}_{suffix}")
+    """Generate a unique temporary table ID scoped to this execution."""
+    return Config.bq_table(f"_tmp_{dataset_name}_{suffix}_{_execution_id}")
 
 
 def _load_temp_table(release_id, dataset_name, file_type, schema):
