@@ -241,12 +241,12 @@ def log_release(release_id, dataset_name, load_type, status, rows_loaded=0):
 
 
 def get_last_loaded_release():
-    """Get the most recent release where ALL base datasets loaded successfully.
+    """Get the most recent release where ALL datasets' latest status is 'success'.
 
-    A release is only considered complete when all base datasets AND
-    derived tables have a 'success' entry. This prevents treating a
-    partially failed release (e.g. base loads succeeded but derived
-    table build failed) as current.
+    Uses the most recent log entry per (release_id, dataset_name) to determine
+    each dataset's current status. This correctly handles re-runs: if a release
+    was loaded successfully but a later re-run fails, the latest status is
+    'failed' and the release is not considered complete.
 
     Returns None if no fully successful release has been recorded.
     """
@@ -257,10 +257,18 @@ def get_last_loaded_release():
 
     try:
         sql = f"""
+        WITH latest_per_dataset AS (
+          SELECT release_id, dataset_name, status,
+            ROW_NUMBER() OVER (
+              PARTITION BY release_id, dataset_name
+              ORDER BY timestamp DESC
+            ) AS rn
+          FROM `{table_id}`
+          WHERE dataset_name IN ({', '.join(f"'{d}'" for d in markers)})
+        )
         SELECT release_id
-        FROM `{table_id}`
-        WHERE status = 'success'
-          AND dataset_name IN ({', '.join(f"'{d}'" for d in markers)})
+        FROM latest_per_dataset
+        WHERE rn = 1 AND status = 'success'
         GROUP BY release_id
         HAVING COUNT(DISTINCT dataset_name) = {required_count}
         ORDER BY release_id DESC
