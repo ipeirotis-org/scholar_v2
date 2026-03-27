@@ -67,18 +67,23 @@ def download_file(release_id, dataset_name, file_url):
     temp_blob_name = blob_name + ".tmp"
     temp_blob = bucket.blob(temp_blob_name)
 
-    # Stream to a temp blob first
-    with requests.get(file_url, stream=True, timeout=3600) as r:
-        r.raise_for_status()
-        content_type = r.headers.get("Content-Type", "application/gzip")
+    try:
+        # Stream to a temp blob first
+        with requests.get(file_url, stream=True, timeout=3600) as r:
+            r.raise_for_status()
+            content_type = r.headers.get("Content-Type", "application/gzip")
 
-        with temp_blob.open("wb", content_type=content_type) as gcs_writer:
-            for chunk in r.iter_content(chunk_size=Config.DOWNLOAD_CHUNK_SIZE):
-                if chunk:
-                    gcs_writer.write(chunk)
+            with temp_blob.open("wb", content_type=content_type) as gcs_writer:
+                for chunk in r.iter_content(chunk_size=Config.DOWNLOAD_CHUNK_SIZE):
+                    if chunk:
+                        gcs_writer.write(chunk)
 
-    # Promote temp blob to final location (atomic rename)
-    bucket.rename_blob(temp_blob, blob_name)
+        # Promote temp blob to final location (atomic rename)
+        bucket.rename_blob(temp_blob, blob_name)
+    except Exception:
+        # Clean up partial temp blob so it doesn't pollute wildcard loads
+        temp_blob.delete(retry=None)
+        raise
 
     logger.info("Completed %s", blob_name)
     return blob_name, False

@@ -67,7 +67,13 @@ def run_full_load(release_id):
             continue
 
         # Load from GCS into BigQuery
-        rows = load_dataset(release_id, dataset_name, write_disposition="WRITE_TRUNCATE")
+        try:
+            rows = load_dataset(release_id, dataset_name, write_disposition="WRITE_TRUNCATE")
+        except Exception:
+            log_release(release_id, dataset_name, "full", "failed")
+            failed_datasets.append(dataset_name)
+            logger.exception("BigQuery load failed for %s", dataset_name)
+            continue
         log_release(release_id, dataset_name, "full", "success", rows)
 
     if failed_datasets:
