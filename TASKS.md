@@ -260,11 +260,35 @@ NEW:     Weekly cron → Download S2 dataset diffs → GCS → BigQuery (bulk lo
   - Verified: datasets API works (papers: 60 files, citations: 358 files, authors: 30 files)
   - Verified: Graph API works (author search, paper lookup, citation pagination)
   - Note: Graph API citation endpoint caps at ~2,000 results per paper (misses older citations). Bulk dataset has no such limit — further validates the bulk approach.
-- [ ] **Validate S2 data coverage** for 10 known authors
-  - Find S2 author IDs, compare h-index, citation counts, paper counts, yearly citations
-  - Check for missing papers that Google Scholar has
-  - Initial test: Panos Ipeirotis found as authorId `2942126` (h-index 48, 125 papers, 21,660 citations)
-  - Note: S2 has author disambiguation issues (duplicate entry `11143475` with 12 papers)
+- [x] **Validate S2 data coverage** for 10+ known authors
+  - Compared 13 authors across Google Scholar and Semantic Scholar:
+
+  | Author | GS h | S2 h | Δ | GS cites | S2 cites | Δ% | GS pubs | S2 pubs | Δ% | S2 ID |
+  |--------|------|------|---|----------|----------|-----|---------|---------|-----|-------|
+  | Kaiming He | 76 | 67 | -9 | 806K | 544K | -33% | 95 | 84 | -12% | 39353098 |
+  | Geoffrey Hinton | 182 | 162 | -20 | 756K | 578K | -24% | 668 | 467 | -30% | 1695689 |
+  | Yoshua Bengio | 229 | 212 | -17 | 755K | 565K | -25% | 1346 | 812 | -40% | 1751762 |
+  | Eric Lander | 314 | 290 | -24 | 671K | 537K | -20% | 1101 | 779 | -29% | 9311320 |
+  | Ilya Sutskever | 101 | 75 | -26 | 627K | 512K | -18% | 181 | 164 | -9% | 1701686 |
+  | Ronald C Kessler | 348 | 235 | -113 | 599K | 300K | -50% | 2163 | 1113 | -49% | 2350669 |
+  | Ross Girshick | 87 | 79 | -8 | 572K | 404K | -29% | 110 | 112 | +2% | 2983898 |
+  | Christopher Murray | 272 | 195 | -77 | 563K | 279K | -50% | 1427 | 627 | -56% | 145882172 |
+  | Bert Vogelstein | 290 | 268 | -22 | 499K | 366K | -27% | 1307 | 859 | -34% | 1965563 |
+  | JoAnn Manson | 326 | 263 | -63 | 498K | 267K | -46% | 2999 | 2218 | -26% | 3988124 |
+  | Robert Tibshirani | 180 | 160 | -20 | 493K | 296K | -40% | 1069 | 687 | -36% | 1761784 |
+  | Frank B. Hu | 312 | 269 | -43 | 488K | 295K | -40% | 2525 | 1906 | -25% | 2242100447 |
+  | Mark Daly | 249 | 203 | -46 | 472K | 312K | -34% | 1317 | 786 | -40% | 144524355 |
+  | Panos Ipeirotis | 59 | 48 | -11 | 30K | 22K | -28% | 209 | 125 | -40% | 2942126 |
+
+  **Findings:**
+  - S2 consistently has **fewer citations (20-50% less)** and **fewer papers (10-56% less)** than Google Scholar
+  - h-index is **10-30% lower** on S2 for most authors; more for medical researchers (up to -113 for Kessler)
+  - Medical/biomedical researchers show the **largest gap** (Kessler, Murray, Manson) — likely because GS indexes more clinical/grey literature
+  - CS researchers show the **smallest gap** (Girshick +2% pubs, Sutskever -9% pubs)
+  - **Author disambiguation is a real problem**: Daniel Kahneman (h=160 on GS) found as h=7 profile on S2; John Ioannidis (h=254 on GS) max h=16 on S2 — both heavily fragmented
+  - Panos Ipeirotis also has a duplicate profile (id `11143475` with 12 papers vs main id `2942126` with 125)
+  - **API rate limits are very aggressive**: ~1 req/30-60s effective rate for search endpoints, even with API key. Batch endpoints work better. This further validates the bulk dataset approach.
+  - **Yearly citation reconstruction works**: tested on a 4,667-cite paper, 100% of citing papers had year data (though API caps at ~2000 results)
 - [ ] **Validate faculty reference population coverage**
   - Check how many of the ~15K faculty can be found in S2 via name/affiliation or ORCID/DBLP crosswalk
 
