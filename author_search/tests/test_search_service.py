@@ -1,4 +1,4 @@
-"""Tests for AuthorSearchService — the tiered search strategy."""
+"""Tests for AuthorSearchService — in-memory index search."""
 
 from unittest import mock
 
@@ -11,19 +11,18 @@ from author_search.search_service import AuthorSearchService
 def _reset_author_index():
     """Reset module-level index state and mock _ensure_index_loaded to avoid
     Firestore calls (get_index_chunk on MagicMock causes infinite loop)."""
-    with mock.patch("author_search.search_service._ensure_index_loaded"), \
-         mock.patch("author_search.search_service._search_in_memory", return_value=None):
+    with mock.patch("author_search.search_service._ensure_index_loaded"):
         yield
 
 
-def _make_author(scholar_id, name="Test Author", source=None, citedby=100):
+def _make_author(scholar_id, name="Test Author", source=None, citedby=100, hindex=10):
     author = {
         "scholar_id": scholar_id,
         "name": name,
         "affiliation": "Test University",
         "email_domain": "",
         "citedby": citedby,
-        "hindex": 10,
+        "hindex": hindex,
     }
     if source:
         author["source"] = source
@@ -44,138 +43,118 @@ class TestSearchEmpty:
         assert svc.search(None) == []
 
 
-class TestLocalSearch:
-    """Default search (no scholar flag) queries index + BigQuery only."""
-
-    def test_returns_crawled_authors(self):
-        bq = mock.MagicMock()
+class TestTypeaheadSearch:
+    @mock.patch("author_search.search_service._search_in_memory")
+    def test_typeahead_uses_in_memory(self, mock_search):
+        mock_search.return_value = [_make_author("id1", source="index")]
         cache = mock.MagicMock()
-        cache.get_search_results.return_value = None
-        bq.search_crawled_authors.return_value = [
+        svc = AuthorSearchService(bq_client=mock.MagicMock(), cache=cache)
+        results = svc.search("Author", typeahead=True)
+
+        assert len(results) == 1
+        mock_search.assert_called_once_with("Author", limit=10)
+        # Typeahead should not check or set Firestore cache
+        cache.get_search_results.assert_not_called()
+        cache.set_search_results.assert_not_called()
+
+    @mock.patch("author_search.search_service._search_in_memory", return_value=None)
+    def test_typeahead_returns_empty_when_index_not_loaded(self, mock_search):
+        svc = AuthorSearchService(bq_client=mock.MagicMock(), cache=mock.MagicMock())
+        results = svc.search("Author", typeahead=True)
+        assert results == []
+
+
+class TestFullSearch:
+    @mock.patch("author_search.search_service._search_in_memory")
+    def test_returns_results_from_index(self, mock_search):
+        mock_search.return_value = [
             _make_author(f"id{i}", f"Author {i}") for i in range(5)
         ]
-        svc = AuthorSearchService(bq_client=bq, cache=cache)
+        cache = mock.MagicMock()
+        cache.get_search_results.return_value = None
+        svc = AuthorSearchService(bq_client=mock.MagicMock(), cache=cache)
         results = svc.search("Author")
 
         assert len(results) == 5
-        assert all(r["source"] == "database" for r in results)
+        mock_search.assert_called_once_with("Author", limit=50)
 
-    def test_never_calls_s2_universe(self):
-        bq = mock.MagicMock()
+    @mock.patch("author_search.search_service._search_in_memory")
+    def test_caches_results(self, mock_search):
+        mock_search.return_value = [_make_author("id1")]
         cache = mock.MagicMock()
         cache.get_search_results.return_value = None
-        bq.search_crawled_authors.return_value = []
-        svc = AuthorSearchService(bq_client=bq, cache=cache)
-        results = svc.search("Author")
-
-        assert results == []
-        # S2 universe cache should not be checked for local search
-        cache.get.assert_not_called()
-        bq.search_s2_universe.assert_not_called()
-
-    def test_deduplicates_index_and_crawled(self):
-        bq = mock.MagicMock()
-        cache = mock.MagicMock()
-        cache.get_search_results.return_value = None
-        bq.search_crawled_authors.return_value = [_make_author("id1")]
-
-        # Simulate index returning same author
-        with mock.patch("author_search.search_service._search_in_memory",
-                        return_value=[_make_author("id1", source="index")]):
-            svc = AuthorSearchService(bq_client=bq, cache=cache)
-            results = svc.search("Author")
-
-        ids = [r["scholar_id"] for r in results]
-        assert ids.count("id1") == 1
-
-    def test_uses_cached_local_results(self):
-        bq = mock.MagicMock()
-        cache = mock.MagicMock()
-        cached = [_make_author("cached1", source="database")]
-        cache.get_search_results.return_value = cached
-        svc = AuthorSearchService(bq_client=bq, cache=cache)
-        results = svc.search("Author")
-
-        assert results == cached
-        bq.search_crawled_authors.assert_not_called()
-
-    def test_caches_local_results(self):
-        bq = mock.MagicMock()
-        cache = mock.MagicMock()
-        cache.get_search_results.return_value = None
-        bq.search_crawled_authors.return_value = [_make_author("id1")]
-        svc = AuthorSearchService(bq_client=bq, cache=cache)
+        svc = AuthorSearchService(bq_client=mock.MagicMock(), cache=cache)
         svc.search("Author")
 
         cache.set_search_results.assert_called_once()
 
+    def test_uses_cached_results(self):
+        cache = mock.MagicMock()
+        cached = [_make_author("cached1", source="index")]
+        cache.get_search_results.return_value = cached
+        svc = AuthorSearchService(bq_client=mock.MagicMock(), cache=cache)
+        results = svc.search("Author")
 
-class TestS2UniverseSearch:
-    """Extended search (scholar=True) queries full S2 authors table in BigQuery."""
+        assert results == cached
 
-    def test_scholar_flag_queries_s2_universe(self):
-        bq = mock.MagicMock()
+    @mock.patch("author_search.search_service._search_in_memory")
+    def test_scholar_flag_accepted_for_compatibility(self, mock_search):
+        """scholar=True no longer changes behavior but should not error."""
+        mock_search.return_value = [_make_author("id1")]
         cache = mock.MagicMock()
         cache.get_search_results.return_value = None
-        bq.search_crawled_authors.return_value = []
-        cache.get.return_value = None
-        bq.search_s2_universe.return_value = [
-            _make_author("s2_1", "S2 Author")
-        ]
-
-        svc = AuthorSearchService(bq_client=bq, cache=cache)
+        svc = AuthorSearchService(bq_client=mock.MagicMock(), cache=cache)
         results = svc.search("Author", scholar=True)
 
         assert len(results) == 1
-        assert results[0]["source"] == "s2_universe"
-        bq.search_s2_universe.assert_called_once()
-        cache.set.assert_called_once()
 
-    def test_uses_cached_s2_universe_results(self):
-        bq = mock.MagicMock()
-        cache = mock.MagicMock()
-        cache.get_search_results.return_value = None
-        bq.search_crawled_authors.return_value = []
-        cache.get.return_value = [_make_author("cached1", "Cached Author")]
 
-        svc = AuthorSearchService(bq_client=bq, cache=cache)
-        results = svc.search("Author", scholar=True)
+class TestSearchInMemory:
+    """Test the _search_in_memory function directly."""
 
-        assert len(results) == 1
-        assert results[0]["source"] == "s2_universe_cached"
-        bq.search_s2_universe.assert_not_called()
+    def test_matches_all_tokens(self):
+        import author_search.search_service as ss
+        old_index = ss._author_index
+        try:
+            ss._author_index = [
+                {"scholar_id": "1", "name": "John Smith", "name_lower": "john smith",
+                 "affiliation": "MIT", "citedby": 100, "hindex": 10},
+                {"scholar_id": "2", "name": "Jane Smith", "name_lower": "jane smith",
+                 "affiliation": "Stanford", "citedby": 200, "hindex": 15},
+                {"scholar_id": "3", "name": "John Doe", "name_lower": "john doe",
+                 "affiliation": "Harvard", "citedby": 50, "hindex": 5},
+            ]
+            results = ss._search_in_memory("john smith")
+            assert len(results) == 1
+            assert results[0]["scholar_id"] == "1"
+        finally:
+            ss._author_index = old_index
 
-    def test_merges_local_and_s2_universe_results(self):
-        bq = mock.MagicMock()
-        cache = mock.MagicMock()
-        cache.get_search_results.return_value = None
-        bq.search_crawled_authors.return_value = [_make_author("id1")]
-        cache.get.return_value = None
-        bq.search_s2_universe.return_value = [
-            _make_author("id2", "New Author"),
-        ]
+    def test_sorted_by_citations(self):
+        import author_search.search_service as ss
+        old_index = ss._author_index
+        try:
+            ss._author_index = [
+                {"scholar_id": "1", "name": "Smith A", "name_lower": "smith a",
+                 "affiliation": "", "citedby": 50, "hindex": 5},
+                {"scholar_id": "2", "name": "Smith B", "name_lower": "smith b",
+                 "affiliation": "", "citedby": 200, "hindex": 15},
+            ]
+            results = ss._search_in_memory("smith")
+            assert results[0]["scholar_id"] == "2"
+            assert results[1]["scholar_id"] == "1"
+        finally:
+            ss._author_index = old_index
 
-        svc = AuthorSearchService(bq_client=bq, cache=cache)
-        results = svc.search("Author", scholar=True)
-
-        ids = [r["scholar_id"] for r in results]
-        assert "id1" in ids
-        assert "id2" in ids
-
-    def test_deduplicates_s2_universe_with_local(self):
-        bq = mock.MagicMock()
-        cache = mock.MagicMock()
-        cache.get_search_results.return_value = None
-        bq.search_crawled_authors.return_value = [_make_author("id1")]
-        cache.get.return_value = None
-        bq.search_s2_universe.return_value = [
-            _make_author("id1", "Duplicate"),
-            _make_author("id2", "New Author"),
-        ]
-
-        svc = AuthorSearchService(bq_client=bq, cache=cache)
-        results = svc.search("Author", scholar=True)
-
-        ids = [r["scholar_id"] for r in results]
-        assert ids.count("id1") == 1
-        assert "id2" in ids
+    def test_returns_hindex(self):
+        import author_search.search_service as ss
+        old_index = ss._author_index
+        try:
+            ss._author_index = [
+                {"scholar_id": "1", "name": "Test", "name_lower": "test",
+                 "affiliation": "", "citedby": 100, "hindex": 25},
+            ]
+            results = ss._search_in_memory("test")
+            assert results[0]["hindex"] == 25
+        finally:
+            ss._author_index = old_index
