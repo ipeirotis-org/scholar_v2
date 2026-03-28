@@ -138,12 +138,19 @@ def check_benchmark_authors_stats(client):
         name = ba.get('name', r['name'])[:25]
         exp_h = ba.get('s2_h', '?')
         exp_p = ba.get('s2_pubs', '?')
-        # Flag large deviations from expected values (>20% off)
+        # Fail on NULL core metrics (would indicate a broken join/migration)
         status = ""
+        if r['hindex'] is None:
+            status += " <- hindex is NULL!"
+            all_ok = False
+        if r['total_publications'] is None:
+            status += " <- total_publications is NULL!"
+            all_ok = False
+        # Flag large deviations from expected values (>20% off)
         if isinstance(exp_h, int) and r['hindex'] is not None:
             h_diff_pct = abs(r['hindex'] - exp_h) / max(exp_h, 1) * 100
             if h_diff_pct > 20:
-                status = f" <- h-index off by {h_diff_pct:.0f}%"
+                status += f" <- h-index off by {h_diff_pct:.0f}%"
                 all_ok = False
         if isinstance(exp_p, int) and r['total_publications'] is not None:
             p_diff_pct = abs(r['total_publications'] - exp_p) / max(exp_p, 1) * 100
@@ -299,6 +306,18 @@ def check_benchmark_pip_scores(client):
         # These are all world-class researchers — PiP should be > 0.3 at minimum
         if min_score < 0.3:
             print(f"  FAIL: Min score {min_score:.4f} is too low for top researchers")
+            all_ok = False
+
+    # Percentile check: a broken dist lookup would collapse percentiles to 0.0
+    # All benchmark authors are top researchers — percentile should be > 0.5
+    percentiles = [r['pip_auc_score_percentile'] for r in rows]
+    if percentiles:
+        low_pct = [r for r in rows if r['pip_auc_score_percentile'] < 0.5]
+        if low_pct:
+            print(f"  FAIL: {len(low_pct)} benchmark author(s) have percentile < 0.5:")
+            for r in low_pct:
+                name = BENCHMARK_AUTHORS.get(r['scholar_id'], {}).get('name', r['scholar_id'])
+                print(f"    {name}: {r['pip_auc_score_percentile']:.4f}")
             all_ok = False
 
     ok = all_ok and len(missing) == 0
