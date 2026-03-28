@@ -55,6 +55,45 @@ class TestLoadDataset:
         rows = loader.load_dataset("2026-03-10", "citations")
         assert rows == 2_400_000_000
 
+    @patch.object(loader, "_get_bq_client")
+    def test_papers_load_has_clustering(self, mock_get_client):
+        mock_client = MagicMock()
+        mock_get_client.return_value = mock_client
+        mock_client.load_table_from_uri.return_value = MagicMock()
+        mock_client.get_table.return_value = MagicMock(num_rows=1)
+
+        loader.load_dataset("2026-03-10", "papers")
+        job_config = mock_client.load_table_from_uri.call_args[1].get(
+            "job_config"
+        ) or mock_client.load_table_from_uri.call_args[0][2]
+        assert job_config.clustering_fields == ["corpusid"]
+
+    @patch.object(loader, "_get_bq_client")
+    def test_authors_load_has_clustering(self, mock_get_client):
+        mock_client = MagicMock()
+        mock_get_client.return_value = mock_client
+        mock_client.load_table_from_uri.return_value = MagicMock()
+        mock_client.get_table.return_value = MagicMock(num_rows=1)
+
+        loader.load_dataset("2026-03-10", "authors")
+        job_config = mock_client.load_table_from_uri.call_args[1].get(
+            "job_config"
+        ) or mock_client.load_table_from_uri.call_args[0][2]
+        assert job_config.clustering_fields == ["authorid"]
+
+    @patch.object(loader, "_get_bq_client")
+    def test_citations_load_no_clustering(self, mock_get_client):
+        mock_client = MagicMock()
+        mock_get_client.return_value = mock_client
+        mock_client.load_table_from_uri.return_value = MagicMock()
+        mock_client.get_table.return_value = MagicMock(num_rows=1)
+
+        loader.load_dataset("2026-03-10", "citations")
+        job_config = mock_client.load_table_from_uri.call_args[1].get(
+            "job_config"
+        ) or mock_client.load_table_from_uri.call_args[0][2]
+        assert job_config.clustering_fields is None
+
     def test_unknown_dataset_raises(self):
         with pytest.raises(ValueError, match="Unknown dataset"):
             loader.load_dataset("2026-03-10", "unknown_dataset")

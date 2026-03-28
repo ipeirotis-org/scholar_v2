@@ -72,6 +72,13 @@ DATASET_SCHEMAS = {
     "authors": AUTHORS_SCHEMA,
 }
 
+# Clustering for base tables. Enables efficient per-entity lookups
+# (e.g. WHERE corpusid = X or WHERE authorid = X) without full table scans.
+DATASET_CLUSTERING = {
+    "papers": ["corpusid"],
+    "authors": ["authorid"],
+}
+
 
 def ensure_dataset_exists():
     """Create the s2_data BigQuery dataset if it doesn't exist."""
@@ -110,6 +117,13 @@ def load_dataset(release_id, dataset_name, write_disposition="WRITE_TRUNCATE"):
         max_bad_records=100,  # tolerate some bad records
         ignore_unknown_values=True,  # S2 may add fields
     )
+
+    # Cluster base tables for efficient per-entity lookups.
+    # Without clustering, every per-author query scans the entire table
+    # (e.g. 4.2 GB for authors, 22.7 GB for papers).
+    clustering = DATASET_CLUSTERING.get(dataset_name)
+    if clustering:
+        job_config.clustering_fields = clustering
 
     client = _get_bq_client()
     load_job = client.load_table_from_uri(source_uri, table_id, job_config=job_config)
