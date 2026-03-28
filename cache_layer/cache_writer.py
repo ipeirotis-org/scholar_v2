@@ -41,34 +41,42 @@ class CacheWriter:
         Args:
             writes: list of (collection, doc_id, data) tuples.
 
-        Returns number of successful writes.
+        Returns number of successfully committed writes.
         """
         if not writes:
             return 0
 
         now = datetime.now(timezone.utc)
         batch = self.db.batch()
-        count = 0
+        committed = 0
+        pending = 0
 
         for collection, doc_id, data in writes:
             if not doc_id or not doc_id.strip():
                 continue
             ref = self.db.collection(collection).document(doc_id)
             batch.set(ref, {"timestamp": now, "data": data})
-            count += 1
+            pending += 1
 
             # Firestore batches are limited to 500 operations
-            if count % 500 == 0:
+            if pending == 500:
                 try:
                     batch.commit()
+                    committed += pending
                 except Exception:
-                    logger.exception("Batch commit failed at count %d", count)
+                    logger.exception(
+                        "Batch commit failed (%d items lost)", pending
+                    )
+                pending = 0
                 batch = self.db.batch()
 
-        if count % 500 != 0:
+        if pending > 0:
             try:
                 batch.commit()
+                committed += pending
             except Exception:
-                logger.exception("Final batch commit failed")
+                logger.exception(
+                    "Final batch commit failed (%d items lost)", pending
+                )
 
-        return count
+        return committed

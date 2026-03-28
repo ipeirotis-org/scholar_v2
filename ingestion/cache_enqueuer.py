@@ -7,9 +7,10 @@ Cache Layer to refresh those authors' cached data.
 import json
 import logging
 import os
-import re
 
 from google.cloud import tasks_v2
+
+from ingestion.normalize import normalize_document_id
 
 logger = logging.getLogger(__name__)
 
@@ -47,9 +48,7 @@ def _extract_scholar_ids_from_ndjson_lines(ndjson_lines):
     for line in ndjson_lines:
         try:
             row = json.loads(line)
-            doc_id = row.get("document_id", "")
-            # Remove .json suffix
-            doc_id = re.sub(r"\.json$", "", doc_id)
+            doc_id = normalize_document_id(row.get("document_id", ""))
             # Extract scholar_id (before the first colon, if any)
             scholar_id = doc_id.split(":")[0]
             if scholar_id:

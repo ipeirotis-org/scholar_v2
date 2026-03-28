@@ -29,6 +29,7 @@ from ingestion.cache_enqueuer import (
     _extract_scholar_ids_from_ndjson_lines,
 )
 from ingestion.config import Config
+from ingestion.normalize import normalize_document_id
 
 logger = logging.getLogger(__name__)
 
@@ -60,18 +61,53 @@ def _log(message, severity="INFO", **extra):
 # ── GCS streaming ────────────────────────────────────────────────────────────
 
 
+def _is_already_loaded(blob):
+    """Check if a GCS blob has already been loaded into BigQuery.
+
+    Uses custom metadata 'bq_loaded' as a marker to prevent duplicate loads
+    when archive (copy+delete) fails and the file remains in the source prefix.
+    """
+    if blob.metadata and blob.metadata.get("bq_loaded"):
+        return True
+    return False
+
+
+def _mark_as_loaded(blob):
+    """Mark a GCS blob as successfully loaded into BigQuery.
+
+    Sets custom metadata so that subsequent batch_load runs skip this file
+    even if the archive step fails.
+    """
+    try:
+        existing = blob.metadata or {}
+        existing["bq_loaded"] = datetime.now(timezone.utc).isoformat()
+        blob.metadata = existing
+        blob.patch()
+    except Exception as e:
+        _log(
+            f"Warning: failed to mark blob as loaded: {blob.name}",
+            severity="WARNING",
+            error=str(e),
+        )
+
+
 def iter_gcs_files(bucket_name, source_prefix, max_files=None):
     """Yield JSON file info dicts from GCS, one at a time (streaming).
 
     Never materializes the full blob list in memory.
     Yields at most max_files items if specified.
+    Skips files already marked as loaded into BigQuery.
     """
     client = _get_storage_client()
     blobs = client.list_blobs(bucket_name, prefix=source_prefix)
     count = 0
+    skipped = 0
 
     for blob in blobs:
         if not blob.name.endswith(".json"):
+            continue
+        if _is_already_loaded(blob):
+            skipped += 1
             continue
         yield {
             "gcs_uri": f"gs://{bucket_name}/{blob.name}",
@@ -88,7 +124,10 @@ def iter_gcs_files(bucket_name, source_prefix, max_files=None):
             _log(f"Reached max_files limit ({max_files}) for {source_prefix}")
             return
 
-    _log(f"Found {count} .json files under gs://{bucket_name}/{source_prefix}")
+    _log(
+        f"Found {count} .json files under gs://{bucket_name}/{source_prefix}",
+        skipped_already_loaded=skipped,
+    )
 
 
 # ── File handling ────────────────────────────────────────────────────────────
@@ -135,7 +174,7 @@ def prepare_ndjson_line(file_info, source_prefix):
         wrapped = {"data": original}
 
         row = {
-            "document_id": os.path.basename(file_info["name"]).removesuffix(".json"),
+            "document_id": normalize_document_id(os.path.basename(file_info["name"])),
             "timestamp": file_info["updated_time"],
             "DATA": json.dumps(wrapped),
         }
@@ -309,6 +348,10 @@ def process_batch(
             _log(
                 f"Batch {batch_num}: BQ load succeeded for {len(good_files)} {entity_type} files. Archiving."
             )
+            # Mark files as loaded before archiving — prevents duplicate loads
+            # if archive fails and files remain in the source prefix
+            for file_info in good_files:
+                _mark_as_loaded(file_info["blob_object"])
             archive_files(good_files, source_prefix, archive_prefix)
             # Notify cache layer to invalidate affected authors
             try:

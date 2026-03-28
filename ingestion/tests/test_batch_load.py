@@ -27,6 +27,7 @@ def _make_blob(name, updated=None):
     blob = mock.MagicMock()
     blob.name = name
     blob.updated = updated or datetime(2026, 3, 19, 12, 0, 0, tzinfo=timezone.utc)
+    blob.metadata = None
     return blob
 
 

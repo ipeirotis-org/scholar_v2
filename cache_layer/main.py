@@ -10,7 +10,10 @@ import os
 
 from flask import Flask, jsonify, request
 
+from functools import wraps
+
 from cache_layer.cache_service import CacheService
+from cache_layer.config import Config
 
 logging.basicConfig(
     level=logging.INFO,
@@ -20,6 +23,28 @@ logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 service = CacheService()
+
+
+def require_admin_auth(f):
+    """Require Bearer token authentication for admin endpoints.
+
+    When CACHE_LAYER_ADMIN_TOKEN is set, requests must include a matching
+    Authorization: Bearer <token> header. When unset (empty), all requests
+    are allowed — this preserves backwards compatibility for environments
+    where Cloud Run IAM or ingress restrictions provide auth instead.
+    """
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        token = Config.ADMIN_AUTH_TOKEN
+        if not token:
+            return f(*args, **kwargs)
+
+        auth_header = request.headers.get("Authorization", "")
+        if not auth_header.startswith("Bearer ") or auth_header[7:] != token:
+            return jsonify({"status": "error", "message": "Unauthorized"}), 401
+
+        return f(*args, **kwargs)
+    return decorated
 
 
 @app.route("/tasks/priority", methods=["POST"])
@@ -53,6 +78,7 @@ def _handle_task():
 
 
 @app.route("/admin/rebuild", methods=["POST"])
+@require_admin_auth
 def admin_rebuild():
     """Trigger a full cache rebuild. Enqueues tasks to the batch queue."""
     result = service.dispatch("rebuild_all", {})
@@ -61,6 +87,7 @@ def admin_rebuild():
 
 
 @app.route("/admin/populate", methods=["POST"])
+@require_admin_auth
 def admin_populate():
     """Manually populate cache for a specific author.
 
