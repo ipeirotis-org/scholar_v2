@@ -66,3 +66,28 @@ class TestWriteBatch:
         assert result == 501
         # Should commit twice: once at 500, once for the final 1
         assert db.batch().commit.call_count == 2
+
+    def test_batch_commit_failure_returns_zero_for_failed_batch(self):
+        """When batch.commit() fails, those items should NOT be counted."""
+        writer, db = _make_writer()
+        db.batch().commit.side_effect = Exception("Firestore down")
+        writes = [("col", f"doc{i}", {"i": i}) for i in range(3)]
+        result = writer.write_batch(writes)
+        assert result == 0
+
+    def test_batch_partial_commit_failure(self):
+        """When the first 500 succeed but the final batch fails, count only 500."""
+        writer, db = _make_writer()
+        # First commit succeeds, second fails
+        db.batch().commit.side_effect = [None, Exception("Firestore down")]
+        writes = [("col", f"doc{i}", {"i": i}) for i in range(501)]
+        result = writer.write_batch(writes)
+        assert result == 500
+
+    def test_batch_first_fails_second_succeeds(self):
+        """When the first 500 fail but remaining items succeed, count only the remainder."""
+        writer, db = _make_writer()
+        db.batch().commit.side_effect = [Exception("Firestore down"), None]
+        writes = [("col", f"doc{i}", {"i": i}) for i in range(501)]
+        result = writer.write_batch(writes)
+        assert result == 1

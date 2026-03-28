@@ -18,6 +18,10 @@ class Config:
     # Cache Layer's own Cloud Run URL (for self-enqueue in rebuild_all)
     CACHE_LAYER_URL = os.environ.get("CACHE_LAYER_URL", "")
 
+    # Admin authentication — require shared secret for admin endpoints.
+    # When set, admin requests must include Authorization: Bearer <token>.
+    ADMIN_AUTH_TOKEN = os.environ.get("CACHE_LAYER_ADMIN_TOKEN", "")
+
     # Firestore cache collection names (must match what the frontend reads)
     CACHE_AUTHOR_PUB_STATS = "v3_author_pub_stats"
     CACHE_AUTHOR_STATS = "v3_author_stats"

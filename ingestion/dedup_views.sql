@@ -10,6 +10,9 @@
 -- These views are the ONLY source that downstream analytics views should read.
 -- They replace the legacy firestore_export.scholar_raw_*_raw_latest tables.
 --
+-- Document ID normalization: strip trailing ".json" suffix.
+-- This MUST match the Python implementation in ingestion/normalize.py.
+--
 -- Deploy:
 --   bq query --project_id=scholar-version2 --use_legacy_sql=false < v3/ingestion/dedup_views.sql
 

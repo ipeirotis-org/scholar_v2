@@ -82,3 +82,64 @@ class TestAdminEndpoints:
     def test_populate_missing_scholar_id(self, client):
         response = client.post("/admin/populate", json={})
         assert response.status_code == 400
+
+
+class TestAdminAuth:
+    """Test admin endpoint authentication when ADMIN_AUTH_TOKEN is set."""
+
+    @mock.patch("cache_layer.main.Config.ADMIN_AUTH_TOKEN", "secret-token-123")
+    def test_rebuild_rejects_no_auth(self, client):
+        response = client.post("/admin/rebuild")
+        assert response.status_code == 401
+
+    @mock.patch("cache_layer.main.Config.ADMIN_AUTH_TOKEN", "secret-token-123")
+    def test_rebuild_rejects_wrong_token(self, client):
+        response = client.post(
+            "/admin/rebuild",
+            headers={"Authorization": "Bearer wrong-token"},
+        )
+        assert response.status_code == 401
+
+    @mock.patch("cache_layer.main.Config.ADMIN_AUTH_TOKEN", "secret-token-123")
+    @mock.patch("cache_layer.main.service")
+    def test_rebuild_accepts_correct_token(self, mock_service, client):
+        mock_service.dispatch.return_value = {"status": "ok"}
+        response = client.post(
+            "/admin/rebuild",
+            headers={"Authorization": "Bearer secret-token-123"},
+        )
+        assert response.status_code == 200
+
+    @mock.patch("cache_layer.main.Config.ADMIN_AUTH_TOKEN", "secret-token-123")
+    def test_populate_rejects_no_auth(self, client):
+        response = client.post("/admin/populate", json={"scholar_id": "abc123"})
+        assert response.status_code == 401
+
+    @mock.patch("cache_layer.main.Config.ADMIN_AUTH_TOKEN", "secret-token-123")
+    @mock.patch("cache_layer.main.service")
+    def test_populate_accepts_correct_token(self, mock_service, client):
+        mock_service.dispatch.return_value = {"status": "ok", "scholar_id": "abc123"}
+        response = client.post(
+            "/admin/populate",
+            json={"scholar_id": "abc123"},
+            headers={"Authorization": "Bearer secret-token-123"},
+        )
+        assert response.status_code == 200
+
+    @mock.patch("cache_layer.main.Config.ADMIN_AUTH_TOKEN", "")
+    @mock.patch("cache_layer.main.service")
+    def test_no_token_configured_allows_all(self, mock_service, client):
+        """When ADMIN_AUTH_TOKEN is empty, all requests are allowed."""
+        mock_service.dispatch.return_value = {"status": "ok"}
+        response = client.post("/admin/rebuild")
+        assert response.status_code == 200
+
+    @mock.patch("cache_layer.main.Config.ADMIN_AUTH_TOKEN", "secret-token-123")
+    def test_task_endpoints_not_affected(self, client):
+        """Task endpoints should NOT require admin auth."""
+        response = client.post(
+            "/tasks/priority",
+            json={"type": "populate_author_profile", "scholar_id": "abc123"},
+        )
+        # Should get 400 (missing service mock) not 401
+        assert response.status_code != 401

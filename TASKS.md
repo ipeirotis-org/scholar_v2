@@ -97,33 +97,29 @@ Findings from a full codebase audit, ordered by priority. See `docs/codebase-rev
 
 ### P0 — Critical (Data Integrity / Security)
 
-- [ ] **Fix `cache_writer.py` batch failure accounting** _(review §2.1)_
-  - `write_batch()` returns count of items *attempted*, not *committed*
-  - If `batch.commit()` fails, count is not decremented — caller sees inflated write count
-  - **Files:** `cache_layer/cache_writer.py:60-74`
-  - **Fix:** Track `committed` separately; on commit failure, retry or subtract from count
-  - **Tests:** Add batch commit failure tests (`cache_layer/tests/test_cache_writer.py`)
+- [x] **Fix `cache_writer.py` batch failure accounting** _(review §2.1)_
+  - `write_batch()` now tracks `committed` separately from `pending`
+  - Only increments `committed` after successful `batch.commit()`
+  - **Files:** `cache_layer/cache_writer.py`
+  - **Tests:** 3 new batch commit failure tests in `cache_layer/tests/test_cache_writer.py`
 
-- [ ] **Prevent duplicate BigQuery loads from archive failures** _(review §3.2)_
-  - If GCS archive (copy+delete) fails, source file stays in input prefix
-  - Next batch_load re-processes it → WRITE_APPEND creates duplicates in raw tables
-  - Dedup views mask this at query time, but raw tables grow unboundedly
-  - **Files:** `ingestion/batch_load.py:160-175`
-  - **Fix:** Use a "processed" metadata marker or tracking collection instead of relying on file move
+- [x] **Prevent duplicate BigQuery loads from archive failures** _(review §3.2)_
+  - Added `bq_loaded` metadata marker on GCS blobs after successful BQ load
+  - `iter_gcs_files()` skips blobs already marked, preventing re-processing if archive fails
+  - **Files:** `ingestion/batch_load.py`
 
-- [ ] **Add authentication to cache_layer admin endpoints** _(review §3.1)_
-  - `/admin/rebuild` and `/admin/populate` accept unauthenticated POST requests
-  - Anyone who can reach the Cloud Run service can trigger a full cache rebuild
-  - **Files:** `cache_layer/main.py:55-80`
-  - **Fix:** Require IAM-authenticated requests (Cloud Run `--ingress internal` or verify OIDC tokens)
+- [x] **Add authentication to cache_layer admin endpoints** _(review §3.1)_
+  - Added `require_admin_auth` decorator with Bearer token verification
+  - Configured via `CACHE_LAYER_ADMIN_TOKEN` env var; when empty, allows all (backwards-compatible)
+  - **Files:** `cache_layer/main.py`, `cache_layer/config.py`
+  - **Tests:** 7 new auth tests in `cache_layer/tests/test_main.py`
 
-- [ ] **Unify document ID normalization** _(review §1.2)_
-  - Three different approaches strip `.json` suffix from legacy document IDs:
-    - `ingestion/batch_load.py` — `removesuffix(".json")`
-    - `ingestion/cache_enqueuer.py:52` — `re.sub(r"\.json$", "", doc_id)`
-    - `bigquery/materialize_dedup_tables.sql:36-42` — `CASE WHEN ENDS_WITH(...)`
-  - Divergence causes silent data mismatches between BigQuery and Firestore
-  - **Fix:** Create a single `normalize_document_id()` utility; use it everywhere in Python; keep SQL version aligned
+- [x] **Unify document ID normalization** _(review §1.2)_
+  - Created `ingestion/normalize.py` with single `normalize_document_id()` function
+  - Updated `batch_load.py` and `cache_enqueuer.py` to use the shared function
+  - Added cross-reference comment in `dedup_views.sql` to keep SQL aligned
+  - **Files:** `ingestion/normalize.py`, `ingestion/batch_load.py`, `ingestion/cache_enqueuer.py`, `ingestion/dedup_views.sql`
+  - **Tests:** 7 tests in `ingestion/tests/test_normalize.py`
 
 ### P1 — High (Production Reliability)
 
