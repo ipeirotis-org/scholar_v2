@@ -18,6 +18,12 @@
 -- Per-author app queries (author profile page) use the ranked_* VIEWS directly.
 -- All-authors list queries use the _table snapshots.
 --
+-- Benchmarks:
+--   Each author-level dist table includes a 'benchmark' column with two populations:
+--   'all_authors'    — full S2 population (~99.5M authors)
+--   'active_authors' — authors with hindex >= 3 AND total_publications >= 3
+--   Ranked views default to 'active_authors' for meaningful percentile differentiation.
+--
 -- Data source: Semantic Scholar bulk datasets (s2_data.*).
 --
 -- Usage (full refresh — distribution tables + snapshots):
@@ -34,6 +40,7 @@ DROP MATERIALIZED VIEW IF EXISTS `scholar-version2.statistics.stats_author_metri
 -- Computes PERCENT_RANK by pub_year, stores distinct
 -- (pub_year, num_citations) → percentile pairs. Enables fast per-publication
 -- percentile lookups in ranked_publication_current without live PERCENT_RANK.
+-- No benchmark column needed — citation percentiles are per-paper, not per-author.
 CREATE OR REPLACE TABLE `scholar-version2.statistics.dist_publication_citations`
 CLUSTER BY pub_year
 AS SELECT * FROM (
@@ -51,12 +58,12 @@ AS SELECT * FROM (
 -- Step 2: Author metric percentile distributions.
 -- Source: s2_data.authors + s2_data.author_paper_stats.
 -- Computes PERCENT_RANK for 5 metrics (hindex5y, citedby5y, i10index5y dropped — not in S2)
--- partitioned by year_of_first_pub cohort. Stored in normalized
--- (year_of_first_pub, metric_name, metric_value, percentile) format.
+-- partitioned by (benchmark, year_of_first_pub) cohort. Stored in normalized
+-- (benchmark, year_of_first_pub, metric_name, metric_value, percentile) format.
 -- Includes total_publications_with_citations so stats_author_publication_pip_inputs_current
 -- can read num_papers distribution from here instead of scanning all authors.
 CREATE OR REPLACE TABLE `scholar-version2.statistics.dist_author_metrics`
-CLUSTER BY year_of_first_pub, metric_name
+CLUSTER BY benchmark, year_of_first_pub, metric_name
 AS SELECT * FROM (
   WITH
     CombinedData AS (
@@ -73,29 +80,49 @@ AS SELECT * FROM (
       WHERE a.authorid IS NOT NULL
         AND ps.year_of_first_pub IS NOT NULL
     ),
-    WithPercentiles AS (
-      SELECT *,
+    AllPercentiles AS (
+      SELECT
+        'all_authors' AS benchmark, year_of_first_pub,
+        hindex, citedby, i10index, total_publications, total_publications_with_citations,
         PERCENT_RANK() OVER(PARTITION BY year_of_first_pub ORDER BY hindex ASC)                            AS hindex_pct,
         PERCENT_RANK() OVER(PARTITION BY year_of_first_pub ORDER BY citedby ASC)                           AS citedby_pct,
         PERCENT_RANK() OVER(PARTITION BY year_of_first_pub ORDER BY i10index ASC)                          AS i10index_pct,
         PERCENT_RANK() OVER(PARTITION BY year_of_first_pub ORDER BY total_publications ASC)                AS total_publications_pct,
         PERCENT_RANK() OVER(PARTITION BY year_of_first_pub ORDER BY total_publications_with_citations ASC) AS total_publications_with_citations_pct
       FROM CombinedData
+    ),
+    ActivePercentiles AS (
+      SELECT
+        'active_authors' AS benchmark, year_of_first_pub,
+        hindex, citedby, i10index, total_publications, total_publications_with_citations,
+        PERCENT_RANK() OVER(PARTITION BY year_of_first_pub ORDER BY hindex ASC)                            AS hindex_pct,
+        PERCENT_RANK() OVER(PARTITION BY year_of_first_pub ORDER BY citedby ASC)                           AS citedby_pct,
+        PERCENT_RANK() OVER(PARTITION BY year_of_first_pub ORDER BY i10index ASC)                          AS i10index_pct,
+        PERCENT_RANK() OVER(PARTITION BY year_of_first_pub ORDER BY total_publications ASC)                AS total_publications_pct,
+        PERCENT_RANK() OVER(PARTITION BY year_of_first_pub ORDER BY total_publications_with_citations ASC) AS total_publications_with_citations_pct
+      FROM CombinedData
+      WHERE hindex >= 3 AND total_publications >= 3
+    ),
+    Combined AS (
+      SELECT * FROM AllPercentiles
+      UNION ALL
+      SELECT * FROM ActivePercentiles
     )
-  SELECT DISTINCT year_of_first_pub, 'hindex'                           AS metric_name, hindex                           AS metric_value, hindex_pct                           AS percentile FROM WithPercentiles
+  SELECT DISTINCT benchmark, year_of_first_pub, 'hindex'                           AS metric_name, hindex                           AS metric_value, hindex_pct                           AS percentile FROM Combined
   UNION ALL
-  SELECT DISTINCT year_of_first_pub, 'citedby',                           citedby,                           citedby_pct                           FROM WithPercentiles
+  SELECT DISTINCT benchmark, year_of_first_pub, 'citedby',                           citedby,                           citedby_pct                           FROM Combined
   UNION ALL
-  SELECT DISTINCT year_of_first_pub, 'i10index',                          i10index,                          i10index_pct                          FROM WithPercentiles
+  SELECT DISTINCT benchmark, year_of_first_pub, 'i10index',                          i10index,                          i10index_pct                          FROM Combined
   UNION ALL
-  SELECT DISTINCT year_of_first_pub, 'total_publications',                total_publications,                total_publications_pct                FROM WithPercentiles
+  SELECT DISTINCT benchmark, year_of_first_pub, 'total_publications',                total_publications,                total_publications_pct                FROM Combined
   UNION ALL
-  SELECT DISTINCT year_of_first_pub, 'total_publications_with_citations', total_publications_with_citations, total_publications_with_citations_pct FROM WithPercentiles
+  SELECT DISTINCT benchmark, year_of_first_pub, 'total_publications_with_citations', total_publications_with_citations, total_publications_with_citations_pct FROM Combined
 );
 
 -- Step 3: Temporal publication citation distributions.
 -- Reads temporal citation data, computes PERCENT_RANK for 4 metric/partition
 -- combinations. Used by ranked_publication_citations_temporal.
+-- No benchmark column needed — citation percentiles are per-paper, not per-author.
 CREATE OR REPLACE TABLE `scholar-version2.statistics.dist_publication_citations_temporal`
 CLUSTER BY metric_name, pub_year
 AS
@@ -126,20 +153,30 @@ FROM TemporalData;
 
 -- Step 4: Temporal author metric distributions.
 -- Reads temporal author metrics, computes PERCENT_RANK for 7 metrics
--- partitioned by (year_of_first_pub, state_year). Used by ranked_author_metrics_temporal.
+-- partitioned by (benchmark, year_of_first_pub, state_year).
+-- Used by ranked_author_metrics_temporal.
 CREATE OR REPLACE TABLE `scholar-version2.statistics.dist_author_metrics_temporal`
-CLUSTER BY year_of_first_pub, state_year, metric_name
+CLUSTER BY benchmark, year_of_first_pub, state_year, metric_name
 AS
 WITH
   TemporalData AS (
-    SELECT year_of_first_pub, state_year,
+    SELECT scholar_id, year_of_first_pub, state_year,
       total_publications, total_citations, total_recent_citations_5y,
       h_index, h_index_5y, i10_index, i10_index_5y
     FROM `scholar-version2.statistics.stats_author_metrics_temporal_view`
     WHERE year_of_first_pub IS NOT NULL
   ),
-  WithPercentiles AS (
-    SELECT *,
+  ActiveAuthors AS (
+    SELECT a.authorid AS scholar_id
+    FROM `scholar-version2.s2_data.authors` a
+    JOIN `scholar-version2.s2_data.author_paper_stats` ps ON a.authorid = ps.authorid
+    WHERE a.hindex >= 3 AND COALESCE(ps.total_publications, 0) >= 3
+  ),
+  AllPercentiles AS (
+    SELECT
+      'all_authors' AS benchmark, year_of_first_pub, state_year,
+      total_publications, total_citations, total_recent_citations_5y,
+      h_index, h_index_5y, i10_index, i10_index_5y,
       PERCENT_RANK() OVER(PARTITION BY year_of_first_pub, state_year ORDER BY total_publications ASC)       AS total_publications_pct,
       PERCENT_RANK() OVER(PARTITION BY year_of_first_pub, state_year ORDER BY total_citations ASC)          AS total_citations_pct,
       PERCENT_RANK() OVER(PARTITION BY year_of_first_pub, state_year ORDER BY total_recent_citations_5y ASC) AS total_recent_citations_5y_pct,
@@ -148,27 +185,47 @@ WITH
       PERCENT_RANK() OVER(PARTITION BY year_of_first_pub, state_year ORDER BY i10_index ASC)                AS i10_index_pct,
       PERCENT_RANK() OVER(PARTITION BY year_of_first_pub, state_year ORDER BY i10_index_5y ASC)             AS i10_index_5y_pct
     FROM TemporalData
+  ),
+  ActivePercentiles AS (
+    SELECT
+      'active_authors' AS benchmark, t.year_of_first_pub, t.state_year,
+      t.total_publications, t.total_citations, t.total_recent_citations_5y,
+      t.h_index, t.h_index_5y, t.i10_index, t.i10_index_5y,
+      PERCENT_RANK() OVER(PARTITION BY t.year_of_first_pub, t.state_year ORDER BY t.total_publications ASC)       AS total_publications_pct,
+      PERCENT_RANK() OVER(PARTITION BY t.year_of_first_pub, t.state_year ORDER BY t.total_citations ASC)          AS total_citations_pct,
+      PERCENT_RANK() OVER(PARTITION BY t.year_of_first_pub, t.state_year ORDER BY t.total_recent_citations_5y ASC) AS total_recent_citations_5y_pct,
+      PERCENT_RANK() OVER(PARTITION BY t.year_of_first_pub, t.state_year ORDER BY t.h_index ASC)                  AS h_index_pct,
+      PERCENT_RANK() OVER(PARTITION BY t.year_of_first_pub, t.state_year ORDER BY t.h_index_5y ASC)               AS h_index_5y_pct,
+      PERCENT_RANK() OVER(PARTITION BY t.year_of_first_pub, t.state_year ORDER BY t.i10_index ASC)                AS i10_index_pct,
+      PERCENT_RANK() OVER(PARTITION BY t.year_of_first_pub, t.state_year ORDER BY t.i10_index_5y ASC)             AS i10_index_5y_pct
+    FROM TemporalData t
+    WHERE t.scholar_id IN (SELECT scholar_id FROM ActiveAuthors)
+  ),
+  Combined AS (
+    SELECT * FROM AllPercentiles
+    UNION ALL
+    SELECT * FROM ActivePercentiles
   )
-SELECT DISTINCT year_of_first_pub, state_year, 'total_publications'       AS metric_name, total_publications       AS metric_value, total_publications_pct       AS percentile FROM WithPercentiles
+SELECT DISTINCT benchmark, year_of_first_pub, state_year, 'total_publications'       AS metric_name, total_publications       AS metric_value, total_publications_pct       AS percentile FROM Combined
 UNION ALL
-SELECT DISTINCT year_of_first_pub, state_year, 'total_citations',          total_citations,          total_citations_pct          FROM WithPercentiles
+SELECT DISTINCT benchmark, year_of_first_pub, state_year, 'total_citations',          total_citations,          total_citations_pct          FROM Combined
 UNION ALL
-SELECT DISTINCT year_of_first_pub, state_year, 'total_recent_citations_5y', total_recent_citations_5y, total_recent_citations_5y_pct FROM WithPercentiles
+SELECT DISTINCT benchmark, year_of_first_pub, state_year, 'total_recent_citations_5y', total_recent_citations_5y, total_recent_citations_5y_pct FROM Combined
 UNION ALL
-SELECT DISTINCT year_of_first_pub, state_year, 'h_index',                  h_index,                  h_index_pct                  FROM WithPercentiles
+SELECT DISTINCT benchmark, year_of_first_pub, state_year, 'h_index',                  h_index,                  h_index_pct                  FROM Combined
 UNION ALL
-SELECT DISTINCT year_of_first_pub, state_year, 'h_index_5y',               h_index_5y,               h_index_5y_pct               FROM WithPercentiles
+SELECT DISTINCT benchmark, year_of_first_pub, state_year, 'h_index_5y',               h_index_5y,               h_index_5y_pct               FROM Combined
 UNION ALL
-SELECT DISTINCT year_of_first_pub, state_year, 'i10_index',                i10_index,                i10_index_pct                FROM WithPercentiles
+SELECT DISTINCT benchmark, year_of_first_pub, state_year, 'i10_index',                i10_index,                i10_index_pct                FROM Combined
 UNION ALL
-SELECT DISTINCT year_of_first_pub, state_year, 'i10_index_5y',             i10_index_5y,             i10_index_5y_pct             FROM WithPercentiles;
+SELECT DISTINCT benchmark, year_of_first_pub, state_year, 'i10_index_5y',             i10_index_5y,             i10_index_5y_pct             FROM Combined;
 
 -- Step 5: PiP-AUC score percentile distribution.
 -- Now that dist_publication_citations and dist_author_metrics exist, the views
 -- ranked_publication_current and stats_author_current are fast. This makes computing
 -- pip scores for all authors much cheaper than before (no chained PERCENT_RANK scans).
 CREATE OR REPLACE TABLE `scholar-version2.statistics.dist_pip_auc_scores`
-CLUSTER BY year_of_first_pub
+CLUSTER BY benchmark, year_of_first_pub
 AS SELECT * FROM (
   WITH
     RankedPublications AS (
@@ -195,26 +252,62 @@ AS SELECT * FROM (
       SELECT A.scholar_id, AuthStats.year_of_first_pub, A.pip_auc_score
       FROM AUC A
       JOIN `scholar-version2.statistics.stats_author_current` AuthStats ON A.scholar_id = AuthStats.scholar_id
+    ),
+    ActiveAuthors AS (
+      SELECT a.authorid AS scholar_id
+      FROM `scholar-version2.s2_data.authors` a
+      JOIN `scholar-version2.s2_data.author_paper_stats` ps ON a.authorid = ps.authorid
+      WHERE a.hindex >= 3 AND COALESCE(ps.total_publications, 0) >= 3
     )
   SELECT DISTINCT
+    'all_authors' AS benchmark,
     year_of_first_pub,
     pip_auc_score,
     PERCENT_RANK() OVER(PARTITION BY year_of_first_pub ORDER BY pip_auc_score ASC) AS percentile
   FROM AllScores
+  UNION ALL
+  SELECT DISTINCT
+    'active_authors' AS benchmark,
+    year_of_first_pub,
+    pip_auc_score,
+    PERCENT_RANK() OVER(PARTITION BY year_of_first_pub ORDER BY pip_auc_score ASC) AS percentile
+  FROM AllScores
+  WHERE scholar_id IN (SELECT scholar_id FROM ActiveAuthors)
 );
 
 -- Step 6: Temporal PiP-AUC score percentile distribution.
 -- Depends on Steps 3+4 (temporal PiP view uses temporal dist lookups).
 CREATE OR REPLACE TABLE `scholar-version2.statistics.dist_pip_auc_scores_temporal`
-CLUSTER BY year_of_first_pub, state_year
+CLUSTER BY benchmark, year_of_first_pub, state_year
 AS
+WITH
+  TemporalScores AS (
+    SELECT scholar_id, year_of_first_pub, state_year, pip_auc_score
+    FROM `scholar-version2.statistics.stats_author_pip_scores_temporal_view`
+    WHERE year_of_first_pub IS NOT NULL
+  ),
+  ActiveAuthors AS (
+    SELECT a.authorid AS scholar_id
+    FROM `scholar-version2.s2_data.authors` a
+    JOIN `scholar-version2.s2_data.author_paper_stats` ps ON a.authorid = ps.authorid
+    WHERE a.hindex >= 3 AND COALESCE(ps.total_publications, 0) >= 3
+  )
 SELECT DISTINCT
+  'all_authors' AS benchmark,
   year_of_first_pub,
   state_year,
   pip_auc_score,
   PERCENT_RANK() OVER(PARTITION BY year_of_first_pub, state_year ORDER BY pip_auc_score ASC) AS percentile
-FROM `scholar-version2.statistics.stats_author_pip_scores_temporal_view`
-WHERE year_of_first_pub IS NOT NULL;
+FROM TemporalScores
+UNION ALL
+SELECT DISTINCT
+  'active_authors' AS benchmark,
+  year_of_first_pub,
+  state_year,
+  pip_auc_score,
+  PERCENT_RANK() OVER(PARTITION BY year_of_first_pub, state_year ORDER BY pip_auc_score ASC) AS percentile
+FROM TemporalScores
+WHERE scholar_id IN (SELECT scholar_id FROM ActiveAuthors);
 
 -- ── Full-table snapshots (for all-authors list queries and temporal) ─────────
 

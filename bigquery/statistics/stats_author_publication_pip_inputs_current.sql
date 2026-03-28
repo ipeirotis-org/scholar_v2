@@ -2,6 +2,8 @@ CREATE OR REPLACE VIEW `scholar-version2.statistics.stats_author_publication_pip
 -- Computes num_papers_percentile (the X-axis of the PiP chart) for each publication
 -- via interpolation of the author's publication-count percentile.
 --
+-- Uses 'active_authors' benchmark for meaningful percentile differentiation.
+--
 -- S2 migration note: ranked_publication_current no longer includes scholar_id
 -- (papers are identified by corpusid alone). The author dimension is brought in
 -- by joining with base_author_publications.
@@ -16,6 +18,7 @@ WITH
       percentile    AS total_publications_with_citations_percentile
     FROM `scholar-version2.statistics.dist_author_metrics`
     WHERE metric_name = 'total_publications_with_citations'
+      AND benchmark = 'active_authors'
   ),
   RankedPublications AS (
     SELECT

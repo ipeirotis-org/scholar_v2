@@ -363,12 +363,21 @@ Rewrite the 8-level analytics DAG to query S2 tables instead of `author_latest`/
 
 ### Phase 3: Multiple benchmark populations
 
-- [ ] **Create benchmark population views/tables**
-  - `benchmark_all_authors`: all 75M authors (unfiltered)
-  - `benchmark_active_authors`: authors with hindex >= 3, papercount >= 3
-  - `benchmark_faculty`: curated table of known faculty S2 author IDs with institution/department/group
-- [ ] **Compute distribution tables per benchmark**
-  - `dist_author_metrics_by_benchmark`: PERCENT_RANK partitioned by (benchmark_name, year_of_first_pub)
+- [x] **Add benchmark populations to distribution tables**
+  - Added `benchmark` column to all 4 author-level dist tables:
+    - `dist_author_metrics` — `all_authors` (full ~99.5M) + `active_authors` (hindex≥3, total_publications≥3)
+    - `dist_pip_auc_scores` — same two benchmarks
+    - `dist_author_metrics_temporal` — same, using current author state for membership
+    - `dist_pip_auc_scores_temporal` — same
+  - Updated all ranked views to filter by `benchmark = 'active_authors'`:
+    - `ranked_author_current`, `ranked_author_pip_scores_current`
+    - `ranked_author_metrics_temporal`, `ranked_author_pip_scores_temporal`
+    - `stats_author_publication_pip_inputs_current` (PiP X-axis interpolation)
+  - Updated `materialize_stats.sql` with benchmark-aware dist table generation
+  - Publication citation dist tables (`dist_publication_citations`, `dist_publication_citations_temporal`) unchanged — per-paper, not per-author
+  - CI/CD workflows unchanged — they reference SQL files by path
+- [ ] **Create `benchmark_faculty` table**
+  - Curated table of known faculty S2 author IDs with institution/department/group
 - [ ] **Migrate faculty reference list**
   - Map ~15K faculty Google Scholar IDs → S2 author IDs via name + affiliation or ORCID/DBLP crosswalk
 
