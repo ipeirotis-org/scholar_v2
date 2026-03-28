@@ -84,4 +84,5 @@ def _normalize_author(author):
         "email_domain": "",
         "citedby": author.get("citationCount") or 0,
         "hindex": author.get("hIndex") or 0,
+        "id_type": "s2",
     }
