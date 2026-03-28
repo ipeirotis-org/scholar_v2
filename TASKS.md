@@ -291,25 +291,38 @@ NEW:     Weekly cron → Download S2 dataset diffs → GCS → BigQuery (bulk lo
   - Panos Ipeirotis also has a duplicate profile (id `11143475` with 12 papers vs main id `2942126` with 125)
   - **API rate limits are very aggressive**: ~1 req/30-60s effective rate for search endpoints, even with API key. Batch endpoints work better. This further validates the bulk dataset approach.
   - **Yearly citation reconstruction works**: tested on a 4,667-cite paper, 100% of citing papers had year data (though API caps at ~2000 results)
-- [ ] **Validate faculty reference population coverage**
+- [ ] **Validate faculty reference population coverage** _(deferred — clean cut to S2 planned instead of hybrid approach)_
   - Check how many of the ~15K faculty can be found in S2 via name/affiliation or ORCID/DBLP crosswalk
 
-### Phase 1: Dataset ingestion pipeline
+### Phase 1: Dataset ingestion pipeline ✓
 
-Build `dataset_ingestion/` component (Cloud Run job):
+Built `dataset_ingestion/` component (Cloud Run job):
 
-- [ ] **Download S2 datasets to GCS**
-  - Call Datasets API (`/datasets/v1/release/`) to find latest release
-  - Download papers, citations (stripped of contexts/intents), authors → `gs://scholar_data_share/s2_datasets/{release_id}/`
-- [ ] **Load into BigQuery raw tables**
-  - `s2_papers` (200M rows): corpusid, title, year, citationcount, authors, externalids, venue, publicationdate
-  - `s2_citations` (2.4B rows): citationid, citingcorpusid, citedcorpusid, isinfluential
-  - `s2_authors` (75M rows): authorid, name, affiliations, papercount, citationcount, hindex, externalids
-- [ ] **Build incremental update pipeline**
-  - Use `/diffs/{start}/{end}/{dataset}` endpoint for weekly updates instead of full re-download
-- [ ] **Create materialized derived tables**
-  - `s2_paper_citations_by_year`: JOIN citations with papers, GROUP BY (citedcorpusid, citing_paper_year) — replaces `cites_per_year` JSON
-  - `s2_author_paper_stats`: i10-index, total_publications, total_publications_with_citations per author
+- [x] **Download S2 datasets to GCS**
+  - `s2_api_client.py`: Datasets API client (releases, file URLs, diffs)
+  - `downloader.py`: Parallel streaming download from S2 S3 → GCS (4-8 workers)
+  - Files stored at `gs://scholar_data_share/s2_datasets/{release_id}/{dataset}/`
+- [x] **Load into BigQuery raw tables** (dataset: `s2_data`)
+  - `s2_data.papers` (233M rows): corpusid, title, year, citationcount, authors (JSON), externalids (JSON), venue, publicationdate
+  - `s2_data.citations` (5.6B rows): citationid, citingcorpusid, citedcorpusid, isinfluential
+  - `s2_data.authors` (102M rows): authorid, name, affiliations (JSON), papercount, citationcount, hindex, externalids (JSON)
+  - Nested fields use BigQuery JSON type for schema flexibility
+- [x] **Create materialized derived tables**
+  - `s2_data.paper_citations_by_year` (700M rows): citedcorpusid, citing_year, citation_count, influential_count — replaces `cites_per_year` JSON
+  - `s2_data.author_paper_stats` (99.5M rows): authorid, total_publications, i10_index, total_citations, year_of_first_pub
+- [x] **Initial data load completed** (release `2026-03-10`)
+  - Authors: 30 files, ~2.5 min BQ load
+  - Papers: 60 files, ~13 min BQ load
+  - Citations: 358 files, ~38 min download + ~12 min BQ load
+  - Derived tables: ~44s total materialization
+- [x] **Build incremental update pipeline**
+  - `diff_updater.py`: Downloads diff files, loads into temp tables, applies DELETE + MERGE
+  - Falls back to full reload on diff failure
+  - 11 tests for diff updater
+- [x] **CI/CD: deploy as Cloud Run Job with weekly Cloud Scheduler**
+  - `.github/workflows/deploy-dataset-ingestion.yml`: test → build → deploy Cloud Run Job → create scheduler
+  - Weekly schedule: Mondays at 02:00 UTC
+  - 4GB memory, 2 CPU, 4-hour timeout
 
 ### Phase 2: Adapt BigQuery statistics views
 

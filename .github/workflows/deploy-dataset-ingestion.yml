@@ -1,0 +1,132 @@
+name: Deploy S2 Dataset Ingestion
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'dataset_ingestion/**'
+      - '.github/workflows/deploy-dataset-ingestion.yml'
+
+  workflow_dispatch:
+    inputs:
+      ingestion_mode:
+        description: 'Ingestion mode (auto/full/diff)'
+        required: false
+        default: 'auto'
+
+env:
+  GCP_PROJECT_ID: scholar-version2
+  GCP_REGION: us-central1
+  GAR_LOCATION: us-central1
+  REPOSITORY_NAME: scholar-repo
+  IMAGE_NAME: s2_dataset_ingestion
+  JOB_NAME: s2-dataset-ingestion
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v6
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+
+    - name: Install dependencies
+      run: pip install -r dataset_ingestion/requirements.txt pytest
+
+    - name: Run tests
+      run: python -m pytest dataset_ingestion/tests/ -v
+
+  deploy:
+    name: Build and Deploy
+    needs: test
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v6
+
+    - name: Authenticate to Google Cloud
+      uses: google-github-actions/auth@v3
+      with:
+        credentials_json: '${{ secrets.GCP_SA_KEY }}'
+
+    - name: Set up Cloud SDK
+      uses: google-github-actions/setup-gcloud@v3
+      with:
+        project_id: ${{ env.GCP_PROJECT_ID }}
+
+    - name: Configure Docker for Artifact Registry
+      run: gcloud auth configure-docker ${{ env.GAR_LOCATION }}-docker.pkg.dev
+
+    - name: Build and Push Image
+      env:
+        IMAGE_PATH: ${{ env.GAR_LOCATION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.REPOSITORY_NAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+      run: |-
+        gcloud builds submit \
+          --config /dev/stdin <<CLOUDBUILD
+        steps:
+          - name: 'gcr.io/cloud-builders/docker'
+            args: ['build', '-f', 'dataset_ingestion/Dockerfile', '-t', '$IMAGE_PATH', '.']
+        images: ['$IMAGE_PATH']
+        CLOUDBUILD
+
+    - name: Deploy Cloud Run Job
+      env:
+        IMAGE_PATH: ${{ env.GAR_LOCATION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.REPOSITORY_NAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+      run: |-
+        # Create or update the Cloud Run Job
+        if gcloud run jobs describe ${{ env.JOB_NAME }} --region=${{ env.GCP_REGION }} > /dev/null 2>&1; then
+          gcloud run jobs update ${{ env.JOB_NAME }} \
+            --image "$IMAGE_PATH" \
+            --region ${{ env.GCP_REGION }} \
+            --memory=4Gi \
+            --cpu=2 \
+            --task-timeout=14400 \
+            --max-retries=1 \
+            --set-env-vars="GCP_PROJECT_ID=${{ env.GCP_PROJECT_ID }},INGESTION_MODE=${{ github.event.inputs.ingestion_mode || 'auto' }}"
+        else
+          gcloud run jobs create ${{ env.JOB_NAME }} \
+            --image "$IMAGE_PATH" \
+            --region ${{ env.GCP_REGION }} \
+            --memory=4Gi \
+            --cpu=2 \
+            --task-timeout=14400 \
+            --max-retries=1 \
+            --set-env-vars="GCP_PROJECT_ID=${{ env.GCP_PROJECT_ID }},INGESTION_MODE=${{ github.event.inputs.ingestion_mode || 'auto' }}"
+        fi
+
+    - name: Create or update weekly scheduler
+      run: |-
+        SCHEDULER_NAME="s2-weekly-ingestion"
+        JOB_URI="https://${{ env.GCP_REGION }}-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/${{ env.GCP_PROJECT_ID }}/jobs/${{ env.JOB_NAME }}:run"
+        SA_EMAIL="claude-agent@${{ env.GCP_PROJECT_ID }}.iam.gserviceaccount.com"
+
+        if gcloud scheduler jobs describe "$SCHEDULER_NAME" --location="${{ env.GCP_REGION }}" > /dev/null 2>&1; then
+          gcloud scheduler jobs update http "$SCHEDULER_NAME" \
+            --location="${{ env.GCP_REGION }}" \
+            --schedule="0 2 * * 1" \
+            --uri="$JOB_URI" \
+            --http-method=POST \
+            --time-zone=UTC \
+            --attempt-deadline=600s \
+            --oauth-service-account-email="$SA_EMAIL"
+        else
+          gcloud scheduler jobs create http "$SCHEDULER_NAME" \
+            --location="${{ env.GCP_REGION }}" \
+            --schedule="0 2 * * 1" \
+            --uri="$JOB_URI" \
+            --http-method=POST \
+            --time-zone=UTC \
+            --attempt-deadline=600s \
+            --oauth-service-account-email="$SA_EMAIL"
+        fi
