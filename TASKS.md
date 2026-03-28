@@ -384,12 +384,28 @@ Rewrite the 8-level analytics DAG to query S2 tables instead of `author_latest`/
   - Removed `scholarly` + `httpx` dependencies; added `requests` + `google-cloud-secret-manager`
   - Updated CI/CD workflow (`deploy-author-search.yml`) to deploy `s2_client.py`
   - 11 new tests for S2 client, 4 updated search service tests (35 passing)
-- [ ] **Update frontend for S2 author IDs**
-  - URL parameter: `scholar_id` → `author_id`
-  - Add redirect/lookup for old Google Scholar ID URLs
+- [x] **Update frontend for S2 data**
+  - Updated `SCHOLAR_ID_RE` to accept S2 numeric author IDs (1-20 chars)
+  - Removed Google Scholar crawler enqueue — all data comes from S2 bulk datasets
+  - `api_fetch_authors` now triggers cache population instead of crawling
+  - Removed `id_type=s2` parameter handling (all authors are S2)
+  - Updated flash messages and validation text
+  - Default speed check author changed to S2 ID (`2942126`)
+- [x] **Update cache layer for S2 data**
+  - `get_author_pub_stats`: queries S2 `papers` table for title/venue/citations instead of GS `pub_latest`
+  - `get_author_freshness`: single query to `stats_author_current` (removed GS raw table check)
+  - `get_all_author_ids`: queries S2 `author_paper_stats` (active authors only)
+  - Removed `author_has_raw_pubs`, `author_pubs_freshly_materialized`, `refresh_author_pubs` (GS-specific)
+  - Simplified `_populate_author_profile` in `cache_service.py` (removed pub refresh logic)
+- [x] **Remove Google Scholar-specific references**
+  - `results.html`: removed "Google Scholar ID" label, "Last Fetched from Google Scholar", Refresh button, 5y metrics
+  - `publications.html`: "Google Scholar ID" → "Author ID"
+  - `redirect.html`: removed all "fetched from Google Scholar" text, simplified to S2 messaging
+  - `help.html`: updated data source to Semantic Scholar dataset, updated refresh schedule
+  - `health.html`: "Scholar ID" → "Author ID"
+  - `loading.html`/`index.html`: removed `id_type` parameter passing
 - [ ] **Add benchmark selector to profile pages**
   - Let users choose which reference population to view percentiles against
-- [ ] **Remove Google Scholar-specific references** (links, email_domain field)
 
 ### Phase 5: Remove crawler infrastructure
 

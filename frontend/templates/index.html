@@ -318,9 +318,6 @@
         authorInput.value = author.name;
         showLoadingOverlay();
         var url = "/results?author_id=" + encodeURIComponent(author.scholar_id);
-        if (author.id_type) {
-            url += "&id_type=" + encodeURIComponent(author.id_type);
-        }
         window.location.href = url;
     }
 </script>

@@ -31,7 +31,7 @@ from flask import (
 from frontend.cache import FirestoreCache
 from frontend.config import Config
 from frontend.health_service import HealthService
-from frontend.queue_client import enqueue_author_crawl, enqueue_cache_populate
+from frontend.queue_client import enqueue_cache_populate
 from frontend.visualization import (
     generate_percentile_rank_plot,
     generate_pip_plot,
@@ -44,8 +44,9 @@ from frontend.visualization import (
 
 logger = logging.getLogger(__name__)
 
-# Validate scholar_id: alphanumeric, hyphens, underscores, 4-20 chars
-SCHOLAR_ID_RE = re.compile(r"^[A-Za-z0-9_-]{4,20}$")
+# Validate author_id: alphanumeric, hyphens, underscores, 1-20 chars.
+# Accepts both S2 numeric IDs (e.g., "2942126") and legacy GS IDs.
+SCHOLAR_ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,20}$")
 
 # Validate author_pub_id: scholar_id:base64-like, up to 60 chars
 AUTHOR_PUB_ID_RE = re.compile(r"^[A-Za-z0-9_:/-]{4,80}$")
@@ -155,53 +156,33 @@ def register_routes(app):
     def results():
         author_id = _validate_scholar_id(request.args.get("author_id", "").strip())
         if not author_id:
-            flash("A valid Google Scholar ID is required.")
+            flash("A valid author ID is required.")
             return redirect(url_for("index"))
-
-        # S2 author IDs come from Semantic Scholar search — skip Google Scholar
-        # crawler for these since data is already in BigQuery via S2 bulk datasets.
-        is_s2 = request.args.get("id_type") == "s2"
 
         # Check cached freshness
         exists, last_updated = _get_author_freshness(author_id)
 
-        # If freshness not cached, enqueue crawl + cache population and show loading
+        # If freshness not cached, enqueue cache population and show loading
         if exists is None:
             cache_enqueued = enqueue_cache_populate(
                 "populate_author_profile", {"scholar_id": author_id},
             )
-            # Enqueue author crawl directly to priority queue (skip for S2 authors)
-            crawl_enqueued = False if is_s2 else enqueue_author_crawl(author_id)
-            # Check Firestore for existing data to determine if new or known
             has_cached_data = _read_cache(
                 Config.CACHE_AUTHOR_STATS, author_id,
             ) is not None
             return render_template(
                 "redirect.html",
                 author_id=author_id,
-                id_type="s2" if is_s2 else "",
                 status="unknown",
                 cache_enqueued=cache_enqueued,
-                refresh_result={"enqueued": crawl_enqueued},
                 has_cached_data=has_cached_data,
             )
 
         if not exists:
-            if is_s2:
-                # S2 author not in cache — enqueue cache population from BigQuery
-                cache_enqueued = enqueue_cache_populate(
-                    "populate_author_profile", {"scholar_id": author_id},
-                )
-            else:
-                cache_enqueued = False
-            crawl_enqueued = False if is_s2 else enqueue_author_crawl(author_id)
             return render_template(
                 "redirect.html",
                 author_id=author_id,
-                id_type="s2" if is_s2 else "",
                 status="not_found",
-                cache_enqueued=cache_enqueued,
-                refresh_result={"enqueued": crawl_enqueued},
             )
 
         # Read all data from cache
@@ -231,7 +212,6 @@ def register_routes(app):
             )
             return render_template(
                 "loading.html", author_id=author_id,
-                id_type="s2" if is_s2 else "",
                 cache_enqueued=cache_enqueued,
             )
 
@@ -265,7 +245,7 @@ def register_routes(app):
     def publications(author_id):
         author_id = _validate_scholar_id(author_id)
         if not author_id:
-            flash("A valid Google Scholar ID is required.")
+            flash("A valid author ID is required.")
             return redirect(url_for("index"))
 
         exists, last_updated = _get_author_freshness(author_id)
@@ -352,14 +332,19 @@ def register_routes(app):
 
     @app.route("/api/fetch_authors")
     def api_fetch_authors():
+        """Enqueue cache population for the given author IDs.
+
+        Data comes from S2 bulk datasets in BigQuery — no per-author crawling.
+        This endpoint triggers a cache rebuild from BigQuery for each author.
+        """
         scholar_ids_arg = request.args.get("scholar_ids", "")
         scholar_ids = [s.strip() for s in scholar_ids_arg.split(",")
                        if _validate_scholar_id(s.strip())]
         if not scholar_ids:
-            return jsonify({"error": "No valid scholar IDs provided"}), 400
+            return jsonify({"error": "No valid author IDs provided"}), 400
         enqueued = 0
         for sid in scholar_ids:
-            if enqueue_author_crawl(sid):
+            if enqueue_cache_populate("populate_author_profile", {"scholar_id": sid}):
                 enqueued += 1
         return jsonify({
             "status": "queued",
@@ -374,7 +359,7 @@ def register_routes(app):
         scholar_ids = [s.strip() for s in scholar_ids_arg.split(",")
                        if _validate_scholar_id(s.strip())]
         if not scholar_ids:
-            return jsonify({"error": "No valid scholar IDs provided"}), 400
+            return jsonify({"error": "No valid author IDs provided"}), 400
         for sid in scholar_ids:
             enqueue_cache_populate("populate_author_profile", {"scholar_id": sid})
             # Invalidate cached plots so they are regenerated from fresh stats
@@ -483,7 +468,7 @@ def register_routes(app):
         temporal stats) for a known author using cache reads only, and
         reports per-step timings.
         """
-        default_author = os.environ.get("SPEED_CHECK_AUTHOR_ID", "evnr-MwAAAAJ")
+        default_author = os.environ.get("SPEED_CHECK_AUTHOR_ID", "2942126")
         author_id = _validate_scholar_id(
             request.args.get("author_id", default_author).strip()
         )
