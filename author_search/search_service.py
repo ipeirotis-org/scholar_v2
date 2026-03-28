@@ -90,9 +90,16 @@ def refresh_author_index(bq=None, cache=None):
     return len(authors)
 
 
-def _ensure_index_loaded(cache):
-    """Lazily load the index from Firestore if not yet in memory or stale."""
-    global _author_index, _index_loaded_at
+_bootstrap_triggered = False
+
+
+def _ensure_index_loaded(cache, bq=None):
+    """Lazily load the index from Firestore if not yet in memory or stale.
+
+    If no index exists in Firestore (fresh deploy), triggers a background
+    rebuild from BigQuery so search recovers automatically.
+    """
+    global _author_index, _index_loaded_at, _bootstrap_triggered
 
     if _author_index and (time.time() - _index_loaded_at) < _INDEX_TTL_SECONDS:
         return
@@ -108,9 +115,31 @@ def _ensure_index_loaded(cache):
                     a["name_lower"] = (a.get("name") or "").lower()
             _author_index = authors
             _index_loaded_at = time.time()
+            _bootstrap_triggered = False
             logger.info("Loaded %d authors from Firestore index", len(authors))
-        else:
-            logger.warning("No author index in Firestore; call refresh_author_index first")
+        elif not _bootstrap_triggered:
+            _bootstrap_triggered = True
+            logger.warning("No author index in Firestore; triggering background rebuild")
+            _bootstrap_index_async(bq, cache)
+
+
+def _bootstrap_index_async(bq, cache):
+    """Rebuild the author index in a background thread.
+
+    Called once when the index is missing from Firestore (fresh deploy).
+    Subsequent calls are suppressed by the _bootstrap_triggered flag.
+    """
+    import threading
+
+    def _rebuild():
+        try:
+            count = refresh_author_index(bq=bq, cache=cache)
+            logger.info("Background index bootstrap complete: %d authors", count)
+        except Exception:
+            logger.exception("Background index bootstrap failed")
+
+    t = threading.Thread(target=_rebuild, daemon=True, name="author-index-bootstrap")
+    t.start()
 
 
 def _search_in_memory(query, limit=_TYPEAHEAD_LIMIT):
@@ -173,8 +202,8 @@ class AuthorSearchService:
 
         name = author_name.strip()
 
-        # Ensure the in-memory index is loaded
-        _ensure_index_loaded(self.cache)
+        # Ensure the in-memory index is loaded (pass bq for bootstrap)
+        _ensure_index_loaded(self.cache, bq=self.bq)
 
         if typeahead:
             return _search_in_memory(name, limit=_TYPEAHEAD_LIMIT) or []

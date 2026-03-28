@@ -11,8 +11,11 @@ from author_search.search_service import AuthorSearchService
 def _reset_author_index():
     """Reset module-level index state and mock _ensure_index_loaded to avoid
     Firestore calls (get_index_chunk on MagicMock causes infinite loop)."""
+    import author_search.search_service as ss
+    ss._bootstrap_triggered = False
     with mock.patch("author_search.search_service._ensure_index_loaded"):
         yield
+    ss._bootstrap_triggered = False
 
 
 def _make_author(scholar_id, name="Test Author", source=None, citedby=100, hindex=10):
@@ -118,6 +121,44 @@ class TestFullSearch:
         results = svc.search("Author", scholar=True)
 
         assert len(results) == 1
+
+
+class TestBootstrap:
+    """Test automatic index bootstrap when Firestore index is missing."""
+
+    @pytest.fixture(autouse=True)
+    def _reset_author_index(self):
+        """Override the module-level autouse fixture — do NOT mock
+        _ensure_index_loaded, because we're testing it directly."""
+        import author_search.search_service as ss
+        old_index, old_at, old_flag = ss._author_index, ss._index_loaded_at, ss._bootstrap_triggered
+        ss._author_index = []
+        ss._index_loaded_at = 0
+        ss._bootstrap_triggered = False
+        yield
+        ss._author_index, ss._index_loaded_at, ss._bootstrap_triggered = old_index, old_at, old_flag
+
+    def test_triggers_background_rebuild_when_index_missing(self):
+        import author_search.search_service as ss
+
+        cache = mock.MagicMock()
+        cache.get_index_chunk.return_value = None
+
+        with mock.patch("author_search.search_service._bootstrap_index_async") as mock_bootstrap:
+            ss._ensure_index_loaded(cache, bq=mock.MagicMock())
+            mock_bootstrap.assert_called_once()
+            assert ss._bootstrap_triggered is True
+
+    def test_only_triggers_once(self):
+        import author_search.search_service as ss
+        ss._bootstrap_triggered = True
+
+        cache = mock.MagicMock()
+        cache.get_index_chunk.return_value = None
+
+        with mock.patch("author_search.search_service._bootstrap_index_async") as mock_bootstrap:
+            ss._ensure_index_loaded(cache, bq=mock.MagicMock())
+            mock_bootstrap.assert_not_called()
 
 
 class TestSearchInMemory:
