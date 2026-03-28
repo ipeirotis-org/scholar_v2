@@ -123,19 +123,17 @@ Findings from a full codebase audit, ordered by priority. See `docs/codebase-rev
 
 ### P1 — High (Production Reliability)
 
-- [ ] **Add retry logic for transient BigQuery failures in refresh** _(review §3.3)_
-  - `refresh/bigquery_client.py:27-34` — `_query()` has no retry; a single 503 aborts the entire refresh cycle
-  - **Fix:** Wrap with `google.api_core.retry.Retry` or implement exponential backoff
+- [x] **Add retry logic for transient BigQuery failures in refresh** _(review §3.3)_
+  - `refresh/bigquery_client.py` — `_query()` now uses `google.api_core.retry.Retry` with exponential backoff
+  - Retries on `ServerError` (5xx) and `TooManyRequests` (429), up to 120s deadline
 
-- [ ] **Add timeout to Scholar search in author_search** _(review §3.6)_
-  - `author_search/scholar_client.py` — `scholarly.search_author()` has no timeout wrapper
-  - Crawler uses `ThreadPoolExecutor` with 300s timeout; author_search does not
-  - **Fix:** Add `concurrent.futures.ThreadPoolExecutor` timeout wrapper matching the crawler pattern
+- [x] **Add timeout to Scholar search in author_search** _(review §3.6)_
+  - Resolved by S2 migration: `author_search/s2_client.py` uses `requests.get(timeout=Config.S2_TIMEOUT_SECONDS)` (default 10s)
+  - Old `scholarly` client with no timeout has been removed
 
-- [ ] **Wrap `author_exists()` call in try/except** _(review §3.4)_
-  - `refresh/refresh_service.py:79` — unprotected BigQuery call outside try/except
-  - If it raises, `/api/fetch_author` returns raw 500 with no structured error
-  - **Fix:** Wrap the existence check in the same try/except block as the enqueue call
+- [x] **Wrap `author_exists()` call in try/except** _(review §3.4)_
+  - `refresh/refresh_service.py` — `author_exists()` now wrapped in try/except; returns `None` on failure
+  - Enqueue proceeds regardless; structured error response always returned
 
 - [ ] **Move plot generation out of the request thread** _(review §5.1)_
   - `frontend/routes.py:129-152` — synchronous matplotlib rendering blocks Flask worker

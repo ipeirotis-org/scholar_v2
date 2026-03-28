@@ -148,6 +148,21 @@ class TestFetchAuthor:
         assert result["enqueued"] is False
         assert "error" in result
 
+    @mock.patch("refresh.refresh_service.task_enqueuer")
+    @mock.patch("refresh.refresh_service.bq")
+    def test_author_exists_error_still_enqueues(self, mock_bq, mock_enqueuer):
+        """If author_exists() raises, fetch_author should still enqueue."""
+        mock_bq.author_exists.side_effect = RuntimeError("BQ unavailable")
+        mock_enqueuer.enqueue_author.return_value = True
+
+        from refresh.refresh_service import fetch_author
+        result = fetch_author("bq_err")
+
+        assert result["scholar_id"] == "bq_err"
+        assert result["exists"] is None
+        assert result["enqueued"] is True
+        mock_enqueuer.enqueue_author.assert_called_once_with("bq_err")
+
 
 class TestFetchAuthors:
     @mock.patch("refresh.refresh_service.task_enqueuer")
