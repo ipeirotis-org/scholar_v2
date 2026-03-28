@@ -89,6 +89,7 @@ WITH
       percentile AS total_publications_percentile
     FROM `scholar-version2.statistics.dist_author_metrics_temporal`
     WHERE metric_name = 'total_publications'
+      AND benchmark = 'active_authors'
   ),
 
   -- Interpolate num_papers_percentile for each publication (same 6-CTE pattern
