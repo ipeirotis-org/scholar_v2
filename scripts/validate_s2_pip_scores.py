@@ -65,7 +65,9 @@ def check_dist_pip_auc_populated(client):
             MIN(percentile) AS min_pct,
             MAX(percentile) AS max_pct,
             MIN(pip_auc_score) AS min_score,
-            MAX(pip_auc_score) AS max_score
+            MAX(pip_auc_score) AS max_score,
+            COUNTIF(percentile IS NULL) AS null_pct,
+            COUNTIF(pip_auc_score IS NULL) AS null_score
         FROM `scholar-version2.statistics.dist_pip_auc_scores`
     """)
     r = rows[0]
@@ -73,10 +75,12 @@ def check_dist_pip_auc_populated(client):
     print(f"  Distinct years: {r['distinct_years']} ({r['min_year']}-{r['max_year']})")
     print(f"  Percentile range: [{r['min_pct']:.4f}, {r['max_pct']:.4f}]")
     print(f"  Score range: [{r['min_score']:.4f}, {r['max_score']:.4f}]")
+    print(f"  NULL percentiles: {r['null_pct']}, NULL scores: {r['null_score']}")
 
     ok = (r['total_rows'] > 0 and r['distinct_years'] > 10
           and r['min_pct'] >= 0 and r['max_pct'] <= 1
-          and r['min_score'] >= 0 and r['max_score'] <= 1)
+          and r['min_score'] >= 0 and r['max_score'] <= 1
+          and r['null_pct'] == 0 and r['null_score'] == 0)
     print(f"  RESULT: {'PASS' if ok else 'FAIL'}")
     return ok
 
