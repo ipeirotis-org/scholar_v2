@@ -31,20 +31,22 @@ class BigQuerySearchClient:
             return []
 
     def get_all_author_names(self):
-        """Fetch all active S2 authors for the in-memory search index.
+        """Fetch active S2 authors for the in-memory search index.
 
         Loads from the daily-materialized ranked_author_current_table,
         filtered to authors with meaningful activity:
+        - h-index >= 10
+        - Total citations > 500
         - More than 10 publications with citations
-        - h-index >= 5
-        This yields ~6.4M authors. The index is the sole data source
-        for all author search — no BigQuery queries happen at search time.
+        This yields ~3M authors. For authors not in this index, the
+        search service falls back to the Semantic Scholar API.
         """
         sql = f"""
             SELECT scholar_id, name, affiliation, citedby, hindex
             FROM {Config.bq_view('ranked_author_current_table')}
-            WHERE total_publications_with_citations > 10
-              AND hindex >= 5
+            WHERE hindex >= 10
+              AND citedby > 500
+              AND total_publications_with_citations > 10
             ORDER BY name
         """
         return self._query(sql)

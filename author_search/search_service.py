@@ -1,14 +1,15 @@
 """Author Search Service — Component 6.
 
-All author search is backed by an in-memory index loaded from the
+Primary search is backed by an in-memory index loaded from the
 daily-materialized ranked_author_current_table in BigQuery. The index
-contains all S2 authors with meaningful activity (citationcount > 0,
-total_publications >= 3, hindex > 3). No BigQuery queries happen at
-search time.
+covers ~3M active S2 authors (hindex >= 10, citedby > 500). For
+less-known researchers, the Semantic Scholar API provides fallback
+coverage of the full 102M author universe.
 
-Two search modes:
+Three search modes:
 1. Typeahead (typeahead=True): In-memory index, top 10 results (instant).
 2. Full search (default): In-memory index, top 50 results.
+3. Extended search (scholar=True): In-memory + S2 API fallback.
    Results cached in Firestore so repeat queries are even faster.
 """
 
@@ -192,14 +193,15 @@ class AuthorSearchService:
     def search(self, author_name, typeahead=False, scholar=False):
         """Search for authors by name.
 
-        All search is backed by the in-memory index of active S2 authors.
-
         Modes:
-            typeahead=True:  Top 10 results (instant, no caching overhead).
-            Default:         Top 50 results, cached in Firestore.
+            typeahead=True:  In-memory index only, top 10 (instant).
+            Default:         In-memory index, top 50, cached in Firestore.
+            scholar=True:    In-memory index + S2 API fallback for broader
+                             coverage. Use when "Search beyond" is clicked.
 
-        The `scholar` parameter is accepted for API compatibility but no
-        longer changes behavior — all searches use the same index.
+        The in-memory index covers ~3M active authors (hindex >= 10,
+        citedby > 500). For less-known researchers, scholar=True queries
+        the Semantic Scholar API (102M authors).
 
         Returns a list of author dicts with keys:
             scholar_id, name, affiliation, email_domain, citedby, hindex, source
@@ -223,12 +225,45 @@ class AuthorSearchService:
 
         results = _search_in_memory(name, limit=_FULL_SEARCH_LIMIT)
 
-        # Don't cache when the index isn't loaded yet — avoids caching
-        # empty results for 24h during bootstrap before the first refresh.
+        # Don't cache when the index isn't loaded yet
         if results is None:
             logger.warning("Search '%s': index not loaded, returning empty", name)
             return []
 
-        logger.info("Search '%s': %d results from index", name, len(results))
+        # If scholar=True and we got few local results, supplement with S2 API
+        if scholar and len(results) < 5:
+            results = self._supplement_with_s2(name, results)
+
+        logger.info("Search '%s': %d results", name, len(results))
         self.cache.set_search_results(name, results)
+        return results
+
+    def _supplement_with_s2(self, name, local_results):
+        """Query S2 API and merge with local results."""
+        from author_search import s2_client
+
+        # Check S2 cache first
+        cached = self.cache.get(name)
+        if cached is not None:
+            s2_results = cached
+            source_tag = "s2_api_cached"
+        else:
+            s2_results = s2_client.search_authors(name)
+            if s2_results:
+                self.cache.set(name, s2_results)
+            source_tag = "s2_api"
+
+        if not s2_results:
+            return local_results
+
+        seen_ids = {r.get("scholar_id") for r in local_results if r.get("scholar_id")}
+        results = list(local_results)
+
+        for author in s2_results:
+            sid = author.get("scholar_id")
+            if sid and sid not in seen_ids:
+                seen_ids.add(sid)
+                author["source"] = source_tag
+                results.append(author)
+
         return results

@@ -112,15 +112,36 @@ class TestFullSearch:
         assert results == cached
 
     @mock.patch("author_search.search_service._search_in_memory")
-    def test_scholar_flag_accepted_for_compatibility(self, mock_search):
-        """scholar=True no longer changes behavior but should not error."""
-        mock_search.return_value = [_make_author("id1")]
+    def test_scholar_flag_triggers_s2_fallback_when_few_results(self, mock_search):
+        """scholar=True queries S2 API when index returns few results."""
+        mock_search.return_value = [_make_author("id1")]  # Only 1 result < 5
         cache = mock.MagicMock()
         cache.get_search_results.return_value = None
-        svc = AuthorSearchService(bq_client=mock.MagicMock(), cache=cache)
-        results = svc.search("Author", scholar=True)
+        cache.get.return_value = None  # No cached S2 results
 
-        assert len(results) == 1
+        with mock.patch("author_search.s2_client.search_authors") as mock_s2:
+            mock_s2.return_value = [_make_author("s2_1", "S2 Author")]
+            svc = AuthorSearchService(bq_client=mock.MagicMock(), cache=cache)
+            results = svc.search("Author", scholar=True)
+
+        assert len(results) == 2
+        ids = [r["scholar_id"] for r in results]
+        assert "id1" in ids
+        assert "s2_1" in ids
+
+    @mock.patch("author_search.search_service._search_in_memory")
+    def test_scholar_flag_skips_s2_when_enough_results(self, mock_search):
+        """scholar=True skips S2 API when index returns enough results."""
+        mock_search.return_value = [_make_author(f"id{i}") for i in range(10)]
+        cache = mock.MagicMock()
+        cache.get_search_results.return_value = None
+
+        with mock.patch("author_search.s2_client.search_authors") as mock_s2:
+            svc = AuthorSearchService(bq_client=mock.MagicMock(), cache=cache)
+            results = svc.search("Author", scholar=True)
+
+        mock_s2.assert_not_called()
+        assert len(results) == 10
 
 
 class TestBootstrap:
