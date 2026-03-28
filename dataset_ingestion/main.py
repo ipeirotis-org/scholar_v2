@@ -50,7 +50,13 @@ def run_full_load(release_id):
         logger.info("Processing dataset: %s", dataset_name)
 
         # Get download URLs
-        file_urls = s2_api_client.get_dataset_files(release_id, dataset_name)
+        try:
+            file_urls = s2_api_client.get_dataset_files(release_id, dataset_name)
+        except Exception:
+            log_release(release_id, dataset_name, "full", "failed")
+            failed_datasets.append(dataset_name)
+            logger.exception("Failed to get file URLs for %s", dataset_name)
+            continue
         logger.info("  %d files to download", len(file_urls))
 
         # Download to GCS

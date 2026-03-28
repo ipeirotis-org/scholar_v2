@@ -258,7 +258,7 @@ def get_last_loaded_release():
     try:
         sql = f"""
         WITH latest_per_dataset AS (
-          SELECT release_id, dataset_name, status,
+          SELECT release_id, dataset_name, status, timestamp,
             ROW_NUMBER() OVER (
               PARTITION BY release_id, dataset_name
               ORDER BY timestamp DESC
