@@ -2,7 +2,7 @@
 
 Primary search is backed by an in-memory index loaded from the
 daily-materialized ranked_author_current_table in BigQuery. The index
-covers ~3M active S2 authors (hindex >= 10, citedby > 500). For
+covers ~360K prominent S2 authors (hindex >= 20, citedby > 5000). For
 less-known researchers, the Semantic Scholar API provides fallback
 coverage of the full 102M author universe.
 

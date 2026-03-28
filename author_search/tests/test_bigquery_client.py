@@ -28,9 +28,8 @@ class TestGetAllAuthorNames:
         bq.get_all_author_names()
 
         sql = mock_client.query.call_args[0][0]
-        assert "hindex >= 10" in sql
-        assert "citedby > 500" in sql
-        assert "total_publications_with_citations > 10" in sql
+        assert "hindex >= 20" in sql
+        assert "citedby > 5000" in sql
 
     def test_returns_empty_on_exception(self):
         mock_client = mock.MagicMock()

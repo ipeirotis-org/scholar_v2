@@ -101,9 +101,10 @@ scholar_v2/
              → HTML templates render with base64-encoded PNG images
 
 5. SEARCH: Author search runs in the frontend Cloud Run service (in-memory):
-             → In-memory index of all active S2 authors (refreshed every 6h from BQ)
-             → Filtered to citationcount > 0, total_publications >= 3, hindex > 3
+             → In-memory index of ~360K prominent S2 authors (refreshed every 6h from BQ)
+             → Filtered to hindex >= 20, citedby > 5000
              → Instant substring matching, sorted by citation count
+             → S2 API fallback for less-known researchers (102M authors)
              → Results cached in Firestore (24h TTL)
 ```
 

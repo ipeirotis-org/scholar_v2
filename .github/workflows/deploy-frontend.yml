@@ -145,8 +145,7 @@ jobs:
           --platform managed \
           --region ${{ env.GCP_REGION }} \
           --allow-unauthenticated \
-          --memory=2Gi \
-          --cpu=2 \
+          --memory=1Gi \
           --set-env-vars="GCP_PROJECT_ID=${{ env.GCP_PROJECT_ID }},CACHE_LAYER_URL=$CACHE_LAYER_URL,QUEUE_LOCATION=${{ env.QUEUE_LOCATION }}"
 
     - name: Get Cloud Run service URL
