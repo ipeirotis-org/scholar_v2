@@ -78,6 +78,23 @@ class TestBuildDerivedTables:
         assert "citedcorpusid" in sql
 
     @patch.object(loader, "_get_bq_client")
+    def test_build_author_paper_bridge(self, mock_get_client):
+        mock_client = MagicMock()
+        mock_get_client.return_value = mock_client
+        mock_job = MagicMock()
+        mock_client.query.return_value = mock_job
+        mock_table = MagicMock()
+        mock_table.num_rows = 800_000_000
+        mock_client.get_table.return_value = mock_table
+
+        rows = loader.build_author_paper_bridge()
+        assert rows == 800_000_000
+        sql = mock_client.query.call_args[0][0]
+        assert "author_paper_bridge" in sql
+        assert "authorId" in sql
+        assert "CLUSTER BY authorid" in sql
+
+    @patch.object(loader, "_get_bq_client")
     def test_build_author_paper_stats(self, mock_get_client):
         mock_client = MagicMock()
         mock_get_client.return_value = mock_client

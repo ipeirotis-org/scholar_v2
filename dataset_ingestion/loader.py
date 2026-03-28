@@ -158,6 +158,42 @@ def build_paper_citations_by_year():
     return table.num_rows
 
 
+def build_author_paper_bridge():
+    """Materialize the author_paper_bridge table.
+
+    Flattens the authors array from papers into a (authorid, corpusid, pub_year)
+    bridge table, clustered by authorid. This enables efficient per-author
+    lookups without UNNEST-ing the entire papers table on every query.
+
+    Used by base_author_publications view for predicate pushdown.
+    """
+    table_ref = Config.bq_table_ref(Config.AUTHOR_PAPER_BRIDGE_TABLE)
+    papers_ref = Config.bq_table_ref(Config.PAPERS_TABLE)
+
+    sql = f"""
+    CREATE OR REPLACE TABLE {table_ref}
+    CLUSTER BY authorid
+    AS
+    SELECT
+      LAX_STRING(a.authorId) AS authorid,
+      p.corpusid,
+      p.year AS pub_year
+    FROM {papers_ref} p,
+         UNNEST(JSON_QUERY_ARRAY(p.authors)) AS a
+    WHERE LAX_STRING(a.authorId) IS NOT NULL
+      AND p.year IS NOT NULL
+      AND p.year > 1900
+      AND p.year <= EXTRACT(YEAR FROM CURRENT_DATE())
+    """
+    logger.info("Building author_paper_bridge...")
+    client = _get_bq_client()
+    job = client.query(sql)
+    job.result()
+    table = client.get_table(Config.bq_table(Config.AUTHOR_PAPER_BRIDGE_TABLE))
+    logger.info("author_paper_bridge: %d rows", table.num_rows)
+    return table.num_rows
+
+
 def build_author_paper_stats():
     """Materialize the author_paper_stats derived table.
 
