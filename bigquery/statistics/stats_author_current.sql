@@ -1,65 +1,44 @@
 CREATE OR REPLACE VIEW `scholar-version2.statistics.stats_author_current` AS
 -- Level 2: Raw author statistics — no percentiles, no PERCENT_RANK.
--- Computes author metrics (h-index, citations, i10-index, publication counts)
--- from the latest deduplicated author and publication data.
+-- Source: s2_data.authors + s2_data.author_paper_stats (derived table).
+-- Computes author metrics (h-index, citations, i10-index, publication counts).
 -- Depends on: base_author_publications (L1), stats_publication_current (L1).
 -- Percentiles are added by ranked_author_current (L3) via dist_author_metrics.
+--
+-- Dropped vs Google Scholar version:
+--   hindex5y, citedby5y, i10index5y (not available in S2)
+--   email_domain (not available in S2)
 WITH
-  ScholarData AS (
+  AuthorData AS (
     SELECT
-      scholar_id,
+      authorid AS scholar_id,
       name,
-      affiliation,
-      email_domain,
+      -- Extract first affiliation from JSON array
+      LAX_STRING(JSON_QUERY_ARRAY(affiliations)[SAFE_OFFSET(0)]) AS affiliation,
       hindex,
-      hindex5y,
-      citedby,
-      citedby5y,
-      i10index,
-      i10index5y,
-      timestamp
-    FROM `scholar-version2.scholar_raw_data.author_latest_table`
-    WHERE scholar_id IS NOT NULL
+      citationcount AS citedby
+    FROM `scholar-version2.s2_data.authors`
+    WHERE authorid IS NOT NULL
   ),
-  AuthorPubsData AS (
-    SELECT scholar_id, author_pub_id, pub_year
-    FROM `scholar-version2.statistics.base_author_publications`
-    WHERE pub_year > 1950 AND pub_year <= EXTRACT(YEAR FROM CURRENT_DATE())
-  ),
-  PublicationCounts AS (
+  PaperStats AS (
     SELECT
-      apd.scholar_id,
-      COUNT(apd.author_pub_id) AS total_publications_calculated,
-      COUNT(IF(ps.num_citations > 0, apd.author_pub_id, NULL)) AS total_publications_with_citations_calculated
-    FROM AuthorPubsData apd
-    LEFT JOIN `scholar-version2.statistics.stats_publication_current` ps
-      ON apd.author_pub_id = ps.author_pub_id
-    GROUP BY apd.scholar_id
-  ),
-  FirstPubYear AS (
-    -- Use the earliest pub_year from the author's publication list.
-    -- Falls back to base_author_publications (embedded in author record)
-    -- even when individual publication records haven't been fetched yet,
-    -- so authors are never left with NULL year_of_first_pub.
-    SELECT scholar_id, MIN(pub_year) AS year_of_first_pub
-    FROM AuthorPubsData
-    GROUP BY scholar_id
+      authorid AS scholar_id,
+      total_publications,
+      total_publications_with_citations,
+      i10_index AS i10index,
+      year_of_first_pub
+    FROM `scholar-version2.s2_data.author_paper_stats`
   )
 SELECT
-  sd.scholar_id,
-  sd.name,
-  sd.affiliation,
-  sd.email_domain,
-  sd.hindex,
-  sd.hindex5y,
-  sd.citedby,
-  sd.citedby5y,
-  sd.i10index,
-  sd.i10index5y,
-  COALESCE(pc.total_publications_calculated, 0) AS total_publications,
-  COALESCE(pc.total_publications_with_citations_calculated, 0) AS total_publications_with_citations,
-  fpy.year_of_first_pub,
-  sd.timestamp AS last_updated
-FROM ScholarData sd
-LEFT JOIN FirstPubYear fpy ON sd.scholar_id = fpy.scholar_id
-LEFT JOIN PublicationCounts pc ON sd.scholar_id = pc.scholar_id;
+  ad.scholar_id,
+  ad.name,
+  ad.affiliation,
+  ad.hindex,
+  ad.citedby,
+  COALESCE(ps.i10index, 0) AS i10index,
+  COALESCE(ps.total_publications, 0) AS total_publications,
+  COALESCE(ps.total_publications_with_citations, 0) AS total_publications_with_citations,
+  ps.year_of_first_pub,
+  CURRENT_TIMESTAMP() AS last_updated
+FROM AuthorData ad
+LEFT JOIN PaperStats ps ON ad.scholar_id = ps.scholar_id;

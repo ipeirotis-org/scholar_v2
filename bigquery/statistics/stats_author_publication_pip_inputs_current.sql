@@ -2,9 +2,9 @@ CREATE OR REPLACE VIEW `scholar-version2.statistics.stats_author_publication_pip
 -- Computes num_papers_percentile (the X-axis of the PiP chart) for each publication
 -- via interpolation of the author's publication-count percentile.
 --
--- Key change from original: the num_papers_percentile CTE now reads directly from
--- dist_author_metrics (a small precomputed table) instead of scanning all authors
--- in stats_author_current. This makes per-author queries efficient.
+-- S2 migration note: ranked_publication_current no longer includes scholar_id
+-- (papers are identified by corpusid alone). The author dimension is brought in
+-- by joining with base_author_publications.
 WITH
   num_papers_percentile AS (
     -- Read the precomputed publication-count distribution from dist_author_metrics.
@@ -19,16 +19,18 @@ WITH
   ),
   RankedPublications AS (
     SELECT
-      p.scholar_id,
+      bap.scholar_id,
       p.author_pub_id,
       p.num_citations,
       p.num_citations_percentile,
-      ROW_NUMBER() OVER(PARTITION BY p.scholar_id ORDER BY p.num_citations_percentile DESC) AS publication_rank,
+      ROW_NUMBER() OVER(PARTITION BY bap.scholar_id ORDER BY p.num_citations_percentile DESC) AS publication_rank,
       a.year_of_first_pub,
       a.total_publications_with_citations
     FROM `scholar-version2.statistics.ranked_publication_current` p
+    JOIN `scholar-version2.statistics.base_author_publications` bap
+      ON p.author_pub_id = bap.author_pub_id
     JOIN `scholar-version2.statistics.stats_author_current` a
-      ON p.scholar_id = a.scholar_id
+      ON bap.scholar_id = a.scholar_id
   ),
   Distances AS (
     SELECT

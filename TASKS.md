@@ -328,14 +328,28 @@ Built `dataset_ingestion/` component (Cloud Run job):
 
 Rewrite the 8-level analytics DAG to query S2 tables instead of `author_latest`/`pub_latest`:
 
-- [ ] **Update Level 1 foundation views** (`base_author_publications`, `stats_publication_current`)
-  - Source: `s2_papers` (has embedded authors array — no separate author-pub join needed)
-- [ ] **Update temporal citation views** (`stats_publication_citations_temporal`)
-  - Source: `s2_paper_citations_by_year` table instead of JSON-parsed `cites_per_year`
-- [ ] **Update author stats views** (`stats_author_current`)
-  - Source: `s2_authors` + `s2_author_paper_stats`
-- [ ] **Update distribution tables** (`dist_*`)
-  - Same PERCENT_RANK logic, now over full S2 population (200M papers, 75M authors)
+- [x] **Update Level 1 foundation views** (`base_author_publications`, `stats_publication_current`)
+  - Source: `s2_data.papers` with authors array flattening for base_author_publications
+  - `stats_publication_current` is now per-paper (no `scholar_id`) — author dimension comes from `base_author_publications`
+  - `base_author_publications` uses `LAX_STRING(a.authorId)` as `scholar_id`, `CAST(corpusid AS STRING)` as `author_pub_id`
+- [x] **Update temporal citation views** (`stats_publication_citations_temporal`)
+  - Source: `s2_data.paper_citations_by_year` joined with `s2_data.papers` for pub_year
+  - Year series generated via `GENERATE_ARRAY` for cited papers only
+  - `scholar_id` removed (temporal citation data is per-paper, not per-author)
+- [x] **Update author stats views** (`stats_author_current`)
+  - Source: `s2_data.authors` + `s2_data.author_paper_stats`
+  - Dropped: `hindex5y`, `citedby5y`, `i10index5y`, `email_domain` (not in S2)
+  - `i10index` computed from paper data via `author_paper_stats`
+- [x] **Update distribution tables** (`dist_*`)
+  - `dist_publication_citations`: reads from `s2_data.papers` directly
+  - `dist_author_metrics`: reads from `s2_data.authors` + `s2_data.author_paper_stats`, 5 metrics (was 8)
+  - `dist_publication_citations_temporal`, `dist_author_metrics_temporal`, `dist_pip_auc_scores`, `dist_pip_auc_scores_temporal`: read from updated views (no direct changes needed)
+- [x] **Update all downstream views** (ranked_*, PiP inputs, PiP scores, temporal)
+  - `ranked_publication_current`: no `scholar_id` (per-paper only)
+  - `stats_author_publication_pip_inputs_current`: joins `ranked_publication_current` with `base_author_publications` for author dimension
+  - `ranked_author_current`: 5 percentile columns (was 8, dropped 5y metrics)
+  - Coauthor network views updated to derive from shared papers in S2
+  - Updated `materialize_stats.sql` and CI/CD workflows
 - [ ] **Validate PiP-AUC scores** match between old and new views for test authors
 
 ### Phase 3: Multiple benchmark populations
@@ -410,4 +424,4 @@ Rewrite the 8-level analytics DAG to query S2 tables instead of `author_latest`/
 
 ---
 
-_Last updated: 2026-03-27_
+_Last updated: 2026-03-28_

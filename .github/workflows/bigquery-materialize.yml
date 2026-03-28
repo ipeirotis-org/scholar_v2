@@ -34,21 +34,13 @@ jobs:
       with:
         project_id: ${{ env.PROJECT_ID }}
 
-    # Step 0: Materialize deduplicated author/pub tables.
-    # All downstream views and snapshots read from these instead of
-    # re-running ROW_NUMBER() dedup on the raw append-only tables.
-    # Clustered by document_id for efficient single-entity lookups.
-
-    - name: 'Step 0: Materialize dedup tables (author_latest_table, pub_latest_table)'
-      run: bq query --project_id=${{ env.PROJECT_ID }} --use_legacy_sql=false < bigquery/materialize_dedup_tables.sql
-
     # Full-table snapshots — only needed for all-authors list queries and
     # temporal history. Per-author profile queries use the views directly
     # (cheap with dist lookups).
     #
-    # NOTE: Distribution tables (dist_*) are materialized separately on a
-    # quarterly schedule by bigquery-materialize-distributions.yml.
-    # They change slowly and are expensive to recompute.
+    # PREREQUISITE: S2 dataset tables and distribution tables must exist.
+    # S2 data loaded by dataset ingestion pipeline (deploy-dataset-ingestion.yml).
+    # Distribution tables refreshed quarterly by bigquery-materialize-distributions.yml.
     #
     # Snapshot tables source from ranked_* views and include both raw
     # metrics and percentile columns. Ordered by DAG level.

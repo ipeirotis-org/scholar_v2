@@ -41,9 +41,10 @@ jobs:
     # and must already exist before deploying views that reference them.
     # To refresh them manually, trigger that workflow via workflow_dispatch.
     #
-    # NOTE: Dedup tables (author_latest_table, pub_latest_table) must exist
-    # before deploying views. They are refreshed daily by bigquery-materialize.yml.
-    # For first-time setup, run: bq query < bigquery/materialize_dedup_tables.sql
+    # PREREQUISITE: S2 dataset tables must exist in s2_data dataset:
+    #   - s2_data.papers, s2_data.citations, s2_data.authors (loaded by dataset_ingestion)
+    #   - s2_data.paper_citations_by_year, s2_data.author_paper_stats (derived tables)
+    # These are managed by the dataset ingestion pipeline (deploy-dataset-ingestion.yml).
     #
     # Views are deployed in strict topological (DAG) order — each view
     # depends only on views/tables deployed at earlier levels.
