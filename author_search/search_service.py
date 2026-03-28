@@ -217,10 +217,12 @@ class AuthorSearchService:
         if typeahead:
             return _search_in_memory(name, limit=_TYPEAHEAD_LIMIT) or []
 
-        # Full search with caching
-        cached_results = self.cache.get_search_results(name)
+        # Use separate cache keys for local vs scholar searches
+        cache_key = f"s2:{name}" if scholar else name
+
+        cached_results = self.cache.get_search_results(cache_key)
         if cached_results is not None:
-            logger.info("Search '%s': cache hit (%d results)", name, len(cached_results))
+            logger.info("Search '%s': cache hit (%d results, scholar=%s)", name, len(cached_results), scholar)
             return cached_results
 
         results = _search_in_memory(name, limit=_FULL_SEARCH_LIMIT)
@@ -234,8 +236,8 @@ class AuthorSearchService:
         if scholar and len(results) < 5:
             results = self._supplement_with_s2(name, results)
 
-        logger.info("Search '%s': %d results", name, len(results))
-        self.cache.set_search_results(name, results)
+        logger.info("Search '%s': %d results (scholar=%s)", name, len(results), scholar)
+        self.cache.set_search_results(cache_key, results)
         return results
 
     def _supplement_with_s2(self, name, local_results):
