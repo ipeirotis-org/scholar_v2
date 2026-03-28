@@ -21,7 +21,7 @@ def _make_author(scholar_id, name="Test Author", source=None, citedby=100):
         "scholar_id": scholar_id,
         "name": name,
         "affiliation": "Test University",
-        "email_domain": "test.edu",
+        "email_domain": "",
         "citedby": citedby,
         "hindex": 10,
     }
@@ -54,48 +54,36 @@ class TestLocalSearch:
         bq.search_crawled_authors.return_value = [
             _make_author(f"id{i}", f"Author {i}") for i in range(5)
         ]
-        bq.search_coauthor_network.return_value = []
         svc = AuthorSearchService(bq_client=bq, cache=cache)
         results = svc.search("Author")
 
         assert len(results) == 5
         assert all(r["source"] == "database" for r in results)
 
-    def test_searches_both_crawled_and_coauthor(self):
-        bq = mock.MagicMock()
-        cache = mock.MagicMock()
-        cache.get_search_results.return_value = None
-        bq.search_crawled_authors.return_value = [_make_author("id1")]
-        bq.search_coauthor_network.return_value = [
-            _make_author(f"co{i}", f"Coauthor {i}") for i in range(3)
-        ]
-        svc = AuthorSearchService(bq_client=bq, cache=cache)
-        results = svc.search("Author")
-
-        assert len(results) == 4  # 1 crawled + 3 coauthors
-        bq.search_coauthor_network.assert_called_once()
-
-    def test_never_calls_scholar(self):
+    def test_never_calls_s2_universe(self):
         bq = mock.MagicMock()
         cache = mock.MagicMock()
         cache.get_search_results.return_value = None
         bq.search_crawled_authors.return_value = []
-        bq.search_coauthor_network.return_value = []
         svc = AuthorSearchService(bq_client=bq, cache=cache)
         results = svc.search("Author")
 
         assert results == []
-        # Scholar cache should not be checked for local search
+        # S2 universe cache should not be checked for local search
         cache.get.assert_not_called()
+        bq.search_s2_universe.assert_not_called()
 
-    def test_deduplicates_across_crawled_and_coauthor(self):
+    def test_deduplicates_index_and_crawled(self):
         bq = mock.MagicMock()
         cache = mock.MagicMock()
         cache.get_search_results.return_value = None
         bq.search_crawled_authors.return_value = [_make_author("id1")]
-        bq.search_coauthor_network.return_value = [_make_author("id1")]
-        svc = AuthorSearchService(bq_client=bq, cache=cache)
-        results = svc.search("Author")
+
+        # Simulate index returning same author
+        with mock.patch("author_search.search_service._search_in_memory",
+                        return_value=[_make_author("id1", source="index")]):
+            svc = AuthorSearchService(bq_client=bq, cache=cache)
+            results = svc.search("Author")
 
         ids = [r["scholar_id"] for r in results]
         assert ids.count("id1") == 1
@@ -116,60 +104,54 @@ class TestLocalSearch:
         cache = mock.MagicMock()
         cache.get_search_results.return_value = None
         bq.search_crawled_authors.return_value = [_make_author("id1")]
-        bq.search_coauthor_network.return_value = []
         svc = AuthorSearchService(bq_client=bq, cache=cache)
         svc.search("Author")
 
         cache.set_search_results.assert_called_once()
 
 
-class TestS2Search:
-    """S2 search (scholar=True) merges Semantic Scholar with local results."""
+class TestS2UniverseSearch:
+    """Extended search (scholar=True) queries full S2 authors table in BigQuery."""
 
-    @mock.patch("author_search.search_service.s2_client")
-    def test_scholar_flag_queries_s2(self, mock_s2):
+    def test_scholar_flag_queries_s2_universe(self):
         bq = mock.MagicMock()
         cache = mock.MagicMock()
         cache.get_search_results.return_value = None
         bq.search_crawled_authors.return_value = []
-        bq.search_coauthor_network.return_value = []
         cache.get.return_value = None
-        mock_s2.search_authors.return_value = [
-            _make_author("scholar1", "S2 Author")
+        bq.search_s2_universe.return_value = [
+            _make_author("s2_1", "S2 Author")
         ]
 
         svc = AuthorSearchService(bq_client=bq, cache=cache)
         results = svc.search("Author", scholar=True)
 
         assert len(results) == 1
-        assert results[0]["source"] == "scholar"
+        assert results[0]["source"] == "s2_universe"
+        bq.search_s2_universe.assert_called_once()
         cache.set.assert_called_once()
 
-    @mock.patch("author_search.search_service.s2_client")
-    def test_uses_cached_s2_results(self, mock_s2):
+    def test_uses_cached_s2_universe_results(self):
         bq = mock.MagicMock()
         cache = mock.MagicMock()
         cache.get_search_results.return_value = None
         bq.search_crawled_authors.return_value = []
-        bq.search_coauthor_network.return_value = []
         cache.get.return_value = [_make_author("cached1", "Cached Author")]
 
         svc = AuthorSearchService(bq_client=bq, cache=cache)
         results = svc.search("Author", scholar=True)
 
         assert len(results) == 1
-        assert results[0]["source"] == "scholar_cached"
-        mock_s2.search_authors.assert_not_called()
+        assert results[0]["source"] == "s2_universe_cached"
+        bq.search_s2_universe.assert_not_called()
 
-    @mock.patch("author_search.search_service.s2_client")
-    def test_merges_local_and_s2_results(self, mock_s2):
+    def test_merges_local_and_s2_universe_results(self):
         bq = mock.MagicMock()
         cache = mock.MagicMock()
         cache.get_search_results.return_value = None
         bq.search_crawled_authors.return_value = [_make_author("id1")]
-        bq.search_coauthor_network.return_value = []
         cache.get.return_value = None
-        mock_s2.search_authors.return_value = [
+        bq.search_s2_universe.return_value = [
             _make_author("id2", "New Author"),
         ]
 
@@ -180,15 +162,13 @@ class TestS2Search:
         assert "id1" in ids
         assert "id2" in ids
 
-    @mock.patch("author_search.search_service.s2_client")
-    def test_deduplicates_s2_with_local(self, mock_s2):
+    def test_deduplicates_s2_universe_with_local(self):
         bq = mock.MagicMock()
         cache = mock.MagicMock()
         cache.get_search_results.return_value = None
         bq.search_crawled_authors.return_value = [_make_author("id1")]
-        bq.search_coauthor_network.return_value = []
         cache.get.return_value = None
-        mock_s2.search_authors.return_value = [
+        bq.search_s2_universe.return_value = [
             _make_author("id1", "Duplicate"),
             _make_author("id2", "New Author"),
         ]

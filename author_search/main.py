@@ -1,7 +1,8 @@
 """HTTP entry point for the Author Search Cloud Function.
 
-Deployed across 9 US regions (same rotation as Crawler) for
-Google Scholar rate-limit avoidance on fallback searches.
+Deployed as a Cloud Function. Searches for authors by name across
+the in-memory index, BigQuery statistics views, and optionally the
+full S2 authors universe (102M authors).
 """
 
 import json
@@ -29,6 +30,7 @@ def v3_search_authors(request):
 
     Query params:
         author_name: The name to search for (required, min 2 chars)
+        scholar: If "true", also search the full S2 universe (slower)
 
     Returns JSON array of matching authors.
     """

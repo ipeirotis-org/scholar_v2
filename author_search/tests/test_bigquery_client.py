@@ -10,13 +10,10 @@ from author_search.bigquery_client import BigQuerySearchClient
 class TestSearchCrawledAuthors:
     def test_returns_matching_authors(self):
         mock_client = mock.MagicMock()
-        mock_df = mock.MagicMock()
-        mock_df.empty = False
-        mock_df.to_dict.return_value = [
+        mock_client.query.return_value.result.return_value = [
             {"scholar_id": "abc123", "name": "Alice Smith", "affiliation": "MIT",
-             "email_domain": "mit.edu", "citedby": 500, "hindex": 15},
+             "email_domain": "", "citedby": 500, "hindex": 15},
         ]
-        mock_client.query.return_value.result.return_value.to_dataframe.return_value = mock_df
 
         bq = BigQuerySearchClient(client=mock_client)
         results = bq.search_crawled_authors("alice")
@@ -26,17 +23,6 @@ class TestSearchCrawledAuthors:
         # Verify parameterized query was used
         call_args = mock_client.query.call_args
         assert "@pattern" in call_args[0][0]
-
-    def test_returns_empty_on_no_results(self):
-        mock_client = mock.MagicMock()
-        mock_df = mock.MagicMock()
-        mock_df.empty = True
-        mock_client.query.return_value.result.return_value.to_dataframe.return_value = mock_df
-
-        bq = BigQuerySearchClient(client=mock_client)
-        results = bq.search_crawled_authors("nobody")
-
-        assert results == []
 
     def test_returns_empty_on_exception(self):
         mock_client = mock.MagicMock()
@@ -48,31 +34,50 @@ class TestSearchCrawledAuthors:
         assert results == []
 
 
-class TestSearchCoauthorNetwork:
-    def test_returns_coauthors(self):
+class TestSearchS2Universe:
+    def test_returns_matching_s2_authors(self):
         mock_client = mock.MagicMock()
-        mock_df = mock.MagicMock()
-        mock_df.empty = False
-        mock_df.to_dict.return_value = [
-            {"scholar_id": "co1", "name": "Bob Jones", "affiliation": "Stanford",
-             "email_domain": "", "citedby": 0, "hindex": 0},
+        mock_client.query.return_value.result.return_value = [
+            {"scholar_id": "12345", "name": "Bob Jones", "affiliation": "Stanford",
+             "email_domain": "", "citedby": 1000, "hindex": 20},
         ]
-        mock_client.query.return_value.result.return_value.to_dataframe.return_value = mock_df
 
         bq = BigQuerySearchClient(client=mock_client)
-        results = bq.search_coauthor_network("bob")
+        results = bq.search_s2_universe("bob")
 
         assert len(results) == 1
-        assert results[0]["scholar_id"] == "co1"
+        assert results[0]["scholar_id"] == "12345"
 
-    def test_query_uses_coauthors_to_add_view(self):
+    def test_query_uses_s2_data_authors_table(self):
         mock_client = mock.MagicMock()
-        mock_df = mock.MagicMock()
-        mock_df.empty = True
-        mock_client.query.return_value.result.return_value.to_dataframe.return_value = mock_df
+        mock_client.query.return_value.result.return_value = []
 
         bq = BigQuerySearchClient(client=mock_client)
-        bq.search_coauthor_network("test")
+        bq.search_s2_universe("test")
 
         sql = mock_client.query.call_args[0][0]
-        assert "coauthors_to_add" in sql
+        assert "s2_data" in sql
+        assert "authors" in sql
+
+    def test_returns_empty_on_exception(self):
+        mock_client = mock.MagicMock()
+        mock_client.query.side_effect = Exception("BQ error")
+
+        bq = BigQuerySearchClient(client=mock_client)
+        results = bq.search_s2_universe("bob")
+
+        assert results == []
+
+
+class TestGetAllAuthorNames:
+    def test_returns_authors_for_index(self):
+        mock_client = mock.MagicMock()
+        mock_client.query.return_value.result.return_value = [
+            {"scholar_id": "1", "name": "Alice", "affiliation": "MIT", "citedby": 100},
+        ]
+
+        bq = BigQuerySearchClient(client=mock_client)
+        results = bq.get_all_author_names()
+
+        assert len(results) == 1
+        assert results[0]["name"] == "Alice"

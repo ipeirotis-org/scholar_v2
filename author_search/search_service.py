@@ -2,10 +2,10 @@
 
 Three search modes:
 1. Typeahead (typeahead=True): In-memory index only — instant, no I/O.
-2. Local search (default): In-memory index + BigQuery crawled + coauthor
-   network. Results cached in Firestore.
-3. S2 search (scholar=True): Queries Semantic Scholar Author Search API
-   (with cache), merges with local results.
+2. Local search (default): In-memory index + BigQuery stats views.
+   Results cached in Firestore.
+3. Extended search (scholar=True): Also searches the full S2 authors
+   universe (102M authors) in BigQuery, merges with local results.
 
 Results from all sources are deduplicated by scholar_id and merged.
 Local results are cached so repeat queries skip BigQuery entirely.
@@ -18,7 +18,6 @@ import time
 from author_search.bigquery_client import BigQuerySearchClient
 from author_search.cache import SearchCache
 from author_search.config import Config
-from author_search import s2_client
 
 logger = logging.getLogger(__name__)
 
@@ -154,8 +153,8 @@ class AuthorSearchService:
 
         Modes:
             typeahead=True:  In-memory index only (instant).
-            scholar=True:    Scholar search merged with local results.
-            Default:         Local search — index + BigQuery crawled + coauthor.
+            scholar=True:    Extended search across full S2 universe.
+            Default:         Local search — index + BigQuery stats views.
 
         Returns a list of author dicts with keys:
             scholar_id, name, affiliation, email_domain, citedby, hindex, source
@@ -171,17 +170,17 @@ class AuthorSearchService:
         if typeahead:
             return index_results or []
 
-        # Local search: index + BigQuery
+        # Local search: index + BigQuery stats views
         local_results = self._search_local(name, index_results)
 
         if not scholar:
             return local_results
 
-        # S2 search: merge Semantic Scholar results with local
-        return self._search_s2(name, local_results)
+        # Extended search: also query the full S2 authors universe
+        return self._search_s2_universe(name, local_results)
 
     def _search_local(self, name, index_results):
-        """Search local sources: in-memory index + BigQuery crawled + coauthor network."""
+        """Search local sources: in-memory index + BigQuery stats views."""
         # Check local results cache first
         cached_results = self.cache.get_search_results(name)
         if cached_results is not None:
@@ -199,7 +198,7 @@ class AuthorSearchService:
                     seen_ids.add(sid)
                     results.append(author)
 
-        # Search crawled authors in BigQuery
+        # Search authors in BigQuery stats views
         crawled = self.bq.search_crawled_authors(name)
         for author in crawled:
             sid = author.get("scholar_id")
@@ -208,46 +207,37 @@ class AuthorSearchService:
                 author["source"] = "database"
                 results.append(author)
 
-        # Search coauthor network in BigQuery
-        coauthors = self.bq.search_coauthor_network(name)
-        for author in coauthors:
-            sid = author.get("scholar_id")
-            if sid and sid not in seen_ids:
-                seen_ids.add(sid)
-                author["source"] = "coauthor_network"
-                results.append(author)
-
         logger.info("Search '%s': %d local results", name, len(results))
         self.cache.set_search_results(name, results)
         return results
 
-    def _search_s2(self, name, local_results):
-        """Search Semantic Scholar and merge with local results."""
+    def _search_s2_universe(self, name, local_results):
+        """Search the full S2 authors universe and merge with local results."""
         seen_ids = {r.get("scholar_id") for r in local_results if r.get("scholar_id")}
         results = list(local_results)
 
-        # Check Firestore cache for previous S2 results
+        # Check Firestore cache for previous extended search results
         cached = self.cache.get(name)
         if cached is not None:
             for author in cached:
                 sid = author.get("scholar_id")
                 if sid and sid not in seen_ids:
                     seen_ids.add(sid)
-                    author["source"] = "scholar_cached"
+                    author["source"] = "s2_universe_cached"
                     results.append(author)
-            logger.info("Search '%s': %d results (local + cached S2)", name, len(results))
+            logger.info("Search '%s': %d results (local + cached S2 universe)", name, len(results))
             return results
 
-        # Live S2 search
-        s2_results = s2_client.search_authors(name)
+        # Query the full S2 authors table in BigQuery
+        s2_results = self.bq.search_s2_universe(name, limit=Config.MAX_S2_UNIVERSE_RESULTS)
         if s2_results:
             self.cache.set(name, s2_results)
             for author in s2_results:
                 sid = author.get("scholar_id")
                 if sid and sid not in seen_ids:
                     seen_ids.add(sid)
-                    author["source"] = "scholar"
+                    author["source"] = "s2_universe"
                     results.append(author)
 
-        logger.info("Search '%s': %d results (local + S2)", name, len(results))
+        logger.info("Search '%s': %d results (local + S2 universe)", name, len(results))
         return results

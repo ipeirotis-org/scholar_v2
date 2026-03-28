@@ -8,16 +8,13 @@ cached data.
 
 import datetime
 import io
-import json
 import logging
 import os
 import re
 import time
 from concurrent.futures import ThreadPoolExecutor
-from datetime import timedelta, timezone
 
 import pandas as pd
-import urllib.request
 from flask import (
     flash,
     jsonify,
@@ -30,7 +27,6 @@ from flask import (
 
 from frontend.cache import FirestoreCache
 from frontend.config import Config
-from frontend.health_service import HealthService
 from frontend.queue_client import enqueue_cache_populate
 from frontend.visualization import (
     generate_percentile_rank_plot,
@@ -62,33 +58,6 @@ def _validate_author_pub_id(pub_id):
     if not pub_id or not AUTHOR_PUB_ID_RE.match(pub_id):
         return None
     return pub_id
-
-
-def _call_refresh_function(function_name, params=None, body=None, timeout=10):
-    """Call a Refresh Cloud Function by name.
-
-    Returns the parsed JSON response, or None if not configured or the call fails.
-    """
-    base_url = Config.REFRESH_FUNCTIONS_BASE
-    if not base_url:
-        return None
-
-    url = f"{base_url.rstrip('/')}/{function_name}"
-    if params:
-        qs = "&".join(f"{k}={v}" for k, v in params.items())
-        url = f"{url}?{qs}"
-
-    try:
-        data = json.dumps(body).encode() if body else None
-        req = urllib.request.Request(
-            url, data=data,
-            headers={"Content-Type": "application/json"} if data else {},
-        )
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
-            return json.loads(resp.read())
-    except Exception:
-        logger.exception("Refresh function call failed: %s", function_name)
-        return None
 
 
 def register_routes(app):
@@ -370,22 +339,6 @@ def register_routes(app):
             "authors": [{"scholar_id": sid} for sid in scholar_ids],
         })
 
-    @app.route("/api/refresh_stale_authors")
-    def api_refresh_stale():
-        num = request.args.get("num_authors", "5")
-        result = _call_refresh_function("v3_refresh_stale", params={"limit": num})
-        if result is not None:
-            return jsonify(result)
-        return jsonify({"status": "not_configured", "message": "Refresh functions not yet configured"})
-
-    @app.route("/api/add_coauthors")
-    def api_add_coauthors():
-        num = request.args.get("num_authors", "1")
-        result = _call_refresh_function("v3_expand_coauthors", params={"limit": num})
-        if result is not None:
-            return jsonify(result)
-        return jsonify({"status": "not_configured", "message": "Refresh functions not yet configured"})
-
     from author_search.search_service import AuthorSearchService, refresh_author_index
     search_svc = AuthorSearchService()
 
@@ -447,18 +400,16 @@ def register_routes(app):
     # ------------------------------------------------------------------
     # Health Dashboard
     # ------------------------------------------------------------------
-    health_service = HealthService()
 
     @app.route("/health-dashboard")
     def health_dashboard():
-        """System health dashboard showing queue status, data freshness, and errors."""
-        data = health_service.get_dashboard_data()
-        return render_template("health.html", data=data)
+        """System health dashboard — simplified for S2 data pipeline."""
+        return render_template("health.html", data={})
 
     @app.route("/api/health")
     def api_health():
-        """JSON API for health dashboard data."""
-        return jsonify(health_service.get_dashboard_data())
+        """JSON API for health status."""
+        return jsonify({"status": "ok"})
 
     @app.route("/api/speed_check")
     def api_speed_check():

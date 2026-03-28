@@ -1,7 +1,7 @@
 """BigQuery queries for author search.
 
-Searches local data (crawled authors + coauthor network) before
-falling back to Google Scholar.
+Searches local data: the in-memory name index (from ranked_author_current_table),
+crawled authors in stats_author_current, and the full S2 authors universe.
 """
 
 import logging
@@ -31,7 +31,7 @@ class BigQuerySearchClient:
             return []
 
     def search_crawled_authors(self, name_pattern):
-        """Search authors already in the database by name.
+        """Search authors already in the statistics views by name.
 
         Returns authors from stats_author_current whose name matches
         the pattern (case-insensitive LIKE).
@@ -41,7 +41,7 @@ class BigQuerySearchClient:
                 scholar_id,
                 name,
                 affiliation,
-                email_domain,
+                '' AS email_domain,
                 citedby,
                 hindex
             FROM {Config.bq_view('stats_author_current')}
@@ -63,26 +63,31 @@ class BigQuerySearchClient:
         """
         return self._query(sql)
 
-    def search_coauthor_network(self, name_pattern):
-        """Search the coauthor network for authors not yet crawled.
+    def search_s2_universe(self, name_pattern, limit=20):
+        """Search the full S2 authors table (102M authors).
 
-        Returns coauthors whose name matches the pattern. These are
-        authors known from coauthor lists but not yet in the database.
+        This searches authors not yet in our statistics views, providing
+        a broader search across the entire Semantic Scholar universe.
+        Results are ordered by citation count for relevance.
         """
         sql = f"""
             SELECT
-                coauthor_scholar_id AS scholar_id,
-                coauthor_name AS name,
-                coauthor_affiliation AS affiliation,
+                CAST(authorid AS STRING) AS scholar_id,
+                name,
+                IFNULL(
+                    JSON_EXTRACT_SCALAR(affiliations, '$[0]'),
+                    ''
+                ) AS affiliation,
                 '' AS email_domain,
-                0 AS citedby,
-                0 AS hindex
-            FROM {Config.bq_view('coauthors_to_add')}
-            WHERE LOWER(coauthor_name) LIKE @pattern
-            ORDER BY cnt DESC
-            LIMIT 20
+                IFNULL(citationcount, 0) AS citedby,
+                IFNULL(hindex, 0) AS hindex
+            FROM {Config.bq_s2('authors')}
+            WHERE LOWER(name) LIKE @pattern
+            ORDER BY citationcount DESC
+            LIMIT @limit
         """
         params = [
             ScalarQueryParameter("pattern", "STRING", f"%{name_pattern.lower()}%"),
+            ScalarQueryParameter("limit", "INT64", limit),
         ]
         return self._query(sql, params)

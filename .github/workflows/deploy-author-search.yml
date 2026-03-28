@@ -42,7 +42,6 @@ jobs:
         cp author_search/__init__.py /tmp/deploy-search/author_search/
         cp author_search/config.py /tmp/deploy-search/author_search/
         cp author_search/bigquery_client.py /tmp/deploy-search/author_search/
-        cp author_search/s2_client.py /tmp/deploy-search/author_search/
         cp author_search/cache.py /tmp/deploy-search/author_search/
         cp author_search/search_service.py /tmp/deploy-search/author_search/
         # Copy entry point as main.py

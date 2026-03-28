@@ -1,7 +1,0 @@
-functions-framework==3.*
-setuptools>=69.0
-scholarly==1.7.11
-httpx>=0.23,<0.28
-google-cloud-storage==3.10.0
-google-cloud-tasks==2.21.0
-google-cloud-firestore>=2.16.0

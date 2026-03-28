@@ -106,6 +106,19 @@ def admin_populate():
     return jsonify(result)
 
 
+@app.route("/admin/purge_legacy", methods=["POST"])
+@require_admin_auth
+def admin_purge_legacy():
+    """Purge non-S2 (legacy Google Scholar) entries from all cache collections.
+
+    S2 author IDs are purely numeric. This deletes any cache entries
+    with non-numeric document IDs (legacy Google Scholar IDs).
+    """
+    result = service.dispatch("purge_legacy_cache", {})
+    status_code = 200 if result.get("status") != "error" else 500
+    return jsonify(result), status_code
+
+
 @app.route("/health", methods=["GET"])
 def health():
     return jsonify({"status": "ok"}), 200
