@@ -34,16 +34,17 @@ class BigQuerySearchClient:
         """Fetch all active S2 authors for the in-memory search index.
 
         Loads from the daily-materialized ranked_author_current_table,
-        filtered to authors with meaningful activity (citationcount > 0,
-        total_publications >= 3, hindex > 3). This is the sole data source
+        filtered to authors with meaningful activity:
+        - More than 10 publications with citations
+        - h-index >= 5
+        This yields ~6.4M authors. The index is the sole data source
         for all author search — no BigQuery queries happen at search time.
         """
         sql = f"""
             SELECT scholar_id, name, affiliation, citedby, hindex
             FROM {Config.bq_view('ranked_author_current_table')}
-            WHERE citedby > 0
-              AND total_publications >= 3
-              AND hindex > 3
+            WHERE total_publications_with_citations > 10
+              AND hindex >= 5
             ORDER BY name
         """
         return self._query(sql)
