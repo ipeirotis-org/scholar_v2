@@ -368,6 +368,12 @@ def check_cross_view_consistency(client):
         ORDER BY diff DESC
     """)
 
+    found_ids = {r['scholar_id'] for r in rows}
+    expected = len(BENCHMARK_IDS)
+    if len(found_ids) < expected:
+        missing = set(BENCHMARK_IDS) - found_ids
+        print(f"  MISSING from cross-view join: {missing}")
+
     max_diff = 0
     for r in rows:
         diff = float(r['diff'])
@@ -376,8 +382,8 @@ def check_cross_view_consistency(client):
         status = "OK" if diff < 0.0001 else "MISMATCH!"
         print(f"  {name:<25} manual={r['manual_pip_auc']:.4f}  view={r['view_pip_auc']:.4f}  diff={diff:.6f}  {status}")
 
-    ok = max_diff < 0.0001
-    print(f"\n  Max difference: {max_diff:.6f}")
+    ok = max_diff < 0.0001 and len(found_ids) == expected
+    print(f"\n  Authors matched: {len(found_ids)}/{expected}, Max difference: {max_diff:.6f}")
     print(f"  RESULT: {'PASS' if ok else 'FAIL'}")
     return ok
 
