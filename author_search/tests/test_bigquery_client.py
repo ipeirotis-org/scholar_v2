@@ -48,7 +48,7 @@ class TestSearchS2Universe:
         assert len(results) == 1
         assert results[0]["scholar_id"] == "12345"
 
-    def test_query_uses_s2_data_authors_table(self):
+    def test_query_uses_s2_data_authors_with_activity_filter(self):
         mock_client = mock.MagicMock()
         mock_client.query.return_value.result.return_value = []
 
@@ -58,6 +58,8 @@ class TestSearchS2Universe:
         sql = mock_client.query.call_args[0][0]
         assert "s2_data" in sql
         assert "authors" in sql
+        assert "author_paper_stats" in sql
+        assert "total_publications >= 3" in sql
 
     def test_returns_empty_on_exception(self):
         mock_client = mock.MagicMock()

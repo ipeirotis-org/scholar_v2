@@ -64,26 +64,30 @@ class BigQuerySearchClient:
         return self._query(sql)
 
     def search_s2_universe(self, name_pattern, limit=20):
-        """Search the full S2 authors table (102M authors).
+        """Search S2 authors beyond those in our statistics views.
 
-        This searches authors not yet in our statistics views, providing
-        a broader search across the entire Semantic Scholar universe.
-        Results are ordered by citation count for relevance.
+        Joins the S2 authors table with author_paper_stats to restrict the
+        scan to authors with at least some activity (total_publications >= 1),
+        avoiding a full scan of the 102M-row authors table. Results are
+        ordered by citation count for relevance and cached by the caller.
         """
         sql = f"""
             SELECT
-                CAST(authorid AS STRING) AS scholar_id,
-                name,
+                CAST(a.authorid AS STRING) AS scholar_id,
+                a.name,
                 IFNULL(
-                    JSON_EXTRACT_SCALAR(affiliations, '$[0]'),
+                    JSON_EXTRACT_SCALAR(a.affiliations, '$[0]'),
                     ''
                 ) AS affiliation,
                 '' AS email_domain,
-                IFNULL(citationcount, 0) AS citedby,
-                IFNULL(hindex, 0) AS hindex
-            FROM {Config.bq_s2('authors')}
-            WHERE LOWER(name) LIKE @pattern
-            ORDER BY citationcount DESC
+                IFNULL(a.citationcount, 0) AS citedby,
+                IFNULL(a.hindex, 0) AS hindex
+            FROM {Config.bq_s2('authors')} a
+            INNER JOIN {Config.bq_s2('author_paper_stats')} s
+                ON CAST(a.authorid AS STRING) = s.authorid
+            WHERE LOWER(a.name) LIKE @pattern
+                AND s.total_publications >= 3
+            ORDER BY a.citationcount DESC
             LIMIT @limit
         """
         params = [

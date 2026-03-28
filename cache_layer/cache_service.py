@@ -225,6 +225,7 @@ class CacheService:
         db = self.writer.db
         total_deleted = 0
         total_scanned = 0
+        failed_collections = []
 
         for collection_name in collections:
             deleted = 0
@@ -244,12 +245,17 @@ class CacheService:
                 )
             except Exception:
                 logger.exception("Failed to purge legacy cache from %s", collection_name)
+                failed_collections.append(collection_name)
 
             total_deleted += deleted
             total_scanned += scanned
 
-        return {
-            "status": "ok",
+        status = "ok" if not failed_collections else "partial_failure"
+        result = {
+            "status": status,
             "total_scanned": total_scanned,
             "total_deleted": total_deleted,
         }
+        if failed_collections:
+            result["failed_collections"] = failed_collections
+        return result
