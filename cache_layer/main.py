@@ -113,9 +113,17 @@ def admin_purge_legacy():
 
     S2 author IDs are purely numeric. This deletes any cache entries
     with non-numeric document IDs (legacy Google Scholar IDs).
+
+    Returns 200 on full success, 207 on partial failure, 500 on total failure.
     """
     result = service.dispatch("purge_legacy_cache", {})
-    status_code = 200 if result.get("status") != "error" else 500
+    status = result.get("status")
+    if status == "ok":
+        status_code = 200
+    elif status == "partial_failure":
+        status_code = 207
+    else:
+        status_code = 500
     return jsonify(result), status_code
 
 

@@ -58,11 +58,10 @@ scholar_v2/
 │   ├── dedup_views.sql           # author_latest + pub_latest dedup views
 │   ├── config.py                 # Config with env var overrides
 │   └── tests/
-├── author_search/                # Cloud Function: author search (15 regions)
-│   ├── main.py                   # Cloud Function entry point
-│   ├── search_service.py         # Tiered search: in-memory index → BQ stats → S2 universe
-│   ├── bigquery_client.py        # Author name search (stats views + full S2 authors table)
-│   ├── cache.py                  # Firestore cache (24h TTL)
+├── author_search/                # Author search library (used by frontend, not a standalone service)
+│   ├── search_service.py         # In-memory index search (loaded from BQ, refreshed every 6h)
+│   ├── bigquery_client.py        # Loads active S2 authors for the in-memory index
+│   ├── cache.py                  # Firestore cache (24h TTL for search results, chunked index)
 │   ├── config.py                 # Config with env var overrides
 │   └── tests/
 ├── bigquery/                     # SQL view definitions (8-level DAG)
@@ -101,10 +100,11 @@ scholar_v2/
              → matplotlib generates percentile rank + PiP scatter plots from cached data
              → HTML templates render with base64-encoded PNG images
 
-5. SEARCH: Author search uses three tiers:
-             → In-memory index (instant typeahead, refreshed every 6h from BQ)
-             → BigQuery stats views (authors with computed metrics)
-             → Full S2 authors table (102M authors, for "search beyond" queries)
+5. SEARCH: Author search runs in the frontend Cloud Run service (in-memory):
+             → In-memory index of all active S2 authors (refreshed every 6h from BQ)
+             → Filtered to citationcount > 0, total_publications >= 3, hindex > 3
+             → Instant substring matching, sorted by citation count
+             → Results cached in Firestore (24h TTL)
 ```
 
 ## BigQuery Analytics Framework
@@ -160,7 +160,7 @@ Ranked views default to `active_authors` for user-facing percentiles.
 
 - **Flask** on Google Cloud Run
 - **Semantic Scholar** bulk datasets (200M papers, 2.4B citations, 102M authors)
-- **GCP**: Cloud Run (frontend + cache layer + dataset ingestion), Cloud Functions (ingestion + search), Firestore, BigQuery, Cloud Storage, Cloud Tasks
+- **GCP**: Cloud Run (frontend + cache layer + dataset ingestion), Cloud Functions (ingestion), Firestore, BigQuery, Cloud Storage, Cloud Tasks
 - **matplotlib** for visualization (server-side PNG)
 - **pandas / numpy** for data manipulation
 - **Docker** (Python 3.12-slim)
@@ -177,7 +177,6 @@ Ranked views default to `active_authors` for user-facing percentiles.
 
 - **deploy-frontend.yml**: Push to `main` → Docker build → deploy Cloud Run frontend (`us-central1`)
 - **deploy-dataset-ingestion.yml**: Weekly S2 dataset ingestion (Cloud Run Job)
-- **deploy-author-search.yml**: Deploy author search function (15 regions)
 - **deploy-ingestion.yml**: Deploy GCS→BQ ingestion function
 - **deploy-infrastructure.yml**: Cloud Tasks queues + Cloud Scheduler jobs
 - **bigquery-views.yml**: Deploy analytics SQL views in topological DAG order

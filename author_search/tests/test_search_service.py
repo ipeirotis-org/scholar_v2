@@ -88,6 +88,17 @@ class TestFullSearch:
 
         cache.set_search_results.assert_called_once()
 
+    @mock.patch("author_search.search_service._search_in_memory", return_value=None)
+    def test_does_not_cache_when_index_not_loaded(self, mock_search):
+        """During bootstrap, don't cache empty results for 24h."""
+        cache = mock.MagicMock()
+        cache.get_search_results.return_value = None
+        svc = AuthorSearchService(bq_client=mock.MagicMock(), cache=cache)
+        results = svc.search("Author")
+
+        assert results == []
+        cache.set_search_results.assert_not_called()
+
     def test_uses_cached_results(self):
         cache = mock.MagicMock()
         cached = [_make_author("cached1", source="index")]

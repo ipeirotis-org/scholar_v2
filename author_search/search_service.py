@@ -185,7 +185,14 @@ class AuthorSearchService:
             logger.info("Search '%s': cache hit (%d results)", name, len(cached_results))
             return cached_results
 
-        results = _search_in_memory(name, limit=_FULL_SEARCH_LIMIT) or []
+        results = _search_in_memory(name, limit=_FULL_SEARCH_LIMIT)
+
+        # Don't cache when the index isn't loaded yet — avoids caching
+        # empty results for 24h during bootstrap before the first refresh.
+        if results is None:
+            logger.warning("Search '%s': index not loaded, returning empty", name)
+            return []
+
         logger.info("Search '%s': %d results from index", name, len(results))
         self.cache.set_search_results(name, results)
         return results
