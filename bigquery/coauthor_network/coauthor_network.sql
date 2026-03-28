@@ -1,6 +1,8 @@
 CREATE OR REPLACE VIEW `scholar-version2.statistics.coauthor_network` AS
 -- Derive coauthor relationships from S2 papers' authors arrays.
 -- Two authors are coauthors if they appear on the same paper.
+-- Uses != (not <) so every author appears as both primary and coauthor,
+-- ensuring coauthors_to_add can find missing authors regardless of ID ordering.
 -- Note: email_domain is not available in S2, so primary_email_domain is NULL.
 WITH paper_authors AS (
   SELECT
@@ -21,6 +23,6 @@ SELECT
   CAST(NULL AS STRING) AS coauthor_affiliation
 FROM paper_authors a1
 JOIN paper_authors a2
-  ON a1.corpusid = a2.corpusid AND a1.authorid < a2.authorid
+  ON a1.corpusid = a2.corpusid AND a1.authorid != a2.authorid
 JOIN `scholar-version2.s2_data.authors` auth
   ON a1.authorid = auth.authorid;

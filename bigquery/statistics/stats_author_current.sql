@@ -6,8 +6,8 @@ CREATE OR REPLACE VIEW `scholar-version2.statistics.stats_author_current` AS
 -- Percentiles are added by ranked_author_current (L3) via dist_author_metrics.
 --
 -- Dropped vs Google Scholar version:
---   hindex5y, citedby5y, i10index5y (not available in S2)
---   email_domain (not available in S2)
+--   hindex5y, citedby5y, i10index5y (not available in S2; NULL compatibility columns kept)
+--   email_domain (not available in S2; NULL compatibility column kept)
 WITH
   AuthorData AS (
     SELECT
@@ -33,9 +33,13 @@ SELECT
   ad.scholar_id,
   ad.name,
   ad.affiliation,
+  CAST(NULL AS STRING) AS email_domain,
   ad.hindex,
+  CAST(NULL AS INT64) AS hindex5y,
   ad.citedby,
+  CAST(NULL AS INT64) AS citedby5y,
   COALESCE(ps.i10index, 0) AS i10index,
+  CAST(NULL AS INT64) AS i10index5y,
   COALESCE(ps.total_publications, 0) AS total_publications,
   COALESCE(ps.total_publications_with_citations, 0) AS total_publications_with_citations,
   ps.year_of_first_pub,
