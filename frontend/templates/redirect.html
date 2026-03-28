@@ -12,50 +12,28 @@
     </div>
 
     {% if status == "not_found" %}
-        <p>Author <strong>{{ author_id }}</strong> is not yet in our database and is being fetched from Google Scholar.</p>
-        {% if refresh_result and refresh_result.enqueued %}
-            <p class="text-muted">This typically takes 1-5 minutes depending on the number of publications.</p>
-        {% elif refresh_result and not refresh_result.enqueued %}
-            <p class="text-warning">The fetch request could not be queued. Please try again in a few minutes.</p>
-        {% else %}
-            <p class="text-muted">This typically takes 1-5 minutes depending on the number of publications.</p>
-        {% endif %}
+        <p>Author <strong>{{ author_id }}</strong> was not found in our database.</p>
+        <p class="text-muted">This author may not exist in the Semantic Scholar dataset. Please check the author ID and try again.</p>
     {% else %}
         {# status == "unknown": freshness not cached, author may or may not exist in BQ #}
-        {% if refresh_result and refresh_result.exists %}
+        {% if has_cached_data %}
             <p>Author <strong>{{ author_id }}</strong> exists in our database. Statistics are being computed.</p>
             {% if not cache_enqueued %}
                 <p class="text-warning">Could not enqueue the cache population task. Please try again in a few minutes.</p>
             {% else %}
                 <p class="text-muted">This should take a few seconds.</p>
             {% endif %}
-        {% elif refresh_result and refresh_result.enqueued %}
-            <p>Author <strong>{{ author_id }}</strong> is being fetched from Google Scholar.</p>
-            <p class="text-muted">This typically takes 1-5 minutes depending on the number of publications.</p>
-        {% elif refresh_result and not refresh_result.enqueued %}
-            <p>Author <strong>{{ author_id }}</strong> was not found in our database and could not be queued for fetching.</p>
-            <p class="text-muted">Please try again in a few minutes.</p>
+        {% elif has_cached_data == false %}
+            <p>Author <strong>{{ author_id }}</strong> data is being prepared.</p>
+            <p class="text-muted">This typically takes a few seconds.</p>
         {% else %}
-            {# refresh_result is None — service unreachable. Use Firestore data as fallback. #}
-            {% if has_cached_data %}
-                <p>Author <strong>{{ author_id }}</strong> exists in our database. Statistics are being computed.</p>
-                {% if cache_enqueued %}
-                    <p class="text-muted">This should take a few seconds.</p>
-                {% else %}
-                    <p class="text-warning">Could not enqueue the cache population task. Please try again in a few minutes.</p>
-                {% endif %}
-            {% elif has_cached_data == false %}
-                <p>Author <strong>{{ author_id }}</strong> is being fetched from Google Scholar.</p>
-                <p class="text-muted">This typically takes 1-5 minutes depending on the number of publications.</p>
+            {# has_cached_data is None — Firestore check also failed #}
+            {% if cache_enqueued %}
+                <p>Author <strong>{{ author_id }}</strong> data is being prepared.</p>
+                <p class="text-muted">This typically takes a few seconds.</p>
             {% else %}
-                {# has_cached_data is None — Firestore check also failed #}
-                {% if cache_enqueued %}
-                    <p>Author <strong>{{ author_id }}</strong> data is being prepared.</p>
-                    <p class="text-muted">If the author is new, data will also be fetched from Google Scholar (1-5 minutes).</p>
-                {% else %}
-                    <p>Author <strong>{{ author_id }}</strong> data could not be processed at this time.</p>
-                    <p class="text-warning">Background services may be temporarily unavailable. Please try again later.</p>
-                {% endif %}
+                <p>Author <strong>{{ author_id }}</strong> data could not be processed at this time.</p>
+                <p class="text-warning">Background services may be temporarily unavailable. Please try again later.</p>
             {% endif %}
         {% endif %}
     {% endif %}
@@ -69,7 +47,6 @@
 <script>
     setTimeout(function() {
         var url = "/results?author_id=" + encodeURIComponent("{{ author_id }}");
-        {% if id_type %}url += "&id_type={{ id_type }}";{% endif %}
         window.location.href = url;
     }, 30000);
 </script>

@@ -10,15 +10,7 @@
             <ul class="list-unstyled mb-0">
                 <li><strong>Name:</strong> {{ stats.get('name', 'N/A') }}</li>
                 <li><strong>Affiliation:</strong> {{ stats.get('affiliation', 'N/A') }}</li>
-                <li><strong>Google Scholar ID:</strong> {{ author_id }}</li>
-                {% if last_updated %}
-                <li>
-                    <strong>Last Fetched from Google Scholar:</strong> {{ last_updated.strftime('%Y-%m-%d %H:%M') }}
-                    (<a href="javascript:void(0);" id="refreshButton"
-                        data-author-id="{{ author_id }}"
-                        role="button" aria-label="Refresh author data">Refresh</a>)
-                </li>
-                {% endif %}
+                <li><strong>Author ID:</strong> {{ author_id }}</li>
                 {% if stats_cached_at %}
                 <li>
                     <strong>Statistics Calculated:</strong> {{ stats_cached_at.strftime('%Y-%m-%d %H:%M') }}
@@ -49,21 +41,9 @@
                 </li>
                 <li>
                     <span class="metrics-explanation" data-toggle="tooltip"
-                          title="Citations in the last 5 years; percentile vs authors who started publishing in {{ stats.year_of_first_pub }}.">
-                        Recent Citations (last 5 years)</span>: {{ stats.citedby5y }}
-                    ({{ (100 * stats.citedby5y_percentile)|round(1) }}% percentile)
-                </li>
-                <li>
-                    <span class="metrics-explanation" data-toggle="tooltip"
                           title="H-index: largest h such that h publications have at least h citations.">
                         H-index</span>: {{ stats.hindex }}
                     ({{ (100 * stats.hindex_percentile)|round(1) }}% percentile)
-                </li>
-                <li>
-                    <span class="metrics-explanation" data-toggle="tooltip"
-                          title="Recent h-index: largest h such that h publications have at least h new citations in the last 5 years.">
-                        H-index (last 5 years)</span>: {{ stats.hindex5y }}
-                    ({{ (100 * stats.hindex5y_percentile)|round(1) }}% percentile)
                 </li>
                 <li>
                     <span class="metrics-explanation" data-toggle="tooltip"
@@ -76,12 +56,6 @@
                           title="Number of publications with at least 10 citations.">
                         i10-index</span>: {{ stats.i10index }}
                     ({{ (100 * stats.i10index_percentile)|round(1) }}% percentile)
-                </li>
-                <li>
-                    <span class="metrics-explanation" data-toggle="tooltip"
-                          title="Number of publications with at least 10 new citations in the last 5 years.">
-                        i10-index (last 5 years)</span>: {{ stats.i10index5y }}
-                    ({{ (100 * stats.i10index5y_percentile)|round(1) }}% percentile)
                 </li>
                 <li class="mt-2">
                     <strong>
@@ -172,24 +146,6 @@
 $(document).ready(function(){
     $('[data-toggle="tooltip"]').tooltip();
 });
-
-var refreshBtn = document.getElementById("refreshButton");
-if (refreshBtn) {
-    refreshBtn.addEventListener("click", function(e) {
-        e.preventDefault();
-        var authorId = this.getAttribute("data-author-id");
-        this.textContent = "Queuing...";
-        this.style.pointerEvents = "none";
-        var link = this;
-        fetch("/api/fetch_authors?scholar_ids=" + encodeURIComponent(authorId))
-            .then(function(r) { return r.json(); })
-            .then(function() { link.textContent = "Queued for Refresh"; })
-            .catch(function() {
-                link.textContent = "Error";
-                link.style.pointerEvents = "auto";
-            });
-    });
-}
 
 var rebuildStatsBtn = document.getElementById("rebuildStatsButton");
 if (rebuildStatsBtn) {

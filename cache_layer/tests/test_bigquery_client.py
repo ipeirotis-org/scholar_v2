@@ -109,26 +109,18 @@ class TestGetAuthorFreshness:
 
     def test_author_not_found(self):
         import pandas as pd
-        # Both raw table query and S2 fallback return empty
-        raw_df = pd.DataFrame([{"last_updated": None}])
-        s2_df = pd.DataFrame()
-        client, mock_bq = _make_client()
-        mock_bq.query.return_value.result.return_value.to_dataframe.side_effect = [
-            raw_df, s2_df,
-        ]
+        # S2 stats view returns empty — author doesn't exist
+        df = pd.DataFrame()
+        client, _ = _make_client(df)
         exists, last_updated = client.get_author_freshness("unknown")
         assert exists is False
         assert last_updated is None
 
-    def test_author_found_in_s2_only(self):
+    def test_author_exists_no_timestamp(self):
         import pandas as pd
-        # Raw table returns nothing, S2 stats view finds the author
-        raw_df = pd.DataFrame([{"last_updated": None}])
-        s2_df = pd.DataFrame([{"found": 1}])
-        client, mock_bq = _make_client()
-        mock_bq.query.return_value.result.return_value.to_dataframe.side_effect = [
-            raw_df, s2_df,
-        ]
+        # Author exists in S2 but last_updated is None
+        df = pd.DataFrame([{"last_updated": None}])
+        client, _ = _make_client(df)
         exists, last_updated = client.get_author_freshness("s2_author_123")
         assert exists is True
         assert last_updated is None

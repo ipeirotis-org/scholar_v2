@@ -31,12 +31,11 @@ class TestResultsRoute:
         assert response.status_code == 302
 
     def test_results_cache_miss_shows_loading(self):
-        """When freshness cache is empty, enqueue and show redirect/loading."""
+        """When freshness cache is empty, enqueue cache populate and show redirect."""
         from frontend.app import create_app
 
         with mock.patch("frontend.routes.FirestoreCache") as cache_cls, \
-             mock.patch("frontend.routes.enqueue_cache_populate") as mock_enqueue, \
-             mock.patch("frontend.routes.enqueue_author_crawl") as mock_crawl:
+             mock.patch("frontend.routes.enqueue_cache_populate") as mock_enqueue:
             cache_instance = cache_cls.return_value
             cache_instance.get.return_value = None  # Everything is a cache miss
 
@@ -44,9 +43,8 @@ class TestResultsRoute:
             test_client = app.test_client()
             response = test_client.get("/results?author_id=abc123def456")
             assert response.status_code == 200
-            assert b"processing" in response.data.lower() or b"fetched" in response.data.lower()
+            assert b"processing" in response.data.lower() or b"prepared" in response.data.lower()
             mock_enqueue.assert_called()
-            mock_crawl.assert_called_once_with("abc123def456")
 
 
 class TestInputValidation:
@@ -60,7 +58,11 @@ class TestInputValidation:
         assert _validate_scholar_id("") is None
         assert _validate_scholar_id(None) is None
         assert _validate_scholar_id("<script>") is None
-        assert _validate_scholar_id("ab") is None  # too short
+
+    def test_scholar_id_validation_accepts_s2_numeric_ids(self, client):
+        from frontend.routes import _validate_scholar_id
+        assert _validate_scholar_id("2942126") == "2942126"
+        assert _validate_scholar_id("2242100447") == "2242100447"
 
     def test_pub_id_validation_accepts_valid(self, client):
         from frontend.routes import _validate_author_pub_id
