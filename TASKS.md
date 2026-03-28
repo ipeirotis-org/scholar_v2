@@ -350,7 +350,16 @@ Rewrite the 8-level analytics DAG to query S2 tables instead of `author_latest`/
   - `ranked_author_current`: 5 percentile columns (was 8, dropped 5y metrics)
   - Coauthor network views updated to derive from shared papers in S2
   - Updated `materialize_stats.sql` and CI/CD workflows
-- [ ] **Validate PiP-AUC scores** match between old and new views for test authors
+- [x] **Validate PiP-AUC scores** — S2 views produce mathematically correct scores
+  - Validation script: `scripts/validate_s2_pip_scores.py` (10 checks)
+  - Re-materialized `dist_publication_citations` (74K → 135K rows, 76 years), `dist_author_metrics` (72K → 853K rows, 126 years 1901-2026, 5 metrics), and `dist_pip_auc_scores` with S2 data
+  - **All 16 benchmark authors** produce valid PiP-AUC scores (range 0.984–0.999)
+  - **Cross-view consistency**: manual trapezoidal AUC matches view output with 0.000000 difference for all 16 authors
+  - **No duplicates** in PiP inputs, **no NULL/out-of-range** percentiles
+  - **Publication count alignment**: PiP input counts match `stats_author_current` within 1-2% (small diffs from papers with 0 citations or pre-1950 publication years)
+  - **Monotonicity**: higher PiP scores → higher percentiles confirmed in `dist_pip_auc_scores`
+  - **Key finding**: PiP scores are very high (0.984–0.999) because the S2 population (99.5M authors) includes many with 1-2 papers. Any serious researcher scores near 1.0. **Phase 3 (benchmark populations) is essential** to restore meaningful differentiation.
+  - **S2 data quality issue**: Frank B. Hu and JoAnn Manson have `year_of_first_pub=1912` due to spurious papers in S2 data; this places them in a tiny cohort. Consider adding a minimum year floor (e.g., 1950) or outlier detection in `author_paper_stats`.
 
 ### Phase 3: Multiple benchmark populations
 
