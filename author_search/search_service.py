@@ -127,16 +127,23 @@ def _bootstrap_index_async(bq, cache):
     """Rebuild the author index in a background thread.
 
     Called once when the index is missing from Firestore (fresh deploy).
-    Subsequent calls are suppressed by the _bootstrap_triggered flag.
+    Resets the _bootstrap_triggered guard on failure so retries can occur.
     """
+    global _bootstrap_triggered
     import threading
 
     def _rebuild():
+        global _bootstrap_triggered
         try:
             count = refresh_author_index(bq=bq, cache=cache)
-            logger.info("Background index bootstrap complete: %d authors", count)
+            if count > 0:
+                logger.info("Background index bootstrap complete: %d authors", count)
+            else:
+                logger.warning("Background index bootstrap returned 0 authors, resetting guard")
+                _bootstrap_triggered = False
         except Exception:
-            logger.exception("Background index bootstrap failed")
+            logger.exception("Background index bootstrap failed, resetting guard")
+            _bootstrap_triggered = False
 
     t = threading.Thread(target=_rebuild, daemon=True, name="author-index-bootstrap")
     t.start()
