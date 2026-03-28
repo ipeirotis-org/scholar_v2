@@ -146,7 +146,8 @@ jobs:
           --region ${{ env.GCP_REGION }} \
           --allow-unauthenticated \
           --memory=1Gi \
-          --set-env-vars="GCP_PROJECT_ID=${{ env.GCP_PROJECT_ID }},CACHE_LAYER_URL=$CACHE_LAYER_URL,QUEUE_LOCATION=${{ env.QUEUE_LOCATION }}"
+          --set-env-vars="GCP_PROJECT_ID=${{ env.GCP_PROJECT_ID }},CACHE_LAYER_URL=$CACHE_LAYER_URL,QUEUE_LOCATION=${{ env.QUEUE_LOCATION }}" \
+          --set-secrets="S2_API_KEY=s2-api-key:latest"
 
     - name: Get Cloud Run service URL
       id: service-url
