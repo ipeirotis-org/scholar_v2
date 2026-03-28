@@ -36,16 +36,15 @@ jobs:
       with:
         project_id: ${{ env.PROJECT_ID }}
 
-    # Step 0: Ensure dedup tables are fresh before computing distributions.
-    # Distribution queries read from author_latest_table / pub_latest_table.
-    - name: 'Step 0: Materialize dedup tables (author_latest_table, pub_latest_table)'
-      run: bq query --project_id=${{ env.PROJECT_ID }} --use_legacy_sql=false < bigquery/materialize_dedup_tables.sql
-
     # Distribution tables — the ONLY place PERCENT_RANK() runs.
     # Output is small (distinct values only).
     # Materialized in strict DAG order — see docs/architecture-analytics-details.md.
+    #
+    # PREREQUISITE: S2 dataset tables (s2_data.papers, s2_data.authors,
+    # s2_data.author_paper_stats, s2_data.paper_citations_by_year) must be
+    # loaded by the dataset ingestion pipeline before running distributions.
 
-    # ── Step 1: Level 1 (independent — read from raw data only) ────────
+    # ── Step 1: Level 1 (independent — read from S2 data tables) ──────
     - name: 'Step 1a: dist_publication_citations (Level 1)'
       run: bq query --project_id=${{ env.PROJECT_ID }} --use_legacy_sql=false < bigquery/statistics/dist_publication_citations.sql
 

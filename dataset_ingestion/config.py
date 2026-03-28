@@ -26,6 +26,7 @@ class Config:
     AUTHORS_TABLE = "authors"
     PAPER_CITATIONS_BY_YEAR_TABLE = "paper_citations_by_year"
     AUTHOR_PAPER_STATS_TABLE = "author_paper_stats"
+    AUTHOR_PAPER_BRIDGE_TABLE = "author_paper_bridge"
     RELEASE_LOG_TABLE = "release_log"
 
     # Datasets to ingest (order matters: papers first for derived tables)

@@ -72,6 +72,13 @@ DATASET_SCHEMAS = {
     "authors": AUTHORS_SCHEMA,
 }
 
+# Clustering for base tables. Enables efficient per-entity lookups
+# (e.g. WHERE corpusid = X or WHERE authorid = X) without full table scans.
+DATASET_CLUSTERING = {
+    "papers": ["corpusid"],
+    "authors": ["authorid"],
+}
+
 
 def ensure_dataset_exists():
     """Create the s2_data BigQuery dataset if it doesn't exist."""
@@ -110,6 +117,13 @@ def load_dataset(release_id, dataset_name, write_disposition="WRITE_TRUNCATE"):
         max_bad_records=100,  # tolerate some bad records
         ignore_unknown_values=True,  # S2 may add fields
     )
+
+    # Cluster base tables for efficient per-entity lookups.
+    # Without clustering, every per-author query scans the entire table
+    # (e.g. 4.2 GB for authors, 22.7 GB for papers).
+    clustering = DATASET_CLUSTERING.get(dataset_name)
+    if clustering:
+        job_config.clustering_fields = clustering
 
     client = _get_bq_client()
     load_job = client.load_table_from_uri(source_uri, table_id, job_config=job_config)
@@ -155,6 +169,42 @@ def build_paper_citations_by_year():
     job.result()
     table = client.get_table(Config.bq_table(Config.PAPER_CITATIONS_BY_YEAR_TABLE))
     logger.info("paper_citations_by_year: %d rows", table.num_rows)
+    return table.num_rows
+
+
+def build_author_paper_bridge():
+    """Materialize the author_paper_bridge table.
+
+    Flattens the authors array from papers into a (authorid, corpusid, pub_year)
+    bridge table, clustered by authorid. This enables efficient per-author
+    lookups without UNNEST-ing the entire papers table on every query.
+
+    Used by base_author_publications view for predicate pushdown.
+    """
+    table_ref = Config.bq_table_ref(Config.AUTHOR_PAPER_BRIDGE_TABLE)
+    papers_ref = Config.bq_table_ref(Config.PAPERS_TABLE)
+
+    sql = f"""
+    CREATE OR REPLACE TABLE {table_ref}
+    CLUSTER BY authorid
+    AS
+    SELECT
+      LAX_STRING(a.authorId) AS authorid,
+      p.corpusid,
+      p.year AS pub_year
+    FROM {papers_ref} p,
+         UNNEST(JSON_QUERY_ARRAY(p.authors)) AS a
+    WHERE LAX_STRING(a.authorId) IS NOT NULL
+      AND p.year IS NOT NULL
+      AND p.year > 1900
+      AND p.year <= EXTRACT(YEAR FROM CURRENT_DATE())
+    """
+    logger.info("Building author_paper_bridge...")
+    client = _get_bq_client()
+    job = client.query(sql)
+    job.result()
+    table = client.get_table(Config.bq_table(Config.AUTHOR_PAPER_BRIDGE_TABLE))
+    logger.info("author_paper_bridge: %d rows", table.num_rows)
     return table.num_rows
 
 

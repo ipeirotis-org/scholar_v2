@@ -18,6 +18,8 @@
 -- Per-author app queries (author profile page) use the ranked_* VIEWS directly.
 -- All-authors list queries use the _table snapshots.
 --
+-- Data source: Semantic Scholar bulk datasets (s2_data.*).
+--
 -- Usage (full refresh — distribution tables + snapshots):
 --   bq query --project_id=scholar-version2 --use_legacy_sql=false < bigquery/statistics/materialize_stats.sql
 
@@ -28,24 +30,27 @@ DROP MATERIALIZED VIEW IF EXISTS `scholar-version2.statistics.stats_author_metri
 -- ── Distribution tables (Tier 2) ───────────────────────────────────────────
 
 -- Step 1: Publication citation percentile distribution.
--- Reads parsed publication data, computes PERCENT_RANK by pub_year, stores distinct
+-- Source: s2_data.papers (one row per paper).
+-- Computes PERCENT_RANK by pub_year, stores distinct
 -- (pub_year, num_citations) → percentile pairs. Enables fast per-publication
 -- percentile lookups in ranked_publication_current without live PERCENT_RANK.
 CREATE OR REPLACE TABLE `scholar-version2.statistics.dist_publication_citations`
 CLUSTER BY pub_year
 AS SELECT * FROM (
   SELECT DISTINCT
-    pub_year,
-    num_citations,
-    PERCENT_RANK() OVER(PARTITION BY pub_year ORDER BY num_citations ASC) AS num_citations_percentile
-  FROM `scholar-version2.scholar_raw_data.pub_latest_table`
-  WHERE pub_year > 1950
-    AND pub_year <= EXTRACT(YEAR FROM CURRENT_DATE())
-    AND num_citations > 0
+    year AS pub_year,
+    citationcount AS num_citations,
+    PERCENT_RANK() OVER(PARTITION BY year ORDER BY citationcount ASC) AS num_citations_percentile
+  FROM `scholar-version2.s2_data.papers`
+  WHERE year IS NOT NULL
+    AND year > 1950
+    AND year <= EXTRACT(YEAR FROM CURRENT_DATE())
+    AND citationcount > 0
 );
 
 -- Step 2: Author metric percentile distributions.
--- Reads parsed author + publication data, computes PERCENT_RANK for all 8 metrics
+-- Source: s2_data.authors + s2_data.author_paper_stats.
+-- Computes PERCENT_RANK for 5 metrics (hindex5y, citedby5y, i10index5y dropped — not in S2)
 -- partitioned by year_of_first_pub cohort. Stored in normalized
 -- (year_of_first_pub, metric_name, metric_value, percentile) format.
 -- Includes total_publications_with_citations so stats_author_publication_pip_inputs_current
@@ -54,75 +59,34 @@ CREATE OR REPLACE TABLE `scholar-version2.statistics.dist_author_metrics`
 CLUSTER BY year_of_first_pub, metric_name
 AS SELECT * FROM (
   WITH
-    AuthorPubs AS (
-      SELECT
-        scholar_id,
-        JSON_EXTRACT_SCALAR(pub, '$.author_pub_id') AS author_pub_id,
-        CAST(JSON_EXTRACT_SCALAR(pub, '$.bib.pub_year') AS INT64) AS pub_year
-      FROM `scholar-version2.scholar_raw_data.author_latest_table`,
-           UNNEST(publications) AS pub
-      WHERE JSON_EXTRACT_SCALAR(pub, '$.author_pub_id') IS NOT NULL
-        AND scholar_id IS NOT NULL
-        AND CAST(JSON_EXTRACT_SCALAR(pub, '$.bib.pub_year') AS INT64) IS NOT NULL
-    ),
-    PubCitations AS (
-      SELECT
-        author_pub_id,
-        num_citations
-      FROM `scholar-version2.scholar_raw_data.pub_latest_table`
-    ),
-    AuthorPubCounts AS (
-      SELECT
-        ap.scholar_id,
-        COUNT(ap.author_pub_id) AS total_publications,
-        COUNT(IF(pc.num_citations > 0, ap.author_pub_id, NULL)) AS total_publications_with_citations,
-        MIN(IF(pc.num_citations > 0, ap.pub_year, NULL)) AS year_of_first_pub
-      FROM AuthorPubs ap
-      LEFT JOIN PubCitations pc ON ap.author_pub_id = pc.author_pub_id
-      WHERE ap.pub_year > 1950 AND ap.pub_year <= EXTRACT(YEAR FROM CURRENT_DATE())
-      GROUP BY ap.scholar_id
-    ),
-    ScholarData AS (
-      SELECT
-        scholar_id,
-        hindex, hindex5y, citedby, citedby5y, i10index, i10index5y
-      FROM `scholar-version2.scholar_raw_data.author_latest_table`
-      WHERE scholar_id IS NOT NULL
-    ),
     CombinedData AS (
       SELECT
-        s.scholar_id,
-        COALESCE(pc.total_publications, 0) AS total_publications,
-        COALESCE(pc.total_publications_with_citations, 0) AS total_publications_with_citations,
-        pc.year_of_first_pub,
-        s.hindex, s.hindex5y, s.citedby, s.citedby5y, s.i10index, s.i10index5y
-      FROM ScholarData s
-      LEFT JOIN AuthorPubCounts pc ON s.scholar_id = pc.scholar_id
-      WHERE pc.year_of_first_pub IS NOT NULL
+        a.authorid AS scholar_id,
+        a.hindex,
+        a.citationcount AS citedby,
+        COALESCE(ps.i10_index, 0) AS i10index,
+        COALESCE(ps.total_publications, 0) AS total_publications,
+        COALESCE(ps.total_publications_with_citations, 0) AS total_publications_with_citations,
+        ps.year_of_first_pub
+      FROM `scholar-version2.s2_data.authors` a
+      JOIN `scholar-version2.s2_data.author_paper_stats` ps ON a.authorid = ps.authorid
+      WHERE a.authorid IS NOT NULL
+        AND ps.year_of_first_pub IS NOT NULL
     ),
     WithPercentiles AS (
       SELECT *,
         PERCENT_RANK() OVER(PARTITION BY year_of_first_pub ORDER BY hindex ASC)                            AS hindex_pct,
-        PERCENT_RANK() OVER(PARTITION BY year_of_first_pub ORDER BY hindex5y ASC)                          AS hindex5y_pct,
         PERCENT_RANK() OVER(PARTITION BY year_of_first_pub ORDER BY citedby ASC)                           AS citedby_pct,
-        PERCENT_RANK() OVER(PARTITION BY year_of_first_pub ORDER BY citedby5y ASC)                         AS citedby5y_pct,
         PERCENT_RANK() OVER(PARTITION BY year_of_first_pub ORDER BY i10index ASC)                          AS i10index_pct,
-        PERCENT_RANK() OVER(PARTITION BY year_of_first_pub ORDER BY i10index5y ASC)                        AS i10index5y_pct,
         PERCENT_RANK() OVER(PARTITION BY year_of_first_pub ORDER BY total_publications ASC)                AS total_publications_pct,
         PERCENT_RANK() OVER(PARTITION BY year_of_first_pub ORDER BY total_publications_with_citations ASC) AS total_publications_with_citations_pct
       FROM CombinedData
     )
   SELECT DISTINCT year_of_first_pub, 'hindex'                           AS metric_name, hindex                           AS metric_value, hindex_pct                           AS percentile FROM WithPercentiles
   UNION ALL
-  SELECT DISTINCT year_of_first_pub, 'hindex5y',                          hindex5y,                          hindex5y_pct                          FROM WithPercentiles
-  UNION ALL
   SELECT DISTINCT year_of_first_pub, 'citedby',                           citedby,                           citedby_pct                           FROM WithPercentiles
   UNION ALL
-  SELECT DISTINCT year_of_first_pub, 'citedby5y',                         citedby5y,                         citedby5y_pct                         FROM WithPercentiles
-  UNION ALL
   SELECT DISTINCT year_of_first_pub, 'i10index',                          i10index,                          i10index_pct                          FROM WithPercentiles
-  UNION ALL
-  SELECT DISTINCT year_of_first_pub, 'i10index5y',                        i10index5y,                        i10index5y_pct                        FROM WithPercentiles
   UNION ALL
   SELECT DISTINCT year_of_first_pub, 'total_publications',                total_publications,                total_publications_pct                FROM WithPercentiles
   UNION ALL

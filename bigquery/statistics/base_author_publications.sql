@@ -1,12 +1,17 @@
 CREATE OR REPLACE VIEW `scholar-version2.statistics.base_author_publications` AS
+-- Level 1: Author-paper bridge — one row per (author, paper, year).
+-- Source: s2_data.author_paper_bridge (materialized during dataset ingestion).
+-- Using the pre-materialized bridge table instead of UNNEST(papers.authors)
+-- enables BigQuery to push scholar_id predicates down efficiently.
+-- Without this, every per-author query would scan all 200M papers.
 SELECT
-  scholar_id,
-  JSON_EXTRACT_SCALAR(pub, '$.author_pub_id') AS author_pub_id,
-  CAST(JSON_EXTRACT_SCALAR(pub, '$.bib.pub_year') AS INT64) AS pub_year
+  authorid AS scholar_id,
+  CAST(corpusid AS STRING) AS author_pub_id,
+  pub_year
 FROM
-  `scholar-version2.scholar_raw_data.author_latest_table`,
-  UNNEST(publications) AS pub
+  `scholar-version2.s2_data.author_paper_bridge`
 WHERE
-  JSON_EXTRACT_SCALAR(pub, '$.author_pub_id') IS NOT NULL
-  AND scholar_id IS NOT NULL
-  AND CAST(JSON_EXTRACT_SCALAR(pub, '$.bib.pub_year') AS INT64) IS NOT NULL;
+  authorid IS NOT NULL
+  AND pub_year IS NOT NULL
+  AND pub_year > 1900
+  AND pub_year <= EXTRACT(YEAR FROM CURRENT_DATE());

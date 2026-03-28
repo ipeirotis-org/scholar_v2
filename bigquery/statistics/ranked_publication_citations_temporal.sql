@@ -1,9 +1,9 @@
 CREATE OR REPLACE VIEW `scholar-version2.statistics.ranked_publication_citations_temporal` AS
 -- Level 3: Temporal publication citation stats enriched with 4 percentile columns.
 -- Uses scalar subqueries against dist_publication_citations_temporal instead of
--- range joins, which are orders of magnitude faster for per-author queries.
+-- range joins, which are orders of magnitude faster for per-paper queries.
+-- Note: scholar_id not included (temporal citation data is per-paper in S2).
 SELECT
-  b.scholar_id,
   b.author_pub_id,
   b.pub_year,
   b.age,

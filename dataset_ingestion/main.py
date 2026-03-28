@@ -19,6 +19,7 @@ from dataset_ingestion.config import Config
 from dataset_ingestion.diff_updater import apply_diff
 from dataset_ingestion.downloader import download_dataset
 from dataset_ingestion.loader import (
+    build_author_paper_bridge,
     build_author_paper_stats,
     build_paper_citations_by_year,
     ensure_dataset_exists,
@@ -92,6 +93,7 @@ def run_full_load(release_id):
     logger.info("Building derived tables...")
     try:
         build_paper_citations_by_year()
+        build_author_paper_bridge()
         build_author_paper_stats()
     except Exception:
         log_release(release_id, "derived_tables", "full", "failed")
@@ -183,6 +185,7 @@ def run_diff_load(last_release, target_release):
     logger.info("Building derived tables...")
     try:
         build_paper_citations_by_year()
+        build_author_paper_bridge()
         build_author_paper_stats()
     except Exception:
         log_release(target_release, "derived_tables", "diff", "failed")
