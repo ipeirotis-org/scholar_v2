@@ -24,17 +24,17 @@ SELECT
     (SELECT MAX(d.percentile) FROM `scholar-version2.statistics.dist_author_metrics` d
      WHERE d.year_of_first_pub = b.year_of_first_pub AND d.metric_name = 'hindex' AND d.metric_value <= b.hindex),
     0.0) AS hindex_percentile,
-  CAST(NULL AS FLOAT64) AS hindex5y_percentile,
+  0.0 AS hindex5y_percentile,
   COALESCE(
     (SELECT MAX(d.percentile) FROM `scholar-version2.statistics.dist_author_metrics` d
      WHERE d.year_of_first_pub = b.year_of_first_pub AND d.metric_name = 'citedby' AND d.metric_value <= b.citedby),
     0.0) AS citedby_percentile,
-  CAST(NULL AS FLOAT64) AS citedby5y_percentile,
+  0.0 AS citedby5y_percentile,
   COALESCE(
     (SELECT MAX(d.percentile) FROM `scholar-version2.statistics.dist_author_metrics` d
      WHERE d.year_of_first_pub = b.year_of_first_pub AND d.metric_name = 'i10index' AND d.metric_value <= b.i10index),
     0.0) AS i10index_percentile,
-  CAST(NULL AS FLOAT64) AS i10index5y_percentile,
+  0.0 AS i10index5y_percentile,
   COALESCE(
     (SELECT MAX(d.percentile) FROM `scholar-version2.statistics.dist_author_metrics` d
      WHERE d.year_of_first_pub = b.year_of_first_pub AND d.metric_name = 'total_publications' AND d.metric_value <= b.total_publications),
