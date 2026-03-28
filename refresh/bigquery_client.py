@@ -7,6 +7,8 @@ and coauthors not yet in the database.
 import logging
 import random
 
+from google.api_core import retry as api_retry
+from google.api_core.exceptions import ServerError, TooManyRequests
 from google.cloud import bigquery
 from google.cloud.bigquery import ScalarQueryParameter
 
@@ -24,13 +26,26 @@ def _get_client():
     return _client
 
 
+_BQ_RETRY = api_retry.Retry(
+    predicate=api_retry.if_exception_type(ServerError, TooManyRequests),
+    initial=1.0,
+    maximum=30.0,
+    multiplier=2.0,
+    deadline=120.0,
+)
+
+
 def _query(sql, params=None):
-    """Execute a parameterized BigQuery query and return rows as dicts."""
+    """Execute a parameterized BigQuery query and return rows as dicts.
+
+    Retries on transient server errors (5xx) and rate limiting (429)
+    with exponential backoff up to 120s total.
+    """
     client = _get_client()
     job_config = bigquery.QueryJobConfig()
     if params:
         job_config.query_parameters = params
-    rows = client.query(sql, job_config=job_config).result()
+    rows = client.query(sql, job_config=job_config).result(retry=_BQ_RETRY)
     return [dict(row) for row in rows]
 
 

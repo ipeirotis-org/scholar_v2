@@ -2,6 +2,8 @@
 
 from unittest import mock
 
+from google.api_core.exceptions import ServiceUnavailable
+
 
 class TestGetStaleAuthors:
     @mock.patch("refresh.bigquery_client._query")
@@ -125,3 +127,27 @@ class TestAuthorExists:
         mock_query.return_value = []
         from refresh.bigquery_client import author_exists
         assert author_exists("nonexistent") is False
+
+
+class TestQueryRetry:
+    @mock.patch("refresh.bigquery_client._get_client")
+    def test_passes_retry_to_result(self, mock_get_client):
+        """Verify _query passes a retry policy to .result()."""
+        mock_client = mock.MagicMock()
+        mock_get_client.return_value = mock_client
+        mock_job = mock.MagicMock()
+        mock_client.query.return_value = mock_job
+        mock_job.result.return_value = []
+
+        from refresh.bigquery_client import _query
+        _query("SELECT 1")
+
+        mock_job.result.assert_called_once()
+        call_kwargs = mock_job.result.call_args[1]
+        assert "retry" in call_kwargs
+
+    @mock.patch("refresh.bigquery_client._get_client")
+    def test_retry_predicate_matches_server_error(self, mock_get_client):
+        """Verify the retry predicate covers ServerError (5xx)."""
+        from refresh.bigquery_client import _BQ_RETRY
+        assert _BQ_RETRY._predicate(ServiceUnavailable("503"))

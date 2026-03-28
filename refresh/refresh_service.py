@@ -75,7 +75,12 @@ def fetch_author(scholar_id):
 
     Returns a summary dict including whether the author already exists.
     """
-    exists = bq.author_exists(scholar_id)
+    try:
+        exists = bq.author_exists(scholar_id)
+    except Exception as exc:
+        logger.error("Failed to check if author %s exists: %s", scholar_id, exc)
+        exists = None
+
     try:
         enqueued = task_enqueuer.enqueue_author(scholar_id)
     except Exception as exc:
