@@ -12,8 +12,6 @@ RUN MPLBACKEND=Agg python -c "import matplotlib.pyplot"
 # Copy all component packages (frontend imports author_search)
 COPY frontend/ /app/frontend/
 COPY author_search/ /app/author_search/
-COPY refresh/ /app/refresh/
-COPY region_health/ /app/region_health/
 
 EXPOSE 8080
 ENV PORT=8080

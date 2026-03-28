@@ -2,14 +2,14 @@
 
 ## Purpose
 
-PiP Score is a distributed system for analyzing Google Scholar data using percentile-based, age-aware research metrics. It implements the **PiP-AUC (Percentile-in-Percentile Area Under Curve)** scoring methodology and serves an interactive Flask web app at [pip-score.org](https://www.pip-score.org/).
+PiP Score is a distributed system for analyzing research impact using percentile-based, age-aware metrics. It implements the **PiP-AUC (Percentile-in-Percentile Area Under Curve)** scoring methodology using **Semantic Scholar** bulk datasets (200M papers, 2.4B citations, 102M authors) and serves an interactive Flask web app at [pip-score.org](https://www.pip-score.org/).
 
 ### What is PiP-AUC?
 
 PiP-AUC combines citation quality with publication productivity into a single 0-to-1 score:
 
 1. **Citation percentiles**: Each paper is ranked against all papers published in the same year. These percentiles stabilize within ~3 years of publication, enabling early impact assessment.
-2. **Publication volume percentiles**: An author's paper count is compared to ~15,000 faculty at top US universities *at the same career stage* (years since first publication). This age-aware normalization prevents bias toward senior researchers.
+2. **Publication volume percentiles**: An author's paper count is compared against all S2 authors *at the same career stage* (years since first publication), with an `active_authors` benchmark (hindex≥3, pubs≥3) for meaningful differentiation.
 3. **The PiP chart**: Papers are sorted by citation percentile (Y-axis, descending) and plotted against the author's publication count percentile (X-axis). Both axes range 0–1.
 4. **AUC score**: The area under this curve is computed via trapezoidal integration. A PiP-AUC of 0.6 ~ top 25%; 0.8 ~ top 10%.
 
@@ -36,92 +36,102 @@ scholar_v2/
 │   ├── templates/                # Jinja2 HTML templates
 │   ├── static/                   # CSS, JS assets
 │   ├── Dockerfile                # Python 3.12-slim, Flask on port 8080
-│   └── tests/                    # 32 tests
+│   └── tests/
 ├── cache_layer/                  # Cloud Run service: BigQuery → Firestore cache population
-│   ├── main.py                   # HTTP entry points for priority + batch queues
+│   ├── main.py                   # HTTP entry points for priority + batch queues + admin
 │   ├── cache_service.py          # Orchestration: dispatch by request type
-│   ├── bigquery_client.py        # Read-only BigQuery queries
+│   ├── bigquery_client.py        # Read-only BigQuery queries (S2-backed views)
 │   ├── cache_writer.py           # Write-only Firestore client
 │   ├── config.py                 # Config with env var overrides
 │   ├── Dockerfile                # Python 3.12-slim
 │   └── tests/
-├── crawler/                      # Cloud Functions: fetch author/publication data (Gen2, 9 regions)
-│   ├── fetch_author.py           # Scholar → JSON → GCS → enqueue pubs (timeout: 1h)
-│   ├── fetch_publication.py      # Scholar → JSON → GCS (timeout: 60s)
-│   ├── scholarly_client.py       # scholarly wrapper with timeout, retry, error classification
-│   ├── gcs_writer.py             # GCS upload with retry
-│   ├── task_enqueuer.py          # Cloud Tasks enqueue with stagger delay
+├── dataset_ingestion/            # Cloud Run Job: weekly S2 dataset ingestion
+│   ├── main.py                   # Job entry point (full/diff/auto modes)
+│   ├── s2_api_client.py          # S2 Datasets API client (releases, file URLs, diffs)
+│   ├── downloader.py             # Parallel S3→GCS streaming (4-8 workers)
+│   ├── loader.py                 # BigQuery bulk load + derived table materialization
+│   ├── diff_updater.py           # Incremental diff application (DELETE+MERGE)
 │   ├── config.py                 # Config with env var overrides
-│   └── tests/                    # 53 tests
-├── ingestion/                    # Cloud Function: GCS → BigQuery batch load
+│   └── tests/
+├── ingestion/                    # Cloud Function: GCS → BigQuery batch load (legacy)
 │   ├── batch_load.py             # Streaming, chunking, dead-letter handling
 │   ├── dedup_views.sql           # author_latest + pub_latest dedup views
 │   ├── config.py                 # Config with env var overrides
-│   └── tests/                    # 34 tests
-├── refresh/                      # Cloud Run service: refresh & expand orchestration
-│   ├── main.py                   # HTTP entry points for stale/error/coauthor refresh
-│   ├── refresh_service.py        # Orchestration logic
-│   ├── bigquery_client.py        # Queries for stale/error authors, coauthors
-│   ├── task_enqueuer.py          # Enqueue author tasks to Cloud Tasks
+│   └── tests/
+├── author_search/                # Author search library (used by frontend, not a standalone service)
+│   ├── search_service.py         # In-memory index search (loaded from BQ, refreshed every 6h)
+│   ├── bigquery_client.py        # Loads active S2 authors for the in-memory index
+│   ├── cache.py                  # Firestore cache (24h TTL for search results, chunked index)
 │   ├── config.py                 # Config with env var overrides
-│   └── tests/                    # 76 tests
-├── author_search/                # Cloud Function: author search (9 regions)
-│   ├── main.py                   # Cloud Function entry point
-│   ├── search_service.py         # BigQuery-first search with Scholar fallback
-│   ├── bigquery_client.py        # Author name search queries
-│   ├── scholar_client.py         # scholarly fallback search
-│   ├── cache.py                  # Firestore cache (24h TTL)
-│   ├── config.py                 # Config with env var overrides
-│   └── tests/                    # 23 tests
+│   └── tests/
 ├── bigquery/                     # SQL view definitions (8-level DAG)
 │   ├── statistics/               # Stats, dist tables, ranked views (Levels 1–7)
 │   └── coauthor_network/         # Co-author graph views
 ├── scripts/                      # One-off utility scripts
 ├── docs/                         # Architecture docs, analytics docs
-└── .github/workflows/            # CI/CD (Cloud Run + multi-region Functions)
+└── .github/workflows/            # CI/CD (Cloud Run + Cloud Functions)
 ```
 
 ## Data Flow
 
 ```
-1. FETCH:  User enters Scholar ID
-             → Cloud Tasks queue
-             → fetch_author Cloud Function (scholarly.search_author_id + fill)
-             → JSON saved to GCS (authors_json/YYYY/MM/DD/{scholar_id}.json)
-             → enqueue fetch_publication for each pub (0.1s delay between)
+1. INGEST: Weekly Cloud Scheduler → dataset_ingestion Cloud Run Job
+             → Download S2 dataset diffs from S2 S3 → GCS
+             → BigQuery bulk load (papers, citations, authors)
+             → Materialize derived tables (author_paper_bridge, author_paper_stats,
+               paper_citations_by_year)
 
-2. LOAD:   batch_load_gcs_to_bq (triggered manually or scheduled)
-             → list GCS files by date folder
-             → wrap JSON under {"data": ...} key, create NDJSON
-             → BigQuery WRITE_APPEND load
-             → archive source files (authors_json/ → authors_archive/)
-
-3. ANALYZE: BigQuery SQL views compute:
+2. ANALYZE: BigQuery SQL views compute:
              → Publication citation percentiles (by pub_year cohort)
-             → Author metric percentiles (by year_of_first_pub cohort)
+             → Author metric percentiles (by year_of_first_pub cohort, two benchmarks:
+               all_authors + active_authors)
              → PiP-AUC inputs (interpolated num_papers_percentile per pub)
              → PiP-AUC score (trapezoidal AUC) + its percentile
-             → Temporal metrics (h-index, citations over time) [materialized, daily refresh]
+             → Temporal metrics (h-index, citations over time) [materialized daily]
 
-4. CACHE:  Cache Layer (Cloud Run) populates Firestore from BigQuery
-             → Triggered by: priority queue (frontend cache miss, ingestion events)
+3. CACHE:  Cache Layer (Cloud Run) populates Firestore from BigQuery
+             → Triggered by: priority queue (frontend cache miss)
                              batch queue (scheduled warming, full rebuild)
              → Writes structured data to Firestore cache collections
              → Cache is fully disposable — can be rebuilt from BigQuery
 
-5. SERVE:  Flask app reads from Firestore cache only (no direct BigQuery)
+4. SERVE:  Flask app reads from Firestore cache only (no direct BigQuery)
              → On cache miss: enqueues priority task → returns loading page
              → matplotlib generates percentile rank + PiP scatter plots from cached data
              → HTML templates render with base64-encoded PNG images
+
+5. SEARCH: Author search runs in the frontend Cloud Run service (in-memory):
+             → In-memory index of all active S2 authors (refreshed every 6h from BQ)
+             → Filtered to citationcount > 0, total_publications >= 3, hindex > 3
+             → Instant substring matching, sorted by citation count
+             → Results cached in Firestore (24h TTL)
 ```
 
 ## BigQuery Analytics Framework
 
 > Full details: [`docs/architecture-analytics-details.md`](docs/architecture-analytics-details.md)
 
+### Data sources
+
+All analytics views read from the `s2_data` dataset (Semantic Scholar bulk datasets):
+- `s2_data.papers` (233M rows): corpusid, title, year, citationcount, authors, externalids, venue
+- `s2_data.citations` (5.6B rows): citationid, citingcorpusid, citedcorpusid, isinfluential
+- `s2_data.authors` (102M rows): authorid, name, affiliations, papercount, citationcount, hindex
+- `s2_data.author_paper_bridge` (derived): authorid → corpusid mapping
+- `s2_data.author_paper_stats` (derived): authorid, total_publications, i10_index, year_of_first_pub
+- `s2_data.paper_citations_by_year` (derived): per-paper citation counts by citing year
+
 ### Key design pattern: Stats → Distributions → Ranked (per metric family)
 
 Every metric family follows: **stats** (raw values) → **dist** (PERCENT_RANK, materialized quarterly) → **ranked** (cheap JOIN). But the PiP pipeline creates cross-role dependencies, so the full DAG has **8 topological levels** (0–7), not 3 tiers.
+
+### Benchmark populations
+
+Author-level distribution tables include two benchmarks:
+- `all_authors` — full S2 population (~99.5M)
+- `active_authors` — hindex≥3 AND total_publications≥3 (meaningful differentiation)
+
+Ranked views default to `active_authors` for user-facing percentiles.
 
 ### View DAG (topological levels)
 
@@ -141,17 +151,16 @@ Every metric family follows: **stats** (raw values) → **dist** (PERCENT_RANK, 
 
 | What | Schedule | Rationale |
 |------|----------|-----------|
+| S2 dataset ingestion | **Weekly** (Mon 02:00 UTC) | S2 releases weekly diffs |
 | Distribution tables (`dist_*`, 6 tables) | **Quarterly** | Population percentiles shift slowly; expensive to compute |
 | Snapshot tables (`ranked_*_table`, 4 tables) | **Daily** | Needed only for all-authors ranking/export; per-author pages use views directly |
 | Views (all non-dist, non-snapshot) | **Live** | Cheap per-author queries via dist table lookups; cached in Firestore |
 
-**Cost note:** Individual author data changes at most monthly (90-day re-crawl threshold). Daily snapshot materialization recomputes ~15,000 rows when typically <200 have changed. Per-author profile pages are unaffected — they query views directly and cache in Firestore.
-
 ## Tech Stack
 
 - **Flask** on Google Cloud Run
-- **scholarly** for Google Scholar scraping
-- **GCP**: Cloud Run (frontend + refresh), Cloud Functions (crawler + ingestion + search, 9 regions), Firestore, BigQuery, Cloud Storage, Cloud Tasks, Secret Manager
+- **Semantic Scholar** bulk datasets (200M papers, 2.4B citations, 102M authors)
+- **GCP**: Cloud Run (frontend + cache layer + dataset ingestion), Cloud Functions (ingestion), Firestore, BigQuery, Cloud Storage, Cloud Tasks
 - **matplotlib** for visualization (server-side PNG)
 - **pandas / numpy** for data manipulation
 - **Docker** (Python 3.12-slim)
@@ -159,28 +168,29 @@ Every metric family follows: **stats** (raw values) → **dist** (PERCENT_RANK, 
 ## Key Infrastructure
 
 - **GCP Project**: `scholar-version2`
-- **BigQuery Dataset**: `scholar_raw_data` (tables: `author`, `pub`; views in `statistics/`, `coauthor_network/`)
-- **GCS Bucket**: `scholar_data_share` (prefixes: `authors_json/`, `publications_json/`, `authors_archive/`, `publications_archive/`, `bq_load_temp/`)
-- **Cloud Tasks Queues**: `process-authors`, `process-pubs` (location: `northamerica-northeast1`)
-- **Region Rotation**: Functions deploy across 9 US regions; requests rotate **daily** (`(hours_since_epoch // 24) % 9`) to distribute Scholar API load and avoid rate limiting
+- **BigQuery Datasets**: `s2_data` (S2 raw tables + derived), `statistics` (analytics views), `scholar_raw_data` (legacy)
+- **GCS Bucket**: `scholar_data_share` (prefixes: `s2_datasets/`, `bq_load_temp/`)
+- **Cloud Tasks Queues**: `cache-priority`, `cache-batch` (location: `northamerica-northeast1`)
+- **Cloud Scheduler**: `v3-s2-dataset-ingestion` (weekly Mon 02:00 UTC), `v3-populate-recent-authors` (every 5 min)
 
 ## CI/CD
 
-- **main.yml**: Push to `main` → Cloud Build → Docker image to Artifact Registry → deploy Cloud Run (frontend + refresh service, `us-central1`) + Cloud Scheduler for refresh tasks
-- **function.yml**: Deploy crawler (2 functions x 9 regions), ingestion (1 function + dedup views), author search (1 function x 9 regions), batch load scheduler
+- **deploy-frontend.yml**: Push to `main` → Docker build → deploy Cloud Run frontend (`us-central1`)
+- **deploy-dataset-ingestion.yml**: Weekly S2 dataset ingestion (Cloud Run Job)
+- **deploy-ingestion.yml**: Deploy GCS→BQ ingestion function
+- **deploy-infrastructure.yml**: Cloud Tasks queues + Cloud Scheduler jobs
 - **bigquery-views.yml**: Deploy analytics SQL views in topological DAG order
 - **bigquery-materialize.yml**: Daily snapshot materialization (4 ranked tables)
 - **bigquery-materialize-distributions.yml**: Quarterly distribution materialization (6 dist tables)
-- Tests run per-component: 218 tests total across all 5 components
 
 ## Development Notes
 
 - **Config** in each component's `config.py` — supports env var overrides for all settings
-- **Region rotation** is set at module import time (`get_rotating_region()`), so it's fixed for the lifetime of a Cloud Run instance
-- **Firestore caching** in the Flask app uses timestamp comparison: cache is invalidated when the author's latest data (max of author timestamp and latest publication timestamp) is newer than the cache entry
-- **Task idempotency**: Task names include the scholar/pub ID, so Cloud Tasks deduplicates naturally (AlreadyExists is caught gracefully)
-- **BigQuery schema**: Raw data stored as `{document_id, timestamp, data}` where `data` is a JSON string — views parse this with JSON functions
-- **Dedup views**: `author_latest` and `pub_latest` views deduplicate raw data using `ROW_NUMBER()` partitioned by document_id
+- **Firestore caching** in the Flask app uses timestamp comparison: cache is invalidated when the author's latest data is newer than the cache entry
+- **Task idempotency**: Cloud Tasks deduplicates naturally (AlreadyExists is caught gracefully)
+- **BigQuery schema**: S2 data stored in native tables; legacy `scholar_raw_data` stored as `{document_id, timestamp, data}` where `data` is a JSON string
+- **Author IDs**: S2 numeric author IDs (e.g., `2942126`). Legacy Google Scholar IDs (alphanumeric) no longer accepted
+- **S2 API key**: Stored in Secret Manager (`projects/875626982900/secrets/s2-api-key`), used by dataset_ingestion for bulk downloads
 
 ## GCP
 
@@ -193,11 +203,11 @@ Every metric family follows: **stats** (raw values) → **dist** (PERCENT_RANK, 
 |------|--------|
 | `roles/bigquery.dataEditor` | Read/write/update BigQuery tables and views |
 | `roles/bigquery.jobUser` | Execute BigQuery queries and load jobs |
-| `roles/cloudfunctions.developer` | Deploy/manage Cloud Functions across 9 regions |
+| `roles/cloudfunctions.developer` | Deploy/manage Cloud Functions |
 | `roles/storage.objectAdmin` | Full read/write/delete on GCS objects |
 | `roles/datastore.user` | Read/write Firestore documents (cache + repositories) |
 | `roles/cloudtasks.admin` | Full task queue management for debugging |
-| `roles/run.developer` | Deploy/manage Cloud Run Flask app |
+| `roles/run.developer` | Deploy/manage Cloud Run services and jobs |
 | `roles/iam.serviceAccountUser` | Act as service accounts for Cloud Run/Functions deploys |
 | `roles/secretmanager.admin` | Create, update, and read secrets |
 | `roles/logging.viewer` | Read Cloud Logging for debugging |

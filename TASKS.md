@@ -143,10 +143,8 @@ Findings from a full codebase audit, ordered by priority. See `docs/codebase-rev
 ### P2 — Medium (Maintainability / Performance / Security)
 
 - [ ] **Extract shared utilities to reduce cross-component duplication** _(review §1.1)_
-  - `bq_view()`/`bq_raw()` duplicated in 4 config files
-  - `_get_client()` + `_sanitize_task_id()` duplicated in crawler + refresh task enqueuers
-  - `_trigger_batch_load()` duplicated in `fetch_author.py` + `fetch_publication.py`
-  - **Fix:** Create `shared/` package or extend `region_health/` with `bq_helpers.py` and `task_client.py`
+  - `bq_view()`/`bq_raw()` duplicated in config files across frontend, cache_layer, author_search
+  - **Fix:** Create `shared/` package with `bq_helpers.py`
 
 - [ ] **Standardize return types in `cache_layer/bigquery_client.py`** _(review §2.3)_
   - `get_author_stats()` returns `None` on empty; `get_publication_stats()` returns `[]`
@@ -158,17 +156,11 @@ Findings from a full codebase audit, ordered by priority. See `docs/codebase-rev
   - Each call triggers expensive BigQuery queries and Cloud Tasks enqueue
   - **Fix:** Add Flask-Limiter or deduplication checks
 
-- [ ] **Cache health dashboard BigQuery queries** _(review §5.4)_
-  - `frontend/health_service.py` runs 10+ BigQuery queries per dashboard refresh with no caching
-  - **Fix:** Cache results in Firestore with a 5-minute TTL
+- [x] ~~**Cache health dashboard BigQuery queries**~~ _(resolved: health_service.py removed with crawler cleanup)_
 
-- [ ] **URL-encode parameters in refresh function calls** _(review §4.1)_
-  - `frontend/routes.py:76-78` — query string built without encoding
-  - **Fix:** Use `urllib.parse.urlencode(params)`
+- [x] ~~**URL-encode parameters in refresh function calls**~~ _(resolved: refresh functions removed)_
 
-- [ ] **Single-source the region list** _(review §1.4)_
-  - CI/CD workflows hardcode 15 regions; `scripts/backfill_authors.py` hardcodes 9; `region_health/config.py` defines 15
-  - **Fix:** CI/CD should read from `region_health/config.py` or a shared config file
+- [x] ~~**Single-source the region list**~~ _(resolved: crawler + region_health removed)_
 
 - [ ] **Change state-changing API endpoints from GET to POST** _(review §4.3)_
   - `/api/fetch_authors`, `/api/rebuild_statistics`, `/api/add_coauthors` trigger side effects via GET
@@ -190,8 +182,7 @@ Findings from a full codebase audit, ordered by priority. See `docs/codebase-rev
   - Docstring references `app/scholar.py` which no longer exists; script operates on legacy Firestore collections (`scholar_raw_pub`, `scholar_raw_author`) from pre-BigQuery architecture
   - Delete if Firestore collections are no longer populated, or update docstring
 
-- [ ] **Add `region_health/` to architecture documentation** _(review §1.3)_
-  - Module is imported by crawler, frontend, and refresh but absent from CLAUDE.md and docs/ARCHITECTURE.md
+- [x] ~~**Add `region_health/` to architecture documentation**~~ _(resolved: region_health removed)_
 
 - [ ] **Add type annotations to public API methods** _(review §7.2)_
   - Most functions lack return type annotations
@@ -204,8 +195,7 @@ Findings from a full codebase audit, ordered by priority. See `docs/codebase-rev
 - [ ] **Add `.env.example` for local development** _(review §7.1)_
   - All config.py files default to production values; no documentation of required env var overrides
 
-- [ ] **Refactor `refresh/bigquery_client.py` to class-based pattern** _(review §2.2)_
-  - Uses module-level functions + global `_client`; inconsistent with other BQ clients and harder to test
+- [x] ~~**Refactor `refresh/bigquery_client.py` to class-based pattern**~~ _(resolved: refresh component removed)_
 
 - [ ] **Add exponential backoff to loading page polling** _(review §5.3)_
   - `frontend/templates/loading.html:29` — hard-coded 10s reload; hammers server on many simultaneous cache misses
@@ -219,8 +209,7 @@ Findings from a full codebase audit, ordered by priority. See `docs/codebase-rev
   - `frontend/routes.py:154-248` — 94 lines mixing cache reads, plot generation, formatting
   - **Fix:** Extract `_generate_and_cache_plots()` and `_format_author_data()`
 
-- [ ] **Update docs to reflect 15-region deployment** _(review §7.4)_
-  - TASKS.md and CLAUDE.md still reference "9 regions"
+- [x] ~~**Update docs to reflect 15-region deployment**~~ _(resolved: CLAUDE.md rewritten for S2 architecture)_
 
 ---
 
@@ -407,22 +396,50 @@ Rewrite the 8-level analytics DAG to query S2 tables instead of `author_latest`/
 - [ ] **Add benchmark selector to profile pages**
   - Let users choose which reference population to view percentiles against
 
-### Phase 5: Remove crawler infrastructure
+### Phase 5: Remove crawler infrastructure ✓
 
-- [ ] **Remove `crawler/` component** (Cloud Functions, scholarly, ScraperAPI, proxy rotation)
-- [ ] **Remove Cloud Tasks queues** (process-authors, process-pubs, process-pub-priority)
-- [ ] **Remove `refresh/` component** (replaced by weekly bulk dataset refresh)
-- [ ] **Remove region rotation / health scoring** (no longer scraping)
-- [ ] **Consolidate CI/CD** (remove multi-region function deployment)
-- [ ] **Update CLAUDE.md** architecture docs
+- [x] **Remove `crawler/` component** (Cloud Functions, scholarly, ScraperAPI, proxy rotation)
+  - Deleted entire `crawler/` directory (8 source files + 53 tests)
+  - Deleted `.github/workflows/deploy-crawler.yml`
+- [x] **Remove Cloud Tasks queues** (process-authors, process-pubs, process-pub-priority)
+  - Removed queue creation from `deploy-infrastructure.yml`
+  - Added cleanup step to pause legacy queues on next deploy
+- [x] **Remove `refresh/` component** (replaced by weekly bulk dataset refresh)
+  - Deleted entire `refresh/` directory (5 source files + 76 tests)
+  - Deleted `.github/workflows/deploy-refresh.yml`
+  - Removed refresh scheduler jobs (v3-refresh-stale-authors, v3-refresh-error-authors, v3-expand-coauthors)
+  - Added cleanup step to delete legacy scheduler jobs on next deploy
+- [x] **Remove region rotation / health scoring** (no longer scraping)
+  - Deleted entire `region_health/` directory (4 source files + 3 test files)
+  - Removed region health scorer background thread from `frontend/app.py`
+  - Removed `frontend/health_service.py` (depended on region_health + GS-specific BQ queries)
+- [x] **Consolidate CI/CD** (remove multi-region function deployment)
+  - Removed crawler + refresh deployment workflows
+  - Simplified `deploy-infrastructure.yml` to only manage cache queues
+- [x] **Update CLAUDE.md** architecture docs
+  - Rewrote to describe S2-only architecture, data flow, and infrastructure
+- [x] **Clean up frontend references**
+  - Removed refresh API endpoints (`/api/refresh_stale_authors`, `/api/add_coauthors`)
+  - Removed `_call_refresh_function` helper
+  - Removed crawler config (CRAWL_FUNCTION_URL, REFRESH_FUNCTIONS_BASE, etc.)
+  - Removed `enqueue_author_crawl` from queue_client
+  - Removed region_health imports from config.py
+  - Updated Dockerfile to not copy crawler/refresh/region_health
+- [x] **Replace author search S2 API with local BigQuery search**
+  - Removed `s2_client.py` (S2 Graph API dependency)
+  - Added `search_s2_universe()` to BigQuery client — searches full `s2_data.authors` table (102M)
+  - Updated search service: "search beyond" now queries local BQ instead of external API
+  - Removed `requests` and `google-cloud-secret-manager` dependencies from author_search
+- [x] **Add cache purge endpoint** for legacy Google Scholar entries
+  - Added `POST /admin/purge_legacy` endpoint to cache_layer
+  - Scans all author-keyed cache collections, deletes entries with non-numeric (GS) IDs
 
 ### Open questions
 
-- **Coverage gap**: S2 has 200M papers but may miss some Google Scholar entries. Validate overlap for key authors.
-- **Author disambiguation**: S2 may split/merge authors differently than Google Scholar.
-- **URL backwards compatibility**: Strategy for existing bookmarked Google Scholar ID URLs.
-- **Schema mapping**: `scholar_id` → `authorid`, `author_pub_id` → `corpusid` (integer vs string).
-- **email_domain**: Not available in S2; drop or find alternative source.
+- **Coverage gap**: S2 has 200M papers but covers 18-63% fewer citations than Google Scholar. Known and accepted.
+- **Author disambiguation**: S2 may split/merge authors differently than Google Scholar. Main profile must be identified carefully.
+- **URL backwards compatibility**: Legacy Google Scholar ID URLs will return "not found" since we only accept S2 numeric IDs now.
+- **S2 data quality**: Some authors have spurious early publication years (e.g., 1912). Consider minimum year floor.
 
 ---
 
@@ -450,9 +467,6 @@ Rewrite the 8-level analytics DAG to query S2 tables instead of `author_latest`/
 - [ ] **Author comparison feature**
   - Side-by-side PiP-AUC and percentile plots for multiple authors
 
-- [ ] **Dynamic region rotation per-request** instead of fixed at import time
-  - Currently `Config.FUNCTION_LOCATION` is set once when the module loads
-  - Long-running Cloud Run instances may use the same region for days
 
 ---
 

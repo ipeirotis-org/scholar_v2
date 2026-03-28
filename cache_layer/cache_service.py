@@ -5,6 +5,7 @@ Dispatches by request type and coordinates BigQuery reads + Firestore writes.
 
 import json
 import logging
+import re
 
 from google.api_core.exceptions import AlreadyExists
 from google.cloud import tasks_v2
@@ -16,6 +17,9 @@ from cache_layer.config import Config
 logger = logging.getLogger(__name__)
 
 _tasks_client = None
+
+# S2 author IDs are purely numeric strings
+_S2_ID_RE = re.compile(r"^\d+$")
 
 
 def _get_tasks_client():
@@ -42,6 +46,7 @@ class CacheService:
             "invalidate_author": self._invalidate_author,
             "warm_author": self._populate_author_profile,
             "rebuild_all": self._rebuild_all,
+            "purge_legacy_cache": self._purge_legacy_cache,
         }
 
         handler = handlers.get(request_type)
@@ -200,3 +205,57 @@ class CacheService:
             "enqueued": enqueued,
             "errors": errors,
         }
+
+    def _purge_legacy_cache(self, payload):
+        """Delete Firestore cache entries with non-S2 (legacy Google Scholar) keys.
+
+        S2 author IDs are purely numeric. Any cache entry whose document ID
+        contains letters, hyphens, or underscores is a legacy Google Scholar
+        entry that should be purged.
+
+        Scans all author-keyed cache collections and deletes non-numeric entries.
+        """
+        collections = [
+            Config.CACHE_AUTHOR_STATS,
+            Config.CACHE_AUTHOR_PUB_STATS,
+            Config.CACHE_AUTHOR_TEMPORAL,
+            Config.CACHE_AUTHOR_FRESHNESS,
+        ]
+
+        db = self.writer.db
+        total_deleted = 0
+        total_scanned = 0
+        failed_collections = []
+
+        for collection_name in collections:
+            deleted = 0
+            scanned = 0
+            try:
+                collection_ref = db.collection(collection_name)
+                # Stream all documents (only ID, no data needed)
+                for doc in collection_ref.select([]).stream():
+                    scanned += 1
+                    doc_id = doc.id
+                    if not _S2_ID_RE.match(doc_id):
+                        doc.reference.delete()
+                        deleted += 1
+                logger.info(
+                    "Purged %d/%d legacy entries from %s",
+                    deleted, scanned, collection_name,
+                )
+            except Exception:
+                logger.exception("Failed to purge legacy cache from %s", collection_name)
+                failed_collections.append(collection_name)
+
+            total_deleted += deleted
+            total_scanned += scanned
+
+        status = "ok" if not failed_collections else "partial_failure"
+        result = {
+            "status": status,
+            "total_scanned": total_scanned,
+            "total_deleted": total_deleted,
+        }
+        if failed_collections:
+            result["failed_collections"] = failed_collections
+        return result

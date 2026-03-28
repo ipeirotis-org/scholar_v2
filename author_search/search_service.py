@@ -1,14 +1,15 @@
 """Author Search Service — Component 6.
 
-Three search modes:
-1. Typeahead (typeahead=True): In-memory index only — instant, no I/O.
-2. Local search (default): In-memory index + BigQuery crawled + coauthor
-   network. Results cached in Firestore.
-3. S2 search (scholar=True): Queries Semantic Scholar Author Search API
-   (with cache), merges with local results.
+All author search is backed by an in-memory index loaded from the
+daily-materialized ranked_author_current_table in BigQuery. The index
+contains all S2 authors with meaningful activity (citationcount > 0,
+total_publications >= 3, hindex > 3). No BigQuery queries happen at
+search time.
 
-Results from all sources are deduplicated by scholar_id and merged.
-Local results are cached so repeat queries skip BigQuery entirely.
+Two search modes:
+1. Typeahead (typeahead=True): In-memory index, top 10 results (instant).
+2. Full search (default): In-memory index, top 50 results.
+   Results cached in Firestore so repeat queries are even faster.
 """
 
 import logging
@@ -17,8 +18,6 @@ import time
 
 from author_search.bigquery_client import BigQuerySearchClient
 from author_search.cache import SearchCache
-from author_search.config import Config
-from author_search import s2_client
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +30,10 @@ _INDEX_TTL_SECONDS = 6 * 3600  # Refresh from Firestore every 6 hours
 # Firestore collection for the persisted index (chunked)
 _INDEX_COLLECTION = "v3_author_name_index"
 _CHUNK_SIZE = 4000
+
+# Result limits
+_TYPEAHEAD_LIMIT = 10
+_FULL_SEARCH_LIMIT = 50
 
 
 def _load_index_from_firestore(cache):
@@ -60,8 +63,8 @@ def _save_index_to_firestore(cache, authors):
 def refresh_author_index(bq=None, cache=None):
     """Rebuild the in-memory author name index from BigQuery.
 
-    Fetches all author names, saves to Firestore for persistence across
-    restarts, and loads into memory for instant search.
+    Fetches all active S2 authors, saves to Firestore for persistence
+    across restarts, and loads into memory for instant search.
     Returns the number of authors indexed.
     """
     global _author_index, _index_loaded_at
@@ -87,9 +90,16 @@ def refresh_author_index(bq=None, cache=None):
     return len(authors)
 
 
-def _ensure_index_loaded(cache):
-    """Lazily load the index from Firestore if not yet in memory or stale."""
-    global _author_index, _index_loaded_at
+_bootstrap_triggered = False
+
+
+def _ensure_index_loaded(cache, bq=None):
+    """Lazily load the index from Firestore if not yet in memory or stale.
+
+    If no index exists in Firestore (fresh deploy), triggers a background
+    rebuild from BigQuery so search recovers automatically.
+    """
+    global _author_index, _index_loaded_at, _bootstrap_triggered
 
     if _author_index and (time.time() - _index_loaded_at) < _INDEX_TTL_SECONDS:
         return
@@ -105,14 +115,44 @@ def _ensure_index_loaded(cache):
                     a["name_lower"] = (a.get("name") or "").lower()
             _author_index = authors
             _index_loaded_at = time.time()
+            _bootstrap_triggered = False
             logger.info("Loaded %d authors from Firestore index", len(authors))
-        else:
-            logger.warning("No author index in Firestore; call refresh_author_index first")
+        elif not _bootstrap_triggered:
+            _bootstrap_triggered = True
+            logger.warning("No author index in Firestore; triggering background rebuild")
+            _bootstrap_index_async(bq, cache)
 
 
-def _search_in_memory(query, limit=10):
+def _bootstrap_index_async(bq, cache):
+    """Rebuild the author index in a background thread.
+
+    Called once when the index is missing from Firestore (fresh deploy).
+    Resets the _bootstrap_triggered guard on failure so retries can occur.
+    """
+    global _bootstrap_triggered
+    import threading
+
+    def _rebuild():
+        global _bootstrap_triggered
+        try:
+            count = refresh_author_index(bq=bq, cache=cache)
+            if count > 0:
+                logger.info("Background index bootstrap complete: %d authors", count)
+            else:
+                logger.warning("Background index bootstrap returned 0 authors, resetting guard")
+                _bootstrap_triggered = False
+        except Exception:
+            logger.exception("Background index bootstrap failed, resetting guard")
+            _bootstrap_triggered = False
+
+    t = threading.Thread(target=_rebuild, daemon=True, name="author-index-bootstrap")
+    t.start()
+
+
+def _search_in_memory(query, limit=_TYPEAHEAD_LIMIT):
     """Search the in-memory index by substring matching.
 
+    All query tokens must appear in the author name.
     Returns matching authors sorted by citation count (descending),
     or None if the index is not loaded.
     """
@@ -138,7 +178,7 @@ def _search_in_memory(query, limit=10):
             "affiliation": a.get("affiliation", ""),
             "email_domain": "",
             "citedby": a.get("citedby", 0),
-            "hindex": 0,
+            "hindex": a.get("hindex", 0),
             "source": "index",
         })
     return results
@@ -152,10 +192,14 @@ class AuthorSearchService:
     def search(self, author_name, typeahead=False, scholar=False):
         """Search for authors by name.
 
+        All search is backed by the in-memory index of active S2 authors.
+
         Modes:
-            typeahead=True:  In-memory index only (instant).
-            scholar=True:    Scholar search merged with local results.
-            Default:         Local search — index + BigQuery crawled + coauthor.
+            typeahead=True:  Top 10 results (instant, no caching overhead).
+            Default:         Top 50 results, cached in Firestore.
+
+        The `scholar` parameter is accepted for API compatibility but no
+        longer changes behavior — all searches use the same index.
 
         Returns a list of author dicts with keys:
             scholar_id, name, affiliation, email_domain, citedby, hindex, source
@@ -165,89 +209,26 @@ class AuthorSearchService:
 
         name = author_name.strip()
 
-        # Always try the in-memory index first (instant)
-        _ensure_index_loaded(self.cache)
-        index_results = _search_in_memory(name)
+        # Ensure the in-memory index is loaded (pass bq for bootstrap)
+        _ensure_index_loaded(self.cache, bq=self.bq)
+
         if typeahead:
-            return index_results or []
+            return _search_in_memory(name, limit=_TYPEAHEAD_LIMIT) or []
 
-        # Local search: index + BigQuery
-        local_results = self._search_local(name, index_results)
-
-        if not scholar:
-            return local_results
-
-        # S2 search: merge Semantic Scholar results with local
-        return self._search_s2(name, local_results)
-
-    def _search_local(self, name, index_results):
-        """Search local sources: in-memory index + BigQuery crawled + coauthor network."""
-        # Check local results cache first
+        # Full search with caching
         cached_results = self.cache.get_search_results(name)
         if cached_results is not None:
-            logger.info("Search '%s': local cache hit (%d results)", name, len(cached_results))
+            logger.info("Search '%s': cache hit (%d results)", name, len(cached_results))
             return cached_results
 
-        seen_ids = set()
-        results = []
+        results = _search_in_memory(name, limit=_FULL_SEARCH_LIMIT)
 
-        # Merge any in-memory results first
-        if index_results:
-            for author in index_results:
-                sid = author.get("scholar_id")
-                if sid:
-                    seen_ids.add(sid)
-                    results.append(author)
+        # Don't cache when the index isn't loaded yet — avoids caching
+        # empty results for 24h during bootstrap before the first refresh.
+        if results is None:
+            logger.warning("Search '%s': index not loaded, returning empty", name)
+            return []
 
-        # Search crawled authors in BigQuery
-        crawled = self.bq.search_crawled_authors(name)
-        for author in crawled:
-            sid = author.get("scholar_id")
-            if sid and sid not in seen_ids:
-                seen_ids.add(sid)
-                author["source"] = "database"
-                results.append(author)
-
-        # Search coauthor network in BigQuery
-        coauthors = self.bq.search_coauthor_network(name)
-        for author in coauthors:
-            sid = author.get("scholar_id")
-            if sid and sid not in seen_ids:
-                seen_ids.add(sid)
-                author["source"] = "coauthor_network"
-                results.append(author)
-
-        logger.info("Search '%s': %d local results", name, len(results))
+        logger.info("Search '%s': %d results from index", name, len(results))
         self.cache.set_search_results(name, results)
-        return results
-
-    def _search_s2(self, name, local_results):
-        """Search Semantic Scholar and merge with local results."""
-        seen_ids = {r.get("scholar_id") for r in local_results if r.get("scholar_id")}
-        results = list(local_results)
-
-        # Check Firestore cache for previous S2 results
-        cached = self.cache.get(name)
-        if cached is not None:
-            for author in cached:
-                sid = author.get("scholar_id")
-                if sid and sid not in seen_ids:
-                    seen_ids.add(sid)
-                    author["source"] = "scholar_cached"
-                    results.append(author)
-            logger.info("Search '%s': %d results (local + cached S2)", name, len(results))
-            return results
-
-        # Live S2 search
-        s2_results = s2_client.search_authors(name)
-        if s2_results:
-            self.cache.set(name, s2_results)
-            for author in s2_results:
-                sid = author.get("scholar_id")
-                if sid and sid not in seen_ids:
-                    seen_ids.add(sid)
-                    author["source"] = "scholar"
-                    results.append(author)
-
-        logger.info("Search '%s': %d results (local + S2)", name, len(results))
         return results

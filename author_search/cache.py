@@ -1,7 +1,6 @@
-"""Firestore cache for Google Scholar search results.
+"""Firestore cache for author search results.
 
-Caches Scholar API responses to avoid repeated rate-limited calls
-for the same query. Also caches the final merged search results
+Caches search results from local BigQuery and S2 universe queries
 so that repeat searches skip BigQuery entirely.
 """
 
@@ -23,7 +22,7 @@ class SearchCache:
         self.db = client or firestore.Client(project=Config.PROJECT_ID)
 
     def get(self, query_string):
-        """Get cached Scholar search results if fresh.
+        """Get cached extended search results if fresh.
 
         Returns list of author dicts, or None if missing/stale.
         """
@@ -46,7 +45,7 @@ class SearchCache:
             return None
 
     def set(self, query_string, results):
-        """Cache Scholar search results."""
+        """Cache extended search results."""
         doc_id = self._safe_doc_id(query_string)
         try:
             self.db.collection(Config.CACHE_COLLECTION).document(doc_id).set({

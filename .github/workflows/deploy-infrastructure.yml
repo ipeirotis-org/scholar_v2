@@ -19,7 +19,6 @@ env:
   GCP_PROJECT_ID: scholar-version2
   GCP_REGION: us-central1
   QUEUE_LOCATION: northamerica-northeast1
-  FUNCTIONS_BASE: us-central1-scholar-version2.cloudfunctions.net
 
 jobs:
   ensure-queues:
@@ -57,29 +56,6 @@ jobs:
           echo "cache-priority queue already exists"
         fi
 
-    - name: Create or update process-authors-priority queue
-      run: |
-        if ! gcloud tasks queues describe process-authors-priority \
-            --location=${{ env.QUEUE_LOCATION }} > /dev/null 2>&1; then
-          gcloud tasks queues create process-authors-priority \
-            --location=${{ env.QUEUE_LOCATION }} \
-            --max-dispatches-per-second=5 \
-            --max-concurrent-dispatches=5 \
-            --max-attempts=10 \
-            --min-backoff=30s \
-            --max-backoff=300s
-          echo "Created process-authors-priority queue"
-        else
-          gcloud tasks queues update process-authors-priority \
-            --location=${{ env.QUEUE_LOCATION }} \
-            --max-dispatches-per-second=5 \
-            --max-concurrent-dispatches=5 \
-            --max-attempts=10 \
-            --min-backoff=30s \
-            --max-backoff=300s
-          echo "Updated process-authors-priority queue"
-        fi
-
     - name: Create cache-batch queue (if not exists)
       run: |
         if ! gcloud tasks queues describe cache-batch \
@@ -96,115 +72,26 @@ jobs:
           echo "cache-batch queue already exists"
         fi
 
-    - name: Create or update process-authors queue
-      run: |
-        if ! gcloud tasks queues describe process-authors \
-            --location=${{ env.QUEUE_LOCATION }} > /dev/null 2>&1; then
-          gcloud tasks queues create process-authors \
-            --location=${{ env.QUEUE_LOCATION }} \
-            --max-dispatches-per-second=5 \
-            --max-concurrent-dispatches=5 \
-            --max-attempts=10 \
-            --min-backoff=30s \
-            --max-backoff=300s
-          echo "Created process-authors queue"
-        else
-          gcloud tasks queues update process-authors \
-            --location=${{ env.QUEUE_LOCATION }} \
-            --max-dispatches-per-second=5 \
-            --max-concurrent-dispatches=5 \
-            --max-attempts=10 \
-            --min-backoff=30s \
-            --max-backoff=300s
-          echo "Updated process-authors queue"
-        fi
-
-    - name: Create or update process-pubs queue
-      run: |
-        if ! gcloud tasks queues describe process-pubs \
-            --location=${{ env.QUEUE_LOCATION }} > /dev/null 2>&1; then
-          gcloud tasks queues create process-pubs \
-            --location=${{ env.QUEUE_LOCATION }} \
-            --max-dispatches-per-second=10 \
-            --max-concurrent-dispatches=10 \
-            --max-attempts=10 \
-            --min-backoff=30s \
-            --max-backoff=300s
-          echo "Created process-pubs queue"
-        else
-          gcloud tasks queues update process-pubs \
-            --location=${{ env.QUEUE_LOCATION }} \
-            --max-dispatches-per-second=10 \
-            --max-concurrent-dispatches=10 \
-            --max-attempts=10 \
-            --min-backoff=30s \
-            --max-backoff=300s
-          echo "Updated process-pubs queue"
-        fi
-
-    - name: Create or update process-pub-priority queue
-      run: |
-        if ! gcloud tasks queues describe process-pub-priority \
-            --location=${{ env.QUEUE_LOCATION }} > /dev/null 2>&1; then
-          gcloud tasks queues create process-pub-priority \
-            --location=${{ env.QUEUE_LOCATION }} \
-            --max-dispatches-per-second=10 \
-            --max-concurrent-dispatches=10 \
-            --max-attempts=10 \
-            --min-backoff=30s \
-            --max-backoff=300s
-          echo "Created process-pub-priority queue"
-        else
-          gcloud tasks queues update process-pub-priority \
-            --location=${{ env.QUEUE_LOCATION }} \
-            --max-dispatches-per-second=10 \
-            --max-concurrent-dispatches=10 \
-            --max-attempts=10 \
-            --min-backoff=30s \
-            --max-backoff=300s
-          echo "Updated process-pub-priority queue"
-        fi
-
     # ── Dead-letter infrastructure ──
-    - name: Create dead-letter Pub/Sub topics (if not exist)
+    - name: Create dead-letter Pub/Sub topic (if not exists)
       run: |
-        for TOPIC in crawler-task-deadletter cache-task-deadletter; do
-          if ! gcloud pubsub topics describe "$TOPIC" \
-              --project=${{ env.GCP_PROJECT_ID }} > /dev/null 2>&1; then
-            gcloud pubsub topics create "$TOPIC" \
-              --project=${{ env.GCP_PROJECT_ID }}
-            echo "Created $TOPIC topic"
-          else
-            echo "$TOPIC topic already exists"
-          fi
-        done
+        TOPIC=cache-task-deadletter
+        if ! gcloud pubsub topics describe "$TOPIC" \
+            --project=${{ env.GCP_PROJECT_ID }} > /dev/null 2>&1; then
+          gcloud pubsub topics create "$TOPIC" \
+            --project=${{ env.GCP_PROJECT_ID }}
+          echo "Created $TOPIC topic"
+        else
+          echo "$TOPIC topic already exists"
+        fi
 
-    - name: Configure dead-letter on all queues via REST API
+    - name: Configure dead-letter on cache queues via REST API
       run: |
         TOKEN=$(gcloud auth print-access-token)
         API_BASE="https://cloudtasks.googleapis.com/v2beta3"
         PROJECT="${{ env.GCP_PROJECT_ID }}"
         LOCATION="${{ env.QUEUE_LOCATION }}"
-        CRAWLER_TOPIC="projects/$PROJECT/topics/crawler-task-deadletter"
         CACHE_TOPIC="projects/$PROJECT/topics/cache-task-deadletter"
-
-        # Crawler queues → crawler dead-letter topic
-        for QUEUE in process-authors process-authors-priority process-pubs process-pub-priority; do
-          echo "Configuring dead-letter on $QUEUE..."
-          QUEUE_PATH="projects/$PROJECT/locations/$LOCATION/queues/$QUEUE"
-          HTTP_CODE=$(curl -s -o /tmp/dl-response.json -w "%{http_code}" \
-            -X PATCH \
-            -H "Authorization: Bearer $TOKEN" \
-            -H "Content-Type: application/json" \
-            -d "{\"name\":\"$QUEUE_PATH\",\"deadLetterConfig\":{\"deadLetterTopic\":\"$CRAWLER_TOPIC\",\"maxDeliveryAttempts\":10}}" \
-            "$API_BASE/$QUEUE_PATH?updateMask=deadLetterConfig")
-          if [ "$HTTP_CODE" = "200" ]; then
-            echo "Configured dead-letter on $QUEUE"
-          else
-            echo "::warning::Dead-letter config on $QUEUE returned HTTP $HTTP_CODE"
-            cat /tmp/dl-response.json
-          fi
-        done
 
         # Cache queues → cache dead-letter topic
         for QUEUE in cache-priority cache-batch; do
@@ -253,75 +140,6 @@ jobs:
           --project=${{ env.GCP_PROJECT_ID }})
         echo "CACHE_URL=$URL" >> "$GITHUB_OUTPUT"
 
-    - name: Create or update scheduler — refresh stale authors (daily 02:00 UTC)
-      run: |
-        JOB_NAME="v3-refresh-stale-authors"
-        LOCATION="${{ env.GCP_REGION }}"
-        TARGET_URL="https://${{ env.FUNCTIONS_BASE }}/v3_refresh_stale"
-        if gcloud scheduler jobs describe "$JOB_NAME" --location="$LOCATION" > /dev/null 2>&1; then
-          gcloud scheduler jobs update http "$JOB_NAME" \
-            --location="$LOCATION" \
-            --schedule="0 2 * * *" \
-            --uri="$TARGET_URL" \
-            --http-method=GET \
-            --time-zone=UTC \
-            --attempt-deadline=300s
-        else
-          gcloud scheduler jobs create http "$JOB_NAME" \
-            --location="$LOCATION" \
-            --schedule="0 2 * * *" \
-            --uri="$TARGET_URL" \
-            --http-method=GET \
-            --time-zone=UTC \
-            --attempt-deadline=300s
-        fi
-
-    - name: Create or update scheduler — refresh error authors (daily 03:00 UTC)
-      run: |
-        JOB_NAME="v3-refresh-error-authors"
-        LOCATION="${{ env.GCP_REGION }}"
-        TARGET_URL="https://${{ env.FUNCTIONS_BASE }}/v3_refresh_errors"
-        if gcloud scheduler jobs describe "$JOB_NAME" --location="$LOCATION" > /dev/null 2>&1; then
-          gcloud scheduler jobs update http "$JOB_NAME" \
-            --location="$LOCATION" \
-            --schedule="0 3 * * *" \
-            --uri="$TARGET_URL" \
-            --http-method=GET \
-            --time-zone=UTC \
-            --attempt-deadline=300s
-        else
-          gcloud scheduler jobs create http "$JOB_NAME" \
-            --location="$LOCATION" \
-            --schedule="0 3 * * *" \
-            --uri="$TARGET_URL" \
-            --http-method=GET \
-            --time-zone=UTC \
-            --attempt-deadline=300s
-        fi
-
-    - name: Create or update scheduler — expand coauthors (daily 04:00 UTC)
-      run: |
-        JOB_NAME="v3-expand-coauthors"
-        LOCATION="${{ env.GCP_REGION }}"
-        TARGET_URL="https://${{ env.FUNCTIONS_BASE }}/v3_expand_coauthors"
-        if gcloud scheduler jobs describe "$JOB_NAME" --location="$LOCATION" > /dev/null 2>&1; then
-          gcloud scheduler jobs update http "$JOB_NAME" \
-            --location="$LOCATION" \
-            --schedule="0 4 * * *" \
-            --uri="$TARGET_URL" \
-            --http-method=GET \
-            --time-zone=UTC \
-            --attempt-deadline=300s
-        else
-          gcloud scheduler jobs create http "$JOB_NAME" \
-            --location="$LOCATION" \
-            --schedule="0 4 * * *" \
-            --uri="$TARGET_URL" \
-            --http-method=GET \
-            --time-zone=UTC \
-            --attempt-deadline=300s
-        fi
-
     - name: Create or update scheduler — populate recent authors (every 5 min)
       run: |
         JOB_NAME="v3-populate-recent-authors"
@@ -349,3 +167,27 @@ jobs:
             --time-zone=UTC \
             --attempt-deadline=60s
         fi
+
+    - name: Delete legacy Google Scholar scheduler jobs (if they exist)
+      run: |
+        LOCATION="${{ env.GCP_REGION }}"
+        for JOB_NAME in v3-refresh-stale-authors v3-refresh-error-authors v3-expand-coauthors; do
+          if gcloud scheduler jobs describe "$JOB_NAME" --location="$LOCATION" > /dev/null 2>&1; then
+            gcloud scheduler jobs delete "$JOB_NAME" --location="$LOCATION" --quiet
+            echo "Deleted legacy scheduler job: $JOB_NAME"
+          else
+            echo "Legacy scheduler job $JOB_NAME does not exist (already cleaned up)"
+          fi
+        done
+
+    - name: Pause legacy crawler queues (if they exist)
+      run: |
+        LOCATION="${{ env.QUEUE_LOCATION }}"
+        for QUEUE in process-authors process-authors-priority process-pubs process-pub-priority; do
+          if gcloud tasks queues describe "$QUEUE" --location="$LOCATION" > /dev/null 2>&1; then
+            gcloud tasks queues pause "$QUEUE" --location="$LOCATION" || true
+            echo "Paused legacy queue: $QUEUE"
+          else
+            echo "Legacy queue $QUEUE does not exist (already cleaned up)"
+          fi
+        done
