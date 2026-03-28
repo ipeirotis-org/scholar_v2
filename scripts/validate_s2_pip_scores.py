@@ -130,6 +130,7 @@ def check_benchmark_authors_stats(client):
     found_ids = {r['scholar_id'] for r in rows}
     missing = set(BENCHMARK_IDS) - found_ids
 
+    all_ok = len(missing) == 0
     print(f"\n  {'Name':<25} {'S2 ID':<14} {'h-idx':>5} {'exp_h':>5} {'cites':>8} {'pubs':>5} {'exp_p':>5} {'yr1st':>5}")
     print(f"  {'-'*25} {'-'*14} {'-'*5} {'-'*5} {'-'*8} {'-'*5} {'-'*5} {'-'*5}")
     for r in rows:
@@ -137,15 +138,26 @@ def check_benchmark_authors_stats(client):
         name = ba.get('name', r['name'])[:25]
         exp_h = ba.get('s2_h', '?')
         exp_p = ba.get('s2_pubs', '?')
-        print(f"  {name:<25} {r['scholar_id']:<14} {r['hindex']:>5} {exp_h:>5} {r['citedby']:>8,} {r['total_publications']:>5} {exp_p:>5} {r['year_of_first_pub']:>5}")
+        # Flag large deviations from expected values (>20% off)
+        status = ""
+        if isinstance(exp_h, int) and r['hindex'] is not None:
+            h_diff_pct = abs(r['hindex'] - exp_h) / max(exp_h, 1) * 100
+            if h_diff_pct > 20:
+                status = f" <- h-index off by {h_diff_pct:.0f}%"
+                all_ok = False
+        if isinstance(exp_p, int) and r['total_publications'] is not None:
+            p_diff_pct = abs(r['total_publications'] - exp_p) / max(exp_p, 1) * 100
+            if p_diff_pct > 20:
+                status += f" <- pubs off by {p_diff_pct:.0f}%"
+                all_ok = False
+        print(f"  {name:<25} {r['scholar_id']:<14} {r['hindex']:>5} {exp_h:>5} {r['citedby']:>8,} {r['total_publications']:>5} {exp_p:>5} {r['year_of_first_pub']:>5}{status}")
 
     if missing:
         print(f"\n  MISSING from stats_author_current: {missing}")
 
-    ok = len(missing) == 0
     print(f"\n  Found: {len(found_ids)}/{len(BENCHMARK_IDS)}")
-    print(f"  RESULT: {'PASS' if ok else 'FAIL'}")
-    return ok
+    print(f"  RESULT: {'PASS' if all_ok else 'FAIL'}")
+    return all_ok
 
 
 def check_benchmark_pip_inputs(client):
@@ -286,7 +298,8 @@ def check_benchmark_pip_scores(client):
         print(f"\n  Score range: [{min_score:.4f}, {max(scores):.4f}], avg: {avg_score:.4f}")
         # These are all world-class researchers — PiP should be > 0.3 at minimum
         if min_score < 0.3:
-            print(f"  WARNING: Min score {min_score:.4f} seems low for top researchers")
+            print(f"  FAIL: Min score {min_score:.4f} is too low for top researchers")
+            all_ok = False
 
     ok = all_ok and len(missing) == 0
     print(f"\n  Found: {len(found_ids)}/{len(BENCHMARK_IDS)}")
