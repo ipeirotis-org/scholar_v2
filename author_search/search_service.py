@@ -3,9 +3,9 @@
 Three search modes:
 1. Typeahead (typeahead=True): In-memory index only — instant, no I/O.
 2. Local search (default): In-memory index + BigQuery crawled + coauthor
-   network. No Scholar. Results cached in Firestore.
-3. Scholar search (scholar=True): Queries Google Scholar (with cache),
-   merges with local results.
+   network. Results cached in Firestore.
+3. S2 search (scholar=True): Queries Semantic Scholar Author Search API
+   (with cache), merges with local results.
 
 Results from all sources are deduplicated by scholar_id and merged.
 Local results are cached so repeat queries skip BigQuery entirely.
@@ -18,7 +18,7 @@ import time
 from author_search.bigquery_client import BigQuerySearchClient
 from author_search.cache import SearchCache
 from author_search.config import Config
-from author_search import scholar_client
+from author_search import s2_client
 
 logger = logging.getLogger(__name__)
 
@@ -177,8 +177,8 @@ class AuthorSearchService:
         if not scholar:
             return local_results
 
-        # Scholar search: merge Scholar results with local
-        return self._search_scholar(name, local_results)
+        # S2 search: merge Semantic Scholar results with local
+        return self._search_s2(name, local_results)
 
     def _search_local(self, name, index_results):
         """Search local sources: in-memory index + BigQuery crawled + coauthor network."""
@@ -221,12 +221,12 @@ class AuthorSearchService:
         self.cache.set_search_results(name, results)
         return results
 
-    def _search_scholar(self, name, local_results):
-        """Search Google Scholar and merge with local results."""
+    def _search_s2(self, name, local_results):
+        """Search Semantic Scholar and merge with local results."""
         seen_ids = {r.get("scholar_id") for r in local_results if r.get("scholar_id")}
         results = list(local_results)
 
-        # Check Firestore cache for previous Scholar results
+        # Check Firestore cache for previous S2 results
         cached = self.cache.get(name)
         if cached is not None:
             for author in cached:
@@ -235,19 +235,19 @@ class AuthorSearchService:
                     seen_ids.add(sid)
                     author["source"] = "scholar_cached"
                     results.append(author)
-            logger.info("Search '%s': %d results (local + cached scholar)", name, len(results))
+            logger.info("Search '%s': %d results (local + cached S2)", name, len(results))
             return results
 
-        # Live Scholar search
-        scholar_results = scholar_client.search_scholar(name)
-        if scholar_results:
-            self.cache.set(name, scholar_results)
-            for author in scholar_results:
+        # Live S2 search
+        s2_results = s2_client.search_authors(name)
+        if s2_results:
+            self.cache.set(name, s2_results)
+            for author in s2_results:
                 sid = author.get("scholar_id")
                 if sid and sid not in seen_ids:
                     seen_ids.add(sid)
                     author["source"] = "scholar"
                     results.append(author)
 
-        logger.info("Search '%s': %d results (local + scholar)", name, len(results))
+        logger.info("Search '%s': %d results (local + S2)", name, len(results))
         return results

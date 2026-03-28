@@ -383,9 +383,13 @@ Rewrite the 8-level analytics DAG to query S2 tables instead of `author_latest`/
 
 ### Phase 4: Adapt author search + frontend
 
-- [ ] **Replace author search fallback** (`author_search/scholar_client.py`)
-  - Swap scholarly fallback → S2 Author Search API (`GET /author/search?query={name}`)
-  - BigQuery-first search now covers 75M authors
+- [x] **Replace author search fallback** (`author_search/scholar_client.py` → `s2_client.py`)
+  - Swapped `scholarly` library → S2 Graph API Author Search (`GET /graph/v1/author/search?query={name}`)
+  - New `s2_client.py`: authenticated via S2 API key (env var or Secret Manager), returns normalized author dicts
+  - Updated `search_service.py` to import `s2_client` instead of `scholar_client`
+  - Removed `scholarly` + `httpx` dependencies; added `requests` + `google-cloud-secret-manager`
+  - Updated CI/CD workflow (`deploy-author-search.yml`) to deploy `s2_client.py`
+  - 11 new tests for S2 client, 4 updated search service tests (35 passing)
 - [ ] **Update frontend for S2 author IDs**
   - URL parameter: `scholar_id` → `author_id`
   - Add redirect/lookup for old Google Scholar ID URLs

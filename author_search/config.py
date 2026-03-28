@@ -12,8 +12,15 @@ class Config:
     CACHE_COLLECTION = "v3_author_search"
 
     # Search tuning
-    MAX_SCHOLAR_RESULTS = 10
-    CACHE_TTL_HOURS = 24  # Scholar search cache freshness
+    MAX_S2_RESULTS = 10
+    CACHE_TTL_HOURS = 24  # Search cache freshness
+
+    # Semantic Scholar API
+    S2_API_KEY_SECRET = os.environ.get(
+        "S2_API_KEY_SECRET",
+        "projects/875626982900/secrets/s2-api-key/versions/latest",
+    )
+    S2_TIMEOUT_SECONDS = int(os.environ.get("S2_TIMEOUT_SECONDS", "10"))
 
     @classmethod
     def bq_view(cls, view_name):
