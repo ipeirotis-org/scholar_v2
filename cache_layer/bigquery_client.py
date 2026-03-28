@@ -261,8 +261,10 @@ class BigQueryClient:
         """Check author existence and get last_updated in a single query.
 
         Returns (exists: bool, last_updated: datetime|None).
-        Handles both document_id formats: 'SCHOLAR_ID' and 'SCHOLAR_ID.json'.
+        Checks Google Scholar raw tables first, then falls back to S2-backed
+        stats views for authors that only exist in Semantic Scholar data.
         """
+        # Check GS raw tables (legacy path)
         sql = f"""
             SELECT MAX(ts) AS last_updated FROM (
                 SELECT MAX(timestamp) AS ts
@@ -282,9 +284,22 @@ class BigQueryClient:
             ScalarQueryParameter("scholar_id_underscore", "STRING", f"{scholar_id}_"),
         ]
         df = self._query(sql, params)
-        if df is None or df.empty or df.iloc[0]["last_updated"] is None:
-            return False, None
-        return True, df.iloc[0]["last_updated"]
+        if df is not None and not df.empty and df.iloc[0]["last_updated"] is not None:
+            return True, df.iloc[0]["last_updated"]
+
+        # Fallback: check S2-backed stats views
+        sql_s2 = f"""
+            SELECT 1 AS found
+            FROM {Config.bq_view('stats_author_current')}
+            WHERE scholar_id = @scholar_id
+            LIMIT 1
+        """
+        params_s2 = [ScalarQueryParameter("scholar_id", "STRING", scholar_id)]
+        df_s2 = self._query(sql_s2, params_s2)
+        if df_s2 is not None and not df_s2.empty:
+            return True, None
+
+        return False, None
 
     def get_recently_analyzed_authors(self, limit=20):
         """Get the most recently updated authors with their PiP-AUC scores."""
