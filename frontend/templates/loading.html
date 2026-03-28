@@ -26,7 +26,9 @@
 {% block scripts %}
 <script>
     setTimeout(function() {
-        window.location.href = "/results?author_id=" + encodeURIComponent("{{ author_id }}");
+        var url = "/results?author_id=" + encodeURIComponent("{{ author_id }}");
+        {% if id_type %}url += "&id_type={{ id_type }}";{% endif %}
+        window.location.href = url;
     }, 10000);
 </script>
 {% endblock %}

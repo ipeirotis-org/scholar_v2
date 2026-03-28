@@ -77,8 +77,14 @@ def _normalize_author(author):
     affiliations = author.get("affiliations") or []
     affiliation = affiliations[0] if affiliations else ""
 
+    author_id = author.get("authorId")
+    if author_id is None:
+        author_id = ""
+    else:
+        author_id = str(author_id)
+
     return {
-        "scholar_id": str(author.get("authorId", "")),
+        "scholar_id": author_id,
         "name": author.get("name", ""),
         "affiliation": affiliation,
         "email_domain": "",

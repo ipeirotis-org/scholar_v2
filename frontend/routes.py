@@ -179,6 +179,7 @@ def register_routes(app):
             return render_template(
                 "redirect.html",
                 author_id=author_id,
+                id_type="s2" if is_s2 else "",
                 status="unknown",
                 cache_enqueued=cache_enqueued,
                 refresh_result={"enqueued": crawl_enqueued},
@@ -197,6 +198,7 @@ def register_routes(app):
             return render_template(
                 "redirect.html",
                 author_id=author_id,
+                id_type="s2" if is_s2 else "",
                 status="not_found",
                 cache_enqueued=cache_enqueued,
                 refresh_result={"enqueued": crawl_enqueued},
@@ -229,6 +231,7 @@ def register_routes(app):
             )
             return render_template(
                 "loading.html", author_id=author_id,
+                id_type="s2" if is_s2 else "",
                 cache_enqueued=cache_enqueued,
             )
 
