@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'frontend/**'
+      - 'author_search/**'
       - 'cache_layer/**'
       - '.github/workflows/deploy-frontend.yml'
 
