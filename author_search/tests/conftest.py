@@ -13,8 +13,7 @@ for mod_name in [
     "google.cloud.firestore_v1",
     "google.cloud.firestore_v1.base_query",
     "google.cloud.storage",
-    "scholarly",
-    "scholarly.scholarly",
+    "google.cloud.secretmanager",
 ]:
     sys.modules.setdefault(mod_name, _google)
 

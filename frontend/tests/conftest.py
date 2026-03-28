@@ -29,7 +29,7 @@ for mod_name in [
     "google.protobuf.duration_pb2",
     "google.api_core",
     "google.api_core.exceptions",
-    "scholarly",
+    "google.cloud.secretmanager",
     "matplotlib",
     "matplotlib.pyplot",
     "matplotlib.ticker",

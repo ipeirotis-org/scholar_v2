@@ -158,6 +158,10 @@ def register_routes(app):
             flash("A valid Google Scholar ID is required.")
             return redirect(url_for("index"))
 
+        # S2 author IDs come from Semantic Scholar search — skip Google Scholar
+        # crawler for these since data is already in BigQuery via S2 bulk datasets.
+        is_s2 = request.args.get("id_type") == "s2"
+
         # Check cached freshness
         exists, last_updated = _get_author_freshness(author_id)
 
@@ -166,8 +170,8 @@ def register_routes(app):
             cache_enqueued = enqueue_cache_populate(
                 "populate_author_profile", {"scholar_id": author_id},
             )
-            # Enqueue author crawl directly to priority queue
-            crawl_enqueued = enqueue_author_crawl(author_id)
+            # Enqueue author crawl directly to priority queue (skip for S2 authors)
+            crawl_enqueued = False if is_s2 else enqueue_author_crawl(author_id)
             # Check Firestore for existing data to determine if new or known
             has_cached_data = _read_cache(
                 Config.CACHE_AUTHOR_STATS, author_id,
@@ -175,6 +179,7 @@ def register_routes(app):
             return render_template(
                 "redirect.html",
                 author_id=author_id,
+                id_type="s2" if is_s2 else "",
                 status="unknown",
                 cache_enqueued=cache_enqueued,
                 refresh_result={"enqueued": crawl_enqueued},
@@ -182,12 +187,20 @@ def register_routes(app):
             )
 
         if not exists:
-            crawl_enqueued = enqueue_author_crawl(author_id)
+            if is_s2:
+                # S2 author not in cache — enqueue cache population from BigQuery
+                cache_enqueued = enqueue_cache_populate(
+                    "populate_author_profile", {"scholar_id": author_id},
+                )
+            else:
+                cache_enqueued = False
+            crawl_enqueued = False if is_s2 else enqueue_author_crawl(author_id)
             return render_template(
                 "redirect.html",
                 author_id=author_id,
+                id_type="s2" if is_s2 else "",
                 status="not_found",
-                cache_enqueued=False,
+                cache_enqueued=cache_enqueued,
                 refresh_result={"enqueued": crawl_enqueued},
             )
 
@@ -218,6 +231,7 @@ def register_routes(app):
             )
             return render_template(
                 "loading.html", author_id=author_id,
+                id_type="s2" if is_s2 else "",
                 cache_enqueued=cache_enqueued,
             )
 
