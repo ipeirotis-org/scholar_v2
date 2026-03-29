@@ -443,6 +443,194 @@ Rewrite the 8-level analytics DAG to query S2 tables instead of `author_latest`/
 
 ---
 
+## Materialize Full BigQuery DAG
+
+Replace all live views with pre-computed tables, refreshed weekly after S2 ingestion. Data is static between weekly bulk loads — live views waste compute on every query.
+
+### Motivation
+
+**Current state:** Three separate schedules:
+- Weekly (Mon 02:00): S2 ingestion → raw + derived tables
+- Quarterly (Jan/Apr/Jul/Oct): 6 distribution tables (`dist_*`)
+- Daily (06:00): 4 snapshot tables (`ranked_*_table`)
+
+Per-author cache-miss queries hit live views that chain up to 8 levels deep. Each query re-computes joins and lookups that produce the same result until the next weekly load.
+
+**Target state:** One weekly pipeline materializes the entire DAG after ingestion. All app queries hit pre-computed clustered tables. No live views in the query path.
+
+### Complete DAG — Materialization Order
+
+Each level depends on the previous. Steps within a level can run in parallel.
+
+#### Step 1: Level 1 — Foundation (parallel, independent)
+
+| Table | Clustering | Est. Size | Source |
+|-------|-----------|-----------|--------|
+| `base_author_publications_table` | `scholar_id` | ~3 GB | `s2_data.author_paper_bridge` |
+| `stats_publication_current_table` | `author_pub_id, pub_year` | ~8 GB | `s2_data.papers` |
+| `stats_author_current_table` | `scholar_id, year_of_first_pub` | ~4 GB | `s2_data.authors` + `author_paper_stats` |
+| `dist_publication_citations` | `pub_year` | ~5 MB | `s2_data.papers` (APPROX_QUANTILES) |
+| `dist_author_metrics` | `benchmark, year_of_first_pub, metric_name` | ~30 MB | `s2_data.authors` + `author_paper_stats` (APPROX_QUANTILES) |
+
+#### Step 2: Level 2 — Temporal foundation + first ranked (depends on Step 1)
+
+| Table | Clustering | Partitioning | Est. Size | Source |
+|-------|-----------|-------------|-----------|--------|
+| `stats_publication_citations_temporal_table` | `author_pub_id, pub_year, citation_year` | — | ~50–100 GB ⚠️ | `GENERATE_ARRAY` cross join, ~30 rows/paper × 100M papers |
+| `ranked_publication_current_table` | `author_pub_id, pub_year` | — | ~8 GB | `stats_publication_current` + `dist_publication_citations` |
+| `intermediate_author_publication_state_temporal_table` | `scholar_id, author_pub_id, state_year` | INT64 range on `state_year` | ~100–200 GB ⚠️ | Join of bridge × temporal citations |
+| `dist_publication_citations_temporal` | `metric_name, pub_year` | — | ~2–5 GB | `stats_publication_citations_temporal` (APPROX_QUANTILES) |
+
+#### Step 3: Level 3 — Metrics + PiP inputs + ranked (depends on Steps 1–2)
+
+| Table | Clustering | Partitioning | Est. Size | Source |
+|-------|-----------|-------------|-----------|--------|
+| `stats_author_metrics_temporal_table` | `scholar_id, state_year` | INT64 range on `state_year` | ~10–30 GB | `intermediate_author_publication_state_temporal` aggregation |
+| `stats_author_publication_pip_inputs_current_table` | `scholar_id` | — | ~3–5 GB | One row per author×pub with percentiles |
+| `ranked_author_current_table` | `scholar_id, year_of_first_pub` | — | ~5 GB | `stats_author_current` + `dist_author_metrics` |
+| `ranked_publication_citations_temporal_table` | `author_pub_id, pub_year, citation_year` | — | ~60–120 GB ⚠️ | `stats_publication_citations_temporal` + 4 percentile cols |
+
+#### Step 4: Level 4 — PiP scores + distributions (depends on Steps 1–3)
+
+| Table | Clustering | Est. Size | Source |
+|-------|-----------|-----------|--------|
+| `stats_author_pip_scores_current_table` | `scholar_id, year_of_first_pub` | ~1 GB | Trapezoidal AUC from PiP inputs |
+| `dist_pip_auc_scores` | `benchmark, year_of_first_pub` | ~10 MB | APPROX_QUANTILES from `ranked_author_pip_scores_current_table` |
+| `dist_author_metrics_temporal` | `benchmark, year_of_first_pub, state_year, metric_name` | ~50–200 MB | APPROX_QUANTILES from `stats_author_metrics_temporal_table` |
+
+#### Step 5: Level 5 — Ranked PiP + temporal ranked (depends on Steps 1–4)
+
+| Table | Clustering | Partitioning | Est. Size | Source |
+|-------|-----------|-------------|-----------|--------|
+| `ranked_author_pip_scores_current_table` | `scholar_id` | — | ~1 GB | `stats_author_pip_scores_current` + `dist_pip_auc_scores` |
+| `ranked_author_metrics_temporal_table` | `scholar_id, state_year` | — | ~10–30 GB | `stats_author_metrics_temporal` + `dist_author_metrics_temporal` |
+| `stats_author_pip_scores_temporal_table` | `scholar_id, state_year` | INT64 on `state_year` | ~5–15 GB | Most expensive computation in system |
+
+#### Step 6: Level 6 — Temporal PiP distribution (depends on Step 5)
+
+| Table | Clustering | Est. Size | Source |
+|-------|-----------|-----------|--------|
+| `dist_pip_auc_scores_temporal` | `benchmark, year_of_first_pub, state_year` | ~50–200 MB | APPROX_QUANTILES from `ranked_author_pip_scores_temporal_table` |
+
+#### Step 7: Level 7 — Temporal PiP ranked (depends on Steps 5–6)
+
+| Table | Clustering | Est. Size | Source |
+|-------|-----------|-----------|--------|
+| `ranked_author_pip_scores_temporal_table` | `scholar_id, state_year` | ~5–15 GB | `stats_author_pip_scores_temporal` + `dist_pip_auc_scores_temporal` |
+
+### Benchmark Strategy
+
+**Decision:** Materialize ranked tables with `active_authors` benchmark only (the production default). Keep both benchmarks in the 6 small dist tables (~300 MB total).
+
+Rationale:
+- Doubling the large temporal tables (50–200 GB) for `all_authors` is wasteful — no user currently needs it
+- Adding `benchmark_faculty` later would triple storage
+- Users wanting a different benchmark can query the view (fallback path) or we add benchmark-specific tables on demand
+
+**Future:** When `benchmark_faculty` is added, create a small `dist_author_metrics_faculty` table and a `ranked_author_current_faculty_table`. The dist table is tiny; the ranked table is one snapshot. No need to duplicate all temporal tables.
+
+### Unified Weekly Pipeline
+
+Replace three schedules (weekly + quarterly + daily) with one:
+
+**`.github/workflows/bigquery-materialize-all.yml`**
+- **Schedule:** Monday 08:00 UTC (6h after ingestion starts at 02:00)
+- **Preflight:** Query `s2_data.release_log` to verify latest ingestion succeeded
+- **Abort** if no successful ingestion since last Monday
+- **Steps:** Run Steps 1–7 above in sequence (parallel within each step)
+- **Estimated runtime:** 3–5 hours total (temporal tables dominate)
+
+**Trigger options:**
+- (A) Cron schedule at 08:00 UTC Monday — simple, add preflight check ← recommended
+- (B) `repository_dispatch` from ingestion Cloud Run Job — tighter coupling
+- (C) `workflow_run` trigger after `deploy-dataset-ingestion.yml` — GitHub-native chaining
+
+**GitHub Actions timeout:** 6h per job. If the pipeline exceeds this, split into two chained workflows (Steps 1–4 and Steps 5–7) using `workflow_run` triggers.
+
+### App Changes
+
+#### `cache_layer/bigquery_client.py` — switch view → table references
+
+| Method | Current (view) | New (table) |
+|--------|---------------|-------------|
+| `get_author_pub_stats()` | `stats_author_publication_pip_inputs_current` | `stats_author_publication_pip_inputs_current_table` |
+| `get_author_stats()` | `ranked_author_current`, `ranked_author_pip_scores_current` | `ranked_author_current_table`, `ranked_author_pip_scores_current_table` |
+| `get_publication_stats()` | `ranked_publication_citations_temporal` | `ranked_publication_citations_temporal_table` |
+| `get_author_temporal_stats()` | `ranked_author_metrics_temporal` | `ranked_author_metrics_temporal_table` |
+| `get_author_freshness()` | `stats_author_current` | `stats_author_current_table` |
+
+**Migration:** Add `USE_MATERIALIZED_TABLES` config flag. Deploy with `False`, materialize all tables, verify, flip to `True`.
+
+#### CI/CD — delete old, create new
+
+- **Delete:** `bigquery-materialize.yml` (daily snapshots)
+- **Delete:** `bigquery-materialize-distributions.yml` (quarterly distributions)
+- **Create:** `bigquery-materialize-all.yml` (unified weekly pipeline)
+- **Keep:** `bigquery-views.yml` (views still useful for development/debugging)
+
+### Storage and Cost Estimates
+
+| Category | Estimated Size | Monthly Storage ($0.02/GB) |
+|----------|---------------|---------------------------|
+| Foundation tables (Step 1) | ~15 GB | $0.30 |
+| Temporal citation tables (Steps 2–3) | ~150–300 GB ⚠️ | $3.00–6.00 |
+| Author metric tables (Steps 3–5) | ~30–80 GB | $0.60–1.60 |
+| PiP tables (Steps 4–7) | ~10–30 GB | $0.20–0.60 |
+| Distribution tables (Steps 1–6) | ~8 GB | $0.16 |
+| **Total** | **~215–435 GB** | **$4.30–8.70/mo** |
+
+**Compute cost for weekly materialization:** On-demand BigQuery at $6.25/TB scanned → ~$10–30 per weekly run ($40–120/month). Consider flat-rate BigQuery editions if this grows.
+
+### Caveats to Investigate
+
+1. **⚠️ `stats_publication_citations_temporal` size**: `GENERATE_ARRAY(pub_year, current_year)` creates ~30 rows per paper. With 100M+ cited papers → 3B+ rows, 50–100 GB. **Action:** Run `SELECT COUNT(*) FROM statistics.stats_publication_citations_temporal` to get actual count before committing. Consider materializing only papers with >0 citations and capping year range.
+
+2. **⚠️ `intermediate_author_publication_state_temporal` size**: Joins 600M author-paper rows with temporal citation data. Could be 5–10B rows, 100–200 GB. **Action:** Estimate actual size. Consider whether this intermediate table is needed, or if `stats_author_metrics_temporal` can be computed directly from the source tables without materializing the intermediate.
+
+3. **⚠️ `ranked_publication_citations_temporal` duplicates data**: Same rows as `stats_publication_citations_temporal` plus 4 percentile columns. **Optimization:** Merge into a single table that includes both raw metrics and percentiles, avoiding double storage. The SQL would inline the percentile lookups during materialization.
+
+4. **GitHub Actions 6h timeout**: Steps 2–3 (temporal tables) are the bottleneck. If individual steps exceed 6h, move to BigQuery scheduled queries or Cloud Run Jobs instead of GitHub Actions steps.
+
+5. **Atomic table replacement**: `CREATE OR REPLACE TABLE` briefly drops the old table. During this window, queries fail. **Options:**
+   - (A) Write to `*_table_staging`, then rename (BigQuery supports `ALTER TABLE RENAME`) ← safest
+   - (B) Rely on Firestore cache to absorb the brief unavailability ← simpler
+   - **Action:** Test if `ALTER TABLE ... RENAME TO` works across same dataset. If not, use option B.
+
+6. **Coauthor network tables**: `coauthor_network` view does a self-join of all paper authors → potentially billions of rows. `coauthors_to_add` is diagnostic. Neither is queried by the app. **Decision:** Do NOT materialize. Keep as views unless a feature needs them.
+
+7. **Dist tables reading from pre-computed tables**: Currently `dist_pip_auc_scores` and `dist_pip_auc_scores_temporal` read from the daily-snapshot `ranked_*_table`. In the new pipeline, these snapshots are computed in Step 5, and the dist tables in Steps 4/6. **Circular dependency?** No — `dist_pip_auc_scores` reads from the Step 5 output of the *previous* week's run. The first full run needs the existing tables to bootstrap. Document this bootstrap requirement.
+
+8. **View-to-table references during materialization**: The materialization pipeline runs `CREATE TABLE AS SELECT * FROM <view>`. The views reference other views, which cascade through the chain. For Steps 2+, if a view references a table that was just replaced in Step 1, it reads the new data — correct. But views referencing other views still do live computation during materialization. **Optimization:** Modify downstream view SQL to reference `*_table` names instead of view names, so materialization reads from tables (faster). **Tradeoff:** More SQL changes but faster pipeline.
+
+9. **Incremental materialization**: Currently, every table is fully replaced weekly. For tables that are 100+ GB, this is expensive. BigQuery `MERGE` statements could incrementally update only rows affected by the weekly diff (new/changed papers and authors). **Action:** Investigate after the full materialization works. The weekly diff from `dataset_ingestion/diff_updater.py` identifies changed `corpusid`s and `authorid`s — these could drive incremental updates.
+
+10. **Monitoring and staleness alerts**: Add a final pipeline step that writes success/failure to `s2_data.release_log` or a new `materialization_log` table. Add a Cloud Monitoring alert if materialized tables are >8 days old.
+
+### Implementation Phases
+
+**Phase 1: Foundation (1–2 days)**
+- Create `bigquery/statistics/materialize_all.sql` with all `CREATE OR REPLACE TABLE` statements in topological order
+- Run manually once to validate — check row counts and storage against estimates
+- Identify any tables that are impractically large
+
+**Phase 2: App Migration (1 day)**
+- Add `USE_MATERIALIZED_TABLES` config flag to `cache_layer/config.py`
+- Update `bigquery_client.py` to use table names when flag is `True`
+- Deploy with flag `False`, run materialization, verify, flip to `True`
+
+**Phase 3: CI/CD Consolidation (1 day)**
+- Create `.github/workflows/bigquery-materialize-all.yml`
+- Delete daily and quarterly workflows
+- Update CLAUDE.md and architecture docs
+
+**Phase 4: Optimization (ongoing)**
+- Merge redundant temporal tables (stats + ranked into single table)
+- Add INT64 range partitioning to large temporal tables
+- Investigate incremental materialization via `MERGE`
+- Monitor costs and adjust clustering
+
+---
+
 ## Future Features
 
 - [ ] **REST API for authors, publications, and stats** _(from #28)_
@@ -470,4 +658,4 @@ Rewrite the 8-level analytics DAG to query S2 tables instead of `author_latest`/
 
 ---
 
-_Last updated: 2026-03-28_
+_Last updated: 2026-03-29_
