@@ -1,25 +1,22 @@
--- PiP-AUC score percentile distribution table.
+-- PiP-AUC score percentile distribution table (approximate quantiles).
 --
--- Stores distinct (benchmark, year_of_first_pub, pip_auc_score) → percentile rows.
--- At query time, stats_author_pip_scores_current does a floor lookup against
--- this table instead of running PERCENT_RANK() over all authors.
+-- Stores 1000 quantile breakpoints per (benchmark, year_of_first_pub).
+-- Each row maps a pip_auc_score to its percentile (0.000 to 1.000).
+--
+-- At query time, ranked_author_pip_scores_current does a floor lookup:
+--   MAX(percentile) WHERE pip_auc_score <= author's_score
 --
 -- Benchmarks:
 --   'all_authors'    — full S2 population
 --   'active_authors' — authors with hindex >= 3 AND total_publications >= 3
 --
--- Depends on: dist_publication_citations and dist_author_metrics being current,
--- so that the underlying stats_publication_current and stats_author_current
--- views are fast when computing pip scores for all authors.
---
+-- Depends on: dist_publication_citations and dist_author_metrics being current.
 -- Refreshed quarterly by bigquery-materialize-distributions.yml.
 
 CREATE OR REPLACE TABLE `scholar-version2.statistics.dist_pip_auc_scores`
 CLUSTER BY benchmark, year_of_first_pub
 AS
 WITH
-  -- Reuse the pip computation logic from stats_author_pip_scores_current
-  -- (without the final PERCENT_RANK — that's what this table provides)
   RankedPublications AS (
     SELECT
       scholar_id,
@@ -50,26 +47,27 @@ WITH
     FROM AUC A
     JOIN `scholar-version2.statistics.stats_author_current` AuthStats ON A.scholar_id = AuthStats.scholar_id
   ),
-  -- Define active authors for benchmark filtering
   ActiveAuthors AS (
     SELECT a.authorid AS scholar_id
     FROM `scholar-version2.s2_data.authors` a
     JOIN `scholar-version2.s2_data.author_paper_stats` ps ON a.authorid = ps.authorid
     WHERE a.hindex >= 3 AND COALESCE(ps.total_publications, 0) >= 3
   )
--- all_authors benchmark
-SELECT DISTINCT
-  'all_authors' AS benchmark,
-  year_of_first_pub,
-  pip_auc_score,
-  PERCENT_RANK() OVER(PARTITION BY year_of_first_pub ORDER BY pip_auc_score ASC) AS percentile
-FROM AllScores
-UNION ALL
--- active_authors benchmark
-SELECT DISTINCT
-  'active_authors' AS benchmark,
-  year_of_first_pub,
-  pip_auc_score,
-  PERCENT_RANK() OVER(PARTITION BY year_of_first_pub ORDER BY pip_auc_score ASC) AS percentile
-FROM AllScores
-WHERE scholar_id IN (SELECT scholar_id FROM ActiveAuthors);
+SELECT DISTINCT * FROM (
+  -- all_authors benchmark
+  SELECT 'all_authors' AS benchmark, year_of_first_pub,
+         value AS pip_auc_score, offset / 1000.0 AS percentile
+  FROM (
+    SELECT year_of_first_pub, APPROX_QUANTILES(pip_auc_score, 1000) AS quantiles
+    FROM AllScores GROUP BY year_of_first_pub
+  ), UNNEST(quantiles) AS value WITH OFFSET AS offset
+  UNION ALL
+  -- active_authors benchmark
+  SELECT 'active_authors' AS benchmark, year_of_first_pub,
+         value AS pip_auc_score, offset / 1000.0 AS percentile
+  FROM (
+    SELECT year_of_first_pub, APPROX_QUANTILES(pip_auc_score, 1000) AS quantiles
+    FROM AllScores WHERE scholar_id IN (SELECT scholar_id FROM ActiveAuthors)
+    GROUP BY year_of_first_pub
+  ), UNNEST(quantiles) AS value WITH OFFSET AS offset
+);

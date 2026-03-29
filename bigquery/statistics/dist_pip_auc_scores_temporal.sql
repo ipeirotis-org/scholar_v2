@@ -1,18 +1,12 @@
--- Level 6: PiP-AUC score percentile distribution for temporal data.
+-- Level 6: PiP-AUC score percentile distribution for temporal data (approximate quantiles).
 --
--- Stores the distinct (benchmark, year_of_first_pub, state_year, pip_auc_score) → percentile mapping.
--- Partitioned by (benchmark, year_of_first_pub, state_year) to compare authors against their
--- benchmark peers at the same point in historical time.
+-- Stores 1000 quantile breakpoints per (benchmark, year_of_first_pub, state_year).
+-- Each row maps a pip_auc_score to its percentile (0.000 to 1.000).
 --
--- Benchmarks:
---   'all_authors'    — full S2 population
---   'active_authors' — authors with hindex >= 3 AND total_publications >= 3 (current state)
---
--- PERCENT_RANK() is computed over ALL rows (preserving frequency), then DISTINCT
--- collapses tied values since they all receive the same rank.
+-- Only active_authors benchmark for temporal (all_authors too expensive and not used).
 --
 -- Refreshed quarterly by bigquery-materialize-distributions.yml.
--- Used by ranked_author_pip_scores_temporal to do fast floor lookups.
+-- Used by ranked_author_pip_scores_temporal for fast floor lookups.
 
 CREATE OR REPLACE TABLE `scholar-version2.statistics.dist_pip_auc_scores_temporal`
 CLUSTER BY benchmark, year_of_first_pub, state_year
@@ -23,28 +17,20 @@ WITH
     FROM `scholar-version2.statistics.stats_author_pip_scores_temporal_view`
     WHERE year_of_first_pub IS NOT NULL
   ),
-  -- Define active authors based on current metrics
   ActiveAuthors AS (
     SELECT a.authorid AS scholar_id
     FROM `scholar-version2.s2_data.authors` a
     JOIN `scholar-version2.s2_data.author_paper_stats` ps ON a.authorid = ps.authorid
     WHERE a.hindex >= 3 AND COALESCE(ps.total_publications, 0) >= 3
   )
--- all_authors benchmark
-SELECT DISTINCT
-  'all_authors' AS benchmark,
-  year_of_first_pub,
-  state_year,
-  pip_auc_score,
-  PERCENT_RANK() OVER(PARTITION BY year_of_first_pub, state_year ORDER BY pip_auc_score ASC) AS percentile
-FROM TemporalScores
-UNION ALL
--- active_authors benchmark
-SELECT DISTINCT
-  'active_authors' AS benchmark,
-  year_of_first_pub,
-  state_year,
-  pip_auc_score,
-  PERCENT_RANK() OVER(PARTITION BY year_of_first_pub, state_year ORDER BY pip_auc_score ASC) AS percentile
-FROM TemporalScores
-WHERE scholar_id IN (SELECT scholar_id FROM ActiveAuthors);
+SELECT DISTINCT * FROM (
+  SELECT 'active_authors' AS benchmark, year_of_first_pub, state_year,
+         value AS pip_auc_score, offset / 1000.0 AS percentile
+  FROM (
+    SELECT year_of_first_pub, state_year,
+           APPROX_QUANTILES(pip_auc_score, 1000) AS quantiles
+    FROM TemporalScores
+    WHERE scholar_id IN (SELECT scholar_id FROM ActiveAuthors)
+    GROUP BY year_of_first_pub, state_year
+  ), UNNEST(quantiles) AS value WITH OFFSET AS offset
+);
