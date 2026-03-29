@@ -143,6 +143,53 @@ class TestFullSearch:
         mock_s2.assert_not_called()
         assert len(results) == 10
 
+    @mock.patch("author_search.search_service._search_in_memory")
+    def test_auto_s2_fallback_when_zero_local_results(self, mock_search):
+        """Default search (scholar=False) auto-falls back to S2 API on 0 results."""
+        mock_search.return_value = []  # No local results
+        cache = mock.MagicMock()
+        cache.get_search_results.return_value = None
+        cache.get.return_value = None
+
+        with mock.patch("author_search.s2_client.search_authors") as mock_s2:
+            mock_s2.return_value = [_make_author("2508783", "T. Cowen")]
+            svc = AuthorSearchService(bq_client=mock.MagicMock(), cache=cache)
+            results = svc.search("T. Cowen")
+
+        mock_s2.assert_called_once()
+        assert len(results) == 1
+        assert results[0]["scholar_id"] == "2508783"
+
+    @mock.patch("author_search.search_service._search_in_memory")
+    def test_no_auto_s2_fallback_when_local_results_exist(self, mock_search):
+        """Default search does NOT fall back to S2 API when local results exist."""
+        mock_search.return_value = [_make_author("id1")]  # 1 result (> 0)
+        cache = mock.MagicMock()
+        cache.get_search_results.return_value = None
+
+        with mock.patch("author_search.s2_client.search_authors") as mock_s2:
+            svc = AuthorSearchService(bq_client=mock.MagicMock(), cache=cache)
+            results = svc.search("Author")
+
+        mock_s2.assert_not_called()
+        assert len(results) == 1
+
+    @mock.patch("author_search.search_service._search_in_memory")
+    def test_empty_results_not_cached(self, mock_search):
+        """Empty results (e.g., S2 API failure) should not be cached for 24h."""
+        mock_search.return_value = []
+        cache = mock.MagicMock()
+        cache.get_search_results.return_value = None
+        cache.get.return_value = None
+
+        with mock.patch("author_search.s2_client.search_authors") as mock_s2:
+            mock_s2.return_value = []  # S2 API also returns nothing (timeout/error)
+            svc = AuthorSearchService(bq_client=mock.MagicMock(), cache=cache)
+            results = svc.search("Unknown Author")
+
+        assert results == []
+        cache.set_search_results.assert_not_called()
+
 
 class TestBootstrap:
     """Test automatic index bootstrap when Firestore index is missing."""
@@ -229,5 +276,217 @@ class TestSearchInMemory:
             ]
             results = ss._search_in_memory("test")
             assert results[0]["hindex"] == 25
+        finally:
+            ss._author_index = old_index
+
+    def test_initial_to_full_name_matching(self):
+        """Searching 'Tyler Cowen' should match 'T. Cowen'."""
+        import author_search.search_service as ss
+        old_index = ss._author_index
+        try:
+            ss._author_index = [
+                {"scholar_id": "2508783", "name": "T. Cowen", "name_lower": "t. cowen",
+                 "affiliation": "George Mason University", "citedby": 5000, "hindex": 20},
+            ]
+            results = ss._search_in_memory("Tyler Cowen")
+            assert len(results) == 1
+            assert results[0]["scholar_id"] == "2508783"
+        finally:
+            ss._author_index = old_index
+
+    def test_initial_query_matches_full_name(self):
+        """Searching 'T. Cowen' should match 'Tyler Cowen'."""
+        import author_search.search_service as ss
+        old_index = ss._author_index
+        try:
+            ss._author_index = [
+                {"scholar_id": "1", "name": "Tyler Cowen", "name_lower": "tyler cowen",
+                 "affiliation": "", "citedby": 100, "hindex": 10},
+            ]
+            results = ss._search_in_memory("T. Cowen")
+            assert len(results) == 1
+            assert results[0]["scholar_id"] == "1"
+        finally:
+            ss._author_index = old_index
+
+    def test_initial_without_period_matches(self):
+        """Searching 'T Cowen' should match 'T. Cowen'."""
+        import author_search.search_service as ss
+        old_index = ss._author_index
+        try:
+            ss._author_index = [
+                {"scholar_id": "1", "name": "T. Cowen", "name_lower": "t. cowen",
+                 "affiliation": "", "citedby": 100, "hindex": 10},
+            ]
+            results = ss._search_in_memory("T Cowen")
+            assert len(results) == 1
+        finally:
+            ss._author_index = old_index
+
+    def test_initial_matching_does_not_over_match(self):
+        """'Tyler' should NOT match initial 'j.' (different first letter)."""
+        import author_search.search_service as ss
+        old_index = ss._author_index
+        try:
+            ss._author_index = [
+                {"scholar_id": "1", "name": "J. Cowen", "name_lower": "j. cowen",
+                 "affiliation": "", "citedby": 100, "hindex": 10},
+            ]
+            results = ss._search_in_memory("Tyler Cowen")
+            assert len(results) == 0
+        finally:
+            ss._author_index = old_index
+
+    def test_all_initial_matches_rejected(self):
+        """'Tyler Cowen' should NOT match 'T. C. Smith' (all-initial, no substring)."""
+        import author_search.search_service as ss
+        old_index = ss._author_index
+        try:
+            ss._author_index = [
+                {"scholar_id": "1", "name": "T. C. Smith", "name_lower": "t. c. smith",
+                 "affiliation": "", "citedby": 100, "hindex": 10},
+            ]
+            results = ss._search_in_memory("Tyler Cowen")
+            assert len(results) == 0
+        finally:
+            ss._author_index = old_index
+
+    def test_middle_initial_not_matched_by_wrong_position(self):
+        """'Tyler Cowen' should NOT match 'Steven T. Cowen' (initial at wrong position)."""
+        import author_search.search_service as ss
+        old_index = ss._author_index
+        try:
+            ss._author_index = [
+                {"scholar_id": "1", "name": "Steven T. Cowen", "name_lower": "steven t. cowen",
+                 "affiliation": "", "citedby": 100, "hindex": 10},
+            ]
+            results = ss._search_in_memory("Tyler Cowen")
+            assert len(results) == 0
+        finally:
+            ss._author_index = old_index
+
+    def test_multi_initial_positional_matching(self):
+        """'Joanne Kathleen Rowling' should match 'J. K. Rowling'."""
+        import author_search.search_service as ss
+        old_index = ss._author_index
+        try:
+            ss._author_index = [
+                {"scholar_id": "1", "name": "J. K. Rowling", "name_lower": "j. k. rowling",
+                 "affiliation": "", "citedby": 100, "hindex": 10},
+            ]
+            results = ss._search_in_memory("Joanne Kathleen Rowling")
+            assert len(results) == 1
+        finally:
+            ss._author_index = old_index
+
+    def test_initial_expansion_rejects_uncovered_name_words(self):
+        """'Tyler Cowen' should NOT match 'Tyler C. Sloan' (sloan uncovered)."""
+        import author_search.search_service as ss
+        old_index = ss._author_index
+        try:
+            ss._author_index = [
+                {"scholar_id": "1", "name": "Tyler C. Sloan", "name_lower": "tyler c. sloan",
+                 "affiliation": "", "citedby": 100, "hindex": 10},
+            ]
+            results = ss._search_in_memory("Tyler Cowen")
+            assert len(results) == 0
+        finally:
+            ss._author_index = old_index
+
+    def test_substring_only_match_allows_extra_name_words(self):
+        """'Smith' should still match 'Tyler C. Smith' (pure substring, no initials)."""
+        import author_search.search_service as ss
+        old_index = ss._author_index
+        try:
+            ss._author_index = [
+                {"scholar_id": "1", "name": "Tyler C. Smith", "name_lower": "tyler c. smith",
+                 "affiliation": "", "citedby": 100, "hindex": 10},
+            ]
+            results = ss._search_in_memory("Smith")
+            assert len(results) == 1
+        finally:
+            ss._author_index = old_index
+
+    def test_initial_search_matches_name_with_middle_name(self):
+        """'J. Smith' should match 'John Adam Smith' (middle name allowed)."""
+        import author_search.search_service as ss
+        old_index = ss._author_index
+        try:
+            ss._author_index = [
+                {"scholar_id": "1", "name": "John Adam Smith", "name_lower": "john adam smith",
+                 "affiliation": "", "citedby": 100, "hindex": 10},
+            ]
+            results = ss._search_in_memory("J. Smith")
+            assert len(results) == 1
+        finally:
+            ss._author_index = old_index
+
+    def test_single_letter_token_does_not_cover_unrelated_words(self):
+        """'J Smith' should NOT match 'John S. Jones' (j covers jones is spurious)."""
+        import author_search.search_service as ss
+        old_index = ss._author_index
+        try:
+            ss._author_index = [
+                {"scholar_id": "1", "name": "John S. Jones", "name_lower": "john s. jones",
+                 "affiliation": "", "citedby": 100, "hindex": 10},
+            ]
+            results = ss._search_in_memory("J Smith")
+            assert len(results) == 0
+        finally:
+            ss._author_index = old_index
+
+    def test_partial_substring_does_not_cover_boundary_word(self):
+        """'Amy Li' should NOT match 'A. Williams' (li is substring of williams)."""
+        import author_search.search_service as ss
+        old_index = ss._author_index
+        try:
+            ss._author_index = [
+                {"scholar_id": "1", "name": "A. Williams", "name_lower": "a. williams",
+                 "affiliation": "", "citedby": 100, "hindex": 10},
+            ]
+            results = ss._search_in_memory("Amy Li")
+            assert len(results) == 0
+        finally:
+            ss._author_index = old_index
+
+    def test_name_suffix_not_treated_as_boundary(self):
+        """'Tyler Cowen' should match 'T. Cowen Jr.' (suffix ignored in boundary)."""
+        import author_search.search_service as ss
+        old_index = ss._author_index
+        try:
+            ss._author_index = [
+                {"scholar_id": "1", "name": "T. Cowen Jr.", "name_lower": "t. cowen jr.",
+                 "affiliation": "", "citedby": 100, "hindex": 10},
+            ]
+            results = ss._search_in_memory("Tyler Cowen")
+            assert len(results) == 1
+        finally:
+            ss._author_index = old_index
+
+    def test_initial_first_name_with_middle_name(self):
+        """'Tyler Cowen' should match 'T. Adam Cowen' (middle name after initial)."""
+        import author_search.search_service as ss
+        old_index = ss._author_index
+        try:
+            ss._author_index = [
+                {"scholar_id": "1", "name": "T. Adam Cowen", "name_lower": "t. adam cowen",
+                 "affiliation": "", "citedby": 100, "hindex": 10},
+            ]
+            results = ss._search_in_memory("Tyler Cowen")
+            assert len(results) == 1
+        finally:
+            ss._author_index = old_index
+
+    def test_comma_formatted_suffix_name(self):
+        """'Tyler Cowen' should match 'T. Cowen, Jr.' (comma on surname)."""
+        import author_search.search_service as ss
+        old_index = ss._author_index
+        try:
+            ss._author_index = [
+                {"scholar_id": "1", "name": "T. Cowen, Jr.", "name_lower": "t. cowen, jr.",
+                 "affiliation": "", "citedby": 100, "hindex": 10},
+            ]
+            results = ss._search_in_memory("Tyler Cowen")
+            assert len(results) == 1
         finally:
             ss._author_index = old_index
