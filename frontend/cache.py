@@ -1,8 +1,8 @@
 """Firestore cache reader for the frontend.
 
 Data population is owned by the Cache Layer (Component 7). The frontend
-reads from Firestore only. The exceptions are plot caching and recent-author
-tracking — both are maintained by the frontend and written back for reuse.
+reads from Firestore only. The exception is recent-author tracking, which
+is maintained by the frontend and written back for reuse.
 """
 
 import logging
@@ -68,7 +68,7 @@ class FirestoreCache:
     def set(self, collection, doc_id, data):
         """Write data to cache with current timestamp.
 
-        Used only for frontend-generated data (e.g., plot caching).
+        Used only for frontend-generated data (e.g., recent authors).
         All other cache writes are owned by the Cache Layer.
         """
         if not doc_id or not doc_id.strip():

@@ -91,38 +91,33 @@
         </div>
     </section>
 
-    {% if plot1 or plot2 %}
+    {% if pub_chart_data %}
     <section aria-label="PiP-AUC visualizations">
         <h3>Visualizations</h3>
         <div class="row mb-4">
-            {% if plot1 %}
             <div class="col-md-6">
-                <img class="plot img-fluid" src="{{ plot1 }}"
-                     alt="Paper percentile scores ranked by paper rank for {{ stats.get('name', 'author') }}">
+                <div id="percentileRankPlot" style="width:100%;height:500px;"></div>
             </div>
-            {% endif %}
-            {% if plot2 %}
             <div class="col-md-6">
-                <img class="plot img-fluid" src="{{ plot2 }}"
-                     alt="Paper percentile scores vs publication count percentile for {{ stats.get('name', 'author') }}">
+                <div id="pipPlot" style="width:100%;height:500px;"></div>
             </div>
-            {% endif %}
         </div>
     </section>
     {% endif %}
 
-    {% if temporal_plots %}
+    {% if temporal_chart_data %}
     <section aria-label="Metric evolution over time">
         <h3>Metric Evolution Over Time</h3>
         <div class="row mb-4">
-            {% for key, plot in temporal_plots.items() %}
-            {% if plot %}
             <div class="col-md-6 mb-3">
-                <img class="plot img-fluid" src="{{ plot }}"
-                     alt="{{ key|replace('_', ' ')|title }} over time for {{ stats.get('name', 'author') }}">
+                <div id="hIndexPlot" style="width:100%;height:400px;"></div>
             </div>
-            {% endif %}
-            {% endfor %}
+            <div class="col-md-6 mb-3">
+                <div id="totalCitationsPlot" style="width:100%;height:400px;"></div>
+            </div>
+            <div class="col-md-6 mb-3">
+                <div id="i10IndexPlot" style="width:100%;height:400px;"></div>
+            </div>
         </div>
     </section>
     {% endif %}
@@ -147,6 +142,7 @@ $(document).ready(function(){
     $('[data-toggle="tooltip"]').tooltip();
 });
 
+// Rebuild button
 var rebuildStatsBtn = document.getElementById("rebuildStatsButton");
 if (rebuildStatsBtn) {
     rebuildStatsBtn.addEventListener("click", function(e) {
@@ -163,6 +159,28 @@ if (rebuildStatsBtn) {
                 link.style.pointerEvents = "auto";
             });
     });
+}
+
+// Render charts from server-provided JSON data
+var pubChartData = {{ pub_chart_data | tojson }};
+var temporalChartData = {{ temporal_chart_data | tojson }};
+var authorName = {{ stats.get('name', 'N/A') | tojson }};
+
+if (pubChartData && pubChartData.length > 0) {
+    renderPercentileRankPlot('percentileRankPlot', pubChartData, authorName);
+    renderPipPlot('pipPlot', pubChartData, authorName);
+}
+
+if (temporalChartData && temporalChartData.length > 0) {
+    renderTemporalPlot('hIndexPlot', temporalChartData,
+        'h_index', 'h_index_percentile',
+        'H-Index Evolution Over Time', 'H-Index Value');
+    renderTemporalPlot('totalCitationsPlot', temporalChartData,
+        'total_citations', 'total_citations_percentile',
+        'Total Citations Evolution Over Time', 'Total Citations');
+    renderTemporalPlot('i10IndexPlot', temporalChartData,
+        'i10_index', 'i10_index_percentile',
+        'i10-Index Evolution Over Time', 'i10-Index Value');
 }
 </script>
 {% endblock %}
