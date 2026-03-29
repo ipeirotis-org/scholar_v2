@@ -203,6 +203,26 @@ class TestApiAuthorData:
             assert response.json["status"] == "loading"
             mock_enqueue.assert_called()
 
+    def test_api_author_data_not_found_returns_404(self):
+        """When freshness says author doesn't exist, return 404."""
+        from frontend.app import create_app
+
+        with mock.patch("frontend.routes.FirestoreCache") as cache_cls, \
+             mock.patch("frontend.routes.enqueue_cache_populate"):
+            cache_instance = cache_cls.return_value
+
+            def cache_get(collection, doc_id):
+                if collection == "v3_author_freshness":
+                    return {"exists": False}
+                return None
+
+            cache_instance.get.side_effect = cache_get
+            app = create_app(config={"TESTING": True, "SECRET_KEY": "test"})
+            test_client = app.test_client()
+            response = test_client.get("/api/author/9999999/data")
+            assert response.status_code == 404
+            assert response.json["status"] == "not_found"
+
     def test_api_author_data_returns_json(self):
         """When cache has data, return structured JSON."""
         from frontend.app import create_app
@@ -212,6 +232,8 @@ class TestApiAuthorData:
             cache_instance = cache_cls.return_value
 
             def cache_get(collection, doc_id):
+                if collection == "v3_author_freshness":
+                    return {"exists": True, "last_updated": datetime.datetime(2025, 1, 1)}
                 if collection == "v3_author_stats":
                     return {"scholar_id": "2942126", "name": "Test", "hindex": 10,
                             "year_of_first_pub": 2010}

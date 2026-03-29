@@ -314,6 +314,14 @@ def register_routes(app):
         if not author_id:
             return jsonify({"error": "Invalid author ID"}), 400
 
+        # Check freshness first (same as /results) to avoid queue churn
+        exists, _ = _get_author_freshness(author_id)
+        if exists is None:
+            enqueue_cache_populate("populate_author_profile", {"scholar_id": author_id})
+            return jsonify({"error": "Data not ready", "status": "loading"}), 202
+        if not exists:
+            return jsonify({"error": "Author not found", "status": "not_found"}), 404
+
         with ThreadPoolExecutor(max_workers=3) as executor:
             author_stats_future = executor.submit(
                 _read_cache, Config.CACHE_AUTHOR_STATS, author_id,
