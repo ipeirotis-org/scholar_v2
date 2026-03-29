@@ -150,29 +150,36 @@ def _bootstrap_index_async(bq, cache):
     t.start()
 
 
-def _token_matches_name(token, name, name_words):
+def _is_initial(word):
+    """Check if a word is a name initial (e.g., "t.", "t", "j")."""
+    return len(word) <= 2 and (len(word) == 1 or word[1] == '.')
+
+
+def _token_matches_name(token, token_idx, name, name_words):
     """Check if a query token matches an author name.
 
     Returns a tuple (matches, is_substring) where:
     - matches: whether the token matches at all
     - is_substring: True if matched via direct substring (strong match),
       False if matched only via initial expansion (weak match)
+
+    Initial expansion (e.g., "tyler" matching "t.") is restricted to the
+    same position in the token list and name word list, so "Tyler Cowen"
+    matches "T. Cowen" but not "Steven T. Cowen".
     """
     # Direct substring match (most common case)
     if token in name:
         return True, True
 
-    # Initial-to-full-name matching:
-    # Query token "tyler" should match name word "t." or "t"
-    # Query token "t" should match name word "tyler"
-    first_char = token[0]
-    for word in name_words:
-        # Name has an initial (e.g., "t." or single letter "t"),
-        # and the query token starts with that letter
-        if len(word) <= 2 and word[0] == first_char and (len(word) == 1 or word[1] == '.'):
+    # Position-aligned initial-to-full-name matching:
+    if token_idx < len(name_words):
+        word = name_words[token_idx]
+        first_char = token[0]
+        # Name has an initial at this position, query token starts with same letter
+        if _is_initial(word) and word[0] == first_char:
             return True, False
-        # Query token is an initial, and name word starts with it
-        if len(token) <= 2 and word[0] == first_char and (len(token) == 1 or token[1] == '.'):
+        # Query token is an initial, name word at this position starts with same letter
+        if _is_initial(token) and word[0] == first_char:
             return True, False
 
     return False, False
@@ -201,8 +208,8 @@ def _search_in_memory(query, limit=_TYPEAHEAD_LIMIT):
         name_words = name.split()
         all_match = True
         any_substring = False
-        for token in tokens:
-            matched, is_substring = _token_matches_name(token, name, name_words)
+        for token_idx, token in enumerate(tokens):
+            matched, is_substring = _token_matches_name(token, token_idx, name, name_words)
             if not matched:
                 all_match = False
                 break

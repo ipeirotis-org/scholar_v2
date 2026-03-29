@@ -334,3 +334,31 @@ class TestSearchInMemory:
             assert len(results) == 0
         finally:
             ss._author_index = old_index
+
+    def test_middle_initial_not_matched_by_wrong_position(self):
+        """'Tyler Cowen' should NOT match 'Steven T. Cowen' (initial at wrong position)."""
+        import author_search.search_service as ss
+        old_index = ss._author_index
+        try:
+            ss._author_index = [
+                {"scholar_id": "1", "name": "Steven T. Cowen", "name_lower": "steven t. cowen",
+                 "affiliation": "", "citedby": 100, "hindex": 10},
+            ]
+            results = ss._search_in_memory("Tyler Cowen")
+            assert len(results) == 0
+        finally:
+            ss._author_index = old_index
+
+    def test_multi_initial_positional_matching(self):
+        """'Joanne Kathleen Rowling' should match 'J. K. Rowling'."""
+        import author_search.search_service as ss
+        old_index = ss._author_index
+        try:
+            ss._author_index = [
+                {"scholar_id": "1", "name": "J. K. Rowling", "name_lower": "j. k. rowling",
+                 "affiliation": "", "citedby": 100, "hindex": 10},
+            ]
+            results = ss._search_in_memory("Joanne Kathleen Rowling")
+            assert len(results) == 1
+        finally:
+            ss._author_index = old_index
