@@ -8,14 +8,11 @@
         {% if pub_stats %}
         <h2>{{ pub_stats[0].get('title', 'Publication') if pub_stats else 'Publication' }}</h2>
 
-        {% if citations_plot %}
         <div class="row mb-4">
-            <div class="col-md-8 mx-auto">
-                <img class="plot img-fluid" src="{{ citations_plot }}"
-                     alt="Citation trends over time">
+            <div class="col-md-10 mx-auto">
+                <div id="citationPlot" style="width:100%;height:400px;"></div>
             </div>
         </div>
-        {% endif %}
 
         <div class="table-responsive">
             <table class="table table-bordered">
@@ -52,4 +49,13 @@
         <p><a href="{{ url_for('results', author_id=author_id) }}">&larr; Back to author profile</a></p>
     </section>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+var pubStats = {{ pub_stats | tojson }};
+if (pubStats && pubStats.length > 0) {
+    renderCitationPlot('citationPlot', pubStats);
+}
+</script>
 {% endblock %}

@@ -2,8 +2,8 @@
 
 The frontend reads exclusively from Firestore cache. On cache miss, it
 enqueues a population task to the Cache Layer's priority queue and returns
-a loading page. Visualization (matplotlib) runs in the frontend from
-cached data.
+a loading page. Visualization uses Plotly.js on the client side — the
+server passes structured JSON data to templates.
 """
 
 import datetime
@@ -28,15 +28,6 @@ from flask import (
 from frontend.cache import FirestoreCache
 from frontend.config import Config
 from frontend.queue_client import enqueue_cache_populate
-from frontend.visualization import (
-    generate_percentile_rank_plot,
-    generate_pip_plot,
-    generate_pub_citation_plot,
-    generate_author_h_index_plot,
-    generate_author_total_citations_plot,
-    generate_author_i10_index_plot,
-    generate_author_h_index_5y_plot,
-)
 
 logger = logging.getLogger(__name__)
 
@@ -58,6 +49,64 @@ def _validate_author_pub_id(pub_id):
     if not pub_id or not AUTHOR_PUB_ID_RE.match(pub_id):
         return None
     return pub_id
+
+
+def _prepare_pub_chart_data(pub_stats, author_stats):
+    """Prepare publication stats for client-side Plotly charts.
+
+    Returns a list of dicts with fields needed by the scatter plots.
+    """
+    if not pub_stats:
+        return []
+    current_year = datetime.datetime.now().year
+    result = []
+    for p in pub_stats:
+        pub_year = p.get("pub_year")
+        try:
+            pub_year = int(pub_year)
+        except (TypeError, ValueError):
+            continue
+        result.append({
+            "publication_rank": p.get("publication_rank"),
+            "num_citations_percentile": round(100 * (p.get("num_citations_percentile") or 0), 2),
+            "num_papers_percentile": round(100 * (p.get("num_papers_percentile") or 0), 2),
+            "age": current_year - pub_year + 1,
+            "title": p.get("title", ""),
+            "num_citations": p.get("num_citations", 0),
+            "pub_year": pub_year,
+        })
+    return result
+
+
+def _prepare_temporal_chart_data(temporal_stats, author_stats):
+    """Prepare temporal stats for client-side Plotly charts.
+
+    Filters out bogus early years and returns cleaned list of dicts.
+    """
+    if not temporal_stats:
+        return []
+    year_of_first_pub = author_stats.get("year_of_first_pub") if author_stats else None
+    result = []
+    for t in temporal_stats:
+        state_year = t.get("state_year")
+        try:
+            state_year = int(state_year)
+        except (TypeError, ValueError):
+            continue
+        if state_year <= 1950:
+            continue
+        if year_of_first_pub is not None and state_year < int(year_of_first_pub):
+            continue
+        result.append({
+            "state_year": state_year,
+            "h_index": t.get("h_index"),
+            "h_index_percentile": round(100 * (t.get("h_index_percentile") or 0), 2),
+            "total_citations": t.get("total_citations"),
+            "total_citations_percentile": round(100 * (t.get("total_citations_percentile") or 0), 2),
+            "i10_index": t.get("i10_index"),
+            "i10_index_percentile": round(100 * (t.get("i10_index_percentile") or 0), 2),
+        })
+    return result
 
 
 def register_routes(app):
@@ -82,44 +131,6 @@ def register_routes(app):
         if cached is not None:
             return cached.get("exists", True), cached.get("last_updated")
         return None, None
-
-    def _generate_all_plots(author_stats, pub_stats, temporal_stats):
-        """Generate all plots for an author and return as a cacheable dict."""
-        plot1, plot2 = "", ""
-        if pub_stats:
-            df = pd.DataFrame(pub_stats)
-            author_name = author_stats.get("name", "N/A")
-            current_year = datetime.datetime.now().year
-            df["pub_year"] = pd.to_numeric(df["pub_year"], errors="coerce")
-            df.dropna(subset=["pub_year"], inplace=True)
-            df["pub_year"] = df["pub_year"].astype(int)
-            df["age"] = current_year - df["pub_year"] + 1
-            df["num_citations_percentile"] = 100 * df["num_citations_percentile"]
-            df["num_papers_percentile"] = 100 * df["num_papers_percentile"]
-            with ThreadPoolExecutor(max_workers=2) as executor:
-                plot1_future = executor.submit(generate_percentile_rank_plot, df.copy(), author_name)
-                plot2_future = executor.submit(generate_pip_plot, df.copy(), author_name)
-                plot1 = plot1_future.result()
-                plot2 = plot2_future.result()
-
-        temporal_plots = {}
-        if temporal_stats:
-            tdf = pd.DataFrame(temporal_stats)
-            tdf["state_year"] = pd.to_numeric(tdf["state_year"], errors="coerce")
-            tdf.dropna(subset=["state_year"], inplace=True)
-            # Filter out bogus early years (e.g., pub_year=1800 from Scholar data)
-            tdf = tdf[tdf["state_year"] > 1950]
-            # Filter to start from author's first year of activity
-            year_of_first_pub = author_stats.get("year_of_first_pub")
-            if year_of_first_pub is not None:
-                tdf = tdf[tdf["state_year"] >= int(year_of_first_pub)]
-            if not tdf.empty:
-                temporal_plots["h_index"] = generate_author_h_index_plot(tdf)
-                temporal_plots["total_citations"] = generate_author_total_citations_plot(tdf)
-                temporal_plots["i10_index"] = generate_author_i10_index_plot(tdf)
-                temporal_plots["h_index_5y"] = generate_author_h_index_5y_plot(tdf)
-
-        return {"plot1": plot1, "plot2": plot2, "temporal_plots": temporal_plots}
 
     @app.route("/results")
     def results():
@@ -154,9 +165,7 @@ def register_routes(app):
                 status="not_found",
             )
 
-        # Read all data from cache
-        cached_plots = _read_cache("v3_author_plots", author_id)
-
+        # Read all data from cache (parallel)
         with ThreadPoolExecutor(max_workers=3) as executor:
             author_stats_future = executor.submit(
                 _read_cache, Config.CACHE_AUTHOR_STATS, author_id,
@@ -164,15 +173,13 @@ def register_routes(app):
             temporal_stats_future = executor.submit(
                 _read_cache, Config.CACHE_AUTHOR_TEMPORAL, author_id,
             )
-            pub_stats_future = None
-            if cached_plots is None:
-                pub_stats_future = executor.submit(
-                    _read_cache, Config.CACHE_AUTHOR_PUB_STATS, author_id,
-                )
+            pub_stats_future = executor.submit(
+                _read_cache, Config.CACHE_AUTHOR_PUB_STATS, author_id,
+            )
 
             author_stats = author_stats_future.result()
             temporal_stats = temporal_stats_future.result()
-            pub_stats = pub_stats_future.result() if pub_stats_future else None
+            pub_stats = pub_stats_future.result()
 
         if not author_stats:
             # Cache miss — enqueue population and show loading page
@@ -184,11 +191,9 @@ def register_routes(app):
                 cache_enqueued=cache_enqueued,
             )
 
-        # Generate plots from cached data (visualization stays in frontend)
-        if cached_plots is None:
-            cached_plots = _generate_all_plots(author_stats, pub_stats, temporal_stats)
-            # Cache the plots in Firestore for next time
-            cache.set("v3_author_plots", author_id, cached_plots)
+        # Prepare chart data for client-side Plotly rendering
+        pub_chart_data = _prepare_pub_chart_data(pub_stats, author_stats)
+        temporal_chart_data = _prepare_temporal_chart_data(temporal_stats, author_stats)
 
         # Read statistics cache timestamp (when stats were last computed)
         stats_cached_at = cache.get_timestamp(Config.CACHE_AUTHOR_STATS, author_id)
@@ -203,9 +208,8 @@ def register_routes(app):
             "results.html",
             author_id=author_id,
             stats=author_stats,
-            plot1=cached_plots.get("plot1", ""),
-            plot2=cached_plots.get("plot2", ""),
-            temporal_plots=cached_plots.get("temporal_plots", {}),
+            pub_chart_data=pub_chart_data,
+            temporal_chart_data=temporal_chart_data,
             last_updated=last_updated,
             stats_cached_at=stats_cached_at,
         )
@@ -257,14 +261,11 @@ def register_routes(app):
             cache_enqueued = enqueue_cache_populate("populate_publication_detail", {"author_pub_id": pub_id})
             return render_template("loading.html", author_id=author_id, cache_enqueued=cache_enqueued)
 
-        citations_plot = generate_pub_citation_plot(pd.DataFrame(pub_stats))
-
         return render_template(
             "publication_details.html",
             author_id=author_id,
             pub_id=pub_id,
             pub_stats=pub_stats,
-            citations_plot=citations_plot,
         )
 
     @app.route("/download/<author_id>")
@@ -299,6 +300,63 @@ def register_routes(app):
     def help_page():
         return render_template("help.html")
 
+    # ------------------------------------------------------------------
+    # JSON API endpoints for chart data (programmatic access)
+    # ------------------------------------------------------------------
+
+    @app.route("/api/author/<author_id>/data")
+    def api_author_data(author_id):
+        """Return all author data as JSON for programmatic access.
+
+        Includes author stats, publication chart data, and temporal chart data.
+        """
+        author_id = _validate_scholar_id(author_id)
+        if not author_id:
+            return jsonify({"error": "Invalid author ID"}), 400
+
+        with ThreadPoolExecutor(max_workers=3) as executor:
+            author_stats_future = executor.submit(
+                _read_cache, Config.CACHE_AUTHOR_STATS, author_id,
+            )
+            temporal_stats_future = executor.submit(
+                _read_cache, Config.CACHE_AUTHOR_TEMPORAL, author_id,
+            )
+            pub_stats_future = executor.submit(
+                _read_cache, Config.CACHE_AUTHOR_PUB_STATS, author_id,
+            )
+
+            author_stats = author_stats_future.result()
+            temporal_stats = temporal_stats_future.result()
+            pub_stats = pub_stats_future.result()
+
+        if not author_stats:
+            enqueue_cache_populate("populate_author_profile", {"scholar_id": author_id})
+            return jsonify({"error": "Data not ready", "status": "loading"}), 202
+
+        return jsonify({
+            "author": author_stats,
+            "publications": _prepare_pub_chart_data(pub_stats, author_stats),
+            "temporal": _prepare_temporal_chart_data(temporal_stats, author_stats),
+        })
+
+    @app.route("/api/publication/<path:pub_id>/data")
+    def api_publication_data(pub_id):
+        """Return publication citation data as JSON."""
+        pub_id = _validate_author_pub_id(pub_id)
+        if not pub_id:
+            return jsonify({"error": "Invalid publication ID"}), 400
+
+        pub_stats = _read_cache(Config.CACHE_PUB_STATS, pub_id)
+        if not pub_stats:
+            enqueue_cache_populate("populate_publication_detail", {"author_pub_id": pub_id})
+            return jsonify({"error": "Data not ready", "status": "loading"}), 202
+
+        return jsonify({"citations": pub_stats})
+
+    # ------------------------------------------------------------------
+    # Existing API endpoints
+    # ------------------------------------------------------------------
+
     @app.route("/api/fetch_authors")
     def api_fetch_authors():
         """Enqueue cache population for the given author IDs.
@@ -331,8 +389,6 @@ def register_routes(app):
             return jsonify({"error": "No valid author IDs provided"}), 400
         for sid in scholar_ids:
             enqueue_cache_populate("populate_author_profile", {"scholar_id": sid})
-            # Invalidate cached plots so they are regenerated from fresh stats
-            cache.delete("v3_author_plots", sid)
         return jsonify({
             "status": "queued",
             "total_authors": len(scholar_ids),

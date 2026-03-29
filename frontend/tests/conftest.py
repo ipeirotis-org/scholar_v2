@@ -30,12 +30,6 @@ for mod_name in [
     "google.api_core",
     "google.api_core.exceptions",
     "google.cloud.secretmanager",
-    "matplotlib",
-    "matplotlib.pyplot",
-    "matplotlib.ticker",
-    "matplotlib.colors",
-    "matplotlib.patches",
-    "matplotlib.figure",
 ]:
     sys.modules.setdefault(mod_name, mock.MagicMock())
 
