@@ -174,6 +174,22 @@ class TestFullSearch:
         mock_s2.assert_not_called()
         assert len(results) == 1
 
+    @mock.patch("author_search.search_service._search_in_memory")
+    def test_empty_results_not_cached(self, mock_search):
+        """Empty results (e.g., S2 API failure) should not be cached for 24h."""
+        mock_search.return_value = []
+        cache = mock.MagicMock()
+        cache.get_search_results.return_value = None
+        cache.get.return_value = None
+
+        with mock.patch("author_search.s2_client.search_authors") as mock_s2:
+            mock_s2.return_value = []  # S2 API also returns nothing (timeout/error)
+            svc = AuthorSearchService(bq_client=mock.MagicMock(), cache=cache)
+            results = svc.search("Unknown Author")
+
+        assert results == []
+        cache.set_search_results.assert_not_called()
+
 
 class TestBootstrap:
     """Test automatic index bootstrap when Firestore index is missing."""
@@ -440,6 +456,20 @@ class TestSearchInMemory:
         try:
             ss._author_index = [
                 {"scholar_id": "1", "name": "T. Cowen Jr.", "name_lower": "t. cowen jr.",
+                 "affiliation": "", "citedby": 100, "hindex": 10},
+            ]
+            results = ss._search_in_memory("Tyler Cowen")
+            assert len(results) == 1
+        finally:
+            ss._author_index = old_index
+
+    def test_initial_first_name_with_middle_name(self):
+        """'Tyler Cowen' should match 'T. Adam Cowen' (middle name after initial)."""
+        import author_search.search_service as ss
+        old_index = ss._author_index
+        try:
+            ss._author_index = [
+                {"scholar_id": "1", "name": "T. Adam Cowen", "name_lower": "t. adam cowen",
                  "affiliation": "", "citedby": 100, "hindex": 10},
             ]
             results = ss._search_in_memory("Tyler Cowen")

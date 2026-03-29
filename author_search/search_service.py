@@ -237,7 +237,14 @@ def _search_in_memory(query, limit=_TYPEAHEAD_LIMIT):
             non_initials = [(i, w) for i, w in enumerate(name_words)
                             if not _is_initial(w) and w not in _NAME_SUFFIXES]
             if non_initials:
-                boundary_words = {non_initials[0], non_initials[-1]}
+                # First non-initial is a boundary only when it's the
+                # actual first word (position 0).  If the name starts
+                # with an initial (e.g., "T. Adam Cowen"), the first
+                # non-initial is a middle name and can be skipped.
+                boundary_words = set()
+                if non_initials[0][0] == 0:
+                    boundary_words.add(non_initials[0])
+                boundary_words.add(non_initials[-1])
                 uncovered = False
                 for w_idx, w in boundary_words:
                     # Covered by whole-word match from a non-initial token?
@@ -327,7 +334,10 @@ class AuthorSearchService:
             results = self._supplement_with_s2(name, results)
 
         logger.info("Search '%s': %d results (scholar=%s)", name, len(results), scholar)
-        self.cache.set_search_results(cache_key, results)
+        # Don't cache empty results — a transient S2 API failure should
+        # not suppress retries for the full cache TTL (24h).
+        if results:
+            self.cache.set_search_results(cache_key, results)
         return results
 
     def _supplement_with_s2(self, name, local_results):
