@@ -320,3 +320,17 @@ class TestSearchInMemory:
             assert len(results) == 0
         finally:
             ss._author_index = old_index
+
+    def test_all_initial_matches_rejected(self):
+        """'Tyler Cowen' should NOT match 'T. C. Smith' (all-initial, no substring)."""
+        import author_search.search_service as ss
+        old_index = ss._author_index
+        try:
+            ss._author_index = [
+                {"scholar_id": "1", "name": "T. C. Smith", "name_lower": "t. c. smith",
+                 "affiliation": "", "citedby": 100, "hindex": 10},
+            ]
+            results = ss._search_in_memory("Tyler Cowen")
+            assert len(results) == 0
+        finally:
+            ss._author_index = old_index

@@ -153,14 +153,14 @@ def _bootstrap_index_async(bq, cache):
 def _token_matches_name(token, name, name_words):
     """Check if a query token matches an author name.
 
-    First tries simple substring matching. If that fails, checks if the
-    token could be the full form of an initial in the name (e.g., "tyler"
-    matches "t." because "t" is the first letter of "tyler"), or if the
-    token is an initial that matches a full name word.
+    Returns a tuple (matches, is_substring) where:
+    - matches: whether the token matches at all
+    - is_substring: True if matched via direct substring (strong match),
+      False if matched only via initial expansion (weak match)
     """
     # Direct substring match (most common case)
     if token in name:
-        return True
+        return True, True
 
     # Initial-to-full-name matching:
     # Query token "tyler" should match name word "t." or "t"
@@ -170,19 +170,22 @@ def _token_matches_name(token, name, name_words):
         # Name has an initial (e.g., "t." or single letter "t"),
         # and the query token starts with that letter
         if len(word) <= 2 and word[0] == first_char and (len(word) == 1 or word[1] == '.'):
-            return True
+            return True, False
         # Query token is an initial, and name word starts with it
         if len(token) <= 2 and word[0] == first_char and (len(token) == 1 or token[1] == '.'):
-            return True
+            return True, False
 
-    return False
+    return False, False
 
 
 def _search_in_memory(query, limit=_TYPEAHEAD_LIMIT):
     """Search the in-memory index by substring matching.
 
     All query tokens must appear in the author name. Supports matching
-    full names against initials (e.g., "Tyler" matches "T." in names).
+    full names against initials (e.g., "Tyler" matches "T." in names),
+    but requires at least one token to match via direct substring to
+    avoid false positives (e.g., "Tyler Cowen" should not match
+    "T. C. Smith").
     Returns matching authors sorted by citation count (descending),
     or None if the index is not loaded.
     """
@@ -196,7 +199,16 @@ def _search_in_memory(query, limit=_TYPEAHEAD_LIMIT):
     for author in _author_index:
         name = author.get("name_lower", "")
         name_words = name.split()
-        if all(_token_matches_name(token, name, name_words) for token in tokens):
+        all_match = True
+        any_substring = False
+        for token in tokens:
+            matched, is_substring = _token_matches_name(token, name, name_words)
+            if not matched:
+                all_match = False
+                break
+            if is_substring:
+                any_substring = True
+        if all_match and any_substring:
             matches.append(author)
 
     matches.sort(key=lambda a: a.get("citedby") or 0, reverse=True)
