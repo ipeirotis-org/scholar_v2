@@ -262,8 +262,10 @@ class AuthorSearchService:
             logger.warning("Search '%s': index not loaded, returning empty", name)
             return []
 
-        # If scholar=True and we got few local results, supplement with S2 API
-        if scholar and len(results) < 5:
+        # Supplement with S2 API when we got few local results.
+        # Always fall back when 0 results; also fall back with scholar=True
+        # when < 5 results, giving users broader coverage on explicit request.
+        if len(results) == 0 or (scholar and len(results) < 5):
             results = self._supplement_with_s2(name, results)
 
         logger.info("Search '%s': %d results (scholar=%s)", name, len(results), scholar)

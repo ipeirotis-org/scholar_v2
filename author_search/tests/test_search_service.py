@@ -143,6 +143,37 @@ class TestFullSearch:
         mock_s2.assert_not_called()
         assert len(results) == 10
 
+    @mock.patch("author_search.search_service._search_in_memory")
+    def test_auto_s2_fallback_when_zero_local_results(self, mock_search):
+        """Default search (scholar=False) auto-falls back to S2 API on 0 results."""
+        mock_search.return_value = []  # No local results
+        cache = mock.MagicMock()
+        cache.get_search_results.return_value = None
+        cache.get.return_value = None
+
+        with mock.patch("author_search.s2_client.search_authors") as mock_s2:
+            mock_s2.return_value = [_make_author("2508783", "T. Cowen")]
+            svc = AuthorSearchService(bq_client=mock.MagicMock(), cache=cache)
+            results = svc.search("T. Cowen")
+
+        mock_s2.assert_called_once()
+        assert len(results) == 1
+        assert results[0]["scholar_id"] == "2508783"
+
+    @mock.patch("author_search.search_service._search_in_memory")
+    def test_no_auto_s2_fallback_when_local_results_exist(self, mock_search):
+        """Default search does NOT fall back to S2 API when local results exist."""
+        mock_search.return_value = [_make_author("id1")]  # 1 result (> 0)
+        cache = mock.MagicMock()
+        cache.get_search_results.return_value = None
+
+        with mock.patch("author_search.s2_client.search_authors") as mock_s2:
+            svc = AuthorSearchService(bq_client=mock.MagicMock(), cache=cache)
+            results = svc.search("Author")
+
+        mock_s2.assert_not_called()
+        assert len(results) == 1
+
 
 class TestBootstrap:
     """Test automatic index bootstrap when Firestore index is missing."""
