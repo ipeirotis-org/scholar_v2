@@ -208,6 +208,7 @@ def _search_in_memory(query, limit=_TYPEAHEAD_LIMIT):
         name_words = name.split()
         all_match = True
         any_substring = False
+        any_initial = False
         for token_idx, token in enumerate(tokens):
             matched, is_substring = _token_matches_name(token, token_idx, name, name_words)
             if not matched:
@@ -215,8 +216,33 @@ def _search_in_memory(query, limit=_TYPEAHEAD_LIMIT):
                 break
             if is_substring:
                 any_substring = True
-        if all_match and any_substring:
-            matches.append(author)
+            else:
+                any_initial = True
+        if not (all_match and any_substring):
+            continue
+        # When initial expansion was used, verify every non-initial
+        # name word is covered by a query token — either as a
+        # substring or via position-aligned initial expansion.
+        # This prevents "Tyler Cowen" from matching "Tyler C. Sloan"
+        # (the word "sloan" has no matching query token).
+        if any_initial:
+            uncovered = False
+            for w_idx, w in enumerate(name_words):
+                if _is_initial(w):
+                    continue
+                # Covered by substring?
+                if any(t in w for t in tokens):
+                    continue
+                # Covered by a position-aligned initial query token?
+                if (w_idx < len(tokens)
+                        and _is_initial(tokens[w_idx])
+                        and tokens[w_idx][0] == w[0]):
+                    continue
+                uncovered = True
+                break
+            if uncovered:
+                continue
+        matches.append(author)
 
     matches.sort(key=lambda a: a.get("citedby") or 0, reverse=True)
 

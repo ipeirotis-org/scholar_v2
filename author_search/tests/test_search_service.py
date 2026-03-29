@@ -362,3 +362,31 @@ class TestSearchInMemory:
             assert len(results) == 1
         finally:
             ss._author_index = old_index
+
+    def test_initial_expansion_rejects_uncovered_name_words(self):
+        """'Tyler Cowen' should NOT match 'Tyler C. Sloan' (sloan uncovered)."""
+        import author_search.search_service as ss
+        old_index = ss._author_index
+        try:
+            ss._author_index = [
+                {"scholar_id": "1", "name": "Tyler C. Sloan", "name_lower": "tyler c. sloan",
+                 "affiliation": "", "citedby": 100, "hindex": 10},
+            ]
+            results = ss._search_in_memory("Tyler Cowen")
+            assert len(results) == 0
+        finally:
+            ss._author_index = old_index
+
+    def test_substring_only_match_allows_extra_name_words(self):
+        """'Smith' should still match 'Tyler C. Smith' (pure substring, no initials)."""
+        import author_search.search_service as ss
+        old_index = ss._author_index
+        try:
+            ss._author_index = [
+                {"scholar_id": "1", "name": "Tyler C. Smith", "name_lower": "tyler c. smith",
+                 "affiliation": "", "citedby": 100, "hindex": 10},
+            ]
+            results = ss._search_in_memory("Smith")
+            assert len(results) == 1
+        finally:
+            ss._author_index = old_index
