@@ -234,8 +234,9 @@ def _search_in_memory(query, limit=_TYPEAHEAD_LIMIT):
         # but the surname must match to prevent "Tyler Cowen" from
         # matching "Tyler C. Sloan".
         if any_initial:
-            non_initials = [(i, w) for i, w in enumerate(name_words)
-                            if not _is_initial(w) and w not in _NAME_SUFFIXES]
+            non_initials = [(i, w.rstrip(".,;:")) for i, w in enumerate(name_words)
+                            if not _is_initial(w)
+                            and w.rstrip(".,;:") not in _NAME_SUFFIXES]
             if non_initials:
                 # First non-initial is a boundary only when it's the
                 # actual first word (position 0).  If the name starts
