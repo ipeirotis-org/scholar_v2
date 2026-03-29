@@ -231,3 +231,61 @@ class TestSearchInMemory:
             assert results[0]["hindex"] == 25
         finally:
             ss._author_index = old_index
+
+    def test_initial_to_full_name_matching(self):
+        """Searching 'Tyler Cowen' should match 'T. Cowen'."""
+        import author_search.search_service as ss
+        old_index = ss._author_index
+        try:
+            ss._author_index = [
+                {"scholar_id": "2508783", "name": "T. Cowen", "name_lower": "t. cowen",
+                 "affiliation": "George Mason University", "citedby": 5000, "hindex": 20},
+            ]
+            results = ss._search_in_memory("Tyler Cowen")
+            assert len(results) == 1
+            assert results[0]["scholar_id"] == "2508783"
+        finally:
+            ss._author_index = old_index
+
+    def test_initial_query_matches_full_name(self):
+        """Searching 'T. Cowen' should match 'Tyler Cowen'."""
+        import author_search.search_service as ss
+        old_index = ss._author_index
+        try:
+            ss._author_index = [
+                {"scholar_id": "1", "name": "Tyler Cowen", "name_lower": "tyler cowen",
+                 "affiliation": "", "citedby": 100, "hindex": 10},
+            ]
+            results = ss._search_in_memory("T. Cowen")
+            assert len(results) == 1
+            assert results[0]["scholar_id"] == "1"
+        finally:
+            ss._author_index = old_index
+
+    def test_initial_without_period_matches(self):
+        """Searching 'T Cowen' should match 'T. Cowen'."""
+        import author_search.search_service as ss
+        old_index = ss._author_index
+        try:
+            ss._author_index = [
+                {"scholar_id": "1", "name": "T. Cowen", "name_lower": "t. cowen",
+                 "affiliation": "", "citedby": 100, "hindex": 10},
+            ]
+            results = ss._search_in_memory("T Cowen")
+            assert len(results) == 1
+        finally:
+            ss._author_index = old_index
+
+    def test_initial_matching_does_not_over_match(self):
+        """'Tyler' should NOT match initial 'j.' (different first letter)."""
+        import author_search.search_service as ss
+        old_index = ss._author_index
+        try:
+            ss._author_index = [
+                {"scholar_id": "1", "name": "J. Cowen", "name_lower": "j. cowen",
+                 "affiliation": "", "citedby": 100, "hindex": 10},
+            ]
+            results = ss._search_in_memory("Tyler Cowen")
+            assert len(results) == 0
+        finally:
+            ss._author_index = old_index

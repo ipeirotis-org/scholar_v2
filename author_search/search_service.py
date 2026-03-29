@@ -150,10 +150,39 @@ def _bootstrap_index_async(bq, cache):
     t.start()
 
 
+def _token_matches_name(token, name, name_words):
+    """Check if a query token matches an author name.
+
+    First tries simple substring matching. If that fails, checks if the
+    token could be the full form of an initial in the name (e.g., "tyler"
+    matches "t." because "t" is the first letter of "tyler"), or if the
+    token is an initial that matches a full name word.
+    """
+    # Direct substring match (most common case)
+    if token in name:
+        return True
+
+    # Initial-to-full-name matching:
+    # Query token "tyler" should match name word "t." or "t"
+    # Query token "t" should match name word "tyler"
+    first_char = token[0]
+    for word in name_words:
+        # Name has an initial (e.g., "t." or single letter "t"),
+        # and the query token starts with that letter
+        if len(word) <= 2 and word[0] == first_char and (len(word) == 1 or word[1] == '.'):
+            return True
+        # Query token is an initial, and name word starts with it
+        if len(token) <= 2 and word[0] == first_char and (len(token) == 1 or token[1] == '.'):
+            return True
+
+    return False
+
+
 def _search_in_memory(query, limit=_TYPEAHEAD_LIMIT):
     """Search the in-memory index by substring matching.
 
-    All query tokens must appear in the author name.
+    All query tokens must appear in the author name. Supports matching
+    full names against initials (e.g., "Tyler" matches "T." in names).
     Returns matching authors sorted by citation count (descending),
     or None if the index is not loaded.
     """
@@ -166,7 +195,8 @@ def _search_in_memory(query, limit=_TYPEAHEAD_LIMIT):
     matches = []
     for author in _author_index:
         name = author.get("name_lower", "")
-        if all(token in name for token in tokens):
+        name_words = name.split()
+        if all(_token_matches_name(token, name, name_words) for token in tokens):
             matches.append(author)
 
     matches.sort(key=lambda a: a.get("citedby") or 0, reverse=True)
