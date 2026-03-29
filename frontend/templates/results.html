@@ -8,8 +8,8 @@
         <h2>Author: {{ stats.get('name', 'N/A') }}</h2>
         <div class="author-details card p-3 mb-4">
             <ul class="list-unstyled mb-0">
-                <li><strong>Name:</strong> {{ stats.get('name', 'N/A') }}</li>
-                <li><strong>Affiliation:</strong> {{ stats.get('affiliation', 'N/A') }}</li>
+                <li><strong>Name:</strong> {{ stats.get('name') or 'N/A' }}</li>
+                <li><strong>Affiliation:</strong> {{ stats.get('affiliation') or 'N/A' }}</li>
                 <li><strong>Author ID:</strong> {{ author_id }}</li>
                 {% if stats_cached_at %}
                 <li>
