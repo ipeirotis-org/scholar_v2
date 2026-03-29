@@ -155,6 +155,13 @@ def _is_initial(word):
     return len(word) <= 2 and (len(word) == 1 or word[1] == '.')
 
 
+# Common name suffixes that should not count as boundary words.
+_NAME_SUFFIXES = frozenset({
+    "jr", "jr.", "sr", "sr.", "ii", "iii", "iv", "v",
+    "phd", "ph.d.", "md", "m.d.", "esq", "esq.",
+})
+
+
 def _token_matches_name(token, token_idx, name, name_words):
     """Check if a query token matches an author name.
 
@@ -228,7 +235,7 @@ def _search_in_memory(query, limit=_TYPEAHEAD_LIMIT):
         # matching "Tyler C. Sloan".
         if any_initial:
             non_initials = [(i, w) for i, w in enumerate(name_words)
-                            if not _is_initial(w)]
+                            if not _is_initial(w) and w not in _NAME_SUFFIXES]
             if non_initials:
                 boundary_words = {non_initials[0], non_initials[-1]}
                 uncovered = False
