@@ -445,7 +445,7 @@ Rewrite the 8-level analytics DAG to query S2 tables instead of `author_latest`/
 
 ## Materialize Full BigQuery DAG
 
-Replace all live views with pre-computed tables, refreshed weekly after S2 ingestion. Data is static between weekly bulk loads — live views waste compute on every query.
+Replace all live views with pre-computed tables, refreshed monthly after S2 ingestion. Data is static between bulk loads — live views waste compute on every query.
 
 ### Motivation
 
@@ -454,9 +454,21 @@ Replace all live views with pre-computed tables, refreshed weekly after S2 inges
 - Quarterly (Jan/Apr/Jul/Oct): 6 distribution tables (`dist_*`)
 - Daily (06:00): 4 snapshot tables (`ranked_*_table`)
 
-Per-author cache-miss queries hit live views that chain up to 8 levels deep. Each query re-computes joins and lookups that produce the same result until the next weekly load.
+Per-author cache-miss queries hit live views that chain up to 8 levels deep. Each query re-computes joins and lookups that produce the same result until the next load.
 
-**Target state:** One weekly pipeline materializes the entire DAG after ingestion. All app queries hit pre-computed clustered tables. No live views in the query path.
+**Target state:** One monthly pipeline materializes the entire DAG after ingestion. All app queries hit pre-computed clustered tables. No live views in the query path.
+
+### Ingestion Cadence: Monthly vs Weekly
+
+S2 releases weekly diffs, but we don't need weekly freshness. Citation percentiles shift slowly — most authors' metrics barely change week-to-week. Monthly ingestion + materialization is sufficient and reduces costs.
+
+| Cadence | Ingestion Cost | Materialization Cost | Data Freshness | Recommendation |
+|---------|---------------|---------------------|----------------|----------------|
+| Weekly | ~$5–15/run, $20–60/mo | ~$10–30/run, $40–120/mo | ≤7 days stale | Overkill for most use cases |
+| Monthly | ~$5–15/run, $5–15/mo | ~$10–30/run, $10–30/mo | ≤30 days stale | **Recommended** — good tradeoff |
+| Quarterly | Cheapest | Cheapest | ≤90 days stale | Too stale for newly published papers |
+
+**Action:** Change `v3-s2-dataset-ingestion` Cloud Scheduler from `0 2 * * 1` (weekly Monday) to `0 2 1 * *` (1st of each month). Update `deploy-dataset-ingestion.yml` accordingly.
 
 ### Complete DAG — Materialization Order
 
@@ -529,19 +541,19 @@ Rationale:
 
 **Future:** When `benchmark_faculty` is added, create a small `dist_author_metrics_faculty` table and a `ranked_author_current_faculty_table`. The dist table is tiny; the ranked table is one snapshot. No need to duplicate all temporal tables.
 
-### Unified Weekly Pipeline
+### Unified Monthly Pipeline
 
-Replace three schedules (weekly + quarterly + daily) with one:
+Replace three schedules (weekly ingestion + quarterly distributions + daily snapshots) with one monthly pipeline:
 
 **`.github/workflows/bigquery-materialize-all.yml`**
-- **Schedule:** Monday 08:00 UTC (6h after ingestion starts at 02:00)
+- **Schedule:** 1st of each month, 08:00 UTC (6h after ingestion starts at 02:00)
 - **Preflight:** Query `s2_data.release_log` to verify latest ingestion succeeded
-- **Abort** if no successful ingestion since last Monday
+- **Abort** if no successful ingestion since last month
 - **Steps:** Run Steps 1–7 above in sequence (parallel within each step)
 - **Estimated runtime:** 3–5 hours total (temporal tables dominate)
 
 **Trigger options:**
-- (A) Cron schedule at 08:00 UTC Monday — simple, add preflight check ← recommended
+- (A) Cron schedule at 08:00 UTC on the 1st — simple, add preflight check ← recommended
 - (B) `repository_dispatch` from ingestion Cloud Run Job — tighter coupling
 - (C) `workflow_run` trigger after `deploy-dataset-ingestion.yml` — GitHub-native chaining
 
@@ -579,7 +591,7 @@ Replace three schedules (weekly + quarterly + daily) with one:
 | Distribution tables (Steps 1–6) | ~8 GB | $0.16 |
 | **Total** | **~215–435 GB** | **$4.30–8.70/mo** |
 
-**Compute cost for weekly materialization:** On-demand BigQuery at $6.25/TB scanned → ~$10–30 per weekly run ($40–120/month). Consider flat-rate BigQuery editions if this grows.
+**Compute cost for monthly materialization:** On-demand BigQuery at $6.25/TB scanned → ~$10–30 per monthly run. Combined with monthly ingestion (~$5–15), total compute: **~$15–45/month**. Much cheaper than the previous weekly+quarterly+daily regime.
 
 ### Caveats to Investigate
 

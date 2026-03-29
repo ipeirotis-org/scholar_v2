@@ -152,10 +152,10 @@ Ranked views default to `active_authors` for user-facing percentiles.
 
 | What | Schedule | Rationale |
 |------|----------|-----------|
-| S2 dataset ingestion | **Weekly** (Mon 02:00 UTC) | S2 releases weekly diffs |
-| Distribution tables (`dist_*`, 6 tables) | **Quarterly** | Population percentiles shift slowly; expensive to compute |
-| Snapshot tables (`ranked_*_table`, 4 tables) | **Daily** | Needed only for all-authors ranking/export; per-author pages use views directly |
-| Views (all non-dist, non-snapshot) | **Live** | Cheap per-author queries via dist table lookups; cached in Firestore |
+| S2 dataset ingestion | **Weekly** (Mon 02:00 UTC) | S2 releases weekly diffs (planned: move to monthly) |
+| Distribution tables (`dist_*`, 6 tables) | **Quarterly** | Population percentiles shift slowly (planned: fold into monthly) |
+| Snapshot tables (`ranked_*_table`, 4 tables) | **Daily** | All-authors ranking/export (planned: fold into monthly) |
+| Views (all non-dist, non-snapshot) | **Live** | Per-author queries (planned: materialize all into tables) |
 
 ## Tech Stack
 
