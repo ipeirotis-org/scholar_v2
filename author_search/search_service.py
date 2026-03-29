@@ -150,10 +150,56 @@ def _bootstrap_index_async(bq, cache):
     t.start()
 
 
+def _is_initial(word):
+    """Check if a word is a name initial (e.g., "t.", "t", "j")."""
+    return len(word) <= 2 and (len(word) == 1 or word[1] == '.')
+
+
+# Common name suffixes that should not count as boundary words.
+_NAME_SUFFIXES = frozenset({
+    "jr", "jr.", "sr", "sr.", "ii", "ii.", "iii", "iii.", "iv", "iv.", "v", "v.",
+    "phd", "ph.d.", "md", "m.d.", "esq", "esq.",
+})
+
+
+def _token_matches_name(token, token_idx, name, name_words):
+    """Check if a query token matches an author name.
+
+    Returns a tuple (matches, is_substring) where:
+    - matches: whether the token matches at all
+    - is_substring: True if matched via direct substring (strong match),
+      False if matched only via initial expansion (weak match)
+
+    Initial expansion (e.g., "tyler" matching "t.") is restricted to the
+    same position in the token list and name word list, so "Tyler Cowen"
+    matches "T. Cowen" but not "Steven T. Cowen".
+    """
+    # Direct substring match (most common case)
+    if token in name:
+        return True, True
+
+    # Position-aligned initial-to-full-name matching:
+    if token_idx < len(name_words):
+        word = name_words[token_idx]
+        first_char = token[0]
+        # Name has an initial at this position, query token starts with same letter
+        if _is_initial(word) and word[0] == first_char:
+            return True, False
+        # Query token is an initial, name word at this position starts with same letter
+        if _is_initial(token) and word[0] == first_char:
+            return True, False
+
+    return False, False
+
+
 def _search_in_memory(query, limit=_TYPEAHEAD_LIMIT):
     """Search the in-memory index by substring matching.
 
-    All query tokens must appear in the author name.
+    All query tokens must appear in the author name. Supports matching
+    full names against initials (e.g., "Tyler" matches "T." in names),
+    but requires at least one token to match via direct substring to
+    avoid false positives (e.g., "Tyler Cowen" should not match
+    "T. C. Smith").
     Returns matching authors sorted by citation count (descending),
     or None if the index is not loaded.
     """
@@ -166,8 +212,58 @@ def _search_in_memory(query, limit=_TYPEAHEAD_LIMIT):
     matches = []
     for author in _author_index:
         name = author.get("name_lower", "")
-        if all(token in name for token in tokens):
-            matches.append(author)
+        name_words = name.split()
+        all_match = True
+        any_substring = False
+        any_initial = False
+        for token_idx, token in enumerate(tokens):
+            matched, is_substring = _token_matches_name(token, token_idx, name, name_words)
+            if not matched:
+                all_match = False
+                break
+            if is_substring:
+                any_substring = True
+            else:
+                any_initial = True
+        if not (all_match and any_substring):
+            continue
+        # When initial expansion was used, verify the first and last
+        # non-initial name words are covered by a query token (via
+        # substring or position-aligned initial).  Middle names are
+        # allowed to be unmatched so "J. Smith" finds "John Adam Smith",
+        # but the surname must match to prevent "Tyler Cowen" from
+        # matching "Tyler C. Sloan".
+        if any_initial:
+            non_initials = [(i, w.rstrip(".,;:")) for i, w in enumerate(name_words)
+                            if not _is_initial(w)
+                            and w.rstrip(".,;:") not in _NAME_SUFFIXES]
+            if non_initials:
+                # First non-initial is a boundary only when it's the
+                # actual first word (position 0).  If the name starts
+                # with an initial (e.g., "T. Adam Cowen"), the first
+                # non-initial is a middle name and can be skipped.
+                boundary_words = set()
+                if non_initials[0][0] == 0:
+                    boundary_words.add(non_initials[0])
+                boundary_words.add(non_initials[-1])
+                uncovered = False
+                for w_idx, w in boundary_words:
+                    # Covered by whole-word match from a non-initial token?
+                    # Whole-word prevents partial hits like "li" covering
+                    # "williams".  Initial tokens are excluded because
+                    # single letters match too many words.
+                    if any(t == w for t in tokens if not _is_initial(t)):
+                        continue
+                    # Covered by a position-aligned initial query token?
+                    if (w_idx < len(tokens)
+                            and _is_initial(tokens[w_idx])
+                            and tokens[w_idx][0] == w[0]):
+                        continue
+                    uncovered = True
+                    break
+                if uncovered:
+                    continue
+        matches.append(author)
 
     matches.sort(key=lambda a: a.get("citedby") or 0, reverse=True)
 
@@ -232,12 +328,17 @@ class AuthorSearchService:
             logger.warning("Search '%s': index not loaded, returning empty", name)
             return []
 
-        # If scholar=True and we got few local results, supplement with S2 API
-        if scholar and len(results) < 5:
+        # Supplement with S2 API when we got few local results.
+        # Always fall back when 0 results; also fall back with scholar=True
+        # when < 5 results, giving users broader coverage on explicit request.
+        if len(results) == 0 or (scholar and len(results) < 5):
             results = self._supplement_with_s2(name, results)
 
         logger.info("Search '%s': %d results (scholar=%s)", name, len(results), scholar)
-        self.cache.set_search_results(cache_key, results)
+        # Don't cache empty results — a transient S2 API failure should
+        # not suppress retries for the full cache TTL (24h).
+        if results:
+            self.cache.set_search_results(cache_key, results)
         return results
 
     def _supplement_with_s2(self, name, local_results):
