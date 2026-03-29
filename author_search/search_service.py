@@ -157,7 +157,7 @@ def _is_initial(word):
 
 # Common name suffixes that should not count as boundary words.
 _NAME_SUFFIXES = frozenset({
-    "jr", "jr.", "sr", "sr.", "ii", "iii", "iv", "v",
+    "jr", "jr.", "sr", "sr.", "ii", "ii.", "iii", "iii.", "iv", "iv.", "v", "v.",
     "phd", "ph.d.", "md", "m.d.", "esq", "esq.",
 })
 
