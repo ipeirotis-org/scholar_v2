@@ -418,3 +418,17 @@ class TestSearchInMemory:
             assert len(results) == 0
         finally:
             ss._author_index = old_index
+
+    def test_partial_substring_does_not_cover_boundary_word(self):
+        """'Amy Li' should NOT match 'A. Williams' (li is substring of williams)."""
+        import author_search.search_service as ss
+        old_index = ss._author_index
+        try:
+            ss._author_index = [
+                {"scholar_id": "1", "name": "A. Williams", "name_lower": "a. williams",
+                 "affiliation": "", "citedby": 100, "hindex": 10},
+            ]
+            results = ss._search_in_memory("Amy Li")
+            assert len(results) == 0
+        finally:
+            ss._author_index = old_index

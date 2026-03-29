@@ -233,10 +233,11 @@ def _search_in_memory(query, limit=_TYPEAHEAD_LIMIT):
                 boundary_words = {non_initials[0], non_initials[-1]}
                 uncovered = False
                 for w_idx, w in boundary_words:
-                    # Covered by substring from a non-initial token?
-                    # (Initial tokens like "j" are too short — "j" in
-                    # "jones" is True but meaningless.)
-                    if any(t in w for t in tokens if not _is_initial(t)):
+                    # Covered by whole-word match from a non-initial token?
+                    # Whole-word prevents partial hits like "li" covering
+                    # "williams".  Initial tokens are excluded because
+                    # single letters match too many words.
+                    if any(t == w for t in tokens if not _is_initial(t)):
                         continue
                     # Covered by a position-aligned initial query token?
                     if (w_idx < len(tokens)
