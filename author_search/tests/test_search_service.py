@@ -390,3 +390,17 @@ class TestSearchInMemory:
             assert len(results) == 1
         finally:
             ss._author_index = old_index
+
+    def test_initial_search_matches_name_with_middle_name(self):
+        """'J. Smith' should match 'John Adam Smith' (middle name allowed)."""
+        import author_search.search_service as ss
+        old_index = ss._author_index
+        try:
+            ss._author_index = [
+                {"scholar_id": "1", "name": "John Adam Smith", "name_lower": "john adam smith",
+                 "affiliation": "", "citedby": 100, "hindex": 10},
+            ]
+            results = ss._search_in_memory("J. Smith")
+            assert len(results) == 1
+        finally:
+            ss._author_index = old_index
