@@ -1,14 +1,15 @@
 -- Level 6: PiP-AUC score percentile distribution for temporal data (approximate quantiles).
 --
--- Builds quantile breakpoints from the pre-computed ranked_author_pip_scores_temporal_table
--- which already has pip_auc_score for every author × state_year. No AUC recomputation needed.
+-- Builds quantile breakpoints from stats_author_pip_scores_temporal_view (the raw
+-- temporal PiP-AUC scores, WITHOUT percentile column). This avoids a circular
+-- dependency: ranked_author_pip_scores_temporal needs dist_pip_auc_scores_temporal
+-- to compute pip_auc_score_percentile, so dist cannot read from ranked.
 --
 -- Only active_authors benchmark for temporal.
 --
--- PREREQUISITE: ranked_author_pip_scores_temporal_table must be materialized first
--- (by bigquery-materialize.yml daily job).
---
--- Refreshed quarterly by bigquery-materialize-distributions.yml.
+-- PREREQUISITE: stats_author_pip_scores_temporal_view (or _table) must exist.
+-- In the monthly pipeline, stats_author_pip_scores_temporal_table is
+-- materialized in Level 5 before this table runs in Level 6.
 
 CREATE OR REPLACE TABLE `scholar-version2.statistics.dist_pip_auc_scores_temporal`
 CLUSTER BY benchmark, year_of_first_pub, state_year
@@ -26,7 +27,7 @@ SELECT DISTINCT * FROM (
   FROM (
     SELECT year_of_first_pub, state_year,
            APPROX_QUANTILES(pip_auc_score, 1000) AS quantiles
-    FROM `scholar-version2.statistics.ranked_author_pip_scores_temporal_table`
+    FROM `scholar-version2.statistics.stats_author_pip_scores_temporal_view`
     WHERE scholar_id IN (SELECT scholar_id FROM ActiveAuthors)
     GROUP BY year_of_first_pub, state_year
   ), UNNEST(quantiles) AS value WITH OFFSET AS offset
