@@ -43,13 +43,21 @@ jobs:
     - name: Check latest ingestion status
       id: check
       run: |
-        # Find the latest release with successful derived_tables in the last 35 days
+        # Find the latest release where the most recent derived_tables entry is 'success'.
+        # Uses ROW_NUMBER to get the latest status per release (handles re-runs where
+        # a later attempt may have failed after an earlier success).
         RELEASE=$(bq query --project_id=${{ env.PROJECT_ID }} --use_legacy_sql=false \
           --format=csv --max_rows=1 \
-          "SELECT release_id FROM \`${{ env.PROJECT_ID }}.s2_data.release_log\`
-           WHERE dataset_name = 'derived_tables' AND status = 'success'
-             AND timestamp > TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 35 DAY)
-           ORDER BY timestamp DESC LIMIT 1" 2>/dev/null | tail -1)
+          "WITH latest AS (
+             SELECT release_id, status,
+               ROW_NUMBER() OVER (PARTITION BY release_id ORDER BY timestamp DESC) AS rn
+             FROM \`${{ env.PROJECT_ID }}.s2_data.release_log\`
+             WHERE dataset_name = 'derived_tables'
+               AND timestamp > TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 35 DAY)
+           )
+           SELECT release_id FROM latest
+           WHERE rn = 1 AND status = 'success'
+           ORDER BY release_id DESC LIMIT 1" 2>/dev/null | tail -1)
 
         # Guard against CSV header row being returned as the value
         if [ "$RELEASE" = "release_id" ] || [ -z "$RELEASE" ]; then

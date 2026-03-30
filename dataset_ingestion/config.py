@@ -36,10 +36,12 @@ class Config:
     DATASETS = ["papers", "citations", "authors"]
 
     # All dataset_name values that must have status='success' for a release
-    # to be considered complete (base datasets + derived tables + materialization).
-    REQUIRED_SUCCESS_MARKERS = [
-        "papers", "citations", "authors", "derived_tables", "materialized_tables",
-    ]
+    # to be considered complete for diff-baseline purposes.
+    # Note: materialized_tables is NOT included here because it's a
+    # post-processing step. Including it would reject all pre-existing
+    # releases that were loaded before materialization was introduced,
+    # forcing an unnecessary full reload on the first auto-mode run.
+    REQUIRED_SUCCESS_MARKERS = ["papers", "citations", "authors", "derived_tables"]
 
     # Download settings
     DOWNLOAD_WORKERS = int(os.environ.get("DOWNLOAD_WORKERS", "4"))
