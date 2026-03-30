@@ -1,12 +1,12 @@
-# Component 3: Analytics
+# Component 2: Analytics
 
 > Part of [System Architecture](ARCHITECTURE.md)
 
-**Purpose:** Compute all metrics, percentiles, and scores from raw BigQuery data.
+**Purpose:** Compute all metrics, percentiles, and scores from S2 data in BigQuery.
 
-**Input:** BigQuery raw tables via `_latest` deduplication views.
+**Input:** BigQuery base tables in `s2_data` dataset (papers, citations, authors, derived tables).
 
-**Output:** BigQuery views and materialized tables with computed metrics.
+**Output:** BigQuery materialized tables in `statistics` dataset.
 
 ## What it computes
 
@@ -14,7 +14,7 @@
 2. **Author metrics:** h-index, citations, i10-index (and 5-year variants), total publications — with percentiles by career-stage cohort (year of first publication)
 3. **PiP-AUC scores:** Paper-in-Percentile Area Under Curve via trapezoidal integration, with percentile ranking
 4. **Temporal metrics:** Historical evolution of author h-index, citations, i10-index over time
-5. **Coauthor network:** Coauthor graph extracted from author profiles
+5. **Coauthor network:** Coauthor graph extracted from author data
 
 ## Three-tier architecture
 
@@ -31,7 +31,7 @@ Tier 1 — Raw Statistics (no percentiles, no PERCENT_RANK):
   intermediate_author_publication_state_temporal
   stats_author_publication_pip_inputs_current — PiP chart X/Y coordinates
 
-Tier 2 — Distribution Tables (materialized quarterly, ONLY place PERCENT_RANK runs):
+Tier 2 — Distribution Tables (ONLY place PERCENT_RANK runs):
   dist_publication_citations          — (pub_year, num_citations) → percentile
   dist_publication_citations_temporal — (pub_year, citation_year, age) → 4 percentiles
   dist_author_metrics                 — (cohort, metric, value) → percentile (8 metrics)
@@ -39,7 +39,7 @@ Tier 2 — Distribution Tables (materialized quarterly, ONLY place PERCENT_RANK 
   dist_pip_auc_scores                 — (cohort, pip_auc_score) → percentile
   dist_pip_auc_scores_temporal        — (cohort, state_year, pip_auc_score) → percentile
 
-Tier 3 — Ranked Views (cheap JOINs of Tier 1 + Tier 2):
+Tier 3 — Ranked (cheap JOINs of Tier 1 + Tier 2):
   ranked_publication_current            — adds num_citations_percentile
   ranked_publication_citations_temporal  — adds 4 percentile columns
   ranked_author_current                 — adds 8 percentile columns
@@ -52,46 +52,45 @@ Tier 3 — Ranked Views (cheap JOINs of Tier 1 + Tier 2):
 
 > Full details: [architecture-analytics-details.md](architecture-analytics-details.md)
 
-There are two materialization schedules with different cost profiles:
+**All tables are materialized monthly** during S2 dataset ingestion by `dataset_ingestion/materialize_tables.py`. The full 7-level DAG is materialized in topological order — every view (stats, dist, and ranked) gets a corresponding `_table` version. Data is static between bulk loads, so live views waste compute.
 
-**Quarterly — distribution tables** (`bigquery-materialize-distributions.yml`, 04:00 UTC, Jan/Apr/Jul/Oct):
+Views are kept in BigQuery for development and debugging. App queries use the materialized `_table` versions.
 
-| Table | What it computes |
-|---|---|
-| `dist_publication_citations` | PERCENT_RANK by pub_year |
-| `dist_publication_citations_temporal` | PERCENT_RANK for 4 temporal citation metrics |
-| `dist_author_metrics` | PERCENT_RANK by cohort for 8 metrics |
-| `dist_author_metrics_temporal` | PERCENT_RANK by cohort+year for 7 metrics |
-| `dist_pip_auc_scores` | PiP-AUC percentiles (depends on dist 1+3) |
-| `dist_pip_auc_scores_temporal` | Temporal PiP-AUC percentiles (depends on dist 2+4) |
+**22 tables materialized across 7 levels:**
 
-These are the **only** place `PERCENT_RANK()` runs. Output is small (DISTINCT values only) and the population shape changes slowly — recomputing quarterly introduces negligible error.
+| Level | Tables | Count |
+|-------|--------|-------|
+| 1 | base_author_publications, stats_publication_current, stats_author_current, dist_publication_citations, dist_author_metrics | 5 |
+| 2 | stats_publication_citations_temporal, ranked_publication_current, intermediate_author_publication_state_temporal, dist_publication_citations_temporal | 4 |
+| 3 | stats_author_metrics_temporal, stats_author_publication_pip_inputs_current, ranked_author_current, ranked_publication_citations_temporal | 4 |
+| 4 | stats_author_pip_scores_current, dist_pip_auc_scores, dist_author_metrics_temporal | 3 |
+| 5 | ranked_author_pip_scores_current, ranked_author_metrics_temporal, stats_author_pip_scores_temporal | 3 |
+| 6 | dist_pip_auc_scores_temporal | 1 |
+| 7 | ranked_author_pip_scores_temporal | 1 |
 
-**Daily — snapshot tables** (`bigquery-materialize.yml`, 06:00 UTC):
+**Fallback materialization:** GitHub Actions workflow `bigquery-materialize-all.yml` runs on the 1st of each month at 08:00 UTC as a safety net, skipping if materialization already succeeded for the latest release.
 
-| Table | Source |
-|---|---|
-| `ranked_author_current_table` | `ranked_author_current` view |
-| `ranked_author_pip_scores_current_table` | `ranked_author_pip_scores_current` view |
-| `ranked_author_metrics_temporal_table` | `ranked_author_metrics_temporal` view |
-| `ranked_author_pip_scores_temporal_table` | `ranked_author_pip_scores_temporal` view |
+## Benchmark populations
 
-These exist only for the all-authors ranking page and CSV export. **Per-author profile pages query the ranked views directly** (cheap via distribution table lookups, cached in Firestore).
+Author-level distribution tables include two benchmarks:
+- `all_authors` — full S2 population (~99.5M)
+- `active_authors` — hindex ≥ 3 AND total_publications ≥ 3 (meaningful differentiation)
 
-**Cost note:** Individual author data changes at most monthly (90-day re-crawl threshold). Daily snapshot materialization recomputes ~15,000 rows when typically fewer than 200 have changed. This is an area where event-driven or weekly materialization could reduce cost without meaningful staleness impact.
+Ranked tables default to `active_authors` for user-facing percentiles.
 
 ## Boundaries
 
 | | Source | Target |
 |---|---|---|
-| **Reads** | BigQuery raw tables (`scholar_raw_data.author`, `scholar_raw_data.pub`) via `_latest` views | |
-| **Writes** | | BigQuery views and materialized tables |
+| **Reads** | BigQuery base tables (`s2_data.papers`, `s2_data.citations`, `s2_data.authors`, derived tables) | |
+| **Writes** | | BigQuery views and materialized tables (`statistics.*`) |
 
 ## Implementation
 
 | File | Role |
 |---|---|
-| `bigquery/statistics/*.sql` | All view and table definitions |
+| `bigquery/statistics/*.sql` | All view and table definitions (22 SQL files) |
 | `bigquery/coauthor_network/*.sql` | Coauthor graph views |
-| `.github/workflows/bigquery-views.yml` | CI/CD: deploy views in dependency order |
-| `.github/workflows/bigquery-materialize.yml` | CI/CD: daily materialization |
+| `dataset_ingestion/materialize_tables.py` | Full DAG materialization (7 levels, called during ingestion) |
+| `.github/workflows/bigquery-views.yml` | CI/CD: deploy views in dependency order (on SQL file changes) |
+| `.github/workflows/bigquery-materialize-all.yml` | Fallback: monthly safety-net materialization |

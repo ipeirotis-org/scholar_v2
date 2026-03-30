@@ -2,31 +2,31 @@
 
 ## Overview
 
-PiP Score is a system for analyzing Google Scholar data using percentile-based, age-aware research metrics (PiP-AUC). It consists of seven components with strict boundaries around what each reads and writes.
+PiP Score is a distributed system for analyzing research impact using percentile-based, age-aware metrics (PiP-AUC). It uses **Semantic Scholar** bulk datasets (200M+ papers, 2.4B+ citations, 102M authors) and serves an interactive Flask web app at [pip-score.org](https://www.pip-score.org/).
 
 ```
-                         Google Scholar
-                          |         |
-                   [1. CRAWLER]  [6. AUTHOR SEARCH]
-                          |         |
-                   GCS (raw JSON)  BigQuery + Scholar (fallback)
-                          |         |
-                  [2. INGESTION]   |
-                          |        |
-                   BigQuery (raw)  |
-                          |        |
-                    [3. ANALYTICS]  |
-                          |        |
-                   BigQuery (views + materialized tables)
+                    Semantic Scholar
+                     (S2 Datasets API)
+                          |
+                  [1. DATASET INGESTION]
+                     (Cloud Run Job)
+                          |
+                   S3 → GCS → BigQuery
+                   (s2_data: papers, citations, authors)
+                          |
+                  [2. ANALYTICS + MATERIALIZATION]
+                     (materialize_tables.py)
+                          |
+                   BigQuery (materialized tables, 7-level DAG)
                          /|\
                         / | \
                        /  |  \
-     [7. CACHE LAYER]    |   [5. REFRESH & EXPAND]
-      (BQ → Firestore)   |     (orchestration)
+     [5. CACHE LAYER]    |   [4. AUTHOR SEARCH]
+      (BQ → Firestore)   |     (in-memory index + S2 API fallback)
             |             |           |
-      Firestore cache     |     Cloud Tasks → back to Crawler
+      Firestore cache     |     integrated in frontend
             |             |
-     [4. FRONTEND]        |
+     [3. FRONTEND]        |
      (Firestore-only)     |
             |             |
             +--- calls ---+
@@ -38,13 +38,11 @@ PiP Score is a system for analyzing Google Scholar data using percentile-based, 
 
 | # | Component | Purpose | Input | Output | Details |
 |---|---|---|---|---|---|
-| 1 | **Crawler** | Fetch author/pub data from Google Scholar | Scholar ID (via Cloud Tasks) | Raw JSON files in GCS | [architecture-crawler.md](architecture-crawler.md) |
-| 2 | **Ingestion** | Load raw JSON into BigQuery | GCS JSON files (`authors_json/`, `publications_json/`) | BigQuery rows (`scholar_raw_data.author`, `.pub`) | [architecture-ingestion.md](architecture-ingestion.md) |
-| 3 | **Analytics** | Compute metrics, percentiles, and PiP-AUC scores | BigQuery raw tables (via `_latest` views) | BigQuery views + materialized tables | [architecture-analytics.md](architecture-analytics.md) |
-| 4 | **Frontend** | Display precomputed analytics (read-only from Firestore) | User queries, Firestore cache | HTML pages with embedded charts | [architecture-frontend.md](architecture-frontend.md) |
-| 5 | **Refresh & Expand** | Orchestrate data freshness and database growth | Schedules, staleness analysis, coauthor graph | Cloud Tasks for Crawler | [architecture-refresh.md](architecture-refresh.md) |
-| 6 | **Author Search** | Find authors by name (local-first, Scholar fallback) | Author name query string | Matching author list | [architecture-author-search.md](architecture-author-search.md) |
-| 7 | **Cache Layer** | Populate Firestore cache from BigQuery | Cloud Tasks (priority + batch queues) | Firestore cache documents | [architecture-cache-layer.md](architecture-cache-layer.md) |
+| 1 | **Dataset Ingestion** | Download S2 datasets and load into BigQuery | S2 API (S3 bulk files) | BigQuery tables (`s2_data.*`) + materialized analytics DAG | [architecture-ingestion.md](architecture-ingestion.md) |
+| 2 | **Analytics** | Compute metrics, percentiles, and PiP-AUC scores | BigQuery base tables (`s2_data.*`) | BigQuery materialized tables (`statistics.*`) | [architecture-analytics.md](architecture-analytics.md) |
+| 3 | **Frontend** | Display precomputed analytics (read-only from Firestore) | User queries, Firestore cache | HTML pages with Plotly.js charts | [architecture-frontend.md](architecture-frontend.md) |
+| 4 | **Author Search** | Find authors by name (in-memory index + S2 API fallback) | Author name query string | Matching author list | [architecture-author-search.md](architecture-author-search.md) |
+| 5 | **Cache Layer** | Populate Firestore cache from BigQuery | Cloud Tasks (priority + batch queues) | Firestore cache documents | [architecture-cache-layer.md](architecture-cache-layer.md) |
 
 ---
 
@@ -52,35 +50,34 @@ PiP Score is a system for analyzing Google Scholar data using percentile-based, 
 
 | Store | Role | Written by | Read by |
 |---|---|---|---|
-| **GCS `authors_json/`** | Raw author JSON (staging) | Crawler | Ingestion |
-| **GCS `publications_json/`** | Raw publication JSON (staging) | Crawler | Ingestion |
-| **GCS `authors_archive/`** | Archived author JSON | Ingestion | (debugging only) |
-| **GCS `publications_archive/`** | Archived publication JSON | Ingestion | (debugging only) |
-| **GCS `dead_letter/`** | Failed files | Ingestion | (debugging only) |
-| **GCS `all_authors_stats.csv`** | Author rankings export | Frontend | Frontend (signed URL download) |
-| **BigQuery `scholar_raw_data.author`** | Raw author records | Ingestion | Analytics (via `_latest` views) |
-| **BigQuery `scholar_raw_data.pub`** | Raw publication records | Ingestion | Analytics (via `_latest` views) |
-| **BigQuery views** | Computed metrics/percentiles | Analytics | Cache Layer, Refresh & Expand |
-| **BigQuery materialized tables** | Daily snapshots of views | Analytics | Cache Layer (bulk exports) |
+| **GCS `s2_datasets/`** | Downloaded S2 dataset files (staging) | Dataset Ingestion | Dataset Ingestion (→ BigQuery load) |
+| **BigQuery `s2_data.papers`** | S2 paper records (233M rows) | Dataset Ingestion | Analytics |
+| **BigQuery `s2_data.citations`** | S2 citation records (5.6B rows) | Dataset Ingestion | Analytics |
+| **BigQuery `s2_data.authors`** | S2 author records (102M rows) | Dataset Ingestion | Analytics |
+| **BigQuery `s2_data.author_paper_bridge`** | Derived: authorid → corpusid mapping | Dataset Ingestion | Analytics |
+| **BigQuery `s2_data.author_paper_stats`** | Derived: author publication summaries | Dataset Ingestion | Analytics |
+| **BigQuery `s2_data.paper_citations_by_year`** | Derived: per-paper citation counts by year | Dataset Ingestion | Analytics |
+| **BigQuery `statistics.*` tables** | Materialized analytics (7-level DAG, 22 tables) | Materialization (during ingestion) | Cache Layer, Author Search |
+| **BigQuery `statistics.*` views** | Live analytics views (kept for dev/debugging) | CI/CD (bigquery-views.yml) | Dev/debugging only |
 | **Firestore (cache collections)** | Query result cache | Cache Layer | Frontend, Author Search |
-| **Cloud Tasks `process-authors`** | Author fetch queue | Refresh & Expand | Crawler |
-| **Cloud Tasks `process-pubs`** | Publication fetch queue | Crawler | Crawler |
-| **Cloud Tasks `cache-priority`** | Interactive cache population | Frontend (on miss), Ingestion (on load) | Cache Layer |
-| **Cloud Tasks `cache-batch`** | Background cache warming/rebuild | Cloud Scheduler, Refresh, Cache Layer | Cache Layer |
+| **Cloud Tasks `cache-priority`** | Interactive cache population | Frontend (on miss) | Cache Layer |
+| **Cloud Tasks `cache-batch`** | Background cache warming/rebuild | Cloud Scheduler | Cache Layer |
 
 ---
 
 ## Design Decisions
 
-1. **Staleness tracking: BigQuery.** Use `SELECT MAX(timestamp) FROM scholar_raw_data.author WHERE document_id = @id`. This eliminates Firestore as a dependency for Refresh & Expand. BigQuery latency (~500ms) is acceptable since staleness checks run on schedules, not in user-facing request paths.
+1. **Data source: Semantic Scholar bulk datasets.** S2 provides weekly diff releases of their full academic graph (200M+ papers, 102M authors). Monthly ingestion with diff application keeps data fresh while controlling BigQuery costs.
 
-2. **Author search: Separate component (Component 6).** A dedicated service with local BigQuery search before Scholar fallback. Benefits from 9-region rotation for Scholar API calls. The frontend does not import `scholarly`.
+2. **Full DAG materialization.** All analytics views (7 topological levels) are materialized into tables during each monthly ingestion. Data is static between loads — live views would waste compute on every query. Views are kept for development and debugging.
 
-3. **On-demand latency: Show "queued" status.** The crawler is not real-time. When a user searches for an unknown author, Refresh & Expand enqueues the crawl and the frontend shows "Author queued for analysis." No event-driven ingestion needed for most cases.
+3. **Author search: In-memory index with S2 API fallback.** An in-memory index of ~360K prominent S2 authors (hindex ≥ 20, citedby > 5000) runs inside the frontend Cloud Run service, refreshed every 6 hours from BigQuery. For less-known researchers, the S2 API provides fallback coverage of the full 102M author universe.
 
-4. **Self-contained components.** Each component (`frontend/`, `crawler/`, `ingestion/`, `refresh/`, `author_search/`, `cache_layer/`) has its own `config.py`, service modules, `requirements.txt`, and tests. No shared code directory — components are fully independent.
+4. **Cache Layer separation (Component 5).** The frontend does not query BigQuery directly. A dedicated Cache Layer service owns all BigQuery reads and Firestore writes. Benefits: (a) frontend latency is bounded by Firestore read time, not BigQuery query time; (b) BigQuery costs are controlled by the cache layer, not by user traffic; (c) BigQuery outages don't take down the frontend; (d) the cache is fully disposable and can be rebuilt from BigQuery.
 
-5. **Cache Layer separation (Component 7).** The frontend does not query BigQuery directly. A dedicated Cache Layer service owns all BigQuery reads and Firestore writes. Benefits: (a) frontend latency is bounded by Firestore read time, not BigQuery query time; (b) BigQuery costs are controlled by the cache layer, not by user traffic; (c) BigQuery outages don't take down the frontend (it serves whatever is in cache); (d) the cache is fully disposable and can be rebuilt from BigQuery at any time. Two Cloud Tasks queues (priority + batch) separate interactive requests from background warming.
+5. **Client-side visualization.** Charts are rendered in the browser using Plotly.js. The server passes structured JSON data to templates; no server-side chart generation.
+
+6. **Self-contained components.** Each component (`frontend/`, `cache_layer/`, `dataset_ingestion/`, `author_search/`, `ingestion/`) has its own `config.py`, service modules, `requirements.txt`, and tests.
 
 ---
 
@@ -90,39 +87,32 @@ PiP Score is a system for analyzing Google Scholar data using percentile-based, 
 
 | Area | Cost | Notes |
 |---|---|---|
-| **GCS storage** | Negligible | Raw JSON + archives < 1GB |
+| **GCS storage** | Moderate | S2 dataset files (~100GB per release, cleaned after load) |
 | **Cloud Tasks** | Near-zero | Low volume |
-| **BigQuery storage** | Minimal | Small raw + materialized tables |
-| **Daily batch ingestion** | Free tier | One load job per day |
-| **9-region function deployment** | Low | Minimal cost when idle, needed for rate-limit avoidance |
+| **BigQuery storage** | Moderate | S2 raw tables + materialized analytics tables |
+| **Monthly ingestion** | Moderate | Bulk load + full DAG materialization (22 tables) |
 | **Firestore cache** | Low | 5-7 reads per page view |
-| **Server-side matplotlib** | Moderate | ~200-500ms CPU per page load for 4-6 charts |
+| **Client-side Plotly.js** | Zero server cost | Charts render in the browser |
 
 ### Performance characteristics
 
-| Operation | Latency | Mitigation |
+| Operation | Latency | Notes |
 |---|---|---|
 | Frontend page load (cache hit) | ~50-100ms | Firestore read only — no BigQuery in request path |
-| Frontend page load (cache miss) | 2-5s | Priority queue → Cache Layer → BigQuery → Firestore; user sees loading page then auto-refresh |
-| BigQuery per-author query (Cache Layer) | 1-3s | Runs in Cache Layer, not frontend. Distribution table lookups keep view cost low. |
-| matplotlib chart generation | 200-500ms | Could move to client-side JS charting in the future. |
-| scholarly.fill() for author | 10-60s | Unavoidable — Scholar is slow. 1-hour timeout is appropriate. |
-| scholarly.search_author() | 2-5s | Local BigQuery search first (Component 6) avoids this for most queries. |
-| Bulk export (all authors) | 5-15s | Uses materialized tables. Pre-generated CSV served from GCS. |
-| Full cache rebuild | Minutes | Batch queue fan-out; runs in background, no user impact. |
+| Frontend page load (cache miss) | 2-5s | Priority queue → Cache Layer → BigQuery → Firestore; user sees loading page |
+| BigQuery per-author query (Cache Layer) | 1-3s | Materialized table lookups keep cost low |
+| Author search (in-memory) | <10ms | Instant substring matching on ~360K authors |
+| Author search (S2 API fallback) | 1-3s | For authors not in the in-memory index |
+| Bulk export (all authors) | 5-15s | Pre-materialized tables; CSV served from GCS |
+| Full cache rebuild | Minutes | Batch queue fan-out; runs in background |
+| Monthly S2 ingestion + materialization | Hours | Full dataset diff + 7-level DAG materialization |
 
 ---
 
-## Future Directions
+## Legacy Components
 
-| Feature | Description |
-|---|---|
-| **REST API** | Expose authors, publications, and stats as JSON API endpoints for third-party integrations. Cache Layer already provides the data; API would read from Firestore. |
-| **Client-side charting** | Replace server-side matplotlib with Chart.js/Plotly for interactive plots. Data served via API from Firestore cache. |
-| **Field-specific benchmarks** | Compare against specific fields (business, CS, biology) with per-field percentiles |
-| **Crossref integration** | Enrich publications with DOIs and metadata from Crossref |
-| **Author comparison** | Side-by-side PiP-AUC and percentile plots for multiple authors |
+The `ingestion/` directory contains the original GCS → BigQuery batch load pipeline for Google Scholar data (`scholar_raw_data` dataset). This is superseded by `dataset_ingestion/` which handles Semantic Scholar bulk datasets. The legacy code is retained but not actively used.
 
 ---
 
-_Last updated: 2026-03-23_
+_Last updated: 2026-03-30_

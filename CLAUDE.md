@@ -101,8 +101,8 @@ scholar_v2/
 
 4. SERVE:  Flask app reads from Firestore cache only (no direct BigQuery)
              → On cache miss: enqueues priority task → returns loading page
-             → matplotlib generates percentile rank + PiP scatter plots from cached data
-             → HTML templates render with base64-encoded PNG images
+             → Plotly.js renders interactive charts client-side from structured JSON data
+             → HTML templates render with Plotly chart containers
 
 5. SEARCH: Author search runs in the frontend Cloud Run service (in-memory):
              → In-memory index of ~360K prominent S2 authors (refreshed every 6h from BQ)
@@ -150,7 +150,7 @@ Ranked views default to `active_authors` for user-facing percentiles.
 | 6 | **`dist_pip_auc_scores_temporal`** ᵀ | Temporal PiP distribution |
 | 7 | `ranked_author_pip_scores_temporal` | Temporal PiP ranked |
 
-ᵀ = Materialized TABLE (quarterly). All others are live VIEWs.
+All views/tables above are materialized into `_table` versions monthly during ingestion. Views are kept for dev/debugging.
 
 ### Materialization schedule
 
@@ -165,7 +165,7 @@ Ranked views default to `active_authors` for user-facing percentiles.
 - **Flask** on Google Cloud Run
 - **Semantic Scholar** bulk datasets (200M papers, 2.4B citations, 102M authors)
 - **GCP**: Cloud Run (frontend + cache layer + dataset ingestion), Cloud Functions (ingestion), Firestore, BigQuery, Cloud Storage, Cloud Tasks
-- **matplotlib** for visualization (server-side PNG)
+- **Plotly.js** for visualization (client-side interactive charts)
 - **pandas / numpy** for data manipulation
 - **Docker** (Python 3.12-slim)
 

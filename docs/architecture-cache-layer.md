@@ -1,4 +1,4 @@
-# Component 7: Cache Layer
+# Component 5: Cache Layer
 
 > Part of [System Architecture](ARCHITECTURE.md)
 
