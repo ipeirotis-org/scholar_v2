@@ -101,7 +101,7 @@ jobs:
   materialize:
     name: Materialize full analytics DAG
     needs: preflight
-    if: needs.preflight.outputs.should_run == 'true' || github.event_name == 'workflow_dispatch'
+    if: always() && (needs.preflight.outputs.should_run == 'true' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
 
     permissions:

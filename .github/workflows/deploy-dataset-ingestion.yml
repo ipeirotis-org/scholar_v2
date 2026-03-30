@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'dataset_ingestion/**'
+      - 'bigquery/**'
       - '.github/workflows/deploy-dataset-ingestion.yml'
 
   workflow_dispatch:
