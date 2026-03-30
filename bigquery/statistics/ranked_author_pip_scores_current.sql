@@ -2,8 +2,8 @@ CREATE OR REPLACE VIEW `scholar-version2.statistics.ranked_author_pip_scores_cur
 -- Level 5: PiP-AUC scores enriched with percentile.
 -- Uses scalar subquery against dist_pip_auc_scores instead of range join.
 -- Percentiles are computed against the 'active_authors' benchmark.
--- Reads from stats_author_pip_scores_current_table (materialized in Level 4)
--- to avoid re-executing the PiP-AUC computation.
+-- Reads from stats_author_pip_scores_current (view). During materialization,
+-- the pipeline substitutes _table references for performance.
 SELECT
   a.scholar_id,
   a.year_of_first_pub,
@@ -14,4 +14,4 @@ SELECT
        AND d.year_of_first_pub = a.year_of_first_pub AND d.pip_auc_score <= a.pip_auc_score),
     0.0
   ) AS pip_auc_score_percentile
-FROM `scholar-version2.statistics.stats_author_pip_scores_current_table` a;
+FROM `scholar-version2.statistics.stats_author_pip_scores_current` a;

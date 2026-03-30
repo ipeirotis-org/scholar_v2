@@ -7,10 +7,9 @@
 --
 -- Only active_authors benchmark for temporal.
 --
--- PREREQUISITE: stats_author_pip_scores_temporal_table must be materialized
--- first (Level 5 in the monthly pipeline). This query reads from the
--- materialized table to avoid re-executing the most expensive view in
--- the system.
+-- PREREQUISITE: stats_author_pip_scores_temporal_view must exist.
+-- During pipeline materialization, view references are substituted with
+-- _table references for performance.
 
 CREATE OR REPLACE TABLE `scholar-version2.statistics.dist_pip_auc_scores_temporal`
 CLUSTER BY benchmark, year_of_first_pub, state_year
@@ -28,7 +27,7 @@ SELECT DISTINCT * FROM (
   FROM (
     SELECT year_of_first_pub, state_year,
            APPROX_QUANTILES(pip_auc_score, 1000) AS quantiles
-    FROM `scholar-version2.statistics.stats_author_pip_scores_temporal_table`
+    FROM `scholar-version2.statistics.stats_author_pip_scores_temporal_view`
     WHERE scholar_id IN (SELECT scholar_id FROM ActiveAuthors)
     GROUP BY year_of_first_pub, state_year
   ), UNNEST(quantiles) AS value WITH OFFSET AS offset

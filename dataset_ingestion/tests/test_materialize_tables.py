@@ -99,6 +99,29 @@ class TestRunSql:
         assert result == 42
 
 
+class TestApplyTableSubstitutions:
+    def test_substitutes_known_views(self):
+        sql = "FROM `scholar-version2.statistics.stats_author_metrics_temporal_view`"
+        result = materialize_tables._apply_table_substitutions(sql)
+        assert "stats_author_metrics_temporal_table`" in result
+        assert "stats_author_metrics_temporal_view" not in result
+
+    def test_substitutes_pip_scores_current(self):
+        sql = "FROM `scholar-version2.statistics.stats_author_pip_scores_current`"
+        result = materialize_tables._apply_table_substitutions(sql)
+        assert "stats_author_pip_scores_current_table`" in result
+
+    def test_substitutes_pip_scores_temporal(self):
+        sql = "FROM `scholar-version2.statistics.stats_author_pip_scores_temporal_view`"
+        result = materialize_tables._apply_table_substitutions(sql)
+        assert "stats_author_pip_scores_temporal_table`" in result
+
+    def test_leaves_unknown_views_unchanged(self):
+        sql = "FROM `scholar-version2.statistics.ranked_author_current`"
+        result = materialize_tables._apply_table_substitutions(sql)
+        assert result == sql
+
+
 class TestMaterializeFromView:
     @patch.object(materialize_tables, "_get_bq_client")
     def test_reads_sql_and_executes(self, mock_get_client):

@@ -32,6 +32,17 @@ _bq_client = None
 # Path to the SQL files directory
 _SQL_DIR = pathlib.Path(__file__).resolve().parent.parent / "bigquery" / "statistics"
 
+# View → table substitutions applied during materialization.
+# SQL files reference views so they work standalone (without requiring
+# materialized tables to exist). During pipeline execution, we substitute
+# _table references so each level reads from the previous level's
+# materialized output instead of re-executing expensive view chains.
+_TABLE_SUBSTITUTIONS = {
+    "statistics.stats_author_metrics_temporal_view`": "statistics.stats_author_metrics_temporal_table`",
+    "statistics.stats_author_pip_scores_current`": "statistics.stats_author_pip_scores_current_table`",
+    "statistics.stats_author_pip_scores_temporal_view`": "statistics.stats_author_pip_scores_temporal_table`",
+}
+
 
 def _get_bq_client():
     global _bq_client
@@ -105,16 +116,30 @@ def _run_sql(sql, description):
     return 0
 
 
+def _apply_table_substitutions(sql):
+    """Replace view references with materialized table references.
+
+    SQL files reference views so they work standalone. During pipeline
+    execution, we substitute _table names so downstream levels read from
+    previously materialized tables instead of re-executing view chains.
+    """
+    for view_ref, table_ref in _TABLE_SUBSTITUTIONS.items():
+        sql = sql.replace(view_ref, table_ref)
+    return sql
+
+
 def _materialize_from_view(view_sql_file, table_name, cluster_by, partition_by=None):
     """Read a view SQL file, convert to table, and execute."""
     view_sql = _read_sql(view_sql_file)
     table_sql = _view_to_table_sql(view_sql, table_name, cluster_by, partition_by)
+    table_sql = _apply_table_substitutions(table_sql)
     return _run_sql(table_sql, table_name)
 
 
 def _materialize_dist(dist_sql_file, description):
     """Execute a distribution table SQL file directly (already CREATE TABLE)."""
     sql = _read_sql(dist_sql_file)
+    sql = _apply_table_substitutions(sql)
     return _run_sql(sql, description)
 
 
