@@ -56,5 +56,5 @@ SELECT
        AND d.year_of_first_pub = b.year_of_first_pub AND d.state_year = b.state_year
        AND d.metric_name = 'i10_index_5y' AND d.metric_value <= b.i10_index_5y),
     0.0) AS i10_index_5y_percentile
-FROM `scholar-version2.statistics.stats_author_metrics_temporal_view` b
+FROM `scholar-version2.statistics.stats_author_metrics_temporal_table` b
 WHERE b.year_of_first_pub IS NOT NULL;

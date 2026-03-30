@@ -41,7 +41,7 @@ WITH
       state_year,
       year_of_first_pub,
       total_publications
-    FROM `scholar-version2.statistics.stats_author_metrics_temporal_view`
+    FROM `scholar-version2.statistics.stats_author_metrics_temporal_table`
     WHERE year_of_first_pub IS NOT NULL
   ),
 

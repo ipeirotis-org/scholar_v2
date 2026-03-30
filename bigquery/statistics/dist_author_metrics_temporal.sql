@@ -31,7 +31,7 @@ WITH
       h_index_5y,
       i10_index,
       i10_index_5y
-    FROM `scholar-version2.statistics.stats_author_metrics_temporal_view`
+    FROM `scholar-version2.statistics.stats_author_metrics_temporal_table`
     WHERE year_of_first_pub IS NOT NULL
   ),
   ActiveAuthors AS (
