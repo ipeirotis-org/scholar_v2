@@ -27,6 +27,7 @@ from dataset_ingestion.loader import (
     load_dataset,
     log_release,
 )
+from dataset_ingestion.materialize_tables import materialize_all
 
 logging.basicConfig(
     level=logging.INFO,
@@ -99,6 +100,15 @@ def run_full_load(release_id):
         log_release(release_id, "derived_tables", "full", "failed")
         raise
     log_release(release_id, "derived_tables", "full", "success")
+
+    # Materialize the full analytics DAG (distributions + ranked tables)
+    logger.info("Materializing analytics tables...")
+    try:
+        materialize_all()
+    except Exception:
+        log_release(release_id, "materialized_tables", "full", "failed")
+        raise
+    log_release(release_id, "materialized_tables", "full", "success")
 
     logger.info("Full load complete for release %s", release_id)
 
@@ -191,6 +201,15 @@ def run_diff_load(last_release, target_release):
         log_release(target_release, "derived_tables", "diff", "failed")
         raise
     log_release(target_release, "derived_tables", "diff", "success")
+
+    # Materialize the full analytics DAG (distributions + ranked tables)
+    logger.info("Materializing analytics tables...")
+    try:
+        materialize_all()
+    except Exception:
+        log_release(target_release, "materialized_tables", "diff", "failed")
+        raise
+    log_release(target_release, "materialized_tables", "diff", "success")
 
     logger.info("Diff load complete: %s -> %s", last_release, target_release)
 

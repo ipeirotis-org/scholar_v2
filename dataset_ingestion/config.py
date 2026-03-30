@@ -29,11 +29,18 @@ class Config:
     AUTHOR_PAPER_BRIDGE_TABLE = "author_paper_bridge"
     RELEASE_LOG_TABLE = "release_log"
 
+    # Statistics dataset (analytics views and materialized tables)
+    BQ_STATS_DATASET = os.environ.get("BQ_STATS_DATASET", "statistics")
+
     # Datasets to ingest (order matters: papers first for derived tables)
     DATASETS = ["papers", "citations", "authors"]
 
     # All dataset_name values that must have status='success' for a release
-    # to be considered complete (base datasets + derived tables).
+    # to be considered complete for diff-baseline purposes.
+    # Note: materialized_tables is NOT included here because it's a
+    # post-processing step. Including it would reject all pre-existing
+    # releases that were loaded before materialization was introduced,
+    # forcing an unnecessary full reload on the first auto-mode run.
     REQUIRED_SUCCESS_MARKERS = ["papers", "citations", "authors", "derived_tables"]
 
     # Download settings
@@ -56,3 +63,12 @@ class Config:
     @classmethod
     def gcs_uri_pattern(cls, release_id, dataset_name):
         return f"gs://{cls.BUCKET_NAME}/{cls.gcs_dataset_prefix(release_id, dataset_name)}*.gz"
+
+    @classmethod
+    def bq_stats_table(cls, table_name):
+        return f"{cls.PROJECT_ID}.{cls.BQ_STATS_DATASET}.{table_name}"
+
+    @classmethod
+    def bq_stats_table_ref(cls, table_name):
+        """Backtick-quoted statistics table reference for use in SQL."""
+        return f"`{cls.bq_stats_table(table_name)}`"

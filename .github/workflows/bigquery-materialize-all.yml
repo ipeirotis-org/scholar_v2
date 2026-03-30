@@ -1,0 +1,267 @@
+name: Materialize All BigQuery Tables
+
+on:
+  # Fallback schedule — runs on the 1st of each month at 08:00 UTC
+  # (6 hours after ingestion starts at 02:00 UTC).
+  # Primary materialization happens inside the ingestion Cloud Run Job.
+  # This workflow is a safety net in case the ingestion job's
+  # materialization step fails and needs to be re-run independently.
+  schedule:
+    - cron: '0 8 1 * *'
+
+  # Allow manual trigger for ad-hoc refreshes
+  workflow_dispatch:
+
+env:
+  PROJECT_ID: scholar-version2
+  P: scholar-version2
+
+jobs:
+  preflight:
+    name: Check ingestion status
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+
+    outputs:
+      should_run: ${{ steps.check.outputs.should_run }}
+      release_id: ${{ steps.check.outputs.release_id }}
+
+    steps:
+    - name: Authenticate to Google Cloud
+      uses: google-github-actions/auth@v3
+      with:
+        credentials_json: '${{ secrets.GCP_SA_KEY }}'
+
+    - name: Set up Cloud SDK
+      uses: google-github-actions/setup-gcloud@v3
+      with:
+        project_id: ${{ env.PROJECT_ID }}
+
+    - name: Check latest ingestion status
+      id: check
+      run: |
+        set -o pipefail
+
+        # Find the latest release where the most recent derived_tables entry is 'success'.
+        # Uses ROW_NUMBER to get the latest status per release (handles re-runs where
+        # a later attempt may have failed after an earlier success).
+        BQ_OUTPUT=$(bq query --project_id=${{ env.PROJECT_ID }} --use_legacy_sql=false \
+          --format=csv --max_rows=1 \
+          "WITH latest AS (
+             SELECT release_id, status,
+               ROW_NUMBER() OVER (PARTITION BY release_id ORDER BY timestamp DESC) AS rn
+             FROM \`${{ env.PROJECT_ID }}.s2_data.release_log\`
+             WHERE dataset_name = 'derived_tables'
+               AND timestamp > TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 35 DAY)
+           )
+           SELECT release_id FROM latest
+           WHERE rn = 1 AND status = 'success'
+           ORDER BY release_id DESC LIMIT 1")
+        BQ_EXIT=$?
+
+        if [ $BQ_EXIT -ne 0 ]; then
+          echo "::error::BigQuery query failed (exit $BQ_EXIT) — cannot determine ingestion status"
+          exit 1
+        fi
+
+        RELEASE=$(echo "$BQ_OUTPUT" | tail -1)
+
+        # Guard against CSV header row being returned as the value
+        if [ "$RELEASE" = "release_id" ] || [ -z "$RELEASE" ]; then
+          echo "No successful ingestion in the last 35 days — skipping"
+          echo "should_run=false" >> "$GITHUB_OUTPUT"
+          echo "release_id=" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+
+        echo "Latest ingested release: $RELEASE"
+
+        # Check if materialization already succeeded for this release
+        MAT_OUTPUT=$(bq query --project_id=${{ env.PROJECT_ID }} --use_legacy_sql=false \
+          --format=csv --max_rows=1 \
+          "SELECT status FROM \`${{ env.PROJECT_ID }}.s2_data.release_log\`
+           WHERE release_id = '$RELEASE'
+             AND dataset_name = 'materialized_tables'
+           ORDER BY timestamp DESC LIMIT 1")
+        MAT_STATUS=$(echo "$MAT_OUTPUT" | tail -1)
+
+        if [ "$MAT_STATUS" = "success" ]; then
+          echo "Materialization already succeeded for $RELEASE — skipping"
+          echo "should_run=false" >> "$GITHUB_OUTPUT"
+          echo "release_id=$RELEASE" >> "$GITHUB_OUTPUT"
+        else
+          echo "Materialization needed for $RELEASE (status: ${MAT_STATUS:-none})"
+          echo "should_run=true" >> "$GITHUB_OUTPUT"
+          echo "release_id=$RELEASE" >> "$GITHUB_OUTPUT"
+        fi
+
+  materialize:
+    name: Materialize full analytics DAG
+    needs: preflight
+    if: always() && (needs.preflight.outputs.should_run == 'true' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v6
+
+    - name: Authenticate to Google Cloud
+      uses: google-github-actions/auth@v3
+      with:
+        credentials_json: '${{ secrets.GCP_SA_KEY }}'
+
+    - name: Set up Cloud SDK
+      uses: google-github-actions/setup-gcloud@v3
+      with:
+        project_id: ${{ env.PROJECT_ID }}
+
+    # ── Level 1: Foundation (independent) ─────────────────────────────
+    # Views → tables + distribution tables
+    - name: 'Level 1: base_author_publications_table'
+      run: |
+        bq query --project_id=$P --use_legacy_sql=false \
+          "CREATE OR REPLACE TABLE \`$P.statistics.base_author_publications_table\`
+           CLUSTER BY scholar_id
+           AS SELECT * FROM \`$P.statistics.base_author_publications\`"
+
+    - name: 'Level 1: stats_publication_current_table'
+      run: |
+        bq query --project_id=$P --use_legacy_sql=false \
+          "CREATE OR REPLACE TABLE \`$P.statistics.stats_publication_current_table\`
+           CLUSTER BY author_pub_id, pub_year
+           AS SELECT * FROM \`$P.statistics.stats_publication_current\`"
+
+    - name: 'Level 1: stats_author_current_table'
+      run: |
+        bq query --project_id=$P --use_legacy_sql=false \
+          "CREATE OR REPLACE TABLE \`$P.statistics.stats_author_current_table\`
+           CLUSTER BY scholar_id, year_of_first_pub
+           AS SELECT * FROM \`$P.statistics.stats_author_current\`"
+
+    - name: 'Level 1: dist_publication_citations'
+      run: bq query --project_id=$P --use_legacy_sql=false < bigquery/statistics/dist_publication_citations.sql
+
+    - name: 'Level 1: dist_author_metrics'
+      run: bq query --project_id=$P --use_legacy_sql=false < bigquery/statistics/dist_author_metrics.sql
+
+    # ── Level 2: Temporal foundation + first ranked ───────────────────
+    - name: 'Level 2: stats_publication_citations_temporal_table'
+      run: |
+        bq query --project_id=$P --use_legacy_sql=false \
+          "CREATE OR REPLACE TABLE \`$P.statistics.stats_publication_citations_temporal_table\`
+           CLUSTER BY author_pub_id, pub_year, citation_year
+           AS SELECT * FROM \`$P.statistics.stats_publication_citations_temporal\`"
+
+    - name: 'Level 2: ranked_publication_current_table'
+      run: |
+        bq query --project_id=$P --use_legacy_sql=false \
+          "CREATE OR REPLACE TABLE \`$P.statistics.ranked_publication_current_table\`
+           CLUSTER BY author_pub_id, pub_year
+           AS SELECT * FROM \`$P.statistics.ranked_publication_current\`"
+
+    - name: 'Level 2: intermediate_author_publication_state_temporal_table'
+      run: |
+        bq query --project_id=$P --use_legacy_sql=false \
+          "CREATE OR REPLACE TABLE \`$P.statistics.intermediate_author_publication_state_temporal_table\`
+           CLUSTER BY scholar_id, author_pub_id, state_year
+           AS SELECT * FROM \`$P.statistics.intermediate_author_publication_state_temporal\`"
+
+    - name: 'Level 2: dist_publication_citations_temporal'
+      run: bq query --project_id=$P --use_legacy_sql=false < bigquery/statistics/dist_publication_citations_temporal.sql
+
+    # ── Level 3: Metrics + PiP inputs + ranked ────────────────────────
+    - name: 'Level 3: stats_author_metrics_temporal_table'
+      run: |
+        bq query --project_id=$P --use_legacy_sql=false \
+          "CREATE OR REPLACE TABLE \`$P.statistics.stats_author_metrics_temporal_table\`
+           CLUSTER BY scholar_id, state_year
+           AS SELECT * FROM \`$P.statistics.stats_author_metrics_temporal_view\`"
+
+    - name: 'Level 3: stats_author_publication_pip_inputs_current_table'
+      run: |
+        bq query --project_id=$P --use_legacy_sql=false \
+          "CREATE OR REPLACE TABLE \`$P.statistics.stats_author_publication_pip_inputs_current_table\`
+           CLUSTER BY scholar_id
+           AS SELECT * FROM \`$P.statistics.stats_author_publication_pip_inputs_current\`"
+
+    - name: 'Level 3: ranked_author_current_table'
+      run: |
+        bq query --project_id=$P --use_legacy_sql=false \
+          "CREATE OR REPLACE TABLE \`$P.statistics.ranked_author_current_table\`
+           CLUSTER BY scholar_id, year_of_first_pub
+           AS SELECT * FROM \`$P.statistics.ranked_author_current\`"
+
+    - name: 'Level 3: ranked_publication_citations_temporal_table'
+      run: |
+        bq query --project_id=$P --use_legacy_sql=false \
+          "CREATE OR REPLACE TABLE \`$P.statistics.ranked_publication_citations_temporal_table\`
+           CLUSTER BY author_pub_id, pub_year, citation_year
+           AS SELECT * FROM \`$P.statistics.ranked_publication_citations_temporal\`"
+
+    # ── Level 4: PiP scores + distributions ───────────────────────────
+    - name: 'Level 4: stats_author_pip_scores_current_table'
+      run: |
+        bq query --project_id=$P --use_legacy_sql=false \
+          "CREATE OR REPLACE TABLE \`$P.statistics.stats_author_pip_scores_current_table\`
+           CLUSTER BY scholar_id, year_of_first_pub
+           AS SELECT * FROM \`$P.statistics.stats_author_pip_scores_current\`"
+
+    - name: 'Level 4: dist_pip_auc_scores'
+      run: bq query --project_id=$P --use_legacy_sql=false < bigquery/statistics/dist_pip_auc_scores.sql
+
+    - name: 'Level 4: dist_author_metrics_temporal'
+      run: bq query --project_id=$P --use_legacy_sql=false < bigquery/statistics/dist_author_metrics_temporal.sql
+
+    # ── Level 5: Ranked PiP + temporal ranked ─────────────────────────
+    - name: 'Level 5: ranked_author_pip_scores_current_table'
+      run: |
+        bq query --project_id=$P --use_legacy_sql=false \
+          "CREATE OR REPLACE TABLE \`$P.statistics.ranked_author_pip_scores_current_table\`
+           CLUSTER BY scholar_id
+           AS SELECT * FROM \`$P.statistics.ranked_author_pip_scores_current\`"
+
+    - name: 'Level 5: ranked_author_metrics_temporal_table'
+      run: |
+        bq query --project_id=$P --use_legacy_sql=false \
+          "CREATE OR REPLACE TABLE \`$P.statistics.ranked_author_metrics_temporal_table\`
+           CLUSTER BY scholar_id, state_year
+           AS SELECT * FROM \`$P.statistics.ranked_author_metrics_temporal\`"
+
+    - name: 'Level 5: stats_author_pip_scores_temporal_table'
+      run: |
+        bq query --project_id=$P --use_legacy_sql=false \
+          "CREATE OR REPLACE TABLE \`$P.statistics.stats_author_pip_scores_temporal_table\`
+           CLUSTER BY scholar_id, state_year
+           AS SELECT * FROM \`$P.statistics.stats_author_pip_scores_temporal_view\`"
+
+    # ── Level 6: Temporal PiP distribution ────────────────────────────
+    - name: 'Level 6: dist_pip_auc_scores_temporal'
+      run: bq query --project_id=$P --use_legacy_sql=false < bigquery/statistics/dist_pip_auc_scores_temporal.sql
+
+    # ── Level 7: Temporal PiP ranked ──────────────────────────────────
+    - name: 'Level 7: ranked_author_pip_scores_temporal_table'
+      run: |
+        bq query --project_id=$P --use_legacy_sql=false \
+          "CREATE OR REPLACE TABLE \`$P.statistics.ranked_author_pip_scores_temporal_table\`
+           CLUSTER BY scholar_id, state_year
+           AS SELECT * FROM \`$P.statistics.ranked_author_pip_scores_temporal\`"
+
+    # ── Log success to release_log ────────────────────────────────────
+    - name: Log materialization success
+      if: success()
+      run: |
+        RELEASE_ID="${{ needs.preflight.outputs.release_id }}"
+        if [ -z "$RELEASE_ID" ]; then
+          RELEASE_ID="manual-$(date -u +%Y-%m-%d)"
+        fi
+        bq query --project_id=$P --use_legacy_sql=false \
+          "INSERT INTO \`$P.s2_data.release_log\`
+           (release_id, dataset_name, load_type, status, rows_loaded, timestamp)
+           VALUES ('$RELEASE_ID', 'materialized_tables', 'fallback', 'success', 0, CURRENT_TIMESTAMP())"
