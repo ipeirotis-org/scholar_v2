@@ -58,7 +58,7 @@ PiP Score is a distributed system for analyzing research impact using percentile
 | **BigQuery `s2_data.author_paper_stats`** | Derived: author publication summaries | Dataset Ingestion | Analytics |
 | **BigQuery `s2_data.paper_citations_by_year`** | Derived: per-paper citation counts by year | Dataset Ingestion | Analytics |
 | **BigQuery `statistics.*` tables** | Materialized analytics (7-level DAG, 21 tables) | Materialization (during ingestion) | Cache Layer, Author Search |
-| **BigQuery `statistics.*` views** | Live analytics views (kept for dev/debugging) | CI/CD (bigquery-views.yml) | Dev/debugging only |
+| **BigQuery `statistics.*` views** | Live analytics views | CI/CD (bigquery-views.yml) | Cache Layer (when `USE_MATERIALIZED_TABLES=false`), dev/debugging |
 | **Firestore (cache collections)** | Query result cache | Cache Layer | Frontend, Author Search |
 | **Cloud Tasks `cache-priority`** | Interactive cache population | Frontend (on miss) | Cache Layer |
 | **Cloud Tasks `cache-batch`** | Background cache warming/rebuild | Cloud Scheduler | Cache Layer |

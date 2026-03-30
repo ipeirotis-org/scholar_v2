@@ -16,7 +16,7 @@ However, these roles do **not** form three independent tiers. The PiP pipeline c
 
 ### 2. Materialize everything
 
-All views are materialized into tables during monthly ingestion. S2 data is static between bulk loads — live views would waste compute on every query. Views are kept for development and debugging, but app queries hit materialized `_table` versions via the `USE_MATERIALIZED_TABLES` flag.
+All views are materialized into tables during monthly ingestion. S2 data is static between bulk loads — live views waste compute on every query. The Cache Layer's `USE_MATERIALIZED_TABLES` config flag controls whether queries hit materialized `_table` versions or live views. Currently defaults to `false` in code; must be set via env var in production after materialization completes.
 
 ### 3. Refresh frequency matches data change rate
 

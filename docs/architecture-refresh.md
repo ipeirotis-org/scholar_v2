@@ -9,7 +9,7 @@ The original design called for a separate service to orchestrate data freshness 
 
 With the migration to Semantic Scholar bulk datasets, data freshness is handled differently:
 - **Monthly ingestion** from S2 (diff-based) keeps all 200M+ papers current
-- **Cache Layer** handles cache invalidation after ingestion
+- **Cache Layer** repopulates Firestore entries on demand (cache miss → priority queue). Note: the ingestion pipeline does not automatically trigger cache invalidation — stale Firestore entries are refreshed when next requested by a user
 - **No per-author crawling** is needed since S2 provides the full dataset
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for the current system design.
