@@ -19,7 +19,7 @@
 | Mode | Trigger | Source | Latency |
 |------|---------|--------|---------|
 | Typeahead | `typeahead=True` | In-memory index, top 10 | <10ms |
-| Full search | Default | In-memory index, top 50 | <10ms |
+| Full search | Default | In-memory index, top 50; S2 API fallback if 0 results | <10ms (hit), 1-3s (fallback) |
 | Extended search | `scholar=True` | In-memory + S2 API fallback | 1-3s |
 
 ## Architecture
@@ -39,7 +39,7 @@ The in-memory index enables instant typeahead with zero external calls for most 
 | **Reads** | BigQuery (`ranked_author_current_table` for index refresh) | |
 | | Firestore (search result cache, chunked index cache) | |
 | | Semantic Scholar API (fallback for unknown authors) | |
-| **Writes** | | Firestore (search result cache) |
+| **Writes** | | Firestore (search result cache, chunked index on bootstrap/manual rebuild) |
 
 ## Frontend integration
 
@@ -52,7 +52,7 @@ The in-memory index enables instant typeahead with zero external calls for most 
 
 | File | Role |
 |---|---|
-| `author_search/search_service.py` | In-memory index search (loaded from BQ, refreshed every 6h) |
+| `author_search/search_service.py` | In-memory index search (reloaded from Firestore every 6h) |
 | `author_search/bigquery_client.py` | Loads active S2 authors for the in-memory index |
 | `author_search/cache.py` | Firestore cache (24h TTL for search results, chunked index) |
 | `author_search/config.py` | Config with env var overrides |
