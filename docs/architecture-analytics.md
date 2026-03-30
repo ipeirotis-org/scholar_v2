@@ -52,7 +52,7 @@ Tier 3 — Ranked (cheap JOINs of Tier 1 + Tier 2):
 
 > Full details: [architecture-analytics-details.md](architecture-analytics-details.md)
 
-**All tables are materialized monthly** during S2 dataset ingestion by `dataset_ingestion/materialize_tables.py`. The full 7-level DAG is materialized in topological order — every view (stats, dist, and ranked) gets a corresponding `_table` version. Data is static between bulk loads, so live views waste compute.
+**All tables are materialized monthly** during S2 dataset ingestion by `dataset_ingestion/materialize_tables.py`. The full 7-level DAG is materialized in topological order. Stats and ranked views get `_table` suffixed counterparts (e.g., `stats_author_current_table`); distribution tables are materialized in-place as `dist_*` (no `_table` suffix). Data is static between bulk loads, so live views waste compute.
 
 Views are kept in BigQuery for development and debugging. App queries use the materialized `_table` versions.
 

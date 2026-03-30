@@ -61,7 +61,7 @@ PiP Score is a distributed system for analyzing research impact using percentile
 | **BigQuery `statistics.*` views** | Live analytics views | CI/CD (bigquery-views.yml) | Cache Layer (when `USE_MATERIALIZED_TABLES=false`), dev/debugging |
 | **Firestore (cache collections)** | Query result cache | Cache Layer | Frontend, Author Search |
 | **Cloud Tasks `cache-priority`** | Interactive cache population | Frontend (on miss) | Cache Layer |
-| **Cloud Tasks `cache-batch`** | Background cache warming/rebuild | Cloud Scheduler | Cache Layer |
+| **Cloud Tasks `cache-batch`** | Background cache warming/rebuild | Cloud Scheduler, Cache Layer (`rebuild_all` fan-out) | Cache Layer |
 
 ---
 
@@ -111,7 +111,7 @@ PiP Score is a distributed system for analyzing research impact using percentile
 
 ## Legacy Components
 
-The `ingestion/` directory contains the original GCS → BigQuery batch load pipeline for Google Scholar data (`scholar_raw_data` dataset). This is superseded by `dataset_ingestion/` which handles Semantic Scholar bulk datasets. The legacy code is retained but not actively used.
+The `ingestion/` directory contains the original GCS → BigQuery batch load pipeline for Google Scholar data (`scholar_raw_data` dataset). While superseded by `dataset_ingestion/` for S2 bulk datasets, it is still actively deployed: `deploy-ingestion.yml` provisions the `v3_batch_load_gcs_to_bq` Cloud Function and an hourly Cloud Scheduler job to process any remaining Google Scholar JSON files.
 
 ---
 

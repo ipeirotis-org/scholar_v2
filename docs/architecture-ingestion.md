@@ -73,4 +73,4 @@
 
 ## Legacy
 
-The `ingestion/` directory contains the original GCS → BigQuery batch load pipeline for Google Scholar data (`scholar_raw_data` dataset). It is superseded by this component and retained for reference only.
+The `ingestion/` directory contains the original GCS → BigQuery batch load pipeline for Google Scholar data (`scholar_raw_data` dataset). It is still actively deployed: `deploy-ingestion.yml` deploys the `v3_batch_load_gcs_to_bq` Cloud Function and an hourly Cloud Scheduler job (`batch-load-gcs-to-bq`). This handles any remaining Google Scholar JSON files landing in GCS.
