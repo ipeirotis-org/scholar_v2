@@ -2,6 +2,8 @@ CREATE OR REPLACE VIEW `scholar-version2.statistics.ranked_author_pip_scores_tem
 -- Level 7: Temporal PiP-AUC scores enriched with percentile.
 -- Uses scalar subquery against dist_pip_auc_scores_temporal instead of range join.
 -- Percentiles are computed against the 'active_authors' benchmark.
+-- Reads from stats_author_pip_scores_temporal_table (materialized in Level 5)
+-- to avoid re-executing the most expensive computation in the system.
 SELECT
   a.scholar_id,
   a.state_year,
@@ -14,4 +16,4 @@ SELECT
        AND d.pip_auc_score <= a.pip_auc_score),
     0.0
   ) AS pip_auc_score_percentile
-FROM `scholar-version2.statistics.stats_author_pip_scores_temporal_view` a;
+FROM `scholar-version2.statistics.stats_author_pip_scores_temporal_table` a;

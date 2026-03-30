@@ -43,10 +43,12 @@ jobs:
     - name: Check latest ingestion status
       id: check
       run: |
+        set -o pipefail
+
         # Find the latest release where the most recent derived_tables entry is 'success'.
         # Uses ROW_NUMBER to get the latest status per release (handles re-runs where
         # a later attempt may have failed after an earlier success).
-        RELEASE=$(bq query --project_id=${{ env.PROJECT_ID }} --use_legacy_sql=false \
+        BQ_OUTPUT=$(bq query --project_id=${{ env.PROJECT_ID }} --use_legacy_sql=false \
           --format=csv --max_rows=1 \
           "WITH latest AS (
              SELECT release_id, status,
@@ -57,7 +59,15 @@ jobs:
            )
            SELECT release_id FROM latest
            WHERE rn = 1 AND status = 'success'
-           ORDER BY release_id DESC LIMIT 1" 2>/dev/null | tail -1)
+           ORDER BY release_id DESC LIMIT 1")
+        BQ_EXIT=$?
+
+        if [ $BQ_EXIT -ne 0 ]; then
+          echo "::error::BigQuery query failed (exit $BQ_EXIT) — cannot determine ingestion status"
+          exit 1
+        fi
+
+        RELEASE=$(echo "$BQ_OUTPUT" | tail -1)
 
         # Guard against CSV header row being returned as the value
         if [ "$RELEASE" = "release_id" ] || [ -z "$RELEASE" ]; then
@@ -70,12 +80,13 @@ jobs:
         echo "Latest ingested release: $RELEASE"
 
         # Check if materialization already succeeded for this release
-        MAT_STATUS=$(bq query --project_id=${{ env.PROJECT_ID }} --use_legacy_sql=false \
+        MAT_OUTPUT=$(bq query --project_id=${{ env.PROJECT_ID }} --use_legacy_sql=false \
           --format=csv --max_rows=1 \
           "SELECT status FROM \`${{ env.PROJECT_ID }}.s2_data.release_log\`
            WHERE release_id = '$RELEASE'
              AND dataset_name = 'materialized_tables'
-           ORDER BY timestamp DESC LIMIT 1" 2>/dev/null | tail -1)
+           ORDER BY timestamp DESC LIMIT 1")
+        MAT_STATUS=$(echo "$MAT_OUTPUT" | tail -1)
 
         if [ "$MAT_STATUS" = "success" ]; then
           echo "Materialization already succeeded for $RELEASE — skipping"
