@@ -71,7 +71,7 @@ PiP Score is a distributed system for analyzing research impact using percentile
 
 2. **Full DAG materialization.** All analytics views (7 topological levels) are materialized into tables during each monthly ingestion. Data is static between loads — live views would waste compute on every query. Views are kept for development and debugging.
 
-3. **Author search: In-memory index with S2 API fallback.** An in-memory index of ~360K prominent S2 authors (hindex ≥ 20, citedby > 5000) runs inside the frontend Cloud Run service, refreshed every 6 hours from BigQuery. For less-known researchers, the S2 API provides fallback coverage of the full 102M author universe.
+3. **Author search: In-memory index with S2 API fallback.** An in-memory index of ~360K prominent S2 authors (hindex ≥ 20, citedby > 5000) runs inside the frontend Cloud Run service, reloaded from a Firestore-persisted index every 6 hours. The Firestore index is rebuilt from BigQuery on bootstrap or manual trigger. For less-known researchers, the S2 API provides fallback coverage of the full 102M author universe.
 
 4. **Cache Layer separation (Component 5).** The frontend does not query BigQuery directly. A dedicated Cache Layer service owns all BigQuery reads and Firestore writes. Benefits: (a) frontend latency is bounded by Firestore read time, not BigQuery query time; (b) BigQuery costs are controlled by the cache layer, not by user traffic; (c) BigQuery outages don't take down the frontend; (d) the cache is fully disposable and can be rebuilt from BigQuery.
 

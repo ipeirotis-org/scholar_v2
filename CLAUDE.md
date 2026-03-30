@@ -60,7 +60,7 @@ scholar_v2/
 │   ├── config.py                 # Config with env var overrides
 │   └── tests/
 ├── author_search/                # Author search library (used by frontend, not a standalone service)
-│   ├── search_service.py         # In-memory index search (loaded from BQ, refreshed every 6h)
+│   ├── search_service.py         # In-memory index search (reloaded from Firestore every 6h)
 │   ├── bigquery_client.py        # Loads active S2 authors for the in-memory index
 │   ├── cache.py                  # Firestore cache (24h TTL for search results, chunked index)
 │   ├── config.py                 # Config with env var overrides
@@ -105,7 +105,7 @@ scholar_v2/
              → HTML templates render with Plotly chart containers
 
 5. SEARCH: Author search runs in the frontend Cloud Run service (in-memory):
-             → In-memory index of ~360K prominent S2 authors (refreshed every 6h from BQ)
+             → In-memory index of ~360K prominent S2 authors (reloaded from Firestore every 6h; Firestore index rebuilt from BQ on bootstrap/manual trigger)
              → Filtered to hindex >= 20, citedby > 5000
              → Instant substring matching, sorted by citation count
              → S2 API fallback for less-known researchers (102M authors)
