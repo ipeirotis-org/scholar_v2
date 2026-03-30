@@ -91,7 +91,7 @@ jobs:
             --region ${{ env.GCP_REGION }} \
             --memory=4Gi \
             --cpu=2 \
-            --task-timeout=14400 \
+            --task-timeout=28800 \
             --max-retries=1 \
             --set-env-vars="GCP_PROJECT_ID=${{ env.GCP_PROJECT_ID }},INGESTION_MODE=${{ github.event.inputs.ingestion_mode || 'auto' }}"
         else
@@ -100,21 +100,21 @@ jobs:
             --region ${{ env.GCP_REGION }} \
             --memory=4Gi \
             --cpu=2 \
-            --task-timeout=14400 \
+            --task-timeout=28800 \
             --max-retries=1 \
             --set-env-vars="GCP_PROJECT_ID=${{ env.GCP_PROJECT_ID }},INGESTION_MODE=${{ github.event.inputs.ingestion_mode || 'auto' }}"
         fi
 
-    - name: Create or update weekly scheduler
+    - name: Create or update monthly scheduler
       run: |-
-        SCHEDULER_NAME="s2-weekly-ingestion"
+        SCHEDULER_NAME="s2-monthly-ingestion"
         JOB_URI="https://${{ env.GCP_REGION }}-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/${{ env.GCP_PROJECT_ID }}/jobs/${{ env.JOB_NAME }}:run"
         SA_EMAIL="claude-agent@${{ env.GCP_PROJECT_ID }}.iam.gserviceaccount.com"
 
         if gcloud scheduler jobs describe "$SCHEDULER_NAME" --location="${{ env.GCP_REGION }}" > /dev/null 2>&1; then
           gcloud scheduler jobs update http "$SCHEDULER_NAME" \
             --location="${{ env.GCP_REGION }}" \
-            --schedule="0 2 * * 1" \
+            --schedule="0 2 1 * *" \
             --uri="$JOB_URI" \
             --http-method=POST \
             --time-zone=UTC \
@@ -123,10 +123,19 @@ jobs:
         else
           gcloud scheduler jobs create http "$SCHEDULER_NAME" \
             --location="${{ env.GCP_REGION }}" \
-            --schedule="0 2 * * 1" \
+            --schedule="0 2 1 * *" \
             --uri="$JOB_URI" \
             --http-method=POST \
             --time-zone=UTC \
             --attempt-deadline=600s \
             --oauth-service-account-email="$SA_EMAIL"
+        fi
+
+    - name: Delete legacy weekly scheduler (if exists)
+      run: |-
+        if gcloud scheduler jobs describe "s2-weekly-ingestion" --location="${{ env.GCP_REGION }}" > /dev/null 2>&1; then
+          gcloud scheduler jobs delete "s2-weekly-ingestion" --location="${{ env.GCP_REGION }}" --quiet
+          echo "Deleted legacy weekly scheduler"
+        else
+          echo "Legacy weekly scheduler does not exist"
         fi

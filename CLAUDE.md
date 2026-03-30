@@ -45,11 +45,12 @@ scholar_v2/
 │   ├── config.py                 # Config with env var overrides
 │   ├── Dockerfile                # Python 3.12-slim
 │   └── tests/
-├── dataset_ingestion/            # Cloud Run Job: weekly S2 dataset ingestion
+├── dataset_ingestion/            # Cloud Run Job: monthly S2 dataset ingestion + materialization
 │   ├── main.py                   # Job entry point (full/diff/auto modes)
 │   ├── s2_api_client.py          # S2 Datasets API client (releases, file URLs, diffs)
 │   ├── downloader.py             # Parallel S3→GCS streaming (4-8 workers)
 │   ├── loader.py                 # BigQuery bulk load + derived table materialization
+│   ├── materialize_tables.py     # Full analytics DAG materialization (7 levels)
 │   ├── diff_updater.py           # Incremental diff application (DELETE+MERGE)
 │   ├── config.py                 # Config with env var overrides
 │   └── tests/
@@ -75,11 +76,14 @@ scholar_v2/
 ## Data Flow
 
 ```
-1. INGEST: Weekly Cloud Scheduler → dataset_ingestion Cloud Run Job
+1. INGEST: Monthly Cloud Scheduler (1st of month, 02:00 UTC)
+             → dataset_ingestion Cloud Run Job
              → Download S2 dataset diffs from S2 S3 → GCS
              → BigQuery bulk load (papers, citations, authors)
              → Materialize derived tables (author_paper_bridge, author_paper_stats,
                paper_citations_by_year)
+             → Materialize full analytics DAG (7 levels: dist tables, ranked tables,
+               temporal tables — all views replaced with pre-computed tables)
 
 2. ANALYZE: BigQuery SQL views compute:
              → Publication citation percentiles (by pub_year cohort)
@@ -124,7 +128,7 @@ All analytics views read from the `s2_data` dataset (Semantic Scholar bulk datas
 
 ### Key design pattern: Stats → Distributions → Ranked (per metric family)
 
-Every metric family follows: **stats** (raw values) → **dist** (PERCENT_RANK, materialized quarterly) → **ranked** (cheap JOIN). But the PiP pipeline creates cross-role dependencies, so the full DAG has **8 topological levels** (0–7), not 3 tiers.
+Every metric family follows: **stats** (raw values) → **dist** (PERCENT_RANK) → **ranked** (cheap JOIN). The full DAG has **7 topological levels** (1–7). All levels are materialized into tables monthly after ingestion by `materialize_tables.py`. Views are kept for development/debugging but app queries hit materialized tables.
 
 ### Benchmark populations
 
@@ -152,10 +156,9 @@ Ranked views default to `active_authors` for user-facing percentiles.
 
 | What | Schedule | Rationale |
 |------|----------|-----------|
-| S2 dataset ingestion | **Weekly** (Mon 02:00 UTC) | S2 releases weekly diffs (planned: move to monthly) |
-| Distribution tables (`dist_*`, 6 tables) | **Quarterly** | Population percentiles shift slowly (planned: fold into monthly) |
-| Snapshot tables (`ranked_*_table`, 4 tables) | **Daily** | All-authors ranking/export (planned: fold into monthly) |
-| Views (all non-dist, non-snapshot) | **Live** | Per-author queries (planned: materialize all into tables) |
+| S2 dataset ingestion + full DAG materialization | **Monthly** (1st of month, 02:00 UTC) | S2 releases weekly diffs; monthly is sufficient for citation percentiles |
+| All tables (dist + stats + ranked + temporal) | **Monthly** (during ingestion) | Materialized by `materialize_tables.py` in topological DAG order (7 levels) |
+| Views (all non-materialized) | **Live** (kept for dev/debugging) | App queries use materialized `_table` versions via `USE_MATERIALIZED_TABLES` flag |
 
 ## Tech Stack
 
@@ -172,17 +175,16 @@ Ranked views default to `active_authors` for user-facing percentiles.
 - **BigQuery Datasets**: `s2_data` (S2 raw tables + derived), `statistics` (analytics views), `scholar_raw_data` (legacy)
 - **GCS Bucket**: `scholar_data_share` (prefixes: `s2_datasets/`, `bq_load_temp/`)
 - **Cloud Tasks Queues**: `cache-priority`, `cache-batch` (location: `northamerica-northeast1`)
-- **Cloud Scheduler**: `v3-s2-dataset-ingestion` (weekly Mon 02:00 UTC), `v3-populate-recent-authors` (every 5 min)
+- **Cloud Scheduler**: `s2-monthly-ingestion` (monthly 1st of month, 02:00 UTC), `v3-populate-recent-authors` (every 5 min)
 
 ## CI/CD
 
 - **deploy-frontend.yml**: Push to `main` → Docker build → deploy Cloud Run frontend (`us-central1`)
-- **deploy-dataset-ingestion.yml**: Weekly S2 dataset ingestion (Cloud Run Job)
+- **deploy-dataset-ingestion.yml**: Monthly S2 dataset ingestion + full DAG materialization (Cloud Run Job)
 - **deploy-ingestion.yml**: Deploy GCS→BQ ingestion function
 - **deploy-infrastructure.yml**: Cloud Tasks queues + Cloud Scheduler jobs
-- **bigquery-views.yml**: Deploy analytics SQL views in topological DAG order
-- **bigquery-materialize.yml**: Daily snapshot materialization (4 ranked tables)
-- **bigquery-materialize-distributions.yml**: Quarterly distribution materialization (6 dist tables)
+- **bigquery-views.yml**: Deploy analytics SQL views in topological DAG order (views kept for dev/debugging)
+- **bigquery-materialize-all.yml**: Fallback monthly materialization (safety net if ingestion job's materialization fails)
 
 ## Development Notes
 
