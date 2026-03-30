@@ -10,7 +10,7 @@
 
 ## What it does
 
-1. **In-memory search (instant):** Substring matching against an in-memory index of ~360K prominent S2 authors (hindex ≥ 20, citedby > 5000). Loaded from BigQuery's `ranked_author_current_table`, refreshed every 6 hours.
+1. **In-memory search (instant):** Substring matching against an in-memory index of ~360K prominent S2 authors (hindex ≥ 20, citedby > 5000). The in-memory copy is reloaded from a Firestore-persisted index every 6 hours (TTL-based). The Firestore index itself is rebuilt from BigQuery on bootstrap or via the `/api/refresh_author_index` endpoint.
 2. **S2 API fallback (1-3s):** For authors not in the index, queries the Semantic Scholar API to search the full 102M author universe.
 3. **Cache results:** S2 API search results are cached in Firestore (24h TTL) to avoid repeated API calls.
 

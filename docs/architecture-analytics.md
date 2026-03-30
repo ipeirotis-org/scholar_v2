@@ -56,7 +56,7 @@ Tier 3 — Ranked (cheap JOINs of Tier 1 + Tier 2):
 
 Views are kept in BigQuery for development and debugging. App queries use the materialized `_table` versions.
 
-**22 tables materialized across 7 levels:**
+**21 tables materialized across 7 levels:**
 
 | Level | Tables | Count |
 |-------|--------|-------|

@@ -57,7 +57,7 @@ PiP Score is a distributed system for analyzing research impact using percentile
 | **BigQuery `s2_data.author_paper_bridge`** | Derived: authorid → corpusid mapping | Dataset Ingestion | Analytics |
 | **BigQuery `s2_data.author_paper_stats`** | Derived: author publication summaries | Dataset Ingestion | Analytics |
 | **BigQuery `s2_data.paper_citations_by_year`** | Derived: per-paper citation counts by year | Dataset Ingestion | Analytics |
-| **BigQuery `statistics.*` tables** | Materialized analytics (7-level DAG, 22 tables) | Materialization (during ingestion) | Cache Layer, Author Search |
+| **BigQuery `statistics.*` tables** | Materialized analytics (7-level DAG, 21 tables) | Materialization (during ingestion) | Cache Layer, Author Search |
 | **BigQuery `statistics.*` views** | Live analytics views (kept for dev/debugging) | CI/CD (bigquery-views.yml) | Dev/debugging only |
 | **Firestore (cache collections)** | Query result cache | Cache Layer | Frontend, Author Search |
 | **Cloud Tasks `cache-priority`** | Interactive cache population | Frontend (on miss) | Cache Layer |
@@ -90,7 +90,7 @@ PiP Score is a distributed system for analyzing research impact using percentile
 | **GCS storage** | Moderate | S2 dataset files (~100GB per release, cleaned after load) |
 | **Cloud Tasks** | Near-zero | Low volume |
 | **BigQuery storage** | Moderate | S2 raw tables + materialized analytics tables |
-| **Monthly ingestion** | Moderate | Bulk load + full DAG materialization (22 tables) |
+| **Monthly ingestion** | Moderate | Bulk load + full DAG materialization (21 tables) |
 | **Firestore cache** | Low | 5-7 reads per page view |
 | **Client-side Plotly.js** | Zero server cost | Charts render in the browser |
 

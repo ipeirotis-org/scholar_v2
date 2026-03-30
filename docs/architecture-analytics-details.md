@@ -387,7 +387,7 @@ Triggers on push to `bigquery/**/*.sql` on main. Deploys views in DAG order (Lev
 
 Primary: `dataset_ingestion/materialize_tables.py` (called at the end of the Cloud Run Job)
 
-Materializes all 22 tables in topological order (Levels 1–7). Each level's tables are created as `CREATE OR REPLACE TABLE ... CLUSTER BY ... AS SELECT * FROM <view>`.
+Materializes all 21 tables in topological order (Levels 1–7). Each level's tables are created as `CREATE OR REPLACE TABLE ... CLUSTER BY ... AS SELECT * FROM <view>`.
 
 ### Fallback materialization (monthly, safety net)
 
