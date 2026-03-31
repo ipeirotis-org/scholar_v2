@@ -69,7 +69,7 @@ Stats and ranked views get `_table` suffixed counterparts (e.g., `stats_author_c
 
 **Skipped (intermediate views consumed inline by downstream tables):**
 - `base_author_publications`, `stats_publication_current` (L1)
-- `ranked_publication_current`, `intermediate_author_publication_state_temporal` (L2)
+- `intermediate_author_publication_state_temporal` (L2)
 - `ranked_author_pip_scores_temporal` (L7 — not queried by app)
 
 **Fallback materialization:** GitHub Actions workflow `bigquery-materialize-all.yml` runs on the 1st of each month at 08:00 UTC as a safety net, skipping if materialization already succeeded for the latest release.
@@ -95,6 +95,6 @@ Ranked tables default to `active_authors` for user-facing percentiles.
 |---|---|
 | `bigquery/statistics/*.sql` | All view and table definitions (22 SQL files) |
 | `bigquery/coauthor_network/*.sql` | Coauthor graph views |
-| `dataset_ingestion/materialize_tables.py` | Full DAG materialization (7 levels, called during ingestion) |
+| `dataset_ingestion/materialize_tables.py` | Selective DAG materialization (6 levels, 17 tables, called during ingestion) |
 | `.github/workflows/bigquery-views.yml` | CI/CD: deploy views in dependency order (on SQL file changes) |
 | `.github/workflows/bigquery-materialize-all.yml` | Fallback: monthly safety-net materialization |
