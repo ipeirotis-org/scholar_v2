@@ -338,7 +338,7 @@ User visits /results?author_id=XYZ
 User visits /download or all-authors page
   → Cache Layer queries ranked_author_current_table (materialized, all rows)
   → JOIN ranked_author_pip_scores_current_table
-  → Return ~360K+ rows
+  → Return ~99M rows (all S2 authors with stats)
 ```
 
 ---
@@ -381,7 +381,7 @@ All statistics files live under `bigquery/statistics/` except coauthor views in 
 
 Workflow: `.github/workflows/bigquery-views.yml`
 
-Triggers on push to `bigquery/**/*.sql` on main. Deploys views in DAG order (Level 1 → 7). Views are kept for development and debugging; app queries use materialized tables.
+Triggers on push to `bigquery/**/*.sql` on main. Deploys views in DAG order (Level 1 → 7). Views are kept for development and debugging. Whether app queries use materialized tables or live views depends on the `USE_MATERIALIZED_TABLES` config flag (default: `false`).
 
 ### Full materialization (monthly, during ingestion)
 
