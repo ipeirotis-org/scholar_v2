@@ -99,7 +99,7 @@ jobs:
         fi
 
   materialize:
-    name: Materialize full analytics DAG
+    name: Materialize analytics DAG (15 tables, 6 levels)
     needs: preflight
     if: always() && (needs.preflight.outputs.should_run == 'true' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
@@ -122,22 +122,9 @@ jobs:
       with:
         project_id: ${{ env.PROJECT_ID }}
 
-    # ── Level 1: Foundation (independent) ─────────────────────────────
-    # Views → tables + distribution tables
-    - name: 'Level 1: base_author_publications_table'
-      run: |
-        bq query --project_id=$P --use_legacy_sql=false \
-          "CREATE OR REPLACE TABLE \`$P.statistics.base_author_publications_table\`
-           CLUSTER BY scholar_id
-           AS SELECT * FROM \`$P.statistics.base_author_publications\`"
-
-    - name: 'Level 1: stats_publication_current_table'
-      run: |
-        bq query --project_id=$P --use_legacy_sql=false \
-          "CREATE OR REPLACE TABLE \`$P.statistics.stats_publication_current_table\`
-           CLUSTER BY author_pub_id, pub_year
-           AS SELECT * FROM \`$P.statistics.stats_publication_current\`"
-
+    # ── Level 1: Foundation ───────────────────────────────────────────
+    # App-facing + dist tables. Intermediate views (base_author_publications,
+    # stats_publication_current) are left as views.
     - name: 'Level 1: stats_author_current_table'
       run: |
         bq query --project_id=$P --use_legacy_sql=false \
@@ -151,28 +138,10 @@ jobs:
     - name: 'Level 1: dist_author_metrics'
       run: bq query --project_id=$P --use_legacy_sql=false < bigquery/statistics/dist_author_metrics.sql
 
-    # ── Level 2: Temporal foundation + first ranked ───────────────────
-    - name: 'Level 2: stats_publication_citations_temporal_table'
-      run: |
-        bq query --project_id=$P --use_legacy_sql=false \
-          "CREATE OR REPLACE TABLE \`$P.statistics.stats_publication_citations_temporal_table\`
-           CLUSTER BY author_pub_id, pub_year, citation_year
-           AS SELECT * FROM \`$P.statistics.stats_publication_citations_temporal\`"
-
-    - name: 'Level 2: ranked_publication_current_table'
-      run: |
-        bq query --project_id=$P --use_legacy_sql=false \
-          "CREATE OR REPLACE TABLE \`$P.statistics.ranked_publication_current_table\`
-           CLUSTER BY author_pub_id, pub_year
-           AS SELECT * FROM \`$P.statistics.ranked_publication_current\`"
-
-    - name: 'Level 2: intermediate_author_publication_state_temporal_table'
-      run: |
-        bq query --project_id=$P --use_legacy_sql=false \
-          "CREATE OR REPLACE TABLE \`$P.statistics.intermediate_author_publication_state_temporal_table\`
-           CLUSTER BY scholar_id, author_pub_id, state_year
-           AS SELECT * FROM \`$P.statistics.intermediate_author_publication_state_temporal\`"
-
+    # ── Level 2: Temporal dist ────────────────────────────────────────
+    # Intermediate views (stats_publication_citations_temporal,
+    # ranked_publication_current, intermediate_author_publication_state_temporal)
+    # are left as views.
     - name: 'Level 2: dist_publication_citations_temporal'
       run: bq query --project_id=$P --use_legacy_sql=false < bigquery/statistics/dist_publication_citations_temporal.sql
 
@@ -244,14 +213,6 @@ jobs:
     # ── Level 6: Temporal PiP distribution ────────────────────────────
     - name: 'Level 6: dist_pip_auc_scores_temporal'
       run: bq query --project_id=$P --use_legacy_sql=false < bigquery/statistics/dist_pip_auc_scores_temporal.sql
-
-    # ── Level 7: Temporal PiP ranked ──────────────────────────────────
-    - name: 'Level 7: ranked_author_pip_scores_temporal_table'
-      run: |
-        bq query --project_id=$P --use_legacy_sql=false \
-          "CREATE OR REPLACE TABLE \`$P.statistics.ranked_author_pip_scores_temporal_table\`
-           CLUSTER BY scholar_id, state_year
-           AS SELECT * FROM \`$P.statistics.ranked_author_pip_scores_temporal\`"
 
     # ── Log success to release_log ────────────────────────────────────
     - name: Log materialization success

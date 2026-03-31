@@ -166,23 +166,23 @@ class TestMaterializeDist:
 class TestMaterializeLevels:
     @patch.object(materialize_tables, "_run_sql")
     @patch.object(materialize_tables, "_read_sql")
-    def test_level_1_materializes_5_tables(self, mock_read, mock_run):
+    def test_level_1_materializes_3_tables(self, mock_read, mock_run):
         mock_read.return_value = "CREATE OR REPLACE VIEW `scholar-version2.statistics.v` AS\nSELECT 1"
         mock_run.return_value = 0
 
         materialize_tables.materialize_level_1()
 
-        assert mock_run.call_count == 5
+        assert mock_run.call_count == 3
 
     @patch.object(materialize_tables, "_run_sql")
     @patch.object(materialize_tables, "_read_sql")
-    def test_level_2_materializes_4_tables(self, mock_read, mock_run):
+    def test_level_2_materializes_1_table(self, mock_read, mock_run):
         mock_read.return_value = "CREATE OR REPLACE VIEW `scholar-version2.statistics.v` AS\nSELECT 1"
         mock_run.return_value = 0
 
         materialize_tables.materialize_level_2()
 
-        assert mock_run.call_count == 4
+        assert mock_run.call_count == 1
 
     @patch.object(materialize_tables, "_run_sql")
     @patch.object(materialize_tables, "_read_sql")
@@ -224,26 +224,15 @@ class TestMaterializeLevels:
 
         assert mock_run.call_count == 1
 
-    @patch.object(materialize_tables, "_run_sql")
-    @patch.object(materialize_tables, "_read_sql")
-    def test_level_7_materializes_1_table(self, mock_read, mock_run):
-        mock_read.return_value = "CREATE OR REPLACE VIEW `scholar-version2.statistics.v` AS\nSELECT 1"
-        mock_run.return_value = 0
-
-        materialize_tables.materialize_level_7()
-
-        assert mock_run.call_count == 1
-
 
 class TestMaterializeAll:
-    @patch.object(materialize_tables, "materialize_level_7")
     @patch.object(materialize_tables, "materialize_level_6")
     @patch.object(materialize_tables, "materialize_level_5")
     @patch.object(materialize_tables, "materialize_level_4")
     @patch.object(materialize_tables, "materialize_level_3")
     @patch.object(materialize_tables, "materialize_level_2")
     @patch.object(materialize_tables, "materialize_level_1")
-    def test_calls_all_levels_in_order(self, l1, l2, l3, l4, l5, l6, l7):
+    def test_calls_all_levels_in_order(self, l1, l2, l3, l4, l5, l6):
         materialize_tables.materialize_all()
 
         l1.assert_called_once()
@@ -252,16 +241,14 @@ class TestMaterializeAll:
         l4.assert_called_once()
         l5.assert_called_once()
         l6.assert_called_once()
-        l7.assert_called_once()
 
-    @patch.object(materialize_tables, "materialize_level_7")
     @patch.object(materialize_tables, "materialize_level_6")
     @patch.object(materialize_tables, "materialize_level_5")
     @patch.object(materialize_tables, "materialize_level_4")
     @patch.object(materialize_tables, "materialize_level_3")
     @patch.object(materialize_tables, "materialize_level_2")
     @patch.object(materialize_tables, "materialize_level_1")
-    def test_stops_on_level_failure(self, l1, l2, l3, l4, l5, l6, l7):
+    def test_stops_on_level_failure(self, l1, l2, l3, l4, l5, l6):
         l3.side_effect = RuntimeError("BQ failed")
 
         with pytest.raises(RuntimeError, match="BQ failed"):
@@ -273,4 +260,3 @@ class TestMaterializeAll:
         l4.assert_not_called()
         l5.assert_not_called()
         l6.assert_not_called()
-        l7.assert_not_called()

@@ -52,21 +52,25 @@ Tier 3 — Ranked (cheap JOINs of Tier 1 + Tier 2):
 
 > Full details: [architecture-analytics-details.md](architecture-analytics-details.md)
 
-**All tables are materialized monthly** during S2 dataset ingestion by `dataset_ingestion/materialize_tables.py`. The full 7-level DAG is materialized in topological order. Stats and ranked views get `_table` suffixed counterparts (e.g., `stats_author_current_table`); distribution tables are materialized in-place as `dist_*` (no `_table` suffix). Data is static between bulk loads, so live views waste compute.
+**15 tables are materialized monthly** during S2 dataset ingestion by `dataset_ingestion/materialize_tables.py`. Only tables that are directly queried by the app, used as inputs by downstream materializations, or needed for percentile lookups (dist tables) are materialized. Intermediate views (e.g., `intermediate_author_publication_state_temporal`) are left as views — their output is consumed inline by downstream materialized tables.
 
-Views are kept in BigQuery for development and debugging. The Cache Layer's `USE_MATERIALIZED_TABLES` config flag (default: `false`) controls whether queries hit materialized `_table` versions or live views; must be set via env var in production.
+Stats and ranked views get `_table` suffixed counterparts (e.g., `stats_author_current_table`); distribution tables are materialized in-place as `dist_*` (no `_table` suffix). The Cache Layer's `USE_MATERIALIZED_TABLES` config flag (default: `false`) controls whether queries hit materialized `_table` versions or live views; must be set via env var in production.
 
-**21 tables materialized across 7 levels:**
+**15 tables materialized across 6 levels:**
 
 | Level | Tables | Count |
 |-------|--------|-------|
-| 1 | base_author_publications, stats_publication_current, stats_author_current, dist_publication_citations, dist_author_metrics | 5 |
-| 2 | stats_publication_citations_temporal, ranked_publication_current, intermediate_author_publication_state_temporal, dist_publication_citations_temporal | 4 |
+| 1 | stats_author_current, dist_publication_citations, dist_author_metrics | 3 |
+| 2 | dist_publication_citations_temporal | 1 |
 | 3 | stats_author_metrics_temporal, stats_author_publication_pip_inputs_current, ranked_author_current, ranked_publication_citations_temporal | 4 |
 | 4 | stats_author_pip_scores_current, dist_pip_auc_scores, dist_author_metrics_temporal | 3 |
 | 5 | ranked_author_pip_scores_current, ranked_author_metrics_temporal, stats_author_pip_scores_temporal | 3 |
 | 6 | dist_pip_auc_scores_temporal | 1 |
-| 7 | ranked_author_pip_scores_temporal | 1 |
+
+**Skipped (intermediate views consumed inline by downstream tables):**
+- `base_author_publications`, `stats_publication_current` (L1)
+- `stats_publication_citations_temporal`, `ranked_publication_current`, `intermediate_author_publication_state_temporal` (L2)
+- `ranked_author_pip_scores_temporal` (L7 — not queried by app)
 
 **Fallback materialization:** GitHub Actions workflow `bigquery-materialize-all.yml` runs on the 1st of each month at 08:00 UTC as a safety net, skipping if materialization already succeeded for the latest release.
 

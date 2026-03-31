@@ -57,7 +57,7 @@ PiP Score is a distributed system for analyzing research impact using percentile
 | **BigQuery `s2_data.author_paper_bridge`** | Derived: authorid → corpusid mapping | Dataset Ingestion | Analytics |
 | **BigQuery `s2_data.author_paper_stats`** | Derived: author publication summaries | Dataset Ingestion | Analytics |
 | **BigQuery `s2_data.paper_citations_by_year`** | Derived: per-paper citation counts by year | Dataset Ingestion | Analytics |
-| **BigQuery `statistics.*` tables** | Materialized analytics (7-level DAG, 21 tables) | Materialization (during ingestion) | Cache Layer, Author Search |
+| **BigQuery `statistics.*` tables** | Materialized analytics (6-level DAG, 15 tables) | Materialization (during ingestion) | Cache Layer, Author Search |
 | **BigQuery `statistics.*` views** | Live analytics views | CI/CD (bigquery-views.yml) | Cache Layer (when `USE_MATERIALIZED_TABLES=false`), dev/debugging |
 | **Firestore (cache collections)** | Query result cache | Cache Layer | Frontend, Author Search |
 | **Cloud Tasks `cache-priority`** | Interactive cache population | Frontend (on miss), legacy Ingestion (on load) | Cache Layer |
@@ -69,7 +69,7 @@ PiP Score is a distributed system for analyzing research impact using percentile
 
 1. **Data source: Semantic Scholar bulk datasets.** S2 provides weekly diff releases of their full academic graph (200M+ papers, 102M authors). Monthly ingestion with diff application keeps data fresh while controlling BigQuery costs.
 
-2. **Full DAG materialization.** All analytics views (7 topological levels) are materialized into tables during each monthly ingestion. Data is static between loads — live views would waste compute on every query. Views are kept for development and debugging.
+2. **Selective DAG materialization.** 15 analytics tables (across 6 levels) are materialized during each monthly ingestion — only tables directly queried by the app, used as inputs by downstream materializations, or needed for percentile lookups. Intermediate views are left as views; their output is consumed inline by downstream materialized tables.
 
 3. **Author search: In-memory index with S2 API fallback.** An in-memory index of ~360K prominent S2 authors (hindex ≥ 20, citedby > 5000) runs inside the frontend Cloud Run service, reloaded from a Firestore-persisted index every 6 hours. The Firestore index is rebuilt from BigQuery on bootstrap or manual trigger. For less-known researchers, the S2 API provides fallback coverage of the full 102M author universe.
 

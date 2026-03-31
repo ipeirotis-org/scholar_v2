@@ -50,7 +50,7 @@ scholar_v2/
 │   ├── s2_api_client.py          # S2 Datasets API client (releases, file URLs, diffs)
 │   ├── downloader.py             # Parallel S3→GCS streaming (4-8 workers)
 │   ├── loader.py                 # BigQuery bulk load + derived table materialization
-│   ├── materialize_tables.py     # Full analytics DAG materialization (7 levels)
+│   ├── materialize_tables.py     # Selective analytics DAG materialization (6 levels, 15 tables)
 │   ├── diff_updater.py           # Incremental diff application (DELETE+MERGE)
 │   ├── config.py                 # Config with env var overrides
 │   └── tests/
@@ -82,8 +82,8 @@ scholar_v2/
              → BigQuery bulk load (papers, citations, authors)
              → Materialize derived tables (author_paper_bridge, author_paper_stats,
                paper_citations_by_year)
-             → Materialize full analytics DAG (7 levels: dist tables, ranked tables,
-               temporal tables — all views replaced with pre-computed tables)
+             → Materialize analytics DAG (6 levels, 15 tables: app-facing,
+               dist tables, and substitution targets — intermediate views left as views)
 
 2. ANALYZE: BigQuery SQL views compute:
              → Publication citation percentiles (by pub_year cohort)
@@ -128,7 +128,7 @@ All analytics views read from the `s2_data` dataset (Semantic Scholar bulk datas
 
 ### Key design pattern: Stats → Distributions → Ranked (per metric family)
 
-Every metric family follows: **stats** (raw values) → **dist** (PERCENT_RANK) → **ranked** (cheap JOIN). The full DAG has **7 topological levels** (1–7). All levels are materialized into tables monthly after ingestion by `materialize_tables.py`. Views are kept for development/debugging but app queries hit materialized tables.
+Every metric family follows: **stats** (raw values) → **dist** (PERCENT_RANK) → **ranked** (cheap JOIN). The full DAG has **7 topological levels** (1–7). 15 tables across 6 levels are materialized monthly after ingestion by `materialize_tables.py` — only app-facing tables, dist tables, and substitution targets. Intermediate views are left as views.
 
 ### Benchmark populations
 
@@ -157,7 +157,7 @@ All views/tables above are materialized monthly during ingestion. Stats and rank
 | What | Schedule | Rationale |
 |------|----------|-----------|
 | S2 dataset ingestion + full DAG materialization | **Monthly** (1st of month, 02:00 UTC) | S2 releases weekly diffs; monthly is sufficient for citation percentiles |
-| All tables (dist + stats + ranked + temporal) | **Monthly** (during ingestion) | Materialized by `materialize_tables.py` in topological DAG order (7 levels) |
+| 15 tables (app-facing + dist + substitution targets) | **Monthly** (during ingestion) | Materialized by `materialize_tables.py` in topological DAG order (6 levels) |
 | Views (all non-materialized) | **Live** (kept for dev/debugging) | App queries use materialized `_table` versions via `USE_MATERIALIZED_TABLES` flag |
 
 ## Tech Stack
