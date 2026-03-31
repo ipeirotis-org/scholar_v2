@@ -187,8 +187,8 @@ class TestMaterializeLevels:
 
         materialize_tables.materialize_level_2()
 
-        # 2 view→table + 4 dist parts + 6 swap ops
-        assert mock_run.call_count == 12
+        # 2 view→table + 4 dist parts (split to avoid BQ memory limits)
+        assert mock_run.call_count == 6
 
     @patch.object(materialize_tables, "_run_sql")
     @patch.object(materialize_tables, "_read_sql")

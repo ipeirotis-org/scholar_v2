@@ -71,24 +71,18 @@ def _view_to_table_sql(view_sql, table_name, cluster_by, partition_by=None):
     Extracts the SELECT portion from the view definition and wraps it
     in a CREATE OR REPLACE TABLE statement with clustering.
     """
-    # Find the AS keyword that separates CREATE VIEW from the SELECT
-    # The view SQL is: CREATE OR REPLACE VIEW `...` AS <select>
-    # We need to extract everything after the first AS that follows the view name
     upper = view_sql.upper()
 
-    # Find "CREATE OR REPLACE VIEW" and skip past the view name to find "AS"
     view_idx = upper.find("VIEW")
     if view_idx == -1:
         raise ValueError(f"Could not find VIEW keyword in SQL for {table_name}")
 
-    # Find the AS keyword after the VIEW declaration
     as_idx = upper.find("\nAS\n", view_idx)
     if as_idx == -1:
         as_idx = upper.find("\nAS ", view_idx)
     if as_idx == -1:
         as_idx = upper.find(" AS\n", view_idx)
     if as_idx == -1:
-        # Try finding "AS" on same line as view name (e.g., "...view_name` AS")
         as_idx = upper.find(" AS ", view_idx)
     if as_idx == -1:
         raise ValueError(f"Could not find AS keyword in SQL for {table_name}")
@@ -111,7 +105,6 @@ def _run_sql(sql, description):
     job = client.query(sql)
     job.result()
 
-    # Try to get row count from the destination table
     if job.destination:
         try:
             table = client.get_table(job.destination)
@@ -125,12 +118,7 @@ def _run_sql(sql, description):
 
 
 def _apply_table_substitutions(sql):
-    """Replace view references with materialized table references.
-
-    SQL files reference views so they work standalone. During pipeline
-    execution, we substitute _table names so downstream levels read from
-    previously materialized tables instead of re-executing view chains.
-    """
+    """Replace view references with materialized table references."""
     for view_ref, table_ref in _TABLE_SUBSTITUTIONS.items():
         sql = sql.replace(view_ref, table_ref)
     return sql
@@ -158,17 +146,19 @@ def _materialize_dist_publication_citations_temporal():
     BigQuery memory when run as a single statement (~170% of limit on
     2B+ rows). Split into CREATE TABLE + 3 INSERT INTO statements.
 
-    Built atomically in a temp table and swapped on success to avoid
-    leaving a partially-populated table if a step fails.
+    The table is written directly (not via temp+swap) because:
+    - Each BigQuery INSERT is individually atomic
+    - The table is only read by downstream materialization steps in the
+      same pipeline run (not by live user queries)
+    - Downstream steps haven't started yet when this runs
     """
-    final_ref = Config.bq_stats_table_ref("dist_publication_citations_temporal")
-    tmp_ref = Config.bq_stats_table_ref("_dist_pub_cit_temporal_tmp")
+    table_ref = Config.bq_stats_table_ref("dist_publication_citations_temporal")
     temporal_table = _apply_table_substitutions(
         Config.bq_stats_table_ref("stats_publication_citations_temporal")
     )
 
-    # Part 1: CREATE temp TABLE with first metric
-    sql1 = f"""CREATE OR REPLACE TABLE {tmp_ref}
+    # Part 1: CREATE TABLE with first metric (replaces any existing table)
+    sql1 = f"""CREATE OR REPLACE TABLE {table_ref}
 CLUSTER BY metric_name, pub_year
 AS
 SELECT DISTINCT
@@ -180,7 +170,7 @@ FROM {temporal_table}"""
     _run_sql(sql1, "dist_publication_citations_temporal (1/4: pub_year_yearly)")
 
     # Part 2: INSERT cumulative by pub_year
-    sql2 = f"""INSERT INTO {tmp_ref}
+    sql2 = f"""INSERT INTO {table_ref}
 SELECT DISTINCT
   pub_year, citation_year, CAST(NULL AS INT64) AS age,
   'pub_year_cumulative_citations' AS metric_name,
@@ -195,7 +185,7 @@ FROM {temporal_table}"""
     # PERCENT_RANK via cumulative sum formula instead of OVER() on the
     # full 2B row table. COALESCE handles single-row partitions (where
     # PERCENT_RANK returns 0 but our denominator would be 0).
-    sql3 = f"""INSERT INTO {tmp_ref}
+    sql3 = f"""INSERT INTO {table_ref}
 WITH agg AS (
   SELECT age, yearly_citations AS metric_value, COUNT(*) AS cnt
   FROM {temporal_table}
@@ -212,7 +202,7 @@ SELECT DISTINCT
 FROM agg"""
     _run_sql(sql3, "dist_publication_citations_temporal (3/4: age_yearly)")
 
-    sql4 = f"""INSERT INTO {tmp_ref}
+    sql4 = f"""INSERT INTO {table_ref}
 WITH agg AS (
   SELECT age, cumulative_citations AS metric_value, COUNT(*) AS cnt
   FROM {temporal_table}
@@ -228,40 +218,6 @@ SELECT DISTINCT
     0) AS percentile
 FROM agg"""
     _run_sql(sql4, "dist_publication_citations_temporal (4/4: age_cumulative)")
-
-    # Safe swap: rename old → backup, rename tmp → final, drop backup.
-    # If the second rename fails, the old table survives as _backup.
-    # We don't drop the stale backup before the swap — if a prior run
-    # left _backup as the only valid copy, dropping it first would
-    # destroy the last known-good snapshot.
-    backup_ref = Config.bq_stats_table_ref("_dist_pub_cit_temporal_backup")
-    stale_ref = Config.bq_stats_table_ref("_dist_pub_cit_temporal_stale")
-    # Move any stale backup out of the way (non-fatal if it doesn't exist)
-    _run_sql(
-        f"DROP TABLE IF EXISTS {stale_ref}",
-        "dist_publication_citations_temporal (drop stale)",
-    )
-    _run_sql(
-        f"ALTER TABLE IF EXISTS {backup_ref} RENAME TO _dist_pub_cit_temporal_stale",
-        "dist_publication_citations_temporal (backup → stale)",
-    )
-    _run_sql(
-        f"ALTER TABLE IF EXISTS {final_ref} RENAME TO _dist_pub_cit_temporal_backup",
-        "dist_publication_citations_temporal (old → backup)",
-    )
-    _run_sql(
-        f"ALTER TABLE {tmp_ref} RENAME TO dist_publication_citations_temporal",
-        "dist_publication_citations_temporal (tmp → final)",
-    )
-    # Only clean up after successful promotion
-    _run_sql(
-        f"DROP TABLE IF EXISTS {backup_ref}",
-        "dist_publication_citations_temporal (drop backup)",
-    )
-    _run_sql(
-        f"DROP TABLE IF EXISTS {stale_ref}",
-        "dist_publication_citations_temporal (drop stale)",
-    )
 
 
 def materialize_level_1():
