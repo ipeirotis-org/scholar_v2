@@ -158,6 +158,10 @@ jobs:
 
     # dist_publication_citations_temporal: split into 4 parts to avoid BQ OOM.
     # The monolithic SQL exceeds memory (~170% of limit on 2B+ rows).
+    # Written directly (not via temp+swap) because:
+    # - Fallback runs monthly at 08:00 UTC (low traffic)
+    # - Partial window is ~2 min for all 4 INSERTs
+    # - USE_MATERIALIZED_TABLES defaults to false, so most queries hit views
     - name: 'Level 2: dist_publication_citations_temporal (1/4: pub_year_yearly)'
       run: |
         bq query --project_id=$P --use_legacy_sql=false \
