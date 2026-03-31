@@ -46,6 +46,7 @@ _SQL_DIR = pathlib.Path(__file__).resolve().parent.parent / "bigquery" / "statis
 # materialized output instead of re-executing expensive view chains.
 _TABLE_SUBSTITUTIONS = {
     "statistics.stats_publication_citations_temporal`": "statistics.stats_publication_citations_temporal_table`",
+    "statistics.ranked_publication_current`": "statistics.ranked_publication_current_table`",
     "statistics.stats_author_metrics_temporal_view`": "statistics.stats_author_metrics_temporal_table`",
     "statistics.stats_author_pip_scores_current`": "statistics.stats_author_pip_scores_current_table`",
     "statistics.stats_author_pip_scores_temporal_view`": "statistics.stats_author_pip_scores_temporal_table`",
@@ -257,24 +258,30 @@ def materialize_level_1():
 
 
 def materialize_level_2():
-    """Level 2: Temporal foundation + dist (depends on Level 1).
+    """Level 2: Temporal foundation + first ranked + dist (depends on Level 1).
 
-    Intermediate (needed by dist_publication_citations_temporal):
-    - stats_publication_citations_temporal_table
+    Intermediate (needed by downstream tables):
+    - stats_publication_citations_temporal_table (needed by dist below)
+    - ranked_publication_current_table (needed by pip_inputs in Level 3)
 
     Dist tables:
     - dist_publication_citations_temporal
 
     Skipped (intermediate, consumed inline by downstream tables):
-    - ranked_publication_current (view)
     - intermediate_author_publication_state_temporal (view — most expensive)
     """
-    logger.info("=== Level 2: Temporal foundation + dist ===")
+    logger.info("=== Level 2: Temporal foundation + first ranked + dist ===")
 
     _materialize_from_view(
         "stats_publication_citations_temporal.sql",
         "stats_publication_citations_temporal_table",
         cluster_by=["author_pub_id", "pub_year", "citation_year"],
+    )
+
+    _materialize_from_view(
+        "ranked_publication_current.sql",
+        "ranked_publication_current_table",
+        cluster_by=["author_pub_id", "pub_year"],
     )
 
     _materialize_dist_publication_citations_temporal()
@@ -405,14 +412,13 @@ def materialize_level_6():
 def materialize_all():
     """Materialize the analytics DAG in topological order.
 
-    Materializes 16 tables across 6 levels. Intermediate views
+    Materializes 17 tables across 6 levels. Intermediate views
     (base_author_publications, stats_publication_current,
-    ranked_publication_current,
     intermediate_author_publication_state_temporal,
     ranked_author_pip_scores_temporal) are left as views — their
     output is consumed inline by downstream materialized tables.
     """
-    logger.info("Starting DAG materialization (16 tables, 6 levels)...")
+    logger.info("Starting DAG materialization (17 tables, 6 levels)...")
 
     materialize_level_1()
     materialize_level_2()
@@ -421,4 +427,4 @@ def materialize_all():
     materialize_level_5()
     materialize_level_6()
 
-    logger.info("DAG materialization complete (16 tables).")
+    logger.info("DAG materialization complete (17 tables).")
