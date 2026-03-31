@@ -111,6 +111,11 @@ class TestApplyTableSubstitutions:
         result = materialize_tables._apply_table_substitutions(sql)
         assert "stats_publication_citations_temporal_table`" in result
 
+    def test_substitutes_ranked_publication_current(self):
+        sql = "FROM `scholar-version2.statistics.ranked_publication_current`"
+        result = materialize_tables._apply_table_substitutions(sql)
+        assert "ranked_publication_current_table`" in result
+
     def test_substitutes_pip_scores_current(self):
         sql = "FROM `scholar-version2.statistics.stats_author_pip_scores_current`"
         result = materialize_tables._apply_table_substitutions(sql)
@@ -125,6 +130,13 @@ class TestApplyTableSubstitutions:
         sql = "FROM `scholar-version2.statistics.ranked_author_current`"
         result = materialize_tables._apply_table_substitutions(sql)
         assert result == sql
+
+    def test_respects_custom_dataset(self):
+        from unittest.mock import patch
+        with patch.object(Config, 'BQ_STATS_DATASET', 'custom_stats'):
+            sql = "FROM `scholar-version2.custom_stats.ranked_publication_current`"
+            result = materialize_tables._apply_table_substitutions(sql)
+            assert "custom_stats.ranked_publication_current_table`" in result
 
 
 class TestMaterializeFromView:

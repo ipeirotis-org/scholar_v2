@@ -43,13 +43,23 @@ _SQL_DIR = pathlib.Path(__file__).resolve().parent.parent / "bigquery" / "statis
 # materialized tables to exist). During pipeline execution, we substitute
 # _table references so each level reads from the previous level's
 # materialized output instead of re-executing expensive view chains.
-_TABLE_SUBSTITUTIONS = {
-    "statistics.stats_publication_citations_temporal`": "statistics.stats_publication_citations_temporal_table`",
-    "statistics.ranked_publication_current`": "statistics.ranked_publication_current_table`",
-    "statistics.stats_author_metrics_temporal_view`": "statistics.stats_author_metrics_temporal_table`",
-    "statistics.stats_author_pip_scores_current`": "statistics.stats_author_pip_scores_current_table`",
-    "statistics.stats_author_pip_scores_temporal_view`": "statistics.stats_author_pip_scores_temporal_table`",
-}
+# Keys use the configured stats dataset (not hardcoded) so overrides work.
+_SUBSTITUTION_PAIRS = [
+    ("stats_publication_citations_temporal`", "stats_publication_citations_temporal_table`"),
+    ("ranked_publication_current`", "ranked_publication_current_table`"),
+    ("stats_author_metrics_temporal_view`", "stats_author_metrics_temporal_table`"),
+    ("stats_author_pip_scores_current`", "stats_author_pip_scores_current_table`"),
+    ("stats_author_pip_scores_temporal_view`", "stats_author_pip_scores_temporal_table`"),
+]
+
+
+def _get_table_substitutions():
+    """Build substitution dict using the configured stats dataset."""
+    ds = Config.BQ_STATS_DATASET
+    return {
+        f"{ds}.{view_suffix}": f"{ds}.{table_suffix}"
+        for view_suffix, table_suffix in _SUBSTITUTION_PAIRS
+    }
 
 
 def _get_bq_client():
@@ -119,7 +129,7 @@ def _run_sql(sql, description):
 
 def _apply_table_substitutions(sql):
     """Replace view references with materialized table references."""
-    for view_ref, table_ref in _TABLE_SUBSTITUTIONS.items():
+    for view_ref, table_ref in _get_table_substitutions().items():
         sql = sql.replace(view_ref, table_ref)
     return sql
 
