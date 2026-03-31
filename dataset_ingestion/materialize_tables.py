@@ -231,10 +231,19 @@ FROM agg"""
 
     # Safe swap: rename old → backup, rename tmp → final, drop backup.
     # If the second rename fails, the old table survives as _backup.
+    # We don't drop the stale backup before the swap — if a prior run
+    # left _backup as the only valid copy, dropping it first would
+    # destroy the last known-good snapshot.
     backup_ref = Config.bq_stats_table_ref("_dist_pub_cit_temporal_backup")
+    stale_ref = Config.bq_stats_table_ref("_dist_pub_cit_temporal_stale")
+    # Move any stale backup out of the way (non-fatal if it doesn't exist)
     _run_sql(
-        f"DROP TABLE IF EXISTS {backup_ref}",
-        "dist_publication_citations_temporal (drop stale backup)",
+        f"DROP TABLE IF EXISTS {stale_ref}",
+        "dist_publication_citations_temporal (drop stale)",
+    )
+    _run_sql(
+        f"ALTER TABLE IF EXISTS {backup_ref} RENAME TO _dist_pub_cit_temporal_stale",
+        "dist_publication_citations_temporal (backup → stale)",
     )
     _run_sql(
         f"ALTER TABLE IF EXISTS {final_ref} RENAME TO _dist_pub_cit_temporal_backup",
@@ -244,9 +253,14 @@ FROM agg"""
         f"ALTER TABLE {tmp_ref} RENAME TO dist_publication_citations_temporal",
         "dist_publication_citations_temporal (tmp → final)",
     )
+    # Only clean up after successful promotion
     _run_sql(
         f"DROP TABLE IF EXISTS {backup_ref}",
         "dist_publication_citations_temporal (drop backup)",
+    )
+    _run_sql(
+        f"DROP TABLE IF EXISTS {stale_ref}",
+        "dist_publication_citations_temporal (drop stale)",
     )
 
 
