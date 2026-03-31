@@ -45,7 +45,7 @@ The Cache Layer is the **single writer** to Firestore cache collections. This on
 ## Cache invalidation
 
 The Cache Layer owns invalidation logic:
-- **On data change:** The legacy Ingestion Pipeline (Component 1) enqueues `invalidate_author` to the priority queue after loading new data for an author. The Cache Layer checks the author's latest BigQuery timestamp and re-populates all caches. Note: the S2 Dataset Ingestion pipeline does not currently trigger cache invalidation.
+- **On data change:** The legacy ingestion pipeline (`ingestion/batch_load.py`) enqueues `invalidate_author` to the priority queue after loading new Google Scholar data for an author. The Cache Layer checks the author's latest BigQuery timestamp and re-populates all caches. Note: the S2 Dataset Ingestion pipeline (Component 1) does not currently trigger cache invalidation.
 - **On cache miss:** The Frontend (Component 3) enqueues a `populate` task to the priority queue. The Cache Layer runs the queries and writes fresh data to Firestore.
 - **Scheduled:** `populate_recent_authors` runs every 5 minutes via Cloud Scheduler → batch queue.
 - **Manual rebuild:** `rebuild_all` can reconstruct the entire cache from BigQuery.
