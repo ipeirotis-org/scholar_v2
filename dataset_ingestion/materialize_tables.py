@@ -45,6 +45,7 @@ _SQL_DIR = pathlib.Path(__file__).resolve().parent.parent / "bigquery" / "statis
 # materialized output instead of re-executing expensive view chains.
 # Keys use the configured stats dataset (not hardcoded) so overrides work.
 _SUBSTITUTION_PAIRS = [
+    ("stats_author_current`", "stats_author_current_table`"),
     ("stats_publication_citations_temporal`", "stats_publication_citations_temporal_table`"),
     ("ranked_publication_current`", "ranked_publication_current_table`"),
     ("stats_author_metrics_temporal_view`", "stats_author_metrics_temporal_table`"),
