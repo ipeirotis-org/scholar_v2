@@ -185,24 +185,39 @@ SELECT DISTINCT
 FROM {temporal_table}"""
     _run_sql(sql2, "dist_publication_citations_temporal (2/4: pub_year_cumulative)")
 
-    # Part 3: INSERT yearly by age
+    # Parts 3 & 4: yearly/cumulative by age.
+    # These partitions are very coarse (~100 age values, ~20M rows each),
+    # so we pre-aggregate with GROUP BY to count occurrences, then run
+    # PERCENT_RANK on the distinct values weighted by frequency via
+    # SUM(cnt) to reconstruct the correct rank.
     sql3 = f"""INSERT INTO {table_ref}
+WITH agg AS (
+  SELECT age, yearly_citations AS metric_value, COUNT(*) AS cnt
+  FROM {temporal_table}
+  GROUP BY age, yearly_citations
+)
 SELECT DISTINCT
   CAST(NULL AS INT64) AS pub_year, CAST(NULL AS INT64) AS citation_year, age,
   'age_yearly_citations' AS metric_name,
-  yearly_citations AS metric_value,
-  PERCENT_RANK() OVER(PARTITION BY age ORDER BY yearly_citations ASC) AS percentile
-FROM {temporal_table}"""
+  metric_value,
+  (SUM(cnt) OVER(PARTITION BY age ORDER BY metric_value ASC) - cnt)
+    / NULLIF(SUM(cnt) OVER(PARTITION BY age) - 1, 0) AS percentile
+FROM agg"""
     _run_sql(sql3, "dist_publication_citations_temporal (3/4: age_yearly)")
 
-    # Part 4: INSERT cumulative by age
     sql4 = f"""INSERT INTO {table_ref}
+WITH agg AS (
+  SELECT age, cumulative_citations AS metric_value, COUNT(*) AS cnt
+  FROM {temporal_table}
+  GROUP BY age, cumulative_citations
+)
 SELECT DISTINCT
   CAST(NULL AS INT64) AS pub_year, CAST(NULL AS INT64) AS citation_year, age,
   'age_cumulative_citations' AS metric_name,
-  cumulative_citations AS metric_value,
-  PERCENT_RANK() OVER(PARTITION BY age ORDER BY cumulative_citations ASC) AS percentile
-FROM {temporal_table}"""
+  metric_value,
+  (SUM(cnt) OVER(PARTITION BY age ORDER BY metric_value ASC) - cnt)
+    / NULLIF(SUM(cnt) OVER(PARTITION BY age) - 1, 0) AS percentile
+FROM agg"""
     _run_sql(sql4, "dist_publication_citations_temporal (4/4: age_cumulative)")
 
 
