@@ -150,7 +150,7 @@ Ranked views default to `active_authors` for user-facing percentiles.
 | 6 | **`dist_pip_auc_scores_temporal`** ᵀ | Temporal PiP distribution |
 | 7 | `ranked_author_pip_scores_temporal` | Temporal PiP ranked |
 
-All views/tables above are materialized into `_table` versions monthly during ingestion. Views are kept for dev/debugging.
+All views/tables above are materialized monthly during ingestion. Stats and ranked views get `_table` suffixed counterparts; distribution tables (marked ᵀ) are materialized in-place as `dist_*`. Views are kept for dev/debugging.
 
 ### Materialization schedule
 
