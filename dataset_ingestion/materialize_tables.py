@@ -151,6 +151,61 @@ def _materialize_dist(dist_sql_file, description):
     return _run_sql(sql, description)
 
 
+def _materialize_dist_publication_citations_temporal():
+    """Materialize dist_publication_citations_temporal in 4 parts.
+
+    The full query (4 UNION ALL sections with PERCENT_RANK OVER) exceeds
+    BigQuery memory when run as a single statement (~170% of limit on
+    2B+ rows). Split into CREATE TABLE + 3 INSERT INTO statements.
+    """
+    table_ref = Config.bq_stats_table_ref("dist_publication_citations_temporal")
+    temporal_table = _apply_table_substitutions(
+        "`scholar-version2.statistics.stats_publication_citations_temporal`"
+    )
+
+    # Part 1: CREATE TABLE with first metric
+    sql1 = f"""CREATE OR REPLACE TABLE {table_ref}
+CLUSTER BY metric_name, pub_year
+AS
+SELECT DISTINCT
+  pub_year, citation_year, CAST(NULL AS INT64) AS age,
+  'pub_year_yearly_citations' AS metric_name,
+  yearly_citations AS metric_value,
+  PERCENT_RANK() OVER(PARTITION BY pub_year, citation_year ORDER BY yearly_citations ASC) AS percentile
+FROM {temporal_table}"""
+    _run_sql(sql1, "dist_publication_citations_temporal (1/4: pub_year_yearly)")
+
+    # Part 2: INSERT cumulative by pub_year
+    sql2 = f"""INSERT INTO {table_ref}
+SELECT DISTINCT
+  pub_year, citation_year, CAST(NULL AS INT64) AS age,
+  'pub_year_cumulative_citations' AS metric_name,
+  cumulative_citations AS metric_value,
+  PERCENT_RANK() OVER(PARTITION BY pub_year, citation_year ORDER BY cumulative_citations ASC) AS percentile
+FROM {temporal_table}"""
+    _run_sql(sql2, "dist_publication_citations_temporal (2/4: pub_year_cumulative)")
+
+    # Part 3: INSERT yearly by age
+    sql3 = f"""INSERT INTO {table_ref}
+SELECT DISTINCT
+  CAST(NULL AS INT64) AS pub_year, CAST(NULL AS INT64) AS citation_year, age,
+  'age_yearly_citations' AS metric_name,
+  yearly_citations AS metric_value,
+  PERCENT_RANK() OVER(PARTITION BY age ORDER BY yearly_citations ASC) AS percentile
+FROM {temporal_table}"""
+    _run_sql(sql3, "dist_publication_citations_temporal (3/4: age_yearly)")
+
+    # Part 4: INSERT cumulative by age
+    sql4 = f"""INSERT INTO {table_ref}
+SELECT DISTINCT
+  CAST(NULL AS INT64) AS pub_year, CAST(NULL AS INT64) AS citation_year, age,
+  'age_cumulative_citations' AS metric_name,
+  cumulative_citations AS metric_value,
+  PERCENT_RANK() OVER(PARTITION BY age ORDER BY cumulative_citations ASC) AS percentile
+FROM {temporal_table}"""
+    _run_sql(sql4, "dist_publication_citations_temporal (4/4: age_cumulative)")
+
+
 def materialize_level_1():
     """Level 1: Foundation (independent).
 
@@ -207,10 +262,7 @@ def materialize_level_2():
         cluster_by=["author_pub_id", "pub_year", "citation_year"],
     )
 
-    _materialize_dist(
-        "dist_publication_citations_temporal.sql",
-        "dist_publication_citations_temporal",
-    )
+    _materialize_dist_publication_citations_temporal()
 
     logger.info("=== Level 2 complete ===")
 
