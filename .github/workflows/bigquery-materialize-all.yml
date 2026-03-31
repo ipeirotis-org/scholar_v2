@@ -165,7 +165,7 @@ jobs:
            CLUSTER BY metric_name, pub_year
            AS
            SELECT DISTINCT
-             year AS pub_year, citation_year, CAST(NULL AS INT64) AS age,
+             pub_year, citation_year, CAST(NULL AS INT64) AS age,
              'pub_year_yearly_citations' AS metric_name,
              yearly_citations AS metric_value,
              PERCENT_RANK() OVER(PARTITION BY pub_year, citation_year ORDER BY yearly_citations ASC) AS percentile
