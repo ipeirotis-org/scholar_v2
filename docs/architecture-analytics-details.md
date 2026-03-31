@@ -20,7 +20,7 @@ All views are materialized into tables during monthly ingestion. S2 data is stat
 
 ### 3. Refresh frequency matches data change rate
 
-S2 releases weekly diffs; we ingest monthly. 15 analytics tables are materialized in one pass after each ingestion cycle.
+S2 releases weekly diffs; we ingest monthly. 16 analytics tables are materialized in one pass after each ingestion cycle.
 
 ---
 
@@ -264,7 +264,7 @@ Joins `stats_author_pip_scores_temporal` + `dist_pip_auc_scores_temporal`. Adds 
 
 | What | Schedule | How | Rationale |
 |------|----------|-----|-----------|
-| 15 analytics tables | Monthly (1st of month) | `dataset_ingestion/materialize_tables.py` (in Cloud Run Job) | S2 data is static between loads; no reason to re-compute |
+| 16 analytics tables | Monthly (1st of month) | `dataset_ingestion/materialize_tables.py` (in Cloud Run Job) | S2 data is static between loads; no reason to re-compute |
 | Safety-net materialization | Monthly (1st, 08:00 UTC) | `bigquery-materialize-all.yml` (GitHub Actions) | Catches failures in the ingestion job's materialization |
 | Views deployment | On SQL file change | `bigquery-views.yml` (GitHub Actions) | Views kept for dev/debugging |
 
@@ -387,7 +387,7 @@ Triggers on push to `bigquery/**/*.sql` on main. Deploys views in DAG order (Lev
 
 Primary: `dataset_ingestion/materialize_tables.py` (called at the end of the Cloud Run Job)
 
-Materializes 15 tables in topological order (Levels 1–6). Each level's tables are created as `CREATE OR REPLACE TABLE ... CLUSTER BY ... AS SELECT * FROM <view>`. Intermediate views are left as views — their output is consumed inline by downstream materialized tables.
+Materializes 16 tables in topological order (Levels 1–6). Each level's tables are created as `CREATE OR REPLACE TABLE ... CLUSTER BY ... AS SELECT * FROM <view>`. Intermediate views are left as views — their output is consumed inline by downstream materialized tables.
 
 ### Fallback materialization (monthly, safety net)
 

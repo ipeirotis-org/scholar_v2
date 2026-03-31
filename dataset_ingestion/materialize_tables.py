@@ -6,11 +6,11 @@ Only materializes tables that are either:
   3. Distribution tables (small, needed for percentile lookups).
 
 Intermediate views (base_author_publications, stats_publication_current,
-stats_publication_citations_temporal, ranked_publication_current,
-intermediate_author_publication_state_temporal) are left as views —
-their output is consumed inline by the downstream materialized tables.
-This avoids materializing the expensive intermediate_author_publication_
-state_temporal table (~1h) that is never queried directly.
+ranked_publication_current, intermediate_author_publication_state_temporal)
+are left as views — their output is consumed inline by the downstream
+materialized tables. This avoids materializing the expensive
+intermediate_author_publication_state_temporal table (~1h) that is never
+queried directly.
 
 The DAG has 6 levels (1-6). Each level depends on the previous ones.
 Tables within a level can run in parallel, but are executed sequentially
@@ -186,17 +186,25 @@ def materialize_level_1():
 
 
 def materialize_level_2():
-    """Level 2: Temporal dist table (depends on Level 1).
+    """Level 2: Temporal foundation + dist (depends on Level 1).
+
+    Intermediate (needed by dist_publication_citations_temporal):
+    - stats_publication_citations_temporal_table
 
     Dist tables:
     - dist_publication_citations_temporal
 
     Skipped (intermediate, consumed inline by downstream tables):
-    - stats_publication_citations_temporal (view)
     - ranked_publication_current (view)
     - intermediate_author_publication_state_temporal (view — most expensive)
     """
-    logger.info("=== Level 2: Temporal dist ===")
+    logger.info("=== Level 2: Temporal foundation + dist ===")
+
+    _materialize_from_view(
+        "stats_publication_citations_temporal.sql",
+        "stats_publication_citations_temporal_table",
+        cluster_by=["author_pub_id", "pub_year", "citation_year"],
+    )
 
     _materialize_dist(
         "dist_publication_citations_temporal.sql",
@@ -329,14 +337,14 @@ def materialize_level_6():
 def materialize_all():
     """Materialize the analytics DAG in topological order.
 
-    Materializes 15 tables across 6 levels. Intermediate views
+    Materializes 16 tables across 6 levels. Intermediate views
     (base_author_publications, stats_publication_current,
-    stats_publication_citations_temporal, ranked_publication_current,
+    ranked_publication_current,
     intermediate_author_publication_state_temporal,
     ranked_author_pip_scores_temporal) are left as views — their
     output is consumed inline by downstream materialized tables.
     """
-    logger.info("Starting DAG materialization (15 tables, 6 levels)...")
+    logger.info("Starting DAG materialization (16 tables, 6 levels)...")
 
     materialize_level_1()
     materialize_level_2()
@@ -345,4 +353,4 @@ def materialize_all():
     materialize_level_5()
     materialize_level_6()
 
-    logger.info("DAG materialization complete (15 tables).")
+    logger.info("DAG materialization complete (16 tables).")

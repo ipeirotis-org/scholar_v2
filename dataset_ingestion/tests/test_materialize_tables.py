@@ -176,13 +176,13 @@ class TestMaterializeLevels:
 
     @patch.object(materialize_tables, "_run_sql")
     @patch.object(materialize_tables, "_read_sql")
-    def test_level_2_materializes_1_table(self, mock_read, mock_run):
+    def test_level_2_materializes_2_tables(self, mock_read, mock_run):
         mock_read.return_value = "CREATE OR REPLACE VIEW `scholar-version2.statistics.v` AS\nSELECT 1"
         mock_run.return_value = 0
 
         materialize_tables.materialize_level_2()
 
-        assert mock_run.call_count == 1
+        assert mock_run.call_count == 2
 
     @patch.object(materialize_tables, "_run_sql")
     @patch.object(materialize_tables, "_read_sql")

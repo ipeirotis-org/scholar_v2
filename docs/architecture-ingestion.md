@@ -15,7 +15,7 @@
 3. **Load into BigQuery:** Bulk-loads papers, citations, and authors into `s2_data` dataset tables
 4. **Build derived tables:** Creates `author_paper_bridge`, `author_paper_stats`, and `paper_citations_by_year` from the loaded data
 5. **Apply diffs:** For incremental updates, applies DELETE+MERGE operations from S2 diff releases
-6. **Materialize analytics DAG:** Runs `materialize_tables.py` to materialize 15 tables across 6 levels — app-facing tables, dist tables, and substitution targets
+6. **Materialize analytics DAG:** Runs `materialize_tables.py` to materialize 16 tables across 6 levels — app-facing tables, dist tables, and substitution targets
 7. **Log completion:** Records the release ID and status in `s2_data.release_log`
 
 ## Modes
