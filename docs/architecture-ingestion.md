@@ -15,7 +15,7 @@
 3. **Load into BigQuery:** Bulk-loads papers, citations, and authors into `s2_data` dataset tables
 4. **Build derived tables:** Creates `author_paper_bridge`, `author_paper_stats`, and `paper_citations_by_year` from the loaded data
 5. **Apply diffs:** For incremental updates, applies DELETE+MERGE operations from S2 diff releases
-6. **Materialize analytics DAG:** Runs `materialize_tables.py` to materialize all 7 levels of the analytics pipeline into pre-computed tables
+6. **Materialize analytics DAG:** Runs `materialize_tables.py` to materialize 15 tables across 6 levels — app-facing tables, dist tables, and substitution targets
 7. **Log completion:** Records the release ID and status in `s2_data.release_log`
 
 ## Modes
@@ -61,7 +61,7 @@
 | `dataset_ingestion/downloader.py` | Parallel S3→GCS streaming (4-8 workers) |
 | `dataset_ingestion/loader.py` | BigQuery bulk load + derived table building |
 | `dataset_ingestion/diff_updater.py` | Incremental diff application (DELETE+MERGE) |
-| `dataset_ingestion/materialize_tables.py` | Full analytics DAG materialization (7 levels) |
+| `dataset_ingestion/materialize_tables.py` | Selective analytics DAG materialization (6 levels, 15 tables) |
 | `dataset_ingestion/config.py` | Config with env var overrides |
 
 ## Infrastructure
