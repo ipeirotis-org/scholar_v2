@@ -310,12 +310,16 @@ def materialize_level_3():
     """Level 3: Metrics + PiP inputs + ranked (depends on Levels 1-2).
 
     App-facing:
-    - stats_author_publication_pip_inputs_current_table
     - ranked_author_current_table
     - ranked_publication_citations_temporal_table
 
     Substitution target (read by downstream levels):
     - stats_author_metrics_temporal_table
+
+    Skipped (view works fine for per-author queries):
+    - stats_author_publication_pip_inputs_current (complex interpolation
+      query that's too expensive to materialize; the cache layer queries
+      it filtered by scholar_id which is fast via the view)
     """
     logger.info("=== Level 3: Metrics + PiP inputs + ranked ===")
 
@@ -323,12 +327,6 @@ def materialize_level_3():
         "stats_author_metrics_temporal.sql",
         "stats_author_metrics_temporal_table",
         cluster_by=["scholar_id", "state_year"],
-    )
-
-    _materialize_from_view(
-        "stats_author_publication_pip_inputs_current.sql",
-        "stats_author_publication_pip_inputs_current_table",
-        cluster_by=["scholar_id"],
     )
 
     _materialize_from_view(
@@ -429,13 +427,14 @@ def materialize_level_6():
 def materialize_all():
     """Materialize the analytics DAG in topological order.
 
-    Materializes 17 tables across 6 levels. Intermediate views
+    Materializes 16 tables across 6 levels. Intermediate views
     (base_author_publications, stats_publication_current,
     intermediate_author_publication_state_temporal,
+    stats_author_publication_pip_inputs_current,
     ranked_author_pip_scores_temporal) are left as views — their
     output is consumed inline by downstream materialized tables.
     """
-    logger.info("Starting DAG materialization (17 tables, 6 levels)...")
+    logger.info("Starting DAG materialization (16 tables, 6 levels)...")
 
     materialize_level_1()
     materialize_level_2()
@@ -444,4 +443,4 @@ def materialize_all():
     materialize_level_5()
     materialize_level_6()
 
-    logger.info("DAG materialization complete (17 tables).")
+    logger.info("DAG materialization complete (16 tables).")
