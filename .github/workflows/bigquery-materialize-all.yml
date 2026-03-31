@@ -232,12 +232,9 @@ jobs:
            CLUSTER BY scholar_id, state_year
            AS SELECT * FROM \`$P.statistics.stats_author_metrics_temporal_view\`"
 
-    - name: 'Level 3: stats_author_publication_pip_inputs_current_table'
-      run: |
-        bq query --project_id=$P --use_legacy_sql=false \
-          "CREATE OR REPLACE TABLE \`$P.statistics.stats_author_publication_pip_inputs_current_table\`
-           CLUSTER BY scholar_id
-           AS SELECT * FROM \`$P.statistics.stats_author_publication_pip_inputs_current\`"
+    # stats_author_publication_pip_inputs_current: SKIPPED
+    # Too expensive to materialize (~75+ min). The cache layer queries
+    # it filtered by scholar_id, which runs fine against the view.
 
     - name: 'Level 3: ranked_author_current_table'
       run: |
