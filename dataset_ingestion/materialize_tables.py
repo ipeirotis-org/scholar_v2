@@ -100,6 +100,14 @@ def _view_to_table_sql(view_sql, table_name, cluster_by, partition_by=None):
 
     select_sql = view_sql[as_idx + 3:].strip().rstrip(";")
 
+    # BigQuery doesn't allow ORDER BY in CREATE TABLE ... AS SELECT
+    # when using CLUSTER BY. Strip a trailing ORDER BY clause if present.
+    # Only strips ORDER BY at the end of the statement (not inside CTEs).
+    import re
+    select_sql = re.sub(
+        r'\bORDER\s+BY\s+[\w.,\s]+\s*$', '', select_sql, flags=re.IGNORECASE
+    ).rstrip()
+
     table_ref = Config.bq_stats_table_ref(table_name)
     cluster_clause = f"CLUSTER BY {', '.join(cluster_by)}"
     partition_clause = ""
