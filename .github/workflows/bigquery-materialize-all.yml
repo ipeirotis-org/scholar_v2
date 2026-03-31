@@ -156,8 +156,69 @@ jobs:
            CLUSTER BY author_pub_id, pub_year
            AS SELECT * FROM \`$P.statistics.ranked_publication_current\`"
 
-    - name: 'Level 2: dist_publication_citations_temporal'
-      run: bq query --project_id=$P --use_legacy_sql=false < bigquery/statistics/dist_publication_citations_temporal.sql
+    # dist_publication_citations_temporal: split into 4 parts to avoid BQ OOM.
+    # The monolithic SQL exceeds memory (~170% of limit on 2B+ rows).
+    - name: 'Level 2: dist_publication_citations_temporal (1/4: pub_year_yearly)'
+      run: |
+        bq query --project_id=$P --use_legacy_sql=false \
+          "CREATE OR REPLACE TABLE \`$P.statistics.dist_publication_citations_temporal\`
+           CLUSTER BY metric_name, pub_year
+           AS
+           SELECT DISTINCT
+             year AS pub_year, citation_year, CAST(NULL AS INT64) AS age,
+             'pub_year_yearly_citations' AS metric_name,
+             yearly_citations AS metric_value,
+             PERCENT_RANK() OVER(PARTITION BY pub_year, citation_year ORDER BY yearly_citations ASC) AS percentile
+           FROM \`$P.statistics.stats_publication_citations_temporal_table\`"
+
+    - name: 'Level 2: dist_publication_citations_temporal (2/4: pub_year_cumulative)'
+      run: |
+        bq query --project_id=$P --use_legacy_sql=false \
+          "INSERT INTO \`$P.statistics.dist_publication_citations_temporal\`
+           SELECT DISTINCT
+             pub_year, citation_year, CAST(NULL AS INT64) AS age,
+             'pub_year_cumulative_citations' AS metric_name,
+             cumulative_citations AS metric_value,
+             PERCENT_RANK() OVER(PARTITION BY pub_year, citation_year ORDER BY cumulative_citations ASC) AS percentile
+           FROM \`$P.statistics.stats_publication_citations_temporal_table\`"
+
+    - name: 'Level 2: dist_publication_citations_temporal (3/4: age_yearly)'
+      run: |
+        bq query --project_id=$P --use_legacy_sql=false \
+          "INSERT INTO \`$P.statistics.dist_publication_citations_temporal\`
+           WITH agg AS (
+             SELECT age, yearly_citations AS metric_value, COUNT(*) AS cnt
+             FROM \`$P.statistics.stats_publication_citations_temporal_table\`
+             GROUP BY age, yearly_citations
+           )
+           SELECT DISTINCT
+             CAST(NULL AS INT64) AS pub_year, CAST(NULL AS INT64) AS citation_year, age,
+             'age_yearly_citations' AS metric_name,
+             metric_value,
+             COALESCE(
+               (SUM(cnt) OVER(PARTITION BY age ORDER BY metric_value ASC) - cnt)
+               / NULLIF(SUM(cnt) OVER(PARTITION BY age) - 1, 0),
+               0) AS percentile
+           FROM agg"
+
+    - name: 'Level 2: dist_publication_citations_temporal (4/4: age_cumulative)'
+      run: |
+        bq query --project_id=$P --use_legacy_sql=false \
+          "INSERT INTO \`$P.statistics.dist_publication_citations_temporal\`
+           WITH agg AS (
+             SELECT age, cumulative_citations AS metric_value, COUNT(*) AS cnt
+             FROM \`$P.statistics.stats_publication_citations_temporal_table\`
+             GROUP BY age, cumulative_citations
+           )
+           SELECT DISTINCT
+             CAST(NULL AS INT64) AS pub_year, CAST(NULL AS INT64) AS citation_year, age,
+             'age_cumulative_citations' AS metric_name,
+             metric_value,
+             COALESCE(
+               (SUM(cnt) OVER(PARTITION BY age ORDER BY metric_value ASC) - cnt)
+               / NULLIF(SUM(cnt) OVER(PARTITION BY age) - 1, 0),
+               0) AS percentile
+           FROM agg"
 
     # ── Level 3: Metrics + PiP inputs + ranked ────────────────────────
     - name: 'Level 3: stats_author_metrics_temporal_table'
