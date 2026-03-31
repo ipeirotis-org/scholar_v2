@@ -164,7 +164,7 @@ def _materialize_dist_publication_citations_temporal():
     final_ref = Config.bq_stats_table_ref("dist_publication_citations_temporal")
     tmp_ref = Config.bq_stats_table_ref("_dist_pub_cit_temporal_tmp")
     temporal_table = _apply_table_substitutions(
-        "`scholar-version2.statistics.stats_publication_citations_temporal`"
+        Config.bq_stats_table_ref("stats_publication_citations_temporal")
     )
 
     # Part 1: CREATE temp TABLE with first metric
@@ -229,14 +229,24 @@ SELECT DISTINCT
 FROM agg"""
     _run_sql(sql4, "dist_publication_citations_temporal (4/4: age_cumulative)")
 
-    # Atomic swap: drop old, rename temp → final
+    # Safe swap: rename old → backup, rename tmp → final, drop backup.
+    # If the second rename fails, the old table survives as _backup.
+    backup_ref = Config.bq_stats_table_ref("_dist_pub_cit_temporal_backup")
     _run_sql(
-        f"DROP TABLE IF EXISTS {final_ref}",
-        "dist_publication_citations_temporal (drop old)",
+        f"DROP TABLE IF EXISTS {backup_ref}",
+        "dist_publication_citations_temporal (drop stale backup)",
+    )
+    _run_sql(
+        f"ALTER TABLE IF EXISTS {final_ref} RENAME TO _dist_pub_cit_temporal_backup",
+        "dist_publication_citations_temporal (old → backup)",
     )
     _run_sql(
         f"ALTER TABLE {tmp_ref} RENAME TO dist_publication_citations_temporal",
-        "dist_publication_citations_temporal (swap)",
+        "dist_publication_citations_temporal (tmp → final)",
+    )
+    _run_sql(
+        f"DROP TABLE IF EXISTS {backup_ref}",
+        "dist_publication_citations_temporal (drop backup)",
     )
 
 
