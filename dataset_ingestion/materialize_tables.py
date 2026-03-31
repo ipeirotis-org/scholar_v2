@@ -6,11 +6,10 @@ Only materializes tables that are either:
   3. Distribution tables (small, needed for percentile lookups).
 
 Intermediate views (base_author_publications, stats_publication_current,
-ranked_publication_current, intermediate_author_publication_state_temporal)
-are left as views — their output is consumed inline by the downstream
-materialized tables. This avoids materializing the expensive
-intermediate_author_publication_state_temporal table (~1h) that is never
-queried directly.
+intermediate_author_publication_state_temporal) are left as views —
+their output is consumed inline by the downstream materialized tables.
+This avoids materializing the expensive intermediate_author_publication_
+state_temporal table (~1h) that is never queried directly.
 
 The DAG has 6 levels (1-6). Each level depends on the previous ones.
 Tables within a level can run in parallel, but are executed sequentially
@@ -18,7 +17,7 @@ here for simplicity and to stay within BigQuery concurrency limits.
 
 Architecture:
   - Level 1: Foundation (stats_author_current + dist tables)
-  - Level 2: Temporal dist table
+  - Level 2: Temporal foundation + first ranked + dist
   - Level 3: Metrics + PiP inputs + ranked (app-facing)
   - Level 4: PiP scores + higher distributions
   - Level 5: Ranked PiP + temporal ranked (app-facing)
@@ -158,14 +157,18 @@ def _materialize_dist_publication_citations_temporal():
     The full query (4 UNION ALL sections with PERCENT_RANK OVER) exceeds
     BigQuery memory when run as a single statement (~170% of limit on
     2B+ rows). Split into CREATE TABLE + 3 INSERT INTO statements.
+
+    Built atomically in a temp table and swapped on success to avoid
+    leaving a partially-populated table if a step fails.
     """
-    table_ref = Config.bq_stats_table_ref("dist_publication_citations_temporal")
+    final_ref = Config.bq_stats_table_ref("dist_publication_citations_temporal")
+    tmp_ref = Config.bq_stats_table_ref("_dist_pub_cit_temporal_tmp")
     temporal_table = _apply_table_substitutions(
         "`scholar-version2.statistics.stats_publication_citations_temporal`"
     )
 
-    # Part 1: CREATE TABLE with first metric
-    sql1 = f"""CREATE OR REPLACE TABLE {table_ref}
+    # Part 1: CREATE temp TABLE with first metric
+    sql1 = f"""CREATE OR REPLACE TABLE {tmp_ref}
 CLUSTER BY metric_name, pub_year
 AS
 SELECT DISTINCT
@@ -177,7 +180,7 @@ FROM {temporal_table}"""
     _run_sql(sql1, "dist_publication_citations_temporal (1/4: pub_year_yearly)")
 
     # Part 2: INSERT cumulative by pub_year
-    sql2 = f"""INSERT INTO {table_ref}
+    sql2 = f"""INSERT INTO {tmp_ref}
 SELECT DISTINCT
   pub_year, citation_year, CAST(NULL AS INT64) AS age,
   'pub_year_cumulative_citations' AS metric_name,
@@ -188,10 +191,11 @@ FROM {temporal_table}"""
 
     # Parts 3 & 4: yearly/cumulative by age.
     # These partitions are very coarse (~100 age values, ~20M rows each),
-    # so we pre-aggregate with GROUP BY to count occurrences, then run
-    # PERCENT_RANK on the distinct values weighted by frequency via
-    # SUM(cnt) to reconstruct the correct rank.
-    sql3 = f"""INSERT INTO {table_ref}
+    # so we pre-aggregate with GROUP BY to count occurrences, then compute
+    # PERCENT_RANK via cumulative sum formula instead of OVER() on the
+    # full 2B row table. COALESCE handles single-row partitions (where
+    # PERCENT_RANK returns 0 but our denominator would be 0).
+    sql3 = f"""INSERT INTO {tmp_ref}
 WITH agg AS (
   SELECT age, yearly_citations AS metric_value, COUNT(*) AS cnt
   FROM {temporal_table}
@@ -201,12 +205,14 @@ SELECT DISTINCT
   CAST(NULL AS INT64) AS pub_year, CAST(NULL AS INT64) AS citation_year, age,
   'age_yearly_citations' AS metric_name,
   metric_value,
-  (SUM(cnt) OVER(PARTITION BY age ORDER BY metric_value ASC) - cnt)
-    / NULLIF(SUM(cnt) OVER(PARTITION BY age) - 1, 0) AS percentile
+  COALESCE(
+    (SUM(cnt) OVER(PARTITION BY age ORDER BY metric_value ASC) - cnt)
+    / NULLIF(SUM(cnt) OVER(PARTITION BY age) - 1, 0),
+    0) AS percentile
 FROM agg"""
     _run_sql(sql3, "dist_publication_citations_temporal (3/4: age_yearly)")
 
-    sql4 = f"""INSERT INTO {table_ref}
+    sql4 = f"""INSERT INTO {tmp_ref}
 WITH agg AS (
   SELECT age, cumulative_citations AS metric_value, COUNT(*) AS cnt
   FROM {temporal_table}
@@ -216,10 +222,22 @@ SELECT DISTINCT
   CAST(NULL AS INT64) AS pub_year, CAST(NULL AS INT64) AS citation_year, age,
   'age_cumulative_citations' AS metric_name,
   metric_value,
-  (SUM(cnt) OVER(PARTITION BY age ORDER BY metric_value ASC) - cnt)
-    / NULLIF(SUM(cnt) OVER(PARTITION BY age) - 1, 0) AS percentile
+  COALESCE(
+    (SUM(cnt) OVER(PARTITION BY age ORDER BY metric_value ASC) - cnt)
+    / NULLIF(SUM(cnt) OVER(PARTITION BY age) - 1, 0),
+    0) AS percentile
 FROM agg"""
     _run_sql(sql4, "dist_publication_citations_temporal (4/4: age_cumulative)")
+
+    # Atomic swap: drop old, rename temp → final
+    _run_sql(
+        f"DROP TABLE IF EXISTS {final_ref}",
+        "dist_publication_citations_temporal (drop old)",
+    )
+    _run_sql(
+        f"ALTER TABLE {tmp_ref} RENAME TO dist_publication_citations_temporal",
+        "dist_publication_citations_temporal (swap)",
+    )
 
 
 def materialize_level_1():
