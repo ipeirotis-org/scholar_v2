@@ -99,7 +99,7 @@ jobs:
         fi
 
   materialize:
-    name: Materialize analytics DAG (16 tables, 6 levels)
+    name: Materialize analytics DAG (17 tables, 6 levels)
     needs: preflight
     if: always() && (needs.preflight.outputs.should_run == 'true' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
@@ -138,17 +138,23 @@ jobs:
     - name: 'Level 1: dist_author_metrics'
       run: bq query --project_id=$P --use_legacy_sql=false < bigquery/statistics/dist_author_metrics.sql
 
-    # ── Level 2: Temporal foundation + dist ─────────────────────────────
-    # stats_publication_citations_temporal must be materialized first (too
-    # large for inline PERCENT_RANK in dist query). Intermediate views
-    # (ranked_publication_current, intermediate_author_publication_state_temporal)
-    # are left as views.
+    # ── Level 2: Temporal foundation + first ranked + dist ─────────────
+    # stats_publication_citations_temporal and ranked_publication_current
+    # must be materialized (too large for inline computation by downstream).
+    # intermediate_author_publication_state_temporal is left as a view.
     - name: 'Level 2: stats_publication_citations_temporal_table'
       run: |
         bq query --project_id=$P --use_legacy_sql=false \
           "CREATE OR REPLACE TABLE \`$P.statistics.stats_publication_citations_temporal_table\`
            CLUSTER BY author_pub_id, pub_year, citation_year
            AS SELECT * FROM \`$P.statistics.stats_publication_citations_temporal\`"
+
+    - name: 'Level 2: ranked_publication_current_table'
+      run: |
+        bq query --project_id=$P --use_legacy_sql=false \
+          "CREATE OR REPLACE TABLE \`$P.statistics.ranked_publication_current_table\`
+           CLUSTER BY author_pub_id, pub_year
+           AS SELECT * FROM \`$P.statistics.ranked_publication_current\`"
 
     - name: 'Level 2: dist_publication_citations_temporal'
       run: bq query --project_id=$P --use_legacy_sql=false < bigquery/statistics/dist_publication_citations_temporal.sql

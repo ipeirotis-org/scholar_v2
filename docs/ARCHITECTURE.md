@@ -90,7 +90,7 @@ PiP Score is a distributed system for analyzing research impact using percentile
 | **GCS storage** | Moderate | S2 dataset files (~100GB per release, cleaned after load) |
 | **Cloud Tasks** | Near-zero | Low volume |
 | **BigQuery storage** | Moderate | S2 raw tables + materialized analytics tables |
-| **Monthly ingestion** | Moderate | Bulk load + full DAG materialization (21 tables) |
+| **Monthly ingestion** | Moderate | Bulk load + selective DAG materialization (17 tables) |
 | **Firestore cache** | Low | 5-7 reads per page view |
 | **Client-side Plotly.js** | Zero server cost | Charts render in the browser |
 
