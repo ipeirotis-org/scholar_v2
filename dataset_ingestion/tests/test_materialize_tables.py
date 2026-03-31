@@ -106,6 +106,11 @@ class TestApplyTableSubstitutions:
         assert "stats_author_metrics_temporal_table`" in result
         assert "stats_author_metrics_temporal_view" not in result
 
+    def test_substitutes_publication_citations_temporal(self):
+        sql = "FROM `scholar-version2.statistics.stats_publication_citations_temporal`"
+        result = materialize_tables._apply_table_substitutions(sql)
+        assert "stats_publication_citations_temporal_table`" in result
+
     def test_substitutes_pip_scores_current(self):
         sql = "FROM `scholar-version2.statistics.stats_author_pip_scores_current`"
         result = materialize_tables._apply_table_substitutions(sql)

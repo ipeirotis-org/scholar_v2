@@ -45,6 +45,7 @@ _SQL_DIR = pathlib.Path(__file__).resolve().parent.parent / "bigquery" / "statis
 # _table references so each level reads from the previous level's
 # materialized output instead of re-executing expensive view chains.
 _TABLE_SUBSTITUTIONS = {
+    "statistics.stats_publication_citations_temporal`": "statistics.stats_publication_citations_temporal_table`",
     "statistics.stats_author_metrics_temporal_view`": "statistics.stats_author_metrics_temporal_table`",
     "statistics.stats_author_pip_scores_current`": "statistics.stats_author_pip_scores_current_table`",
     "statistics.stats_author_pip_scores_temporal_view`": "statistics.stats_author_pip_scores_temporal_table`",
