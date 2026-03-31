@@ -1,4 +1,4 @@
-# Component 1: Crawler (Retired)
+# Crawler (Retired)
 
 > This component has been retired. Data is now sourced from **Semantic Scholar bulk datasets** via the [Dataset Ingestion](architecture-ingestion.md) pipeline.
 

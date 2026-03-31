@@ -1,4 +1,4 @@
-# Component 5: Refresh & Expand (Not Implemented)
+# Refresh & Expand (Retired)
 
 > This component was planned but never implemented. Data freshness is now managed by the [Dataset Ingestion](architecture-ingestion.md) pipeline's monthly S2 bulk dataset updates.
 
