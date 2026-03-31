@@ -44,6 +44,11 @@ _SQL_DIR = pathlib.Path(__file__).resolve().parent.parent / "bigquery" / "statis
 # _table references so each level reads from the previous level's
 # materialized output instead of re-executing expensive view chains.
 # Keys use the configured stats dataset (not hardcoded) so overrides work.
+#
+# Note: the SQL files themselves hard-code `scholar-version2.statistics.`
+# because they're deployed as standalone views by bigquery-views.yml.
+# If BQ_STATS_DATASET is overridden, the SQL files must also be updated
+# (or deployed to the custom dataset) for substitutions to match.
 _SUBSTITUTION_PAIRS = [
     ("stats_author_current`", "stats_author_current_table`"),
     ("stats_publication_citations_temporal`", "stats_publication_citations_temporal_table`"),
