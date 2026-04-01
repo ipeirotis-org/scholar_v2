@@ -149,6 +149,23 @@ class TestBuildDerivedTables:
         assert "author_paper_stats" in sql
         assert "i10_index" in sql
 
+    @patch.object(loader, "_get_bq_client")
+    def test_build_qualifying_papers(self, mock_get_client):
+        mock_client = MagicMock()
+        mock_get_client.return_value = mock_client
+        mock_job = MagicMock()
+        mock_client.query.return_value = mock_job
+        mock_table = MagicMock()
+        mock_table.num_rows = 50_000_000
+        mock_client.get_table.return_value = mock_table
+
+        rows = loader.build_qualifying_papers()
+        assert rows == 50_000_000
+        sql = mock_client.query.call_args[0][0]
+        assert "qualifying_papers" in sql
+        assert "total_publications >= 6" in sql
+        assert "CLUSTER BY corpusid" in sql
+
 
 class TestGetLastLoadedRelease:
     @patch.object(loader, "_get_bq_client")

@@ -18,6 +18,10 @@ WITH
       AND year > 1950
       AND year <= EXTRACT(YEAR FROM CURRENT_DATE())
       AND citationcount > 0
+      -- Only include papers from authors with >= 6 total publications.
+      AND corpusid IN (
+        SELECT corpusid FROM `scholar-version2.s2_data.qualifying_papers`
+      )
   ),
   CitationData AS (
     SELECT

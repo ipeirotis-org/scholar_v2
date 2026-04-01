@@ -254,6 +254,40 @@ def build_author_paper_stats():
     return table.num_rows
 
 
+def build_qualifying_papers():
+    """Materialize the qualifying_papers derived table.
+
+    Contains corpusids of papers that have at least one author with
+    >= MIN_AUTHOR_PUBLICATIONS total publications. Used by stats and
+    distribution views to filter the paper population for percentile
+    calculations. Papers from excluded authors still contribute
+    citations to other papers — only the percentile population is filtered.
+    """
+    table_ref = Config.bq_table_ref(Config.QUALIFYING_PAPERS_TABLE)
+    bridge_ref = Config.bq_table_ref(Config.AUTHOR_PAPER_BRIDGE_TABLE)
+    stats_ref = Config.bq_table_ref(Config.AUTHOR_PAPER_STATS_TABLE)
+    min_pubs = Config.MIN_AUTHOR_PUBLICATIONS
+
+    sql = f"""
+    CREATE OR REPLACE TABLE {table_ref}
+    CLUSTER BY corpusid
+    AS
+    SELECT DISTINCT b.corpusid
+    FROM {bridge_ref} b
+    JOIN {stats_ref} ps ON b.authorid = ps.authorid
+    WHERE ps.total_publications >= {min_pubs}
+    """
+    logger.info(
+        "Building qualifying_papers (min_pubs=%d)...", min_pubs
+    )
+    client = _get_bq_client()
+    job = client.query(sql)
+    job.result()
+    table = client.get_table(Config.bq_table(Config.QUALIFYING_PAPERS_TABLE))
+    logger.info("qualifying_papers: %d rows", table.num_rows)
+    return table.num_rows
+
+
 def log_release(release_id, dataset_name, load_type, status, rows_loaded=0):
     """Record a load operation in the release_log table."""
     table_id = Config.bq_table(Config.RELEASE_LOG_TABLE)
