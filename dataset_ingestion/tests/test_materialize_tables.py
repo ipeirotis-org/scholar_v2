@@ -106,6 +106,16 @@ class TestApplyTableSubstitutions:
         assert "stats_author_metrics_temporal_table`" in result
         assert "stats_author_metrics_temporal_view" not in result
 
+    def test_substitutes_publication_citations_temporal(self):
+        sql = "FROM `scholar-version2.statistics.stats_publication_citations_temporal`"
+        result = materialize_tables._apply_table_substitutions(sql)
+        assert "stats_publication_citations_temporal_table`" in result
+
+    def test_substitutes_ranked_publication_current(self):
+        sql = "FROM `scholar-version2.statistics.ranked_publication_current`"
+        result = materialize_tables._apply_table_substitutions(sql)
+        assert "ranked_publication_current_table`" in result
+
     def test_substitutes_pip_scores_current(self):
         sql = "FROM `scholar-version2.statistics.stats_author_pip_scores_current`"
         result = materialize_tables._apply_table_substitutions(sql)
@@ -116,10 +126,42 @@ class TestApplyTableSubstitutions:
         result = materialize_tables._apply_table_substitutions(sql)
         assert "stats_author_pip_scores_temporal_table`" in result
 
-    def test_leaves_unknown_views_unchanged(self):
+    def test_substitutes_ranked_author_current(self):
         sql = "FROM `scholar-version2.statistics.ranked_author_current`"
         result = materialize_tables._apply_table_substitutions(sql)
+        assert "ranked_author_current_table`" in result
+
+    def test_substitutes_base_author_publications(self):
+        sql = "FROM `scholar-version2.statistics.base_author_publications`"
+        result = materialize_tables._apply_table_substitutions(sql)
+        assert "base_author_publications_table`" in result
+
+    def test_substitutes_stats_publication_current(self):
+        sql = "FROM `scholar-version2.statistics.stats_publication_current`"
+        result = materialize_tables._apply_table_substitutions(sql)
+        assert "stats_publication_current_table`" in result
+
+    def test_substitutes_intermediate_temporal(self):
+        sql = "FROM `scholar-version2.statistics.intermediate_author_publication_state_temporal`"
+        result = materialize_tables._apply_table_substitutions(sql)
+        assert "intermediate_author_publication_state_temporal_table`" in result
+
+    def test_substitutes_pip_inputs(self):
+        sql = "FROM `scholar-version2.statistics.stats_author_publication_pip_inputs_current`"
+        result = materialize_tables._apply_table_substitutions(sql)
+        assert "stats_author_publication_pip_inputs_current_table`" in result
+
+    def test_leaves_unknown_views_unchanged(self):
+        sql = "FROM `scholar-version2.statistics.some_unknown_view`"
+        result = materialize_tables._apply_table_substitutions(sql)
         assert result == sql
+
+    def test_respects_custom_dataset(self):
+        from unittest.mock import patch
+        with patch.object(Config, 'BQ_STATS_DATASET', 'custom_stats'):
+            sql = "FROM `scholar-version2.custom_stats.ranked_publication_current`"
+            result = materialize_tables._apply_table_substitutions(sql)
+            assert "custom_stats.ranked_publication_current_table`" in result
 
 
 class TestMaterializeFromView:
@@ -172,6 +214,7 @@ class TestMaterializeLevels:
 
         materialize_tables.materialize_level_1()
 
+        # 3 view→table + 2 dist tables
         assert mock_run.call_count == 5
 
     @patch.object(materialize_tables, "_run_sql")
@@ -182,6 +225,7 @@ class TestMaterializeLevels:
 
         materialize_tables.materialize_level_2()
 
+        # 3 view→table + 1 dist table
         assert mock_run.call_count == 4
 
     @patch.object(materialize_tables, "_run_sql")

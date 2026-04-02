@@ -50,7 +50,7 @@ scholar_v2/
 │   ├── s2_api_client.py          # S2 Datasets API client (releases, file URLs, diffs)
 │   ├── downloader.py             # Parallel S3→GCS streaming (4-8 workers)
 │   ├── loader.py                 # BigQuery bulk load + derived table materialization
-│   ├── materialize_tables.py     # Full analytics DAG materialization (7 levels)
+│   ├── materialize_tables.py     # Selective analytics DAG materialization (6 levels, 17 tables)
 │   ├── diff_updater.py           # Incremental diff application (DELETE+MERGE)
 │   ├── config.py                 # Config with env var overrides
 │   └── tests/
@@ -60,7 +60,7 @@ scholar_v2/
 │   ├── config.py                 # Config with env var overrides
 │   └── tests/
 ├── author_search/                # Author search library (used by frontend, not a standalone service)
-│   ├── search_service.py         # In-memory index search (loaded from BQ, refreshed every 6h)
+│   ├── search_service.py         # In-memory index search (reloaded from Firestore every 6h)
 │   ├── bigquery_client.py        # Loads active S2 authors for the in-memory index
 │   ├── cache.py                  # Firestore cache (24h TTL for search results, chunked index)
 │   ├── config.py                 # Config with env var overrides
@@ -82,8 +82,8 @@ scholar_v2/
              → BigQuery bulk load (papers, citations, authors)
              → Materialize derived tables (author_paper_bridge, author_paper_stats,
                paper_citations_by_year)
-             → Materialize full analytics DAG (7 levels: dist tables, ranked tables,
-               temporal tables — all views replaced with pre-computed tables)
+             → Materialize analytics DAG (6 levels, 17 tables: app-facing,
+               dist tables, and substitution targets — intermediate views left as views)
 
 2. ANALYZE: BigQuery SQL views compute:
              → Publication citation percentiles (by pub_year cohort)
@@ -101,11 +101,11 @@ scholar_v2/
 
 4. SERVE:  Flask app reads from Firestore cache only (no direct BigQuery)
              → On cache miss: enqueues priority task → returns loading page
-             → matplotlib generates percentile rank + PiP scatter plots from cached data
-             → HTML templates render with base64-encoded PNG images
+             → Plotly.js renders interactive charts client-side from structured JSON data
+             → HTML templates render with Plotly chart containers
 
 5. SEARCH: Author search runs in the frontend Cloud Run service (in-memory):
-             → In-memory index of ~360K prominent S2 authors (refreshed every 6h from BQ)
+             → In-memory index of ~360K prominent S2 authors (reloaded from Firestore every 6h; Firestore index rebuilt from BQ on bootstrap/manual trigger)
              → Filtered to hindex >= 20, citedby > 5000
              → Instant substring matching, sorted by citation count
              → S2 API fallback for less-known researchers (102M authors)
@@ -128,7 +128,7 @@ All analytics views read from the `s2_data` dataset (Semantic Scholar bulk datas
 
 ### Key design pattern: Stats → Distributions → Ranked (per metric family)
 
-Every metric family follows: **stats** (raw values) → **dist** (PERCENT_RANK) → **ranked** (cheap JOIN). The full DAG has **7 topological levels** (1–7). All levels are materialized into tables monthly after ingestion by `materialize_tables.py`. Views are kept for development/debugging but app queries hit materialized tables.
+Every metric family follows: **stats** (raw values) → **dist** (PERCENT_RANK) → **ranked** (cheap JOIN). The full DAG has **7 topological levels** (1–7). 17 tables across 6 levels are materialized monthly after ingestion by `materialize_tables.py` — only app-facing tables, dist tables, and substitution targets. Intermediate views are left as views.
 
 ### Benchmark populations
 
@@ -150,14 +150,14 @@ Ranked views default to `active_authors` for user-facing percentiles.
 | 6 | **`dist_pip_auc_scores_temporal`** ᵀ | Temporal PiP distribution |
 | 7 | `ranked_author_pip_scores_temporal` | Temporal PiP ranked |
 
-ᵀ = Materialized TABLE (quarterly). All others are live VIEWs.
+17 of the views/tables above are selectively materialized monthly during ingestion — only app-facing tables, dist tables, and substitution targets. Intermediate views (`base_author_publications`, `stats_publication_current`, `intermediate_author_publication_state_temporal`, `ranked_author_pip_scores_temporal`) are left as live views. Stats and ranked views get `_table` suffixed counterparts; distribution tables (marked ᵀ) are materialized in-place as `dist_*`.
 
 ### Materialization schedule
 
 | What | Schedule | Rationale |
 |------|----------|-----------|
 | S2 dataset ingestion + full DAG materialization | **Monthly** (1st of month, 02:00 UTC) | S2 releases weekly diffs; monthly is sufficient for citation percentiles |
-| All tables (dist + stats + ranked + temporal) | **Monthly** (during ingestion) | Materialized by `materialize_tables.py` in topological DAG order (7 levels) |
+| 17 tables (app-facing + dist + substitution targets) | **Monthly** (during ingestion) | Materialized by `materialize_tables.py` in topological DAG order (6 levels) |
 | Views (all non-materialized) | **Live** (kept for dev/debugging) | App queries use materialized `_table` versions via `USE_MATERIALIZED_TABLES` flag |
 
 ## Tech Stack
@@ -165,7 +165,7 @@ Ranked views default to `active_authors` for user-facing percentiles.
 - **Flask** on Google Cloud Run
 - **Semantic Scholar** bulk datasets (200M papers, 2.4B citations, 102M authors)
 - **GCP**: Cloud Run (frontend + cache layer + dataset ingestion), Cloud Functions (ingestion), Firestore, BigQuery, Cloud Storage, Cloud Tasks
-- **matplotlib** for visualization (server-side PNG)
+- **Plotly.js** for visualization (client-side interactive charts)
 - **pandas / numpy** for data manipulation
 - **Docker** (Python 3.12-slim)
 

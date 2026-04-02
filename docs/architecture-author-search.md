@@ -1,66 +1,58 @@
-# Component 6: Author Search Service
+# Component 4: Author Search
 
 > Part of [System Architecture](ARCHITECTURE.md)
 
-**Purpose:** Help users find authors by name. Searches local data first (cheap, fast), falls back to Google Scholar only when needed.
+**Purpose:** Help users find authors by name. Uses an in-memory index for instant results, with Semantic Scholar API fallback for less-known researchers.
 
 **Input:** Author name query string.
 
-**Output:** List of matching authors with name, affiliation, scholar_id, citation count.
+**Output:** List of matching authors with name, affiliation, S2 author ID, citation count.
 
 ## What it does
 
-1. **Local search (fast, free):** Query BigQuery for authors already in the database whose name matches the query. This covers ~15,000+ faculty profiles plus all their coauthors (names and IDs available from the coauthor network).
-2. **Google Scholar fallback (slow, rate-limited):** If local search returns too few results, call `scholarly.search_author()` to find authors not yet in the database.
-3. **Cache results:** Cache Google Scholar search results to avoid repeated API calls for the same query.
+1. **In-memory search (instant):** Substring matching against an in-memory index of ~360K prominent S2 authors (hindex ≥ 20, citedby > 5000). The in-memory copy is reloaded from a Firestore-persisted index every 6 hours (TTL-based). The Firestore index itself is rebuilt from BigQuery on bootstrap or via the `/api/refresh_author_index` endpoint.
+2. **S2 API fallback (1-3s):** For authors not in the index, queries the Semantic Scholar API to search the full 102M author universe.
+3. **Cache results:** S2 API search results are cached in Firestore (24h TTL) to avoid repeated API calls.
 
-## Data sources for local search
+## Search modes
 
-| Source | What it contains | Coverage |
-|---|---|---|
-| `stats_author_current` view | name, affiliation, email_domain, scholar_id, metrics | All crawled authors (~15k+) |
-| `coauthor_network` view | coauthor_name, coauthor_affiliation, coauthor_scholar_id | All coauthors of crawled authors (much larger set) |
-| `coauthors_to_add` view | name, affiliation, scholar_id of authors not yet crawled | Discovery candidates |
+| Mode | Trigger | Source | Latency |
+|------|---------|--------|---------|
+| Typeahead | `typeahead=True` | In-memory index, top 10 | <10ms |
+| Full search | Default | In-memory index, top 50; S2 API fallback if 0 results | <10ms (hit), 1-3s (fallback) |
+| Extended search | `scholar=True` | In-memory + S2 API fallback | 1-3s |
 
-Most academic searches can be answered locally — a professor searching for their colleague will almost certainly find them in the coauthor graph without hitting Google Scholar.
+## Architecture
 
-## Search strategy
+Author Search is a **library integrated into the frontend**, not a standalone service. It runs in-process within the frontend's Cloud Run container:
 
-```
-1. Query BigQuery: SELECT name, affiliation, scholar_id
-   FROM stats_author_current WHERE LOWER(name) LIKE @pattern
-   → Return if sufficient results
+- `author_search/search_service.py` — manages the in-memory index and search logic
+- `author_search/bigquery_client.py` — loads active authors from BigQuery for the index
+- `author_search/cache.py` — Firestore cache for search results and chunked index data
 
-2. Query BigQuery: SELECT coauthor_name, coauthor_affiliation, coauthor_scholar_id
-   FROM coauthor_network WHERE LOWER(coauthor_name) LIKE @pattern
-   → Return if sufficient results
-
-3. Check Firestore cache for this query string
-   → Return if cached and fresh
-
-4. Fall back to scholarly.search_author(name)
-   → Cache results in Firestore
-   → Return
-```
+The in-memory index enables instant typeahead with zero external calls for most queries.
 
 ## Boundaries
 
 | | Source | Target |
 |---|---|---|
-| **Reads** | BigQuery (author + coauthor views) | |
-| | Firestore (search result cache) | |
-| | Google Scholar (fallback via `scholarly`) | |
-| **Writes** | | Firestore (search result cache) |
+| **Reads** | BigQuery (`ranked_author_current_table` for index refresh) | |
+| | Firestore (search result cache, chunked index cache) | |
+| | Semantic Scholar API (fallback for unknown authors) | |
+| **Writes** | | Firestore (search result cache, chunked index on bootstrap/manual rebuild) |
 
 ## Frontend integration
 
-The frontend calls this service for author search:
-- Debounced input (300ms) → HTTP call to Author Search Service
-- Display results as dropdown: name, affiliation, scholar_id
+- Debounced input (300ms) → in-process search call
+- Display results as dropdown: name, affiliation, S2 author ID
 - Clicking a result navigates to `/results?author_id=X`
-- If no results found: show "Search Google Scholar?" button that triggers the Scholar fallback explicitly
+- If no results found: "Search Semantic Scholar?" button triggers the S2 API fallback
 
-## Infrastructure
+## Implementation
 
-- **Cloud Function (Gen2):** Deployed across 9 US regions (same rotation as Crawler)
-- Benefits from region rotation for Google Scholar fallback calls
+| File | Role |
+|---|---|
+| `author_search/search_service.py` | In-memory index search (reloaded from Firestore every 6h) |
+| `author_search/bigquery_client.py` | Loads active S2 authors for the in-memory index |
+| `author_search/cache.py` | Firestore cache (24h TTL for search results, chunked index) |
+| `author_search/config.py` | Config with env var overrides |

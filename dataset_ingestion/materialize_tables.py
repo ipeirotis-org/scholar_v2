@@ -7,9 +7,13 @@ The DAG has 7 levels (1-7). Each level depends on the previous ones.
 Tables within a level can run in parallel, but are executed sequentially
 here for simplicity and to stay within BigQuery concurrency limits.
 
+All percentile lookups use RANGE_BUCKET + pre-aggregated arrays for O(log n)
+floor lookups. This replaces correlated scalar subqueries and makes
+materializing even large tables (2B+ rows) fast.
+
 Architecture:
   - Level 1: Foundation (raw data views → tables, dist tables)
-  - Level 2: Temporal foundation + first ranked
+  - Level 2: Temporal foundation + first ranked + dist
   - Level 3: Metrics + PiP inputs + more ranked
   - Level 4: PiP scores + higher distributions
   - Level 5: Ranked PiP + temporal ranked
@@ -18,8 +22,8 @@ Architecture:
 """
 
 import logging
-import os
 import pathlib
+import re
 
 from google.cloud import bigquery
 
@@ -37,24 +41,40 @@ _SQL_DIR = pathlib.Path(__file__).resolve().parent.parent / "bigquery" / "statis
 # materialized tables to exist). During pipeline execution, we substitute
 # _table references so each level reads from the previous level's
 # materialized output instead of re-executing expensive view chains.
-_TABLE_SUBSTITUTIONS = {
+#
+# Keys use the configured stats dataset (not hardcoded) so overrides work.
+#
+# Note: the SQL files themselves hard-code `scholar-version2.statistics.`
+# because they're deployed as standalone views by bigquery-views.yml.
+# If BQ_STATS_DATASET is overridden, the SQL files must also be updated
+# (or deployed to the custom dataset) for substitutions to match.
+_SUBSTITUTION_PAIRS = [
     # Level 1 views → tables (used by Level 2+)
-    "statistics.base_author_publications`": "statistics.base_author_publications_table`",
-    "statistics.stats_publication_current`": "statistics.stats_publication_current_table`",
-    "statistics.stats_author_current`": "statistics.stats_author_current_table`",
+    ("base_author_publications`", "base_author_publications_table`"),
+    ("stats_publication_current`", "stats_publication_current_table`"),
+    ("stats_author_current`", "stats_author_current_table`"),
     # Level 2 views → tables (used by Level 3+)
-    "statistics.stats_publication_citations_temporal`": "statistics.stats_publication_citations_temporal_table`",
-    "statistics.ranked_publication_current`": "statistics.ranked_publication_current_table`",
-    "statistics.intermediate_author_publication_state_temporal`": "statistics.intermediate_author_publication_state_temporal_table`",
+    ("stats_publication_citations_temporal`", "stats_publication_citations_temporal_table`"),
+    ("ranked_publication_current`", "ranked_publication_current_table`"),
+    ("intermediate_author_publication_state_temporal`", "intermediate_author_publication_state_temporal_table`"),
     # Level 3 views → tables (used by Level 4+)
-    "statistics.stats_author_metrics_temporal_view`": "statistics.stats_author_metrics_temporal_table`",
-    "statistics.stats_author_publication_pip_inputs_current`": "statistics.stats_author_publication_pip_inputs_current_table`",
-    "statistics.ranked_author_current`": "statistics.ranked_author_current_table`",
+    ("stats_author_metrics_temporal_view`", "stats_author_metrics_temporal_table`"),
+    ("stats_author_publication_pip_inputs_current`", "stats_author_publication_pip_inputs_current_table`"),
+    ("ranked_author_current`", "ranked_author_current_table`"),
     # Level 4 views → tables (used by Level 5+)
-    "statistics.stats_author_pip_scores_current`": "statistics.stats_author_pip_scores_current_table`",
+    ("stats_author_pip_scores_current`", "stats_author_pip_scores_current_table`"),
     # Level 5 views → tables (used by Level 6+)
-    "statistics.stats_author_pip_scores_temporal_view`": "statistics.stats_author_pip_scores_temporal_table`",
-}
+    ("stats_author_pip_scores_temporal_view`", "stats_author_pip_scores_temporal_table`"),
+]
+
+
+def _get_table_substitutions():
+    """Build substitution dict using the configured stats dataset."""
+    ds = Config.BQ_STATS_DATASET
+    return {
+        f"{ds}.{view_suffix}": f"{ds}.{table_suffix}"
+        for view_suffix, table_suffix in _SUBSTITUTION_PAIRS
+    }
 
 
 def _get_bq_client():
@@ -76,29 +96,30 @@ def _view_to_table_sql(view_sql, table_name, cluster_by, partition_by=None):
     Extracts the SELECT portion from the view definition and wraps it
     in a CREATE OR REPLACE TABLE statement with clustering.
     """
-    # Find the AS keyword that separates CREATE VIEW from the SELECT
-    # The view SQL is: CREATE OR REPLACE VIEW `...` AS <select>
-    # We need to extract everything after the first AS that follows the view name
     upper = view_sql.upper()
 
-    # Find "CREATE OR REPLACE VIEW" and skip past the view name to find "AS"
     view_idx = upper.find("VIEW")
     if view_idx == -1:
         raise ValueError(f"Could not find VIEW keyword in SQL for {table_name}")
 
-    # Find the AS keyword after the VIEW declaration
     as_idx = upper.find("\nAS\n", view_idx)
     if as_idx == -1:
         as_idx = upper.find("\nAS ", view_idx)
     if as_idx == -1:
         as_idx = upper.find(" AS\n", view_idx)
     if as_idx == -1:
-        # Try finding "AS" on same line as view name (e.g., "...view_name` AS")
         as_idx = upper.find(" AS ", view_idx)
     if as_idx == -1:
         raise ValueError(f"Could not find AS keyword in SQL for {table_name}")
 
     select_sql = view_sql[as_idx + 3:].strip().rstrip(";")
+
+    # BigQuery doesn't allow ORDER BY in CREATE TABLE ... AS SELECT
+    # when using CLUSTER BY. Strip a trailing ORDER BY clause if present.
+    # Only strips ORDER BY at the end of the statement (not inside CTEs).
+    select_sql = re.sub(
+        r'\bORDER\s+BY\s+[\w.,\s]+\s*$', '', select_sql, flags=re.IGNORECASE
+    ).rstrip()
 
     table_ref = Config.bq_stats_table_ref(table_name)
     cluster_clause = f"CLUSTER BY {', '.join(cluster_by)}"
@@ -116,7 +137,6 @@ def _run_sql(sql, description):
     job = client.query(sql)
     job.result()
 
-    # Try to get row count from the destination table
     if job.destination:
         try:
             table = client.get_table(job.destination)
@@ -136,7 +156,7 @@ def _apply_table_substitutions(sql):
     execution, we substitute _table names so downstream levels read from
     previously materialized tables instead of re-executing view chains.
     """
-    for view_ref, table_ref in _TABLE_SUBSTITUTIONS.items():
+    for view_ref, table_ref in _get_table_substitutions().items():
         sql = sql.replace(view_ref, table_ref)
     return sql
 

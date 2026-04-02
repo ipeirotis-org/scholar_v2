@@ -2,9 +2,10 @@ CREATE OR REPLACE VIEW `scholar-version2.statistics.stats_author_publication_pip
 -- Computes num_papers_percentile (the X-axis of the PiP chart) for each publication
 -- via interpolation of the author's publication-count percentile.
 --
--- Uses scalar subqueries against dist_author_metrics to find the floor and ceiling
--- breakpoints for interpolation. This replaces the previous cross-join approach
--- (Distances CTE) which produced ~100B+ intermediate rows.
+-- Uses array-based lookup: pre-aggregates dist breakpoints into sorted arrays
+-- per year_of_first_pub, then uses RANGE_BUCKET to find the floor index in O(log n).
+-- A single equi-join on year_of_first_pub broadcasts the small arrays (~75 cohorts)
+-- to all publications. No range joins, no correlated subqueries.
 --
 -- Uses 'active_authors' benchmark for meaningful percentile differentiation.
 WITH
@@ -23,44 +24,34 @@ WITH
     JOIN `scholar-version2.statistics.stats_author_current` a
       ON bap.scholar_id = a.scholar_id
   ),
+  -- Pre-aggregate dist breakpoints into sorted arrays per cohort.
+  -- Each cohort gets ~1000 (metric_value, percentile) breakpoints sorted by metric_value.
+  DistArrays AS (
+    SELECT
+      year_of_first_pub,
+      ARRAY_AGG(metric_value ORDER BY metric_value) AS values_arr,
+      ARRAY_AGG(percentile ORDER BY metric_value) AS pcts_arr
+    FROM `scholar-version2.statistics.dist_author_metrics`
+    WHERE benchmark = 'active_authors'
+      AND metric_name = 'total_publications_with_citations'
+    GROUP BY year_of_first_pub
+  ),
+  -- Join publications to their cohort's breakpoint arrays (equi-join, broadcast).
+  -- Use RANGE_BUCKET to find the floor index in O(log n).
   Interpolated AS (
     SELECT
-      scholar_id,
-      author_pub_id,
-      num_citations,
-      num_citations_percentile,
-      publication_rank,
-      -- Floor: largest breakpoint value <= publication_rank
-      (SELECT MAX(d.metric_value)
-       FROM `scholar-version2.statistics.dist_author_metrics` d
-       WHERE d.benchmark = 'active_authors'
-         AND d.metric_name = 'total_publications_with_citations'
-         AND d.year_of_first_pub = rp.year_of_first_pub
-         AND d.metric_value <= rp.publication_rank
-      ) AS floor_value,
-      (SELECT MAX(d.percentile)
-       FROM `scholar-version2.statistics.dist_author_metrics` d
-       WHERE d.benchmark = 'active_authors'
-         AND d.metric_name = 'total_publications_with_citations'
-         AND d.year_of_first_pub = rp.year_of_first_pub
-         AND d.metric_value <= rp.publication_rank
-      ) AS floor_pct,
-      -- Ceiling: smallest breakpoint value >= publication_rank
-      (SELECT MIN(d.metric_value)
-       FROM `scholar-version2.statistics.dist_author_metrics` d
-       WHERE d.benchmark = 'active_authors'
-         AND d.metric_name = 'total_publications_with_citations'
-         AND d.year_of_first_pub = rp.year_of_first_pub
-         AND d.metric_value >= rp.publication_rank
-      ) AS ceiling_value,
-      (SELECT MIN(d.percentile)
-       FROM `scholar-version2.statistics.dist_author_metrics` d
-       WHERE d.benchmark = 'active_authors'
-         AND d.metric_name = 'total_publications_with_citations'
-         AND d.year_of_first_pub = rp.year_of_first_pub
-         AND d.metric_value >= rp.publication_rank
-      ) AS ceiling_pct
+      rp.scholar_id,
+      rp.author_pub_id,
+      rp.num_citations,
+      rp.num_citations_percentile,
+      rp.publication_rank,
+      -- RANGE_BUCKET returns the index of the first element > publication_rank,
+      -- so (bucket_idx - 1) is the floor index, bucket_idx is the ceiling index.
+      RANGE_BUCKET(rp.publication_rank, da.values_arr) AS bucket_idx,
+      da.values_arr,
+      da.pcts_arr
     FROM RankedPublications rp
+    JOIN DistArrays da ON rp.year_of_first_pub = da.year_of_first_pub
   )
 SELECT
   scholar_id,
@@ -69,10 +60,17 @@ SELECT
   num_citations_percentile,
   publication_rank,
   CASE
-    WHEN floor_pct IS NULL THEN 0.0
-    WHEN ceiling_pct IS NULL THEN 1.0
-    WHEN floor_value = ceiling_value THEN floor_pct
-    ELSE (ceiling_pct * (publication_rank - floor_value) + floor_pct * (ceiling_value - publication_rank))
-         / (ceiling_value - floor_value)
+    -- Below all breakpoints
+    WHEN bucket_idx = 0 THEN 0.0
+    -- Above all breakpoints
+    WHEN bucket_idx >= ARRAY_LENGTH(values_arr) THEN 1.0
+    -- Exact match on floor (floor == ceiling value)
+    WHEN values_arr[SAFE_ORDINAL(bucket_idx)] = values_arr[SAFE_ORDINAL(bucket_idx + 1)]
+      THEN pcts_arr[SAFE_ORDINAL(bucket_idx)]
+    -- Linear interpolation between floor and ceiling
+    ELSE (
+      pcts_arr[SAFE_ORDINAL(bucket_idx + 1)] * (publication_rank - values_arr[SAFE_ORDINAL(bucket_idx)])
+      + pcts_arr[SAFE_ORDINAL(bucket_idx)] * (values_arr[SAFE_ORDINAL(bucket_idx + 1)] - publication_rank)
+    ) / (values_arr[SAFE_ORDINAL(bucket_idx + 1)] - values_arr[SAFE_ORDINAL(bucket_idx)])
   END AS num_papers_percentile
 FROM Interpolated;
