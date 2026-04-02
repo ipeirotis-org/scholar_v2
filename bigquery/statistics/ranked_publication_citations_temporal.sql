@@ -10,8 +10,8 @@ WITH
       metric_name,
       pub_year,
       citation_year,
-      ARRAY_AGG(metric_value ORDER BY metric_value) AS values_arr,
-      ARRAY_AGG(percentile ORDER BY metric_value) AS pcts_arr
+      ARRAY_AGG(metric_value ORDER BY metric_value, percentile) AS values_arr,
+      ARRAY_AGG(percentile ORDER BY metric_value, percentile) AS pcts_arr
     FROM `scholar-version2.statistics.dist_publication_citations_temporal`
     WHERE metric_name IN ('pub_year_yearly_citations', 'pub_year_cumulative_citations')
     GROUP BY metric_name, pub_year, citation_year
@@ -29,8 +29,8 @@ WITH
     SELECT
       metric_name,
       age,
-      ARRAY_AGG(metric_value ORDER BY metric_value) AS values_arr,
-      ARRAY_AGG(percentile ORDER BY metric_value) AS pcts_arr
+      ARRAY_AGG(metric_value ORDER BY metric_value, percentile) AS values_arr,
+      ARRAY_AGG(percentile ORDER BY metric_value, percentile) AS pcts_arr
     FROM `scholar-version2.statistics.dist_publication_citations_temporal`
     WHERE metric_name IN ('age_yearly_citations', 'age_cumulative_citations')
     GROUP BY metric_name, age

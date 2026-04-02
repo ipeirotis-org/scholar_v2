@@ -13,8 +13,8 @@ WITH
     SELECT
       year_of_first_pub,
       metric_name,
-      ARRAY_AGG(metric_value ORDER BY metric_value) AS values_arr,
-      ARRAY_AGG(percentile ORDER BY metric_value) AS pcts_arr
+      ARRAY_AGG(metric_value ORDER BY metric_value, percentile) AS values_arr,
+      ARRAY_AGG(percentile ORDER BY metric_value, percentile) AS pcts_arr
     FROM `scholar-version2.statistics.dist_author_metrics`
     WHERE benchmark = 'active_authors'
     GROUP BY year_of_first_pub, metric_name
@@ -59,5 +59,5 @@ SELECT
   COALESCE(dp.tp_pcts[SAFE_ORDINAL(RANGE_BUCKET(b.total_publications, dp.tp_vals))], 0.0) AS total_publications_percentile,
   COALESCE(dp.tpwc_pcts[SAFE_ORDINAL(RANGE_BUCKET(b.total_publications_with_citations, dp.tpwc_vals))], 0.0) AS total_publications_with_citations_percentile
 FROM `scholar-version2.statistics.stats_author_current` b
-JOIN DistPivot dp ON dp.year_of_first_pub = b.year_of_first_pub
+LEFT JOIN DistPivot dp ON dp.year_of_first_pub = b.year_of_first_pub
 WHERE b.year_of_first_pub IS NOT NULL;

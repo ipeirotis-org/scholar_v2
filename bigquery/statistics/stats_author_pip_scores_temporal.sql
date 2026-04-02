@@ -51,8 +51,8 @@ WITH
     SELECT
       pub_year,
       citation_year,
-      ARRAY_AGG(metric_value ORDER BY metric_value) AS values_arr,
-      ARRAY_AGG(percentile ORDER BY metric_value) AS pcts_arr
+      ARRAY_AGG(metric_value ORDER BY metric_value, percentile) AS values_arr,
+      ARRAY_AGG(percentile ORDER BY metric_value, percentile) AS pcts_arr
     FROM `scholar-version2.statistics.dist_publication_citations_temporal`
     WHERE metric_name = 'pub_year_cumulative_citations'
     GROUP BY pub_year, citation_year
@@ -71,7 +71,7 @@ WITH
         0.0
       ) AS citation_percentile
     FROM PubState ps
-    JOIN CitDistArrays cd
+    LEFT JOIN CitDistArrays cd
       ON cd.pub_year = ps.pub_year
      AND cd.citation_year = ps.state_year
   ),
@@ -96,8 +96,8 @@ WITH
     SELECT
       year_of_first_pub,
       state_year,
-      ARRAY_AGG(metric_value ORDER BY metric_value) AS values_arr,
-      ARRAY_AGG(percentile ORDER BY metric_value) AS pcts_arr
+      ARRAY_AGG(metric_value ORDER BY metric_value, percentile) AS values_arr,
+      ARRAY_AGG(percentile ORDER BY metric_value, percentile) AS pcts_arr
     FROM `scholar-version2.statistics.dist_author_metrics_temporal`
     WHERE benchmark = 'active_authors'
       AND metric_name = 'total_publications'
@@ -129,7 +129,7 @@ WITH
         )
       END AS num_papers_percentile
     FROM RankedPubs rp
-    JOIN DistArrays da
+    LEFT JOIN DistArrays da
       ON rp.year_of_first_pub = da.year_of_first_pub
      AND rp.state_year = da.state_year
   ),

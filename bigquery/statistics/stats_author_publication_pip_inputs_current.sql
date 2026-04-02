@@ -29,8 +29,8 @@ WITH
   DistArrays AS (
     SELECT
       year_of_first_pub,
-      ARRAY_AGG(metric_value ORDER BY metric_value) AS values_arr,
-      ARRAY_AGG(percentile ORDER BY metric_value) AS pcts_arr
+      ARRAY_AGG(metric_value ORDER BY metric_value, percentile) AS values_arr,
+      ARRAY_AGG(percentile ORDER BY metric_value, percentile) AS pcts_arr
     FROM `scholar-version2.statistics.dist_author_metrics`
     WHERE benchmark = 'active_authors'
       AND metric_name = 'total_publications_with_citations'
@@ -51,7 +51,7 @@ WITH
       da.values_arr,
       da.pcts_arr
     FROM RankedPublications rp
-    JOIN DistArrays da ON rp.year_of_first_pub = da.year_of_first_pub
+    LEFT JOIN DistArrays da ON rp.year_of_first_pub = da.year_of_first_pub
   )
 SELECT
   scholar_id,

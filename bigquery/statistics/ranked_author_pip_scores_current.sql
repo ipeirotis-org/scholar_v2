@@ -8,8 +8,8 @@ WITH
   DistArrays AS (
     SELECT
       year_of_first_pub,
-      ARRAY_AGG(pip_auc_score ORDER BY pip_auc_score) AS values_arr,
-      ARRAY_AGG(percentile ORDER BY pip_auc_score) AS pcts_arr
+      ARRAY_AGG(pip_auc_score ORDER BY pip_auc_score, percentile) AS values_arr,
+      ARRAY_AGG(percentile ORDER BY pip_auc_score, percentile) AS pcts_arr
     FROM `scholar-version2.statistics.dist_pip_auc_scores`
     WHERE benchmark = 'active_authors'
     GROUP BY year_of_first_pub
@@ -23,4 +23,4 @@ SELECT
     0.0
   ) AS pip_auc_score_percentile
 FROM `scholar-version2.statistics.stats_author_pip_scores_current` a
-JOIN DistArrays da ON da.year_of_first_pub = a.year_of_first_pub;
+LEFT JOIN DistArrays da ON da.year_of_first_pub = a.year_of_first_pub;

@@ -10,8 +10,8 @@ WITH
       year_of_first_pub,
       state_year,
       metric_name,
-      ARRAY_AGG(metric_value ORDER BY metric_value) AS values_arr,
-      ARRAY_AGG(percentile ORDER BY metric_value) AS pcts_arr
+      ARRAY_AGG(metric_value ORDER BY metric_value, percentile) AS values_arr,
+      ARRAY_AGG(percentile ORDER BY metric_value, percentile) AS pcts_arr
     FROM `scholar-version2.statistics.dist_author_metrics_temporal`
     WHERE benchmark = 'active_authors'
     GROUP BY year_of_first_pub, state_year, metric_name
@@ -64,7 +64,7 @@ SELECT
   COALESCE(dp.i105_pcts[SAFE_ORDINAL(RANGE_BUCKET(b.i10_index_5y, dp.i105_vals))], 0.0)
     AS i10_index_5y_percentile
 FROM `scholar-version2.statistics.stats_author_metrics_temporal_view` b
-JOIN DistPivot dp
+LEFT JOIN DistPivot dp
   ON dp.year_of_first_pub = b.year_of_first_pub
  AND dp.state_year = b.state_year
 WHERE b.year_of_first_pub IS NOT NULL;
