@@ -2,6 +2,8 @@
 
 import os
 
+from shared.bq_helpers import bq_view as _bq_view
+
 
 class Config:
     PROJECT_ID = os.environ.get("GCP_PROJECT_ID", "scholar-version2")
@@ -22,4 +24,4 @@ class Config:
 
     @classmethod
     def bq_view(cls, view_name):
-        return f"`{cls.PROJECT_ID}.{cls.BQ_STATS_DATASET}.{view_name}`"
+        return _bq_view(cls.PROJECT_ID, cls.BQ_STATS_DATASET, view_name)

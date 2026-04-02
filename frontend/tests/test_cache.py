@@ -2,6 +2,8 @@
 
 from unittest import mock
 
+from google.api_core.exceptions import ServiceUnavailable
+
 from frontend.cache import FirestoreCache, MAX_RECENT_AUTHORS
 
 
@@ -79,6 +81,6 @@ class TestRecordRecentAuthor:
 
     def test_handles_exception_gracefully(self):
         cache, client = _make_cache()
-        client.collection.return_value.document.return_value.get.side_effect = Exception("boom")
+        client.collection.return_value.document.return_value.get.side_effect = ServiceUnavailable("boom")
         # Should not raise
         cache.record_recent_author(_author("a1"))

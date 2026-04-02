@@ -365,6 +365,11 @@ def register_routes(app):
     # Existing API endpoints
     # ------------------------------------------------------------------
 
+    # Simple per-author rate limiting for state-changing endpoints.
+    # Tracks recent rebuild requests to prevent duplicate enqueues.
+    _rebuild_timestamps = {}  # author_id -> timestamp
+    _REBUILD_COOLDOWN = 60  # seconds between rebuilds for the same author
+
     @app.route("/api/rebuild_statistics", methods=["POST"])
     def api_rebuild_statistics():
         """Enqueue cache rebuild from BigQuery for the given author IDs."""
@@ -373,14 +378,23 @@ def register_routes(app):
                        if _validate_scholar_id(s.strip())]
         if not scholar_ids:
             return jsonify({"error": "No valid author IDs provided"}), 400
+
+        now = time.monotonic()
         enqueued = 0
+        skipped = 0
         for sid in scholar_ids:
+            last = _rebuild_timestamps.get(sid, 0)
+            if now - last < _REBUILD_COOLDOWN:
+                skipped += 1
+                continue
             if enqueue_cache_populate("populate_author_profile", {"scholar_id": sid}):
+                _rebuild_timestamps[sid] = now
                 enqueued += 1
         return jsonify({
             "status": "queued",
             "total_authors": len(scholar_ids),
             "enqueued": enqueued,
+            "skipped_rate_limited": skipped,
             "authors": [{"scholar_id": sid} for sid in scholar_ids],
         })
 

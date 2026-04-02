@@ -58,8 +58,10 @@ class BigQueryClient:
         params = [ScalarQueryParameter("scholar_id", "STRING", scholar_id)]
         df = self._query(sql, params)
         if df is None:
-            return None
-        # Deduplicate by author_pub_id to guard against upstream view issues
+            return []
+        # Deduplicate by author_pub_id — defensive guard against potential
+        # duplicates in author_paper_bridge (e.g., same paper listed twice
+        # for an author due to S2 data quality issues).
         df = df.drop_duplicates(subset=["author_pub_id"], keep="first")
         return df.to_dict("records")
 
@@ -133,21 +135,3 @@ class BigQueryClient:
         if df is not None and not df.empty:
             return True, df.iloc[0].get("last_updated")
         return False, None
-
-    def get_all_author_ids(self):
-        """Get all author IDs from S2 data for full cache rebuild.
-
-        Returns author IDs from the active_authors benchmark population
-        (hindex >= 3 AND total_publications >= 3) to avoid rebuilding
-        cache for 100M+ low-activity authors.
-        """
-        sql = f"""
-            SELECT CAST(authorid AS STRING) AS scholar_id
-            FROM `{Config.PROJECT_ID}.s2_data.author_paper_stats`
-            WHERE total_publications >= 3
-              AND i10_index >= 1
-        """
-        df = self._query(sql)
-        if df is None:
-            return []
-        return df["scholar_id"].tolist()
