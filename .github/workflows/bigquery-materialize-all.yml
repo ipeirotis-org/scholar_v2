@@ -99,7 +99,7 @@ jobs:
         fi
 
   materialize:
-    name: Materialize full analytics DAG
+    name: Materialize analytics DAG (17 tables, 6 levels)
     needs: preflight
     if: always() && (needs.preflight.outputs.should_run == 'true' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
@@ -122,22 +122,9 @@ jobs:
       with:
         project_id: ${{ env.PROJECT_ID }}
 
-    # ── Level 1: Foundation (independent) ─────────────────────────────
-    # Views → tables + distribution tables
-    - name: 'Level 1: base_author_publications_table'
-      run: |
-        bq query --project_id=$P --use_legacy_sql=false \
-          "CREATE OR REPLACE TABLE \`$P.statistics.base_author_publications_table\`
-           CLUSTER BY scholar_id
-           AS SELECT * FROM \`$P.statistics.base_author_publications\`"
-
-    - name: 'Level 1: stats_publication_current_table'
-      run: |
-        bq query --project_id=$P --use_legacy_sql=false \
-          "CREATE OR REPLACE TABLE \`$P.statistics.stats_publication_current_table\`
-           CLUSTER BY author_pub_id, pub_year
-           AS SELECT * FROM \`$P.statistics.stats_publication_current\`"
-
+    # ── Level 1: Foundation ───────────────────────────────────────────
+    # App-facing + dist tables. Intermediate views (base_author_publications,
+    # stats_publication_current) are left as views.
     - name: 'Level 1: stats_author_current_table'
       run: |
         bq query --project_id=$P --use_legacy_sql=false \
@@ -151,7 +138,10 @@ jobs:
     - name: 'Level 1: dist_author_metrics'
       run: bq query --project_id=$P --use_legacy_sql=false < bigquery/statistics/dist_author_metrics.sql
 
-    # ── Level 2: Temporal foundation + first ranked ───────────────────
+    # ── Level 2: Temporal foundation + first ranked + dist ─────────────
+    # stats_publication_citations_temporal and ranked_publication_current
+    # must be materialized (too large for inline computation by downstream).
+    # intermediate_author_publication_state_temporal is left as a view.
     - name: 'Level 2: stats_publication_citations_temporal_table'
       run: |
         bq query --project_id=$P --use_legacy_sql=false \
@@ -166,15 +156,73 @@ jobs:
            CLUSTER BY author_pub_id, pub_year
            AS SELECT * FROM \`$P.statistics.ranked_publication_current\`"
 
-    - name: 'Level 2: intermediate_author_publication_state_temporal_table'
+    # dist_publication_citations_temporal: split into 4 parts to avoid BQ OOM.
+    # The monolithic SQL exceeds memory (~170% of limit on 2B+ rows).
+    # Written directly (not via temp+swap) because:
+    # - Fallback runs monthly at 08:00 UTC (low traffic)
+    # - Partial window is ~2 min for all 4 INSERTs
+    # - USE_MATERIALIZED_TABLES defaults to false, so most queries hit views
+    - name: 'Level 2: dist_publication_citations_temporal (1/4: pub_year_yearly)'
       run: |
         bq query --project_id=$P --use_legacy_sql=false \
-          "CREATE OR REPLACE TABLE \`$P.statistics.intermediate_author_publication_state_temporal_table\`
-           CLUSTER BY scholar_id, author_pub_id, state_year
-           AS SELECT * FROM \`$P.statistics.intermediate_author_publication_state_temporal\`"
+          "CREATE OR REPLACE TABLE \`$P.statistics.dist_publication_citations_temporal\`
+           CLUSTER BY metric_name, pub_year
+           AS
+           SELECT DISTINCT
+             pub_year, citation_year, CAST(NULL AS INT64) AS age,
+             'pub_year_yearly_citations' AS metric_name,
+             yearly_citations AS metric_value,
+             PERCENT_RANK() OVER(PARTITION BY pub_year, citation_year ORDER BY yearly_citations ASC) AS percentile
+           FROM \`$P.statistics.stats_publication_citations_temporal_table\`"
 
-    - name: 'Level 2: dist_publication_citations_temporal'
-      run: bq query --project_id=$P --use_legacy_sql=false < bigquery/statistics/dist_publication_citations_temporal.sql
+    - name: 'Level 2: dist_publication_citations_temporal (2/4: pub_year_cumulative)'
+      run: |
+        bq query --project_id=$P --use_legacy_sql=false \
+          "INSERT INTO \`$P.statistics.dist_publication_citations_temporal\`
+           SELECT DISTINCT
+             pub_year, citation_year, CAST(NULL AS INT64) AS age,
+             'pub_year_cumulative_citations' AS metric_name,
+             cumulative_citations AS metric_value,
+             PERCENT_RANK() OVER(PARTITION BY pub_year, citation_year ORDER BY cumulative_citations ASC) AS percentile
+           FROM \`$P.statistics.stats_publication_citations_temporal_table\`"
+
+    - name: 'Level 2: dist_publication_citations_temporal (3/4: age_yearly)'
+      run: |
+        bq query --project_id=$P --use_legacy_sql=false \
+          "INSERT INTO \`$P.statistics.dist_publication_citations_temporal\`
+           WITH agg AS (
+             SELECT age, yearly_citations AS metric_value, COUNT(*) AS cnt
+             FROM \`$P.statistics.stats_publication_citations_temporal_table\`
+             GROUP BY age, yearly_citations
+           )
+           SELECT DISTINCT
+             CAST(NULL AS INT64) AS pub_year, CAST(NULL AS INT64) AS citation_year, age,
+             'age_yearly_citations' AS metric_name,
+             metric_value,
+             COALESCE(
+               (SUM(cnt) OVER(PARTITION BY age ORDER BY metric_value ASC) - cnt)
+               / NULLIF(SUM(cnt) OVER(PARTITION BY age) - 1, 0),
+               0) AS percentile
+           FROM agg"
+
+    - name: 'Level 2: dist_publication_citations_temporal (4/4: age_cumulative)'
+      run: |
+        bq query --project_id=$P --use_legacy_sql=false \
+          "INSERT INTO \`$P.statistics.dist_publication_citations_temporal\`
+           WITH agg AS (
+             SELECT age, cumulative_citations AS metric_value, COUNT(*) AS cnt
+             FROM \`$P.statistics.stats_publication_citations_temporal_table\`
+             GROUP BY age, cumulative_citations
+           )
+           SELECT DISTINCT
+             CAST(NULL AS INT64) AS pub_year, CAST(NULL AS INT64) AS citation_year, age,
+             'age_cumulative_citations' AS metric_name,
+             metric_value,
+             COALESCE(
+               (SUM(cnt) OVER(PARTITION BY age ORDER BY metric_value ASC) - cnt)
+               / NULLIF(SUM(cnt) OVER(PARTITION BY age) - 1, 0),
+               0) AS percentile
+           FROM agg"
 
     # ── Level 3: Metrics + PiP inputs + ranked ────────────────────────
     - name: 'Level 3: stats_author_metrics_temporal_table'
@@ -184,12 +232,9 @@ jobs:
            CLUSTER BY scholar_id, state_year
            AS SELECT * FROM \`$P.statistics.stats_author_metrics_temporal_view\`"
 
-    - name: 'Level 3: stats_author_publication_pip_inputs_current_table'
-      run: |
-        bq query --project_id=$P --use_legacy_sql=false \
-          "CREATE OR REPLACE TABLE \`$P.statistics.stats_author_publication_pip_inputs_current_table\`
-           CLUSTER BY scholar_id
-           AS SELECT * FROM \`$P.statistics.stats_author_publication_pip_inputs_current\`"
+    # stats_author_publication_pip_inputs_current: SKIPPED
+    # Too expensive to materialize (~75+ min). The cache layer queries
+    # it filtered by scholar_id, which runs fine against the view.
 
     - name: 'Level 3: ranked_author_current_table'
       run: |
@@ -244,14 +289,6 @@ jobs:
     # ── Level 6: Temporal PiP distribution ────────────────────────────
     - name: 'Level 6: dist_pip_auc_scores_temporal'
       run: bq query --project_id=$P --use_legacy_sql=false < bigquery/statistics/dist_pip_auc_scores_temporal.sql
-
-    # ── Level 7: Temporal PiP ranked ──────────────────────────────────
-    - name: 'Level 7: ranked_author_pip_scores_temporal_table'
-      run: |
-        bq query --project_id=$P --use_legacy_sql=false \
-          "CREATE OR REPLACE TABLE \`$P.statistics.ranked_author_pip_scores_temporal_table\`
-           CLUSTER BY scholar_id, state_year
-           AS SELECT * FROM \`$P.statistics.ranked_author_pip_scores_temporal\`"
 
     # ── Log success to release_log ────────────────────────────────────
     - name: Log materialization success

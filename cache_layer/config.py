@@ -41,7 +41,7 @@ class Config:
     # Views that have materialized _table counterparts.
     # When USE_MATERIALIZED_TABLES is True, queries use the _table version.
     _MATERIALIZED_VIEW_MAP = {
-        "stats_author_publication_pip_inputs_current": "stats_author_publication_pip_inputs_current_table",
+        # pip_inputs is NOT materialized — view works fine for per-author queries
         "ranked_author_current": "ranked_author_current_table",
         "ranked_author_pip_scores_current": "ranked_author_pip_scores_current_table",
         "ranked_publication_citations_temporal": "ranked_publication_citations_temporal_table",
