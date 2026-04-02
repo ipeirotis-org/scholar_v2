@@ -106,6 +106,25 @@ def admin_populate():
     return jsonify(result)
 
 
+@app.route("/admin/flush_cache", methods=["POST"])
+@require_admin_auth
+def admin_flush_cache():
+    """Delete all documents from all Firestore cache collections.
+
+    The cache is fully disposable and can be rebuilt from BigQuery
+    via /admin/rebuild.
+    """
+    result = service.dispatch("flush_cache", {})
+    status = result.get("status")
+    if status == "ok":
+        status_code = 200
+    elif status == "partial_failure":
+        status_code = 207
+    else:
+        status_code = 500
+    return jsonify(result), status_code
+
+
 @app.route("/admin/purge_legacy", methods=["POST"])
 @require_admin_auth
 def admin_purge_legacy():
