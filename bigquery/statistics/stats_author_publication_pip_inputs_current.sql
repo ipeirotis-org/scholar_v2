@@ -101,5 +101,4 @@ SELECT
   MAX(publication_rank) AS publication_rank,
   MAX(interpolated_percentile) AS num_papers_percentile
 FROM InterpolatedResults
-GROUP BY scholar_id, author_pub_id
-ORDER BY scholar_id, publication_rank;
+GROUP BY scholar_id, author_pub_id;
