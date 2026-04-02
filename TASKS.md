@@ -135,10 +135,7 @@ Findings from a full codebase audit, ordered by priority. See `docs/codebase-rev
   - `refresh/refresh_service.py` — `author_exists()` now wrapped in try/except; returns `None` on failure
   - Enqueue proceeds regardless; structured error response always returned
 
-- [ ] **Move plot generation out of the request thread** _(review §5.1)_
-  - `frontend/routes.py:129-152` — synchronous matplotlib rendering blocks Flask worker
-  - For authors with 500+ publications, can take several seconds
-  - **Fix:** Pre-generate plots in cache_layer during cache population, or generate async
+- [x] ~~**Move plot generation out of the request thread**~~ _(resolved: matplotlib removed, charts now render client-side via Plotly.js)_
 
 ### P2 — Medium (Maintainability / Performance / Security)
 
@@ -658,15 +655,14 @@ Replace three schedules (weekly ingestion + quarterly distributions + daily snap
 
 ## Future Features
 
-- [ ] **REST API for authors, publications, and stats** _(from #28)_
-  - Expose data as JSON API endpoints (separate from the HTML frontend)
-  - Enables third-party integrations and programmatic access
-  - Could be a separate Cloud Run service or part of the frontend with `/api/` routes
+- [x] **REST API for authors, publications, and stats** _(from #28)_
+  - JSON API endpoints added: `/api/author/<id>/data`, `/api/publication/<id>/data`
+  - Serves structured JSON for programmatic access alongside HTML routes
 
-- [ ] **Migrate frontend to API + client-side JS** _(from #6)_
-  - Replace Jinja server-rendered templates with API calls + JavaScript
-  - Aligns with client-side charting direction (Chart.js/Plotly)
-  - Added benefit: exposes a usable API for external consumers
+- [x] **Migrate frontend to API + client-side JS** _(from #6)_
+  - Replaced matplotlib server-side rendering with Plotly.js client-side charts (`static/js/charts.js`)
+  - Server passes structured JSON data to Jinja templates; Plotly renders interactively in the browser
+  - `visualization.py` removed entirely
 
 - [ ] **Field-specific benchmarks** _(from #12)_
   - Allow users to compare against their field (business, CS, biology, etc.)
@@ -683,4 +679,4 @@ Replace three schedules (weekly ingestion + quarterly distributions + daily snap
 
 ---
 
-_Last updated: 2026-03-30_
+_Last updated: 2026-04-02_
