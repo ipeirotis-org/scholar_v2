@@ -367,15 +367,10 @@ def register_routes(app):
 
     # Simple per-author rate limiting for state-changing endpoints.
     # Tracks recent rebuild requests to prevent duplicate enqueues.
+    import threading
     _rebuild_timestamps = {}  # author_id -> monotonic timestamp
+    _rebuild_lock = threading.Lock()
     _REBUILD_COOLDOWN = 60  # seconds between rebuilds for the same author
-
-    def _cleanup_rebuild_timestamps():
-        """Evict expired entries to prevent unbounded memory growth."""
-        now = time.monotonic()
-        expired = [k for k, v in _rebuild_timestamps.items() if now - v >= _REBUILD_COOLDOWN]
-        for k in expired:
-            del _rebuild_timestamps[k]
 
     @app.route("/api/rebuild_statistics", methods=["POST"])
     def api_rebuild_statistics():
@@ -387,16 +382,22 @@ def register_routes(app):
             return jsonify({"error": "No valid author IDs provided"}), 400
 
         now = time.monotonic()
-        _cleanup_rebuild_timestamps()
+        to_enqueue = []
+        with _rebuild_lock:
+            # Evict expired entries
+            expired = [k for k, v in _rebuild_timestamps.items() if now - v >= _REBUILD_COOLDOWN]
+            for k in expired:
+                del _rebuild_timestamps[k]
+            # Check cooldowns and mark timestamps
+            for sid in scholar_ids:
+                if now - _rebuild_timestamps.get(sid, 0) >= _REBUILD_COOLDOWN:
+                    _rebuild_timestamps[sid] = now
+                    to_enqueue.append(sid)
+
         enqueued = 0
-        skipped = 0
-        for sid in scholar_ids:
-            last = _rebuild_timestamps.get(sid, 0)
-            if now - last < _REBUILD_COOLDOWN:
-                skipped += 1
-                continue
+        skipped = len(scholar_ids) - len(to_enqueue)
+        for sid in to_enqueue:
             if enqueue_cache_populate("populate_author_profile", {"scholar_id": sid}):
-                _rebuild_timestamps[sid] = now
                 enqueued += 1
         return jsonify({
             "status": "queued",
