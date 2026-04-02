@@ -8,8 +8,7 @@
 -- Stores 1000 quantile breakpoints per (benchmark, year_of_first_pub).
 -- At query time, ranked_author_pip_scores_current does a floor lookup.
 --
--- Benchmarks:
---   'all_authors'    — full S2 population
+-- Benchmark:
 --   'active_authors' — authors with hindex >= 3 AND total_publications >= 3
 --
 -- PREREQUISITE: stats_author_pip_scores_current view (or _table) must exist.
@@ -27,16 +26,6 @@ WITH
     WHERE a.hindex >= 3 AND COALESCE(ps.total_publications, 0) >= 3
   )
 SELECT DISTINCT * FROM (
-  -- all_authors benchmark
-  SELECT 'all_authors' AS benchmark, year_of_first_pub,
-         value AS pip_auc_score, offset / 1000.0 AS percentile
-  FROM (
-    SELECT year_of_first_pub, APPROX_QUANTILES(pip_auc_score, 1000) AS quantiles
-    FROM `scholar-version2.statistics.stats_author_pip_scores_current`
-    GROUP BY year_of_first_pub
-  ), UNNEST(quantiles) AS value WITH OFFSET AS offset
-  UNION ALL
-  -- active_authors benchmark
   SELECT 'active_authors' AS benchmark, year_of_first_pub,
          value AS pip_auc_score, offset / 1000.0 AS percentile
   FROM (

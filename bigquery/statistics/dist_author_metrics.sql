@@ -8,12 +8,11 @@
 --   MAX(percentile) WHERE metric_value <= author's_value
 -- This gives an approximate percentile within 0.1% accuracy.
 --
--- Benchmarks:
---   'all_authors'    — full S2 population (~99.5M authors)
+-- Benchmark:
 --   'active_authors' — authors with hindex >= 3 AND total_publications >= 3
 --
 -- Much faster to compute than exact PERCENT_RANK() and produces a tiny table
--- (~500K rows vs millions). Refreshed quarterly.
+-- (~250K rows vs millions). Refreshed quarterly.
 
 CREATE OR REPLACE TABLE `scholar-version2.statistics.dist_author_metrics`
 CLUSTER BY benchmark, year_of_first_pub, metric_name
@@ -31,79 +30,42 @@ WITH
     JOIN `scholar-version2.s2_data.author_paper_stats` ps ON a.authorid = ps.authorid
     WHERE a.authorid IS NOT NULL
       AND ps.year_of_first_pub IS NOT NULL
-  ),
-  -- Generate quantile breakpoints for each (benchmark, cohort, metric)
-  AllQuantiles AS (
-    SELECT 'all_authors' AS benchmark, year_of_first_pub, metric_name,
-           value AS metric_value, offset / 1000.0 AS percentile
-    FROM (
-      SELECT year_of_first_pub, 'hindex' AS metric_name,
-             APPROX_QUANTILES(hindex, 1000) AS quantiles FROM CombinedData GROUP BY year_of_first_pub
-    ), UNNEST(quantiles) AS value WITH OFFSET AS offset
-    UNION ALL
-    SELECT 'all_authors', year_of_first_pub, 'citedby',
-           value, offset / 1000.0
-    FROM (
-      SELECT year_of_first_pub, APPROX_QUANTILES(citedby, 1000) AS quantiles FROM CombinedData GROUP BY year_of_first_pub
-    ), UNNEST(quantiles) AS value WITH OFFSET AS offset
-    UNION ALL
-    SELECT 'all_authors', year_of_first_pub, 'i10index',
-           value, offset / 1000.0
-    FROM (
-      SELECT year_of_first_pub, APPROX_QUANTILES(i10index, 1000) AS quantiles FROM CombinedData GROUP BY year_of_first_pub
-    ), UNNEST(quantiles) AS value WITH OFFSET AS offset
-    UNION ALL
-    SELECT 'all_authors', year_of_first_pub, 'total_publications',
-           value, offset / 1000.0
-    FROM (
-      SELECT year_of_first_pub, APPROX_QUANTILES(total_publications, 1000) AS quantiles FROM CombinedData GROUP BY year_of_first_pub
-    ), UNNEST(quantiles) AS value WITH OFFSET AS offset
-    UNION ALL
-    SELECT 'all_authors', year_of_first_pub, 'total_publications_with_citations',
-           value, offset / 1000.0
-    FROM (
-      SELECT year_of_first_pub, APPROX_QUANTILES(total_publications_with_citations, 1000) AS quantiles FROM CombinedData GROUP BY year_of_first_pub
-    ), UNNEST(quantiles) AS value WITH OFFSET AS offset
-  ),
-  ActiveData AS (
-    SELECT * FROM CombinedData WHERE hindex >= 3 AND total_publications >= 3
-  ),
-  ActiveQuantiles AS (
-    SELECT 'active_authors' AS benchmark, year_of_first_pub, metric_name,
-           value AS metric_value, offset / 1000.0 AS percentile
-    FROM (
-      SELECT year_of_first_pub, 'hindex' AS metric_name,
-             APPROX_QUANTILES(hindex, 1000) AS quantiles FROM ActiveData GROUP BY year_of_first_pub
-    ), UNNEST(quantiles) AS value WITH OFFSET AS offset
-    UNION ALL
-    SELECT 'active_authors', year_of_first_pub, 'citedby',
-           value, offset / 1000.0
-    FROM (
-      SELECT year_of_first_pub, APPROX_QUANTILES(citedby, 1000) AS quantiles FROM ActiveData GROUP BY year_of_first_pub
-    ), UNNEST(quantiles) AS value WITH OFFSET AS offset
-    UNION ALL
-    SELECT 'active_authors', year_of_first_pub, 'i10index',
-           value, offset / 1000.0
-    FROM (
-      SELECT year_of_first_pub, APPROX_QUANTILES(i10index, 1000) AS quantiles FROM ActiveData GROUP BY year_of_first_pub
-    ), UNNEST(quantiles) AS value WITH OFFSET AS offset
-    UNION ALL
-    SELECT 'active_authors', year_of_first_pub, 'total_publications',
-           value, offset / 1000.0
-    FROM (
-      SELECT year_of_first_pub, APPROX_QUANTILES(total_publications, 1000) AS quantiles FROM ActiveData GROUP BY year_of_first_pub
-    ), UNNEST(quantiles) AS value WITH OFFSET AS offset
-    UNION ALL
-    SELECT 'active_authors', year_of_first_pub, 'total_publications_with_citations',
-           value, offset / 1000.0
-    FROM (
-      SELECT year_of_first_pub, APPROX_QUANTILES(total_publications_with_citations, 1000) AS quantiles FROM ActiveData GROUP BY year_of_first_pub
-    ), UNNEST(quantiles) AS value WITH OFFSET AS offset
+      -- active_authors benchmark: hindex >= 3 AND total_publications >= 3
+      AND a.hindex >= 3
+      AND COALESCE(ps.total_publications, 0) >= 3
   )
--- Combine both benchmarks. DISTINCT collapses duplicate breakpoints
+-- Generate quantile breakpoints for each (cohort, metric).
+-- DISTINCT collapses duplicate breakpoints
 -- (many quantiles map to the same value, e.g. hindex=3 for p0-p30).
 SELECT DISTINCT * FROM (
-  SELECT * FROM AllQuantiles
+  SELECT 'active_authors' AS benchmark, year_of_first_pub, metric_name,
+         value AS metric_value, offset / 1000.0 AS percentile
+  FROM (
+    SELECT year_of_first_pub, 'hindex' AS metric_name,
+           APPROX_QUANTILES(hindex, 1000) AS quantiles FROM CombinedData GROUP BY year_of_first_pub
+  ), UNNEST(quantiles) AS value WITH OFFSET AS offset
   UNION ALL
-  SELECT * FROM ActiveQuantiles
+  SELECT 'active_authors', year_of_first_pub, 'citedby',
+         value, offset / 1000.0
+  FROM (
+    SELECT year_of_first_pub, APPROX_QUANTILES(citedby, 1000) AS quantiles FROM CombinedData GROUP BY year_of_first_pub
+  ), UNNEST(quantiles) AS value WITH OFFSET AS offset
+  UNION ALL
+  SELECT 'active_authors', year_of_first_pub, 'i10index',
+         value, offset / 1000.0
+  FROM (
+    SELECT year_of_first_pub, APPROX_QUANTILES(i10index, 1000) AS quantiles FROM CombinedData GROUP BY year_of_first_pub
+  ), UNNEST(quantiles) AS value WITH OFFSET AS offset
+  UNION ALL
+  SELECT 'active_authors', year_of_first_pub, 'total_publications',
+         value, offset / 1000.0
+  FROM (
+    SELECT year_of_first_pub, APPROX_QUANTILES(total_publications, 1000) AS quantiles FROM CombinedData GROUP BY year_of_first_pub
+  ), UNNEST(quantiles) AS value WITH OFFSET AS offset
+  UNION ALL
+  SELECT 'active_authors', year_of_first_pub, 'total_publications_with_citations',
+         value, offset / 1000.0
+  FROM (
+    SELECT year_of_first_pub, APPROX_QUANTILES(total_publications_with_citations, 1000) AS quantiles FROM CombinedData GROUP BY year_of_first_pub
+  ), UNNEST(quantiles) AS value WITH OFFSET AS offset
 );

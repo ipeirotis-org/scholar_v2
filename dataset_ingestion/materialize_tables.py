@@ -1,31 +1,29 @@
-"""Materialize the BigQuery analytics DAG into tables.
+"""Materialize the full BigQuery analytics DAG into tables.
 
-Only materializes tables that are either:
-  1. Directly queried by the app (cache_layer, author_search), or
-  2. Used as inputs by downstream materializations (via _TABLE_SUBSTITUTIONS), or
-  3. Distribution tables (small, needed for percentile lookups).
+Replaces all live views with pre-computed tables after S2 dataset ingestion.
+Data is static between bulk loads — live views waste compute on every query.
 
-Intermediate views (base_author_publications, stats_publication_current,
-intermediate_author_publication_state_temporal) are left as views —
-their output is consumed inline by the downstream materialized tables.
-This avoids materializing the expensive intermediate_author_publication_
-state_temporal table (~1h) that is never queried directly.
-
-The DAG has 6 levels (1-6). Each level depends on the previous ones.
+The DAG has 7 levels (1-7). Each level depends on the previous ones.
 Tables within a level can run in parallel, but are executed sequentially
 here for simplicity and to stay within BigQuery concurrency limits.
 
+All percentile lookups use RANGE_BUCKET + pre-aggregated arrays for O(log n)
+floor lookups. This replaces correlated scalar subqueries and makes
+materializing even large tables (2B+ rows) fast.
+
 Architecture:
-  - Level 1: Foundation (stats_author_current + dist tables)
+  - Level 1: Foundation (raw data views → tables, dist tables)
   - Level 2: Temporal foundation + first ranked + dist
-  - Level 3: Metrics + PiP inputs + ranked (app-facing)
+  - Level 3: Metrics + PiP inputs + more ranked
   - Level 4: PiP scores + higher distributions
-  - Level 5: Ranked PiP + temporal ranked (app-facing)
+  - Level 5: Ranked PiP + temporal ranked
   - Level 6: Temporal PiP distribution
+  - Level 7: Temporal PiP ranked
 """
 
 import logging
 import pathlib
+import re
 
 from google.cloud import bigquery
 
@@ -43,6 +41,7 @@ _SQL_DIR = pathlib.Path(__file__).resolve().parent.parent / "bigquery" / "statis
 # materialized tables to exist). During pipeline execution, we substitute
 # _table references so each level reads from the previous level's
 # materialized output instead of re-executing expensive view chains.
+#
 # Keys use the configured stats dataset (not hardcoded) so overrides work.
 #
 # Note: the SQL files themselves hard-code `scholar-version2.statistics.`
@@ -50,11 +49,21 @@ _SQL_DIR = pathlib.Path(__file__).resolve().parent.parent / "bigquery" / "statis
 # If BQ_STATS_DATASET is overridden, the SQL files must also be updated
 # (or deployed to the custom dataset) for substitutions to match.
 _SUBSTITUTION_PAIRS = [
+    # Level 1 views → tables (used by Level 2+)
+    ("base_author_publications`", "base_author_publications_table`"),
+    ("stats_publication_current`", "stats_publication_current_table`"),
     ("stats_author_current`", "stats_author_current_table`"),
+    # Level 2 views → tables (used by Level 3+)
     ("stats_publication_citations_temporal`", "stats_publication_citations_temporal_table`"),
     ("ranked_publication_current`", "ranked_publication_current_table`"),
+    ("intermediate_author_publication_state_temporal`", "intermediate_author_publication_state_temporal_table`"),
+    # Level 3 views → tables (used by Level 4+)
     ("stats_author_metrics_temporal_view`", "stats_author_metrics_temporal_table`"),
+    ("stats_author_publication_pip_inputs_current`", "stats_author_publication_pip_inputs_current_table`"),
+    ("ranked_author_current`", "ranked_author_current_table`"),
+    # Level 4 views → tables (used by Level 5+)
     ("stats_author_pip_scores_current`", "stats_author_pip_scores_current_table`"),
+    # Level 5 views → tables (used by Level 6+)
     ("stats_author_pip_scores_temporal_view`", "stats_author_pip_scores_temporal_table`"),
 ]
 
@@ -108,7 +117,6 @@ def _view_to_table_sql(view_sql, table_name, cluster_by, partition_by=None):
     # BigQuery doesn't allow ORDER BY in CREATE TABLE ... AS SELECT
     # when using CLUSTER BY. Strip a trailing ORDER BY clause if present.
     # Only strips ORDER BY at the end of the statement (not inside CTEs).
-    import re
     select_sql = re.sub(
         r'\bORDER\s+BY\s+[\w.,\s]+\s*$', '', select_sql, flags=re.IGNORECASE
     ).rstrip()
@@ -142,7 +150,12 @@ def _run_sql(sql, description):
 
 
 def _apply_table_substitutions(sql):
-    """Replace view references with materialized table references."""
+    """Replace view references with materialized table references.
+
+    SQL files reference views so they work standalone. During pipeline
+    execution, we substitute _table names so downstream levels read from
+    previously materialized tables instead of re-executing view chains.
+    """
     for view_ref, table_ref in _get_table_substitutions().items():
         sql = sql.replace(view_ref, table_ref)
     return sql
@@ -163,102 +176,28 @@ def _materialize_dist(dist_sql_file, description):
     return _run_sql(sql, description)
 
 
-def _materialize_dist_publication_citations_temporal():
-    """Materialize dist_publication_citations_temporal in 4 parts.
-
-    The full query (4 UNION ALL sections with PERCENT_RANK OVER) exceeds
-    BigQuery memory when run as a single statement (~170% of limit on
-    2B+ rows). Split into CREATE TABLE + 3 INSERT INTO statements.
-
-    The table is written directly (not via temp+swap) because:
-    - Each BigQuery INSERT is individually atomic
-    - The table is only read by downstream materialization steps in the
-      same pipeline run (not by live user queries)
-    - Downstream steps haven't started yet when this runs
-    """
-    table_ref = Config.bq_stats_table_ref("dist_publication_citations_temporal")
-    temporal_table = _apply_table_substitutions(
-        Config.bq_stats_table_ref("stats_publication_citations_temporal")
-    )
-
-    # Part 1: CREATE TABLE with first metric (replaces any existing table)
-    sql1 = f"""CREATE OR REPLACE TABLE {table_ref}
-CLUSTER BY metric_name, pub_year
-AS
-SELECT DISTINCT
-  pub_year, citation_year, CAST(NULL AS INT64) AS age,
-  'pub_year_yearly_citations' AS metric_name,
-  yearly_citations AS metric_value,
-  PERCENT_RANK() OVER(PARTITION BY pub_year, citation_year ORDER BY yearly_citations ASC) AS percentile
-FROM {temporal_table}"""
-    _run_sql(sql1, "dist_publication_citations_temporal (1/4: pub_year_yearly)")
-
-    # Part 2: INSERT cumulative by pub_year
-    sql2 = f"""INSERT INTO {table_ref}
-SELECT DISTINCT
-  pub_year, citation_year, CAST(NULL AS INT64) AS age,
-  'pub_year_cumulative_citations' AS metric_name,
-  cumulative_citations AS metric_value,
-  PERCENT_RANK() OVER(PARTITION BY pub_year, citation_year ORDER BY cumulative_citations ASC) AS percentile
-FROM {temporal_table}"""
-    _run_sql(sql2, "dist_publication_citations_temporal (2/4: pub_year_cumulative)")
-
-    # Parts 3 & 4: yearly/cumulative by age.
-    # These partitions are very coarse (~100 age values, ~20M rows each),
-    # so we pre-aggregate with GROUP BY to count occurrences, then compute
-    # PERCENT_RANK via cumulative sum formula instead of OVER() on the
-    # full 2B row table. COALESCE handles single-row partitions (where
-    # PERCENT_RANK returns 0 but our denominator would be 0).
-    sql3 = f"""INSERT INTO {table_ref}
-WITH agg AS (
-  SELECT age, yearly_citations AS metric_value, COUNT(*) AS cnt
-  FROM {temporal_table}
-  GROUP BY age, yearly_citations
-)
-SELECT DISTINCT
-  CAST(NULL AS INT64) AS pub_year, CAST(NULL AS INT64) AS citation_year, age,
-  'age_yearly_citations' AS metric_name,
-  metric_value,
-  COALESCE(
-    (SUM(cnt) OVER(PARTITION BY age ORDER BY metric_value ASC) - cnt)
-    / NULLIF(SUM(cnt) OVER(PARTITION BY age) - 1, 0),
-    0) AS percentile
-FROM agg"""
-    _run_sql(sql3, "dist_publication_citations_temporal (3/4: age_yearly)")
-
-    sql4 = f"""INSERT INTO {table_ref}
-WITH agg AS (
-  SELECT age, cumulative_citations AS metric_value, COUNT(*) AS cnt
-  FROM {temporal_table}
-  GROUP BY age, cumulative_citations
-)
-SELECT DISTINCT
-  CAST(NULL AS INT64) AS pub_year, CAST(NULL AS INT64) AS citation_year, age,
-  'age_cumulative_citations' AS metric_name,
-  metric_value,
-  COALESCE(
-    (SUM(cnt) OVER(PARTITION BY age ORDER BY metric_value ASC) - cnt)
-    / NULLIF(SUM(cnt) OVER(PARTITION BY age) - 1, 0),
-    0) AS percentile
-FROM agg"""
-    _run_sql(sql4, "dist_publication_citations_temporal (4/4: age_cumulative)")
-
-
 def materialize_level_1():
-    """Level 1: Foundation (independent).
+    """Level 1: Foundation tables (parallel, independent).
 
-    App-facing:
-    - stats_author_current_table (queried by cache_layer)
-
-    Dist tables (needed for percentile lookups):
-    - dist_publication_citations
-    - dist_author_metrics
-
-    Skipped (intermediate, consumed inline by downstream tables):
-    - base_author_publications (view)
-    - stats_publication_current (view)
+    - base_author_publications_table
+    - stats_publication_current_table
+    - stats_author_current_table
+    - dist_publication_citations (already CREATE TABLE in SQL)
+    - dist_author_metrics (already CREATE TABLE in SQL)
     """
     logger.info("=== Level 1: Foundation ===")
+
+    _materialize_from_view(
+        "base_author_publications.sql",
+        "base_author_publications_table",
+        cluster_by=["scholar_id"],
+    )
+
+    _materialize_from_view(
+        "stats_publication_current.sql",
+        "stats_publication_current_table",
+        cluster_by=["author_pub_id", "pub_year"],
+    )
 
     _materialize_from_view(
         "stats_author_current.sql",
@@ -280,19 +219,14 @@ def materialize_level_1():
 
 
 def materialize_level_2():
-    """Level 2: Temporal foundation + first ranked + dist (depends on Level 1).
+    """Level 2: Temporal foundation + first ranked (depends on Level 1).
 
-    Intermediate (needed by downstream tables):
-    - stats_publication_citations_temporal_table (needed by dist below)
-    - ranked_publication_current_table (needed by pip_inputs in Level 3)
-
-    Dist tables:
-    - dist_publication_citations_temporal
-
-    Skipped (intermediate, consumed inline by downstream tables):
-    - intermediate_author_publication_state_temporal (view — most expensive)
+    - stats_publication_citations_temporal_table
+    - ranked_publication_current_table
+    - intermediate_author_publication_state_temporal_table
+    - dist_publication_citations_temporal (already CREATE TABLE in SQL)
     """
-    logger.info("=== Level 2: Temporal foundation + first ranked + dist ===")
+    logger.info("=== Level 2: Temporal foundation + first ranked ===")
 
     _materialize_from_view(
         "stats_publication_citations_temporal.sql",
@@ -306,7 +240,16 @@ def materialize_level_2():
         cluster_by=["author_pub_id", "pub_year"],
     )
 
-    _materialize_dist_publication_citations_temporal()
+    _materialize_from_view(
+        "intermediate_author_publication_state_temporal.sql",
+        "intermediate_author_publication_state_temporal_table",
+        cluster_by=["scholar_id", "author_pub_id", "state_year"],
+    )
+
+    _materialize_dist(
+        "dist_publication_citations_temporal.sql",
+        "dist_publication_citations_temporal",
+    )
 
     logger.info("=== Level 2 complete ===")
 
@@ -314,17 +257,10 @@ def materialize_level_2():
 def materialize_level_3():
     """Level 3: Metrics + PiP inputs + ranked (depends on Levels 1-2).
 
-    App-facing:
+    - stats_author_metrics_temporal_table
+    - stats_author_publication_pip_inputs_current_table
     - ranked_author_current_table
     - ranked_publication_citations_temporal_table
-
-    Substitution target (read by downstream levels):
-    - stats_author_metrics_temporal_table
-
-    Skipped (view works fine for per-author queries):
-    - stats_author_publication_pip_inputs_current (complex interpolation
-      query that's too expensive to materialize; the cache layer queries
-      it filtered by scholar_id which is fast via the view)
     """
     logger.info("=== Level 3: Metrics + PiP inputs + ranked ===")
 
@@ -332,6 +268,12 @@ def materialize_level_3():
         "stats_author_metrics_temporal.sql",
         "stats_author_metrics_temporal_table",
         cluster_by=["scholar_id", "state_year"],
+    )
+
+    _materialize_from_view(
+        "stats_author_publication_pip_inputs_current.sql",
+        "stats_author_publication_pip_inputs_current_table",
+        cluster_by=["scholar_id"],
     )
 
     _materialize_from_view(
@@ -352,10 +294,7 @@ def materialize_level_3():
 def materialize_level_4():
     """Level 4: PiP scores + distributions (depends on Levels 1-3).
 
-    Substitution target:
     - stats_author_pip_scores_current_table
-
-    Dist tables:
     - dist_pip_auc_scores
     - dist_author_metrics_temporal
     """
@@ -383,11 +322,8 @@ def materialize_level_4():
 def materialize_level_5():
     """Level 5: Ranked PiP + temporal ranked (depends on Levels 1-4).
 
-    App-facing:
     - ranked_author_pip_scores_current_table
     - ranked_author_metrics_temporal_table
-
-    Substitution target:
     - stats_author_pip_scores_temporal_table
     """
     logger.info("=== Level 5: Ranked PiP + temporal ranked ===")
@@ -416,7 +352,6 @@ def materialize_level_5():
 def materialize_level_6():
     """Level 6: Temporal PiP distribution (depends on Level 5).
 
-    Dist tables:
     - dist_pip_auc_scores_temporal
     """
     logger.info("=== Level 6: Temporal PiP distribution ===")
@@ -429,17 +364,31 @@ def materialize_level_6():
     logger.info("=== Level 6 complete ===")
 
 
-def materialize_all():
-    """Materialize the analytics DAG in topological order.
+def materialize_level_7():
+    """Level 7: Temporal PiP ranked (depends on Levels 5-6).
 
-    Materializes 16 tables across 6 levels. Intermediate views
-    (base_author_publications, stats_publication_current,
-    intermediate_author_publication_state_temporal,
-    stats_author_publication_pip_inputs_current,
-    ranked_author_pip_scores_temporal) are left as views — their
-    output is consumed inline by downstream materialized tables.
+    - ranked_author_pip_scores_temporal_table
     """
-    logger.info("Starting DAG materialization (16 tables, 6 levels)...")
+    logger.info("=== Level 7: Temporal PiP ranked ===")
+
+    _materialize_from_view(
+        "ranked_author_pip_scores_temporal.sql",
+        "ranked_author_pip_scores_temporal_table",
+        cluster_by=["scholar_id", "state_year"],
+    )
+
+    logger.info("=== Level 7 complete ===")
+
+
+def materialize_all():
+    """Materialize the entire analytics DAG in topological order.
+
+    Executes all 7 levels sequentially. Each level depends on
+    the previous ones being complete.
+
+    Returns the total number of tables materialized.
+    """
+    logger.info("Starting full DAG materialization...")
 
     materialize_level_1()
     materialize_level_2()
@@ -447,5 +396,6 @@ def materialize_all():
     materialize_level_4()
     materialize_level_5()
     materialize_level_6()
+    materialize_level_7()
 
-    logger.info("DAG materialization complete (16 tables).")
+    logger.info("Full DAG materialization complete.")

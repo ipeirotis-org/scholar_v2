@@ -28,6 +28,8 @@ WITH
       i10_index AS i10index,
       year_of_first_pub
     FROM `scholar-version2.s2_data.author_paper_stats`
+    -- Only include authors with >= 6 total publications.
+    WHERE total_publications >= 6
   )
 SELECT
   ad.scholar_id,
@@ -38,11 +40,11 @@ SELECT
   CAST(NULL AS INT64) AS hindex5y,
   ad.citedby,
   CAST(NULL AS INT64) AS citedby5y,
-  COALESCE(ps.i10index, 0) AS i10index,
+  ps.i10index,
   CAST(NULL AS INT64) AS i10index5y,
-  COALESCE(ps.total_publications, 0) AS total_publications,
-  COALESCE(ps.total_publications_with_citations, 0) AS total_publications_with_citations,
+  ps.total_publications,
+  ps.total_publications_with_citations,
   ps.year_of_first_pub,
   CURRENT_TIMESTAMP() AS last_updated
 FROM AuthorData ad
-LEFT JOIN PaperStats ps ON ad.scholar_id = ps.scholar_id;
+INNER JOIN PaperStats ps ON ad.scholar_id = ps.scholar_id;

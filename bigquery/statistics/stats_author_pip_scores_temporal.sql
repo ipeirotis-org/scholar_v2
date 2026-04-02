@@ -5,15 +5,15 @@
 --   2. Looking up each pub's cumulative_citations as of state_year → citation percentile
 --      (via dist_publication_citations_temporal, L2)
 --   3. Counting how many papers the author had → num_papers_percentile
---      (via dist_author_metrics_temporal, L4)
+--      (via dist_author_metrics_temporal, L4, using RANGE_BUCKET array lookup)
 --   4. Running the same trapezoidal integration → pip_auc_score
 --
 -- Depends on: intermediate_author_publication_state_temporal (L2),
 --   dist_publication_citations_temporal (L2), stats_author_metrics_temporal_view (L3),
 --   dist_author_metrics_temporal (L4).
 --
--- This is the most expensive view in the system. It should ALWAYS be materialized
--- (daily, like stats_author_metrics_temporal), never queried live.
+-- This is the most expensive view in the system. It should ALWAYS be materialized,
+-- never queried live.
 --
 -- The pip_auc_score_percentile is added by ranked_author_pip_scores_temporal (L7)
 -- via dist_pip_auc_scores_temporal (L6).
@@ -45,27 +45,38 @@ WITH
     WHERE year_of_first_pub IS NOT NULL
   ),
 
+  -- Pre-aggregate citation dist breakpoints into sorted arrays per (pub_year, citation_year).
+  -- Uses RANGE_BUCKET for O(log n) floor lookup instead of range join.
+  CitDistArrays AS (
+    SELECT
+      pub_year,
+      citation_year,
+      ARRAY_AGG(metric_value ORDER BY metric_value, percentile) AS values_arr,
+      ARRAY_AGG(percentile ORDER BY metric_value, percentile) AS pcts_arr
+    FROM `scholar-version2.statistics.dist_publication_citations_temporal`
+    WHERE metric_name = 'pub_year_cumulative_citations'
+    GROUP BY pub_year, citation_year
+  ),
+
   -- Look up citation percentile for each pub's cumulative_citations at each state_year.
-  -- Uses dist_publication_citations_temporal with metric 'pub_year_cumulative_citations'.
-  -- Floor lookup: MAX(percentile WHERE dist_value <= actual_value).
+  -- Equi-join on (pub_year, state_year=citation_year) + RANGE_BUCKET for floor lookup.
   PubPercentiles AS (
     SELECT
       ps.scholar_id,
       ps.author_pub_id,
       ps.state_year,
       ps.cumulative_citations_at_state_year,
-      MAX(d.percentile) AS citation_percentile
+      COALESCE(
+        cd.pcts_arr[SAFE_ORDINAL(RANGE_BUCKET(ps.cumulative_citations_at_state_year, cd.values_arr))],
+        0.0
+      ) AS citation_percentile
     FROM PubState ps
-    JOIN `scholar-version2.statistics.dist_publication_citations_temporal` d
-      ON d.metric_name = 'pub_year_cumulative_citations'
-     AND d.pub_year = ps.pub_year
-     AND d.citation_year = ps.state_year
-     AND d.metric_value <= ps.cumulative_citations_at_state_year
-    GROUP BY ps.scholar_id, ps.author_pub_id, ps.state_year, ps.cumulative_citations_at_state_year
+    LEFT JOIN CitDistArrays cd
+      ON cd.pub_year = ps.pub_year
+     AND cd.citation_year = ps.state_year
   ),
 
   -- Rank publications within each author-year by citation percentile (descending)
-  -- and compute the publication rank (X-axis position before interpolation)
   RankedPubs AS (
     SELECT
       pp.scholar_id,
@@ -79,75 +90,48 @@ WITH
     JOIN AuthorState a ON pp.scholar_id = a.scholar_id AND pp.state_year = a.state_year
   ),
 
-  -- Look up num_papers_percentile from dist_author_metrics_temporal.
-  -- This maps (year_of_first_pub, state_year, total_publications) → percentile.
-  NumPapersPercentile AS (
+  -- Pre-aggregate dist breakpoints into sorted arrays per (year_of_first_pub, state_year).
+  -- Uses RANGE_BUCKET for O(log n) binary search — no correlated scalar subqueries.
+  DistArrays AS (
     SELECT
       year_of_first_pub,
       state_year,
-      metric_value AS total_publications,
-      percentile AS total_publications_percentile
+      ARRAY_AGG(metric_value ORDER BY metric_value, percentile) AS values_arr,
+      ARRAY_AGG(percentile ORDER BY metric_value, percentile) AS pcts_arr
     FROM `scholar-version2.statistics.dist_author_metrics_temporal`
-    WHERE metric_name = 'total_publications'
-      AND benchmark = 'active_authors'
+    WHERE benchmark = 'active_authors'
+      AND metric_name = 'total_publications'
+    GROUP BY year_of_first_pub, state_year
   ),
 
-  -- Interpolate num_papers_percentile for each publication (same 6-CTE pattern
-  -- as stats_author_publication_pip_inputs_current)
-  Distances AS (
-    SELECT
-      rp.*,
-      npp.total_publications_percentile,
-      rp.publication_rank - npp.total_publications AS distance,
-      CASE
-        WHEN rp.publication_rank - npp.total_publications >= 0 THEN 'positive'
-        ELSE 'negative'
-      END AS distance_type
-    FROM RankedPubs rp
-    JOIN NumPapersPercentile npp
-      ON rp.year_of_first_pub = npp.year_of_first_pub
-     AND rp.state_year = npp.state_year
-  ),
-  RankedDistances AS (
-    SELECT *,
-      ROW_NUMBER() OVER(PARTITION BY scholar_id, state_year, author_pub_id, distance_type ORDER BY ABS(distance)) AS rank_distance
-    FROM Distances
-  ),
-  FilteredDistances AS (
-    SELECT * FROM RankedDistances WHERE rank_distance = 1
-  ),
-  AggregatedDistances AS (
-    SELECT
-      scholar_id, state_year, author_pub_id,
-      MAX(CASE WHEN distance_type = 'positive' THEN total_publications_percentile END)
-        OVER(PARTITION BY scholar_id, state_year, author_pub_id) AS positive_percentile,
-      MAX(CASE WHEN distance_type = 'negative' THEN total_publications_percentile END)
-        OVER(PARTITION BY scholar_id, state_year, author_pub_id) AS negative_percentile,
-      MAX(CASE WHEN distance_type = 'positive' THEN ABS(distance) END)
-        OVER(PARTITION BY scholar_id, state_year, author_pub_id) AS positive_distance,
-      MAX(CASE WHEN distance_type = 'negative' THEN ABS(distance) END)
-        OVER(PARTITION BY scholar_id, state_year, author_pub_id) AS negative_distance
-    FROM FilteredDistances
-  ),
   InterpolatedPubs AS (
-    SELECT DISTINCT
-      fd.scholar_id,
-      fd.state_year,
-      fd.author_pub_id,
-      fd.citation_percentile AS num_citations_percentile,
-      fd.publication_rank,
-      fd.year_of_first_pub,
+    SELECT
+      rp.scholar_id,
+      rp.state_year,
+      rp.author_pub_id,
+      rp.citation_percentile AS num_citations_percentile,
+      rp.publication_rank,
+      rp.year_of_first_pub,
       CASE
-        WHEN ad.positive_percentile IS NULL THEN 0.0
-        WHEN ad.negative_percentile IS NULL THEN 1.0
-        ELSE (ad.negative_percentile * ad.positive_distance + ad.positive_percentile * ad.negative_distance)
-             / (ad.positive_distance + ad.negative_distance)
+        WHEN RANGE_BUCKET(rp.publication_rank, da.values_arr) = 0 THEN 0.0
+        WHEN RANGE_BUCKET(rp.publication_rank, da.values_arr) >= ARRAY_LENGTH(da.values_arr) THEN 1.0
+        WHEN da.values_arr[SAFE_ORDINAL(RANGE_BUCKET(rp.publication_rank, da.values_arr))]
+           = da.values_arr[SAFE_ORDINAL(RANGE_BUCKET(rp.publication_rank, da.values_arr) + 1)]
+          THEN da.pcts_arr[SAFE_ORDINAL(RANGE_BUCKET(rp.publication_rank, da.values_arr))]
+        ELSE (
+          da.pcts_arr[SAFE_ORDINAL(RANGE_BUCKET(rp.publication_rank, da.values_arr) + 1)]
+            * (rp.publication_rank - da.values_arr[SAFE_ORDINAL(RANGE_BUCKET(rp.publication_rank, da.values_arr))])
+          + da.pcts_arr[SAFE_ORDINAL(RANGE_BUCKET(rp.publication_rank, da.values_arr))]
+            * (da.values_arr[SAFE_ORDINAL(RANGE_BUCKET(rp.publication_rank, da.values_arr) + 1)] - rp.publication_rank)
+        ) / (
+          da.values_arr[SAFE_ORDINAL(RANGE_BUCKET(rp.publication_rank, da.values_arr) + 1)]
+          - da.values_arr[SAFE_ORDINAL(RANGE_BUCKET(rp.publication_rank, da.values_arr))]
+        )
       END AS num_papers_percentile
-    FROM FilteredDistances fd
-    JOIN AggregatedDistances ad
-      ON fd.scholar_id = ad.scholar_id
-     AND fd.state_year = ad.state_year
-     AND fd.author_pub_id = ad.author_pub_id
+    FROM RankedPubs rp
+    LEFT JOIN DistArrays da
+      ON rp.year_of_first_pub = da.year_of_first_pub
+     AND rp.state_year = da.state_year
   ),
 
   -- Trapezoidal integration (same pattern as stats_author_pip_scores_current)

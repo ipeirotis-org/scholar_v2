@@ -2,24 +2,13 @@ CREATE OR REPLACE VIEW `scholar-version2.statistics.stats_author_publication_pip
 -- Computes num_papers_percentile (the X-axis of the PiP chart) for each publication
 -- via interpolation of the author's publication-count percentile.
 --
--- Uses 'active_authors' benchmark for meaningful percentile differentiation.
+-- Uses array-based lookup: pre-aggregates dist breakpoints into sorted arrays
+-- per year_of_first_pub, then uses RANGE_BUCKET to find the floor index in O(log n).
+-- A single equi-join on year_of_first_pub broadcasts the small arrays (~75 cohorts)
+-- to all publications. No range joins, no correlated subqueries.
 --
--- S2 migration note: ranked_publication_current no longer includes scholar_id
--- (papers are identified by corpusid alone). The author dimension is brought in
--- by joining with base_author_publications.
+-- Uses 'active_authors' benchmark for meaningful percentile differentiation.
 WITH
-  num_papers_percentile AS (
-    -- Read the precomputed publication-count distribution from dist_author_metrics.
-    -- This replaces the original DISTINCT query over all of stats_author_current,
-    -- which was the main bottleneck for per-author page loads.
-    SELECT
-      year_of_first_pub,
-      metric_value  AS total_publications_with_citations,
-      percentile    AS total_publications_with_citations_percentile
-    FROM `scholar-version2.statistics.dist_author_metrics`
-    WHERE metric_name = 'total_publications_with_citations'
-      AND benchmark = 'active_authors'
-  ),
   RankedPublications AS (
     SELECT
       bap.scholar_id,
@@ -35,71 +24,53 @@ WITH
     JOIN `scholar-version2.statistics.stats_author_current` a
       ON bap.scholar_id = a.scholar_id
   ),
-  Distances AS (
+  -- Pre-aggregate dist breakpoints into sorted arrays per cohort.
+  -- Each cohort gets ~1000 (metric_value, percentile) breakpoints sorted by metric_value.
+  DistArrays AS (
     SELECT
-      rp.*,
-      B.total_publications_with_citations_percentile,
-      rp.publication_rank - B.total_publications_with_citations AS distance,
-      CASE
-        WHEN rp.publication_rank - B.total_publications_with_citations >= 0 THEN 'positive'
-        ELSE 'negative'
-      END AS distance_type
+      year_of_first_pub,
+      ARRAY_AGG(metric_value ORDER BY metric_value, percentile) AS values_arr,
+      ARRAY_AGG(percentile ORDER BY metric_value, percentile) AS pcts_arr
+    FROM `scholar-version2.statistics.dist_author_metrics`
+    WHERE benchmark = 'active_authors'
+      AND metric_name = 'total_publications_with_citations'
+    GROUP BY year_of_first_pub
+  ),
+  -- Join publications to their cohort's breakpoint arrays (equi-join, broadcast).
+  -- Use RANGE_BUCKET to find the floor index in O(log n).
+  Interpolated AS (
+    SELECT
+      rp.scholar_id,
+      rp.author_pub_id,
+      rp.num_citations,
+      rp.num_citations_percentile,
+      rp.publication_rank,
+      -- RANGE_BUCKET returns the index of the first element > publication_rank,
+      -- so (bucket_idx - 1) is the floor index, bucket_idx is the ceiling index.
+      RANGE_BUCKET(rp.publication_rank, da.values_arr) AS bucket_idx,
+      da.values_arr,
+      da.pcts_arr
     FROM RankedPublications rp
-    JOIN num_papers_percentile B ON rp.year_of_first_pub = B.year_of_first_pub
-  ),
-  RankedDistances AS (
-    SELECT
-      *,
-      ROW_NUMBER() OVER(PARTITION BY scholar_id, author_pub_id, distance_type ORDER BY ABS(distance)) AS rank_distance
-    FROM Distances
-  ),
-  FilteredDistances AS (
-    SELECT d.*
-    FROM RankedDistances d
-    WHERE rank_distance = 1
-  ),
-  AggregatedDistances AS (
-    SELECT
-      scholar_id,
-      author_pub_id,
-      MAX(CASE WHEN distance_type = 'positive' THEN total_publications_with_citations_percentile END)
-        AS positive_percentile,
-      MAX(CASE WHEN distance_type = 'negative' THEN total_publications_with_citations_percentile END)
-        AS negative_percentile,
-      MAX(CASE WHEN distance_type = 'positive' THEN ABS(distance) END)
-        AS positive_distance,
-      MAX(CASE WHEN distance_type = 'negative' THEN ABS(distance) END)
-        AS negative_distance
-    FROM FilteredDistances
-    GROUP BY scholar_id, author_pub_id
-  ),
-  InterpolatedResults AS (
-    SELECT
-      fd.scholar_id,
-      fd.author_pub_id,
-      fd.num_citations,
-      fd.num_citations_percentile,
-      fd.publication_rank,
-      fd.year_of_first_pub,
-      fd.total_publications_with_citations,
-      CASE
-        WHEN ad.positive_percentile IS NULL THEN 0.0
-        WHEN ad.negative_percentile IS NULL THEN 1.0
-        ELSE (ad.negative_percentile * ad.positive_distance + ad.positive_percentile * ad.negative_distance)
-             / (ad.positive_distance + ad.negative_distance)
-      END AS interpolated_percentile
-    FROM FilteredDistances fd
-    JOIN AggregatedDistances ad
-      ON fd.scholar_id = ad.scholar_id
-     AND fd.author_pub_id = ad.author_pub_id
+    LEFT JOIN DistArrays da ON rp.year_of_first_pub = da.year_of_first_pub
   )
 SELECT
   scholar_id,
   author_pub_id,
-  MAX(num_citations) AS num_citations,
-  MAX(num_citations_percentile) AS num_citations_percentile,
-  MAX(publication_rank) AS publication_rank,
-  MAX(interpolated_percentile) AS num_papers_percentile
-FROM InterpolatedResults
-GROUP BY scholar_id, author_pub_id
-ORDER BY scholar_id, publication_rank;
+  num_citations,
+  num_citations_percentile,
+  publication_rank,
+  CASE
+    -- Below all breakpoints
+    WHEN bucket_idx = 0 THEN 0.0
+    -- Above all breakpoints
+    WHEN bucket_idx >= ARRAY_LENGTH(values_arr) THEN 1.0
+    -- Exact match on floor (floor == ceiling value)
+    WHEN values_arr[SAFE_ORDINAL(bucket_idx)] = values_arr[SAFE_ORDINAL(bucket_idx + 1)]
+      THEN pcts_arr[SAFE_ORDINAL(bucket_idx)]
+    -- Linear interpolation between floor and ceiling
+    ELSE (
+      pcts_arr[SAFE_ORDINAL(bucket_idx + 1)] * (publication_rank - values_arr[SAFE_ORDINAL(bucket_idx)])
+      + pcts_arr[SAFE_ORDINAL(bucket_idx)] * (values_arr[SAFE_ORDINAL(bucket_idx + 1)] - publication_rank)
+    ) / (values_arr[SAFE_ORDINAL(bucket_idx + 1)] - values_arr[SAFE_ORDINAL(bucket_idx)])
+  END AS num_papers_percentile
+FROM Interpolated;

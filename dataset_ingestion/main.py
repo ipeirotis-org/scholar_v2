@@ -22,6 +22,7 @@ from dataset_ingestion.loader import (
     build_author_paper_bridge,
     build_author_paper_stats,
     build_paper_citations_by_year,
+    build_qualifying_papers,
     ensure_dataset_exists,
     get_last_loaded_release,
     load_dataset,
@@ -96,6 +97,7 @@ def run_full_load(release_id):
         build_paper_citations_by_year()
         build_author_paper_bridge()
         build_author_paper_stats()
+        build_qualifying_papers()
     except Exception:
         log_release(release_id, "derived_tables", "full", "failed")
         raise
@@ -197,6 +199,7 @@ def run_diff_load(last_release, target_release):
         build_paper_citations_by_year()
         build_author_paper_bridge()
         build_author_paper_stats()
+        build_qualifying_papers()
     except Exception:
         log_release(target_release, "derived_tables", "diff", "failed")
         raise

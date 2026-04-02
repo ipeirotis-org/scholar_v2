@@ -27,7 +27,16 @@ class Config:
     PAPER_CITATIONS_BY_YEAR_TABLE = "paper_citations_by_year"
     AUTHOR_PAPER_STATS_TABLE = "author_paper_stats"
     AUTHOR_PAPER_BRIDGE_TABLE = "author_paper_bridge"
+    QUALIFYING_PAPERS_TABLE = "qualifying_papers"
     RELEASE_LOG_TABLE = "release_log"
+
+    # Minimum total publications for an author to be included in detail tables
+    # and for their papers to be included in percentile calculations.
+    # Authors with fewer publications are excluded from PiP score computation
+    # but their papers still contribute citations to other papers.
+    MIN_AUTHOR_PUBLICATIONS = int(
+        os.environ.get("MIN_AUTHOR_PUBLICATIONS", "6")
+    )
 
     # Statistics dataset (analytics views and materialized tables)
     BQ_STATS_DATASET = os.environ.get("BQ_STATS_DATASET", "statistics")

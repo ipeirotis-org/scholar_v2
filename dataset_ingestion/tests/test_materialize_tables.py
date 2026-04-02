@@ -126,8 +126,33 @@ class TestApplyTableSubstitutions:
         result = materialize_tables._apply_table_substitutions(sql)
         assert "stats_author_pip_scores_temporal_table`" in result
 
-    def test_leaves_unknown_views_unchanged(self):
+    def test_substitutes_ranked_author_current(self):
         sql = "FROM `scholar-version2.statistics.ranked_author_current`"
+        result = materialize_tables._apply_table_substitutions(sql)
+        assert "ranked_author_current_table`" in result
+
+    def test_substitutes_base_author_publications(self):
+        sql = "FROM `scholar-version2.statistics.base_author_publications`"
+        result = materialize_tables._apply_table_substitutions(sql)
+        assert "base_author_publications_table`" in result
+
+    def test_substitutes_stats_publication_current(self):
+        sql = "FROM `scholar-version2.statistics.stats_publication_current`"
+        result = materialize_tables._apply_table_substitutions(sql)
+        assert "stats_publication_current_table`" in result
+
+    def test_substitutes_intermediate_temporal(self):
+        sql = "FROM `scholar-version2.statistics.intermediate_author_publication_state_temporal`"
+        result = materialize_tables._apply_table_substitutions(sql)
+        assert "intermediate_author_publication_state_temporal_table`" in result
+
+    def test_substitutes_pip_inputs(self):
+        sql = "FROM `scholar-version2.statistics.stats_author_publication_pip_inputs_current`"
+        result = materialize_tables._apply_table_substitutions(sql)
+        assert "stats_author_publication_pip_inputs_current_table`" in result
+
+    def test_leaves_unknown_views_unchanged(self):
+        sql = "FROM `scholar-version2.statistics.some_unknown_view`"
         result = materialize_tables._apply_table_substitutions(sql)
         assert result == sql
 
@@ -183,34 +208,35 @@ class TestMaterializeDist:
 class TestMaterializeLevels:
     @patch.object(materialize_tables, "_run_sql")
     @patch.object(materialize_tables, "_read_sql")
-    def test_level_1_materializes_3_tables(self, mock_read, mock_run):
+    def test_level_1_materializes_5_tables(self, mock_read, mock_run):
         mock_read.return_value = "CREATE OR REPLACE VIEW `scholar-version2.statistics.v` AS\nSELECT 1"
         mock_run.return_value = 0
 
         materialize_tables.materialize_level_1()
 
-        assert mock_run.call_count == 3
+        # 3 view→table + 2 dist tables
+        assert mock_run.call_count == 5
 
     @patch.object(materialize_tables, "_run_sql")
     @patch.object(materialize_tables, "_read_sql")
-    def test_level_2_materializes_2_tables(self, mock_read, mock_run):
+    def test_level_2_materializes_4_tables(self, mock_read, mock_run):
         mock_read.return_value = "CREATE OR REPLACE VIEW `scholar-version2.statistics.v` AS\nSELECT 1"
         mock_run.return_value = 0
 
         materialize_tables.materialize_level_2()
 
-        # 2 view→table + 4 dist parts (split to avoid BQ memory limits)
-        assert mock_run.call_count == 6
+        # 3 view→table + 1 dist table
+        assert mock_run.call_count == 4
 
     @patch.object(materialize_tables, "_run_sql")
     @patch.object(materialize_tables, "_read_sql")
-    def test_level_3_materializes_3_tables(self, mock_read, mock_run):
+    def test_level_3_materializes_4_tables(self, mock_read, mock_run):
         mock_read.return_value = "CREATE OR REPLACE VIEW `scholar-version2.statistics.v` AS\nSELECT 1"
         mock_run.return_value = 0
 
         materialize_tables.materialize_level_3()
 
-        assert mock_run.call_count == 3
+        assert mock_run.call_count == 4
 
     @patch.object(materialize_tables, "_run_sql")
     @patch.object(materialize_tables, "_read_sql")
@@ -242,15 +268,26 @@ class TestMaterializeLevels:
 
         assert mock_run.call_count == 1
 
+    @patch.object(materialize_tables, "_run_sql")
+    @patch.object(materialize_tables, "_read_sql")
+    def test_level_7_materializes_1_table(self, mock_read, mock_run):
+        mock_read.return_value = "CREATE OR REPLACE VIEW `scholar-version2.statistics.v` AS\nSELECT 1"
+        mock_run.return_value = 0
+
+        materialize_tables.materialize_level_7()
+
+        assert mock_run.call_count == 1
+
 
 class TestMaterializeAll:
+    @patch.object(materialize_tables, "materialize_level_7")
     @patch.object(materialize_tables, "materialize_level_6")
     @patch.object(materialize_tables, "materialize_level_5")
     @patch.object(materialize_tables, "materialize_level_4")
     @patch.object(materialize_tables, "materialize_level_3")
     @patch.object(materialize_tables, "materialize_level_2")
     @patch.object(materialize_tables, "materialize_level_1")
-    def test_calls_all_levels_in_order(self, l1, l2, l3, l4, l5, l6):
+    def test_calls_all_levels_in_order(self, l1, l2, l3, l4, l5, l6, l7):
         materialize_tables.materialize_all()
 
         l1.assert_called_once()
@@ -259,14 +296,16 @@ class TestMaterializeAll:
         l4.assert_called_once()
         l5.assert_called_once()
         l6.assert_called_once()
+        l7.assert_called_once()
 
+    @patch.object(materialize_tables, "materialize_level_7")
     @patch.object(materialize_tables, "materialize_level_6")
     @patch.object(materialize_tables, "materialize_level_5")
     @patch.object(materialize_tables, "materialize_level_4")
     @patch.object(materialize_tables, "materialize_level_3")
     @patch.object(materialize_tables, "materialize_level_2")
     @patch.object(materialize_tables, "materialize_level_1")
-    def test_stops_on_level_failure(self, l1, l2, l3, l4, l5, l6):
+    def test_stops_on_level_failure(self, l1, l2, l3, l4, l5, l6, l7):
         l3.side_effect = RuntimeError("BQ failed")
 
         with pytest.raises(RuntimeError, match="BQ failed"):
@@ -278,3 +317,4 @@ class TestMaterializeAll:
         l4.assert_not_called()
         l5.assert_not_called()
         l6.assert_not_called()
+        l7.assert_not_called()

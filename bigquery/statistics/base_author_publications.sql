@@ -14,4 +14,11 @@ WHERE
   authorid IS NOT NULL
   AND pub_year IS NOT NULL
   AND pub_year > 1900
-  AND pub_year <= EXTRACT(YEAR FROM CURRENT_DATE());
+  AND pub_year <= EXTRACT(YEAR FROM CURRENT_DATE())
+  -- Only include authors with >= 6 total publications.
+  -- Papers from excluded authors still contribute citations to other papers;
+  -- this filter only affects which authors get detail tables computed.
+  AND authorid IN (
+    SELECT authorid FROM `scholar-version2.s2_data.author_paper_stats`
+    WHERE total_publications >= 6
+  );

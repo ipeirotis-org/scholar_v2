@@ -15,4 +15,10 @@ FROM `scholar-version2.s2_data.papers`
 WHERE year IS NOT NULL
   AND year > 1950
   AND year <= EXTRACT(YEAR FROM CURRENT_DATE())
-  AND citationcount > 0;
+  AND citationcount > 0
+  -- Only include papers from authors with >= 6 total publications.
+  -- Excludes noise from low-output authors while keeping their citation
+  -- contributions intact (via the unfiltered citations/paper_citations_by_year tables).
+  AND corpusid IN (
+    SELECT corpusid FROM `scholar-version2.s2_data.qualifying_papers`
+  );
