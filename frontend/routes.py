@@ -367,8 +367,15 @@ def register_routes(app):
 
     # Simple per-author rate limiting for state-changing endpoints.
     # Tracks recent rebuild requests to prevent duplicate enqueues.
-    _rebuild_timestamps = {}  # author_id -> timestamp
+    _rebuild_timestamps = {}  # author_id -> monotonic timestamp
     _REBUILD_COOLDOWN = 60  # seconds between rebuilds for the same author
+
+    def _cleanup_rebuild_timestamps():
+        """Evict expired entries to prevent unbounded memory growth."""
+        now = time.monotonic()
+        expired = [k for k, v in _rebuild_timestamps.items() if now - v >= _REBUILD_COOLDOWN]
+        for k in expired:
+            del _rebuild_timestamps[k]
 
     @app.route("/api/rebuild_statistics", methods=["POST"])
     def api_rebuild_statistics():
@@ -380,6 +387,7 @@ def register_routes(app):
             return jsonify({"error": "No valid author IDs provided"}), 400
 
         now = time.monotonic()
+        _cleanup_rebuild_timestamps()
         enqueued = 0
         skipped = 0
         for sid in scholar_ids:

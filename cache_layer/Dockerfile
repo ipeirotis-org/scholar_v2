@@ -7,6 +7,7 @@ RUN pip install --upgrade pip setuptools wheel \
  && pip install --no-cache-dir -r requirements.txt
 
 COPY cache_layer/ /app/cache_layer/
+COPY shared/ /app/shared/
 
 EXPOSE 8081
 ENV PORT=8081
