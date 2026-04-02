@@ -38,8 +38,21 @@ _SQL_DIR = pathlib.Path(__file__).resolve().parent.parent / "bigquery" / "statis
 # _table references so each level reads from the previous level's
 # materialized output instead of re-executing expensive view chains.
 _TABLE_SUBSTITUTIONS = {
+    # Level 1 views → tables (used by Level 2+)
+    "statistics.base_author_publications`": "statistics.base_author_publications_table`",
+    "statistics.stats_publication_current`": "statistics.stats_publication_current_table`",
+    "statistics.stats_author_current`": "statistics.stats_author_current_table`",
+    # Level 2 views → tables (used by Level 3+)
+    "statistics.stats_publication_citations_temporal`": "statistics.stats_publication_citations_temporal_table`",
+    "statistics.ranked_publication_current`": "statistics.ranked_publication_current_table`",
+    "statistics.intermediate_author_publication_state_temporal`": "statistics.intermediate_author_publication_state_temporal_table`",
+    # Level 3 views → tables (used by Level 4+)
     "statistics.stats_author_metrics_temporal_view`": "statistics.stats_author_metrics_temporal_table`",
+    "statistics.stats_author_publication_pip_inputs_current`": "statistics.stats_author_publication_pip_inputs_current_table`",
+    "statistics.ranked_author_current`": "statistics.ranked_author_current_table`",
+    # Level 4 views → tables (used by Level 5+)
     "statistics.stats_author_pip_scores_current`": "statistics.stats_author_pip_scores_current_table`",
+    # Level 5 views → tables (used by Level 6+)
     "statistics.stats_author_pip_scores_temporal_view`": "statistics.stats_author_pip_scores_temporal_table`",
 }
 
