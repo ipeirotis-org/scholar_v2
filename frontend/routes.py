@@ -365,14 +365,10 @@ def register_routes(app):
     # Existing API endpoints
     # ------------------------------------------------------------------
 
-    @app.route("/api/fetch_authors")
-    def api_fetch_authors():
-        """Enqueue cache population for the given author IDs.
-
-        Data comes from S2 bulk datasets in BigQuery — no per-author crawling.
-        This endpoint triggers a cache rebuild from BigQuery for each author.
-        """
-        scholar_ids_arg = request.args.get("scholar_ids", "")
+    @app.route("/api/rebuild_statistics", methods=["POST"])
+    def api_rebuild_statistics():
+        """Enqueue cache rebuild from BigQuery for the given author IDs."""
+        scholar_ids_arg = request.form.get("scholar_ids", "") or request.args.get("scholar_ids", "")
         scholar_ids = [s.strip() for s in scholar_ids_arg.split(",")
                        if _validate_scholar_id(s.strip())]
         if not scholar_ids:
@@ -385,21 +381,6 @@ def register_routes(app):
             "status": "queued",
             "total_authors": len(scholar_ids),
             "enqueued": enqueued,
-            "authors": [{"scholar_id": sid} for sid in scholar_ids],
-        })
-
-    @app.route("/api/rebuild_statistics")
-    def api_rebuild_statistics():
-        scholar_ids_arg = request.args.get("scholar_ids", "")
-        scholar_ids = [s.strip() for s in scholar_ids_arg.split(",")
-                       if _validate_scholar_id(s.strip())]
-        if not scholar_ids:
-            return jsonify({"error": "No valid author IDs provided"}), 400
-        for sid in scholar_ids:
-            enqueue_cache_populate("populate_author_profile", {"scholar_id": sid})
-        return jsonify({
-            "status": "queued",
-            "total_authors": len(scholar_ids),
             "authors": [{"scholar_id": sid} for sid in scholar_ids],
         })
 
@@ -416,8 +397,9 @@ def register_routes(app):
         results = search_svc.search(author_name, typeahead=typeahead, scholar=scholar)
         return jsonify(results)
 
-    @app.route("/api/refresh_author_index")
+    @app.route("/api/refresh_author_index", methods=["POST"])
     def api_refresh_author_index():
+        """Rebuild the in-memory author search index from BigQuery."""
         count = refresh_author_index(bq=search_svc.bq, cache=search_svc.cache)
         return jsonify({"status": "ok", "authors_indexed": count})
 

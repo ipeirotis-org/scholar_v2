@@ -159,9 +159,10 @@ Findings from a full codebase audit, ordered by priority. See `docs/codebase-rev
 
 - [x] ~~**Single-source the region list**~~ _(resolved: crawler + region_health removed)_
 
-- [ ] **Change state-changing API endpoints from GET to POST** _(review §4.3)_
-  - `/api/fetch_authors`, `/api/rebuild_statistics`, `/api/add_coauthors` trigger side effects via GET
-  - **Fix:** Change to POST-only; consider adding CSRF token validation
+- [x] **Change state-changing API endpoints from GET to POST** _(review §4.3)_
+  - Removed `/api/fetch_authors` (dead code, duplicate of `rebuild_statistics`)
+  - Changed `/api/rebuild_statistics` and `/api/refresh_author_index` to POST-only
+  - Updated `results.html` to use POST for rebuild button
 
 - [ ] **Narrow overly broad exception handling** _(review §3.5)_
   - `frontend/cache.py:37-39`, `cache_layer/cache_service.py:177-179`, `ingestion/cache_enqueuer.py:94-95`

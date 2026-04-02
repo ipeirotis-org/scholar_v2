@@ -176,9 +176,13 @@ class TestApiRoutes:
         assert response.status_code == 200
         assert response.json == []
 
-    def test_api_fetch_authors_no_ids(self, client):
-        response = client.get("/api/fetch_authors?scholar_ids=")
+    def test_api_rebuild_statistics_no_ids(self, client):
+        response = client.post("/api/rebuild_statistics", data={"scholar_ids": ""})
         assert response.status_code == 400
+
+    def test_api_rebuild_statistics_rejects_get(self, client):
+        response = client.get("/api/rebuild_statistics?scholar_ids=123")
+        assert response.status_code == 405
 
 
 class TestApiAuthorData:
