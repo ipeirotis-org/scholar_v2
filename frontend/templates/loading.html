@@ -27,7 +27,7 @@
 <script>
     (function() {
         var params = new URLSearchParams(window.location.search);
-        var retries = parseInt(params.get("_r") || "0", 10);
+        var retries = parseInt(params.get("_r") || "0", 10) || 0;
         // Exponential backoff: 10s, 15s, 22s, 33s, capped at 60s
         var delay = Math.min(10000 * Math.pow(1.5, retries), 60000);
         setTimeout(function() {

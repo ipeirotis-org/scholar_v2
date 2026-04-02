@@ -58,7 +58,7 @@ def poll_for_results(site, author_id, timeout=120, poll_interval=3):
         try:
             resp = requests.get(url, timeout=15, allow_redirects=True)
             body = resp.text
-            if resp.status_code == 200 and "Processing -- PiP Score" not in body and "not_found" not in body:
+            if resp.status_code == 200 and "Processing -- PiP Score" not in body and "Computing Statistics -- PiP Score" not in body and "not_found" not in body:
                 return time.monotonic() - start, True
             if "not_found" in body:
                 return time.monotonic() - start, False
