@@ -35,7 +35,7 @@ class FirestoreCache:
                 return None
             cached = doc.to_dict()
             return cached.get("data")
-        except (GoogleAPICallError, RetryError):
+        except (GoogleAPICallError, RetryError, ValueError):
             logger.exception("Firestore cache read failed: %s/%s", collection, doc_id)
             return None
 
@@ -50,7 +50,7 @@ class FirestoreCache:
                 return None
             cached = doc.to_dict()
             return cached.get("timestamp")
-        except (GoogleAPICallError, RetryError):
+        except (GoogleAPICallError, RetryError, ValueError):
             logger.exception("Firestore timestamp read failed: %s/%s", collection, doc_id)
             return None
 
@@ -62,7 +62,7 @@ class FirestoreCache:
         try:
             self.db.collection(collection).document(doc_id).delete()
             return True
-        except (GoogleAPICallError, RetryError):
+        except (GoogleAPICallError, RetryError, ValueError):
             logger.exception("Firestore cache delete failed: %s/%s", collection, doc_id)
             return False
 
@@ -80,7 +80,7 @@ class FirestoreCache:
                 "data": data,
             })
             return True
-        except (GoogleAPICallError, RetryError):
+        except (GoogleAPICallError, RetryError, ValueError):
             logger.exception("Firestore cache write failed: %s/%s", collection, doc_id)
             return False
 
@@ -116,5 +116,5 @@ class FirestoreCache:
             current = current[:MAX_RECENT_AUTHORS]
 
             self.set(RECENT_AUTHORS_COLLECTION, RECENT_AUTHORS_DOC_ID, current)
-        except (GoogleAPICallError, RetryError):
+        except (GoogleAPICallError, RetryError, ValueError):
             logger.exception("Failed to record recent author: %s", entry.get("scholar_id"))
