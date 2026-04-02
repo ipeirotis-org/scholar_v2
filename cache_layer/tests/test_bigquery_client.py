@@ -134,6 +134,25 @@ class TestGetAuthorFreshness:
         assert last_updated is None
 
 
+class TestGetRecentlyAnalyzedAuthors:
+    def test_returns_records(self):
+        import pandas as pd
+        df = pd.DataFrame([
+            {"scholar_id": "a1", "name": "Author 1"},
+            {"scholar_id": "a2", "name": "Author 2"},
+        ])
+        client, _ = _make_client(df)
+        result = client.get_recently_analyzed_authors(limit=10)
+        assert len(result) == 2
+
+    def test_returns_empty_on_failure(self):
+        mock_bq = mock.MagicMock()
+        mock_bq.query.side_effect = Exception("BQ error")
+        client = BigQueryClient(client=mock_bq)
+        result = client.get_recently_analyzed_authors()
+        assert result == []
+
+
 class TestGetAllAuthorIds:
     def test_returns_ids(self):
         import pandas as pd

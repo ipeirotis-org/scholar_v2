@@ -42,11 +42,11 @@ class CacheService:
         handlers = {
             "populate_author_profile": self._populate_author_profile,
             "populate_publication_detail": self._populate_publication_detail,
+            "populate_recent_authors": self._populate_recent_authors,
             "invalidate_author": self._invalidate_author,
             "warm_author": self._populate_author_profile,
             "rebuild_all": self._rebuild_all,
             "purge_legacy_cache": self._purge_legacy_cache,
-            "flush_cache": self._flush_cache,
         }
 
         handler = handlers.get(request_type)
@@ -119,6 +119,18 @@ class CacheService:
             "records": len(pub_stats),
         }
 
+    def _populate_recent_authors(self, payload):
+        """Query BQ for recently analyzed authors and write to cache."""
+        limit = payload.get("limit", 20)
+        recent = self.bq.get_recently_analyzed_authors(limit=limit)
+
+        self.writer.write(Config.CACHE_RECENT_AUTHORS, "recent", recent)
+
+        return {
+            "status": "ok",
+            "authors_cached": len(recent) if recent else 0,
+        }
+
     def _invalidate_author(self, payload):
         """Re-populate all caches for an author whose data has changed."""
         scholar_id = payload.get("scholar_id")
@@ -171,47 +183,28 @@ class CacheService:
                 logger.exception("Failed to enqueue rebuild task for %s", scholar_id)
                 errors += 1
 
+        # Also refresh recent authors
+        recent_task_body = json.dumps({
+            "type": "populate_recent_authors",
+        }).encode()
+        try:
+            client.create_task(parent=queue_path, task={
+                "http_request": {
+                    "http_method": tasks_v2.HttpMethod.POST,
+                    "url": target_url,
+                    "headers": {"Content-Type": "application/json"},
+                    "body": recent_task_body,
+                },
+            })
+        except Exception:
+            logger.exception("Failed to enqueue recent authors rebuild task")
+
         return {
             "status": "ok",
             "total_authors": len(author_ids),
             "enqueued": enqueued,
             "errors": errors,
         }
-
-    def _flush_cache(self, payload):
-        """Delete all documents from all Firestore cache collections.
-
-        This is a destructive operation — the cache can be rebuilt from
-        BigQuery via /admin/rebuild.
-        """
-        collections = [
-            Config.CACHE_AUTHOR_STATS,
-            Config.CACHE_AUTHOR_PUB_STATS,
-            Config.CACHE_AUTHOR_TEMPORAL,
-            Config.CACHE_AUTHOR_FRESHNESS,
-            Config.CACHE_PUB_STATS,
-        ]
-
-        total_deleted = 0
-        failed_collections = []
-
-        for collection_name in collections:
-            try:
-                deleted = self.writer.delete_collection(collection_name)
-                total_deleted += deleted
-                logger.info("Flushed %d entries from %s", deleted, collection_name)
-            except Exception:
-                logger.exception("Failed to flush %s", collection_name)
-                failed_collections.append(collection_name)
-
-        status = "ok" if not failed_collections else "partial_failure"
-        result = {
-            "status": status,
-            "total_deleted": total_deleted,
-        }
-        if failed_collections:
-            result["failed_collections"] = failed_collections
-        return result
 
     def _purge_legacy_cache(self, payload):
         """Delete Firestore cache entries with non-S2 (legacy Google Scholar) keys.

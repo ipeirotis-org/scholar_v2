@@ -134,6 +134,27 @@ class BigQueryClient:
             return True, df.iloc[0].get("last_updated")
         return False, None
 
+    def get_recently_analyzed_authors(self, limit=20):
+        """Get the most recently updated authors with their PiP-AUC scores."""
+        sql = f"""
+            SELECT S.scholar_id, S.name, S.affiliation,
+                   S.hindex, S.citedby,
+                   ROUND(MAX(P.pip_auc_score), 4) AS pip_auc_score,
+                   ROUND(MAX(P.pip_auc_score_percentile), 4) AS pip_auc_percentile,
+                   S.last_updated
+            FROM {Config.bq_view('ranked_author_current_table')} S
+            LEFT JOIN {Config.bq_view('ranked_author_pip_scores_current_table')} P
+              ON P.scholar_id = S.scholar_id
+            GROUP BY S.scholar_id, S.name, S.affiliation, S.hindex, S.citedby, S.last_updated
+            ORDER BY S.last_updated DESC
+            LIMIT @limit
+        """
+        params = [ScalarQueryParameter("limit", "INT64", limit)]
+        df = self._query(sql, params)
+        if df is None:
+            return []
+        return df.to_dict("records")
+
     def get_all_author_ids(self):
         """Get all author IDs from S2 data for full cache rebuild.
 

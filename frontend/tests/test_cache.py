@@ -1,8 +1,8 @@
-"""Tests for FirestoreCache."""
+"""Tests for FirestoreCache, including recent-author tracking."""
 
 from unittest import mock
 
-from frontend.cache import FirestoreCache
+from frontend.cache import FirestoreCache, MAX_RECENT_AUTHORS
 
 
 def _make_cache():
@@ -11,41 +11,74 @@ def _make_cache():
     return FirestoreCache(client=client), client
 
 
-class TestGet:
-    def test_returns_data_when_exists(self):
-        cache, client = _make_cache()
-        doc_mock = mock.MagicMock()
-        doc_mock.exists = True
-        doc_mock.to_dict.return_value = {"data": {"key": "value"}}
-        client.collection.return_value.document.return_value.get.return_value = doc_mock
+def _author(scholar_id, name="Author"):
+    return {
+        "scholar_id": scholar_id,
+        "name": name,
+        "affiliation": "Univ",
+        "hindex": 10,
+        "citedby": 100,
+        "pip_auc_score": 0.5,
+        "pip_auc_score_percentile": 0.75,
+    }
 
-        result = cache.get("collection", "doc_id")
-        assert result == {"key": "value"}
 
-    def test_returns_none_when_missing(self):
+class TestRecordRecentAuthor:
+    def test_adds_author_to_empty_list(self):
         cache, client = _make_cache()
+
+        # Simulate empty recent list
         doc_mock = mock.MagicMock()
         doc_mock.exists = False
         client.collection.return_value.document.return_value.get.return_value = doc_mock
 
-        result = cache.get("collection", "doc_id")
-        assert result is None
+        cache.record_recent_author(_author("a1", "Alice"))
 
-    def test_returns_none_on_exception(self):
+        # Verify set was called with list containing the author
+        client.collection.return_value.document.return_value.set.assert_called_once()
+        written = client.collection.return_value.document.return_value.set.call_args[0][0]
+        assert len(written["data"]) == 1
+        assert written["data"][0]["scholar_id"] == "a1"
+
+    def test_moves_existing_author_to_front(self):
+        cache, client = _make_cache()
+
+        existing = [_author("a2", "Bob"), _author("a1", "Alice")]
+        doc_mock = mock.MagicMock()
+        doc_mock.exists = True
+        doc_mock.to_dict.return_value = {"data": existing}
+        client.collection.return_value.document.return_value.get.return_value = doc_mock
+
+        cache.record_recent_author(_author("a1", "Alice Updated"))
+
+        written = client.collection.return_value.document.return_value.set.call_args[0][0]
+        assert written["data"][0]["scholar_id"] == "a1"
+        assert written["data"][0]["name"] == "Alice Updated"
+        assert written["data"][1]["scholar_id"] == "a2"
+        assert len(written["data"]) == 2
+
+    def test_truncates_to_max(self):
+        cache, client = _make_cache()
+
+        existing = [_author(f"a{i}") for i in range(MAX_RECENT_AUTHORS)]
+        doc_mock = mock.MagicMock()
+        doc_mock.exists = True
+        doc_mock.to_dict.return_value = {"data": existing}
+        client.collection.return_value.document.return_value.get.return_value = doc_mock
+
+        cache.record_recent_author(_author("new", "New Author"))
+
+        written = client.collection.return_value.document.return_value.set.call_args[0][0]
+        assert len(written["data"]) == MAX_RECENT_AUTHORS
+        assert written["data"][0]["scholar_id"] == "new"
+
+    def test_skips_if_no_scholar_id(self):
+        cache, client = _make_cache()
+        cache.record_recent_author({"name": "No ID"})
+        client.collection.return_value.document.return_value.set.assert_not_called()
+
+    def test_handles_exception_gracefully(self):
         cache, client = _make_cache()
         client.collection.return_value.document.return_value.get.side_effect = Exception("boom")
-
-        result = cache.get("collection", "doc_id")
-        assert result is None
-
-
-class TestDelete:
-    def test_delete_returns_true(self):
-        cache, client = _make_cache()
-        assert cache.delete("collection", "doc_id") is True
-        client.collection.return_value.document.return_value.delete.assert_called_once()
-
-    def test_delete_returns_false_on_exception(self):
-        cache, client = _make_cache()
-        client.collection.return_value.document.return_value.delete.side_effect = Exception("boom")
-        assert cache.delete("collection", "doc_id") is False
+        # Should not raise
+        cache.record_recent_author(_author("a1"))

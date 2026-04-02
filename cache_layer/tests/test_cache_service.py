@@ -141,36 +141,34 @@ class TestPopulatePublicationDetail:
         )
 
 
-class TestFlushCache:
+class TestPopulateRecentAuthors:
     def test_success(self):
         bq = mock.MagicMock()
         writer = mock.MagicMock()
         svc = CacheService(bq=bq, writer=writer)
 
-        writer.delete_collection.return_value = 10
+        bq.get_recently_analyzed_authors.return_value = [
+            {"scholar_id": "a1", "name": "Author 1"},
+            {"scholar_id": "a2", "name": "Author 2"},
+        ]
+        writer.write.return_value = True
 
-        result = svc.dispatch("flush_cache", {})
+        result = svc.dispatch("populate_recent_authors", {})
 
         assert result["status"] == "ok"
-        assert result["total_deleted"] == 50  # 10 per collection x 5 collections
-        assert writer.delete_collection.call_count == 5
+        assert result["authors_cached"] == 2
+        writer.write.assert_called_once_with(
+            Config.CACHE_RECENT_AUTHORS, "recent",
+            bq.get_recently_analyzed_authors.return_value,
+        )
 
-    def test_partial_failure(self):
-        bq = mock.MagicMock()
-        writer = mock.MagicMock()
-        svc = CacheService(bq=bq, writer=writer)
+    def test_custom_limit(self):
+        svc = _make_service()
+        svc.bq.get_recently_analyzed_authors.return_value = []
+        svc.writer.write.return_value = True
 
-        def side_effect(collection):
-            if collection == Config.CACHE_AUTHOR_STATS:
-                raise Exception("boom")
-            return 5
-
-        writer.delete_collection.side_effect = side_effect
-
-        result = svc.dispatch("flush_cache", {})
-
-        assert result["status"] == "partial_failure"
-        assert Config.CACHE_AUTHOR_STATS in result["failed_collections"]
+        svc.dispatch("populate_recent_authors", {"limit": 50})
+        svc.bq.get_recently_analyzed_authors.assert_called_once_with(limit=50)
 
 
 class TestInvalidateAuthor:
@@ -224,4 +222,5 @@ class TestRebuildAll:
         assert result["status"] == "ok"
         assert result["total_authors"] == 3
         assert result["enqueued"] == 3
-        assert mock_client.create_task.call_count == 3
+        # 3 author tasks + 1 recent authors task
+        assert mock_client.create_task.call_count == 4
