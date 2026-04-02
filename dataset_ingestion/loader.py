@@ -150,15 +150,19 @@ def build_paper_citations_by_year():
     CREATE OR REPLACE TABLE {table_ref}
     CLUSTER BY citedcorpusid
     AS
+    WITH deduped_citations AS (
+      SELECT DISTINCT citingcorpusid, citedcorpusid, isinfluential
+      FROM {citations_ref}
+      WHERE citedcorpusid IS NOT NULL
+    )
     SELECT
       c.citedcorpusid,
       p.year AS citing_year,
       COUNT(*) AS citation_count,
       COUNTIF(c.isinfluential) AS influential_count
-    FROM {citations_ref} c
+    FROM deduped_citations c
     JOIN {papers_ref} p ON c.citingcorpusid = p.corpusid
-    WHERE c.citedcorpusid IS NOT NULL
-      AND p.year IS NOT NULL
+    WHERE p.year IS NOT NULL
       AND p.year > 1900
       AND p.year <= EXTRACT(YEAR FROM CURRENT_DATE())
     GROUP BY c.citedcorpusid, p.year
