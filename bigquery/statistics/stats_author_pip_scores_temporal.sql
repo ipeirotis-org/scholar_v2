@@ -5,15 +5,15 @@
 --   2. Looking up each pub's cumulative_citations as of state_year → citation percentile
 --      (via dist_publication_citations_temporal, L2)
 --   3. Counting how many papers the author had → num_papers_percentile
---      (via dist_author_metrics_temporal, L4)
+--      (via dist_author_metrics_temporal, L4, using scalar subquery interpolation)
 --   4. Running the same trapezoidal integration → pip_auc_score
 --
 -- Depends on: intermediate_author_publication_state_temporal (L2),
 --   dist_publication_citations_temporal (L2), stats_author_metrics_temporal_view (L3),
 --   dist_author_metrics_temporal (L4).
 --
--- This is the most expensive view in the system. It should ALWAYS be materialized
--- (daily, like stats_author_metrics_temporal), never queried live.
+-- This is the most expensive view in the system. It should ALWAYS be materialized,
+-- never queried live.
 --
 -- The pip_auc_score_percentile is added by ranked_author_pip_scores_temporal (L7)
 -- via dist_pip_auc_scores_temporal (L6).
@@ -65,7 +65,6 @@ WITH
   ),
 
   -- Rank publications within each author-year by citation percentile (descending)
-  -- and compute the publication rank (X-axis position before interpolation)
   RankedPubs AS (
     SELECT
       pp.scholar_id,
@@ -79,75 +78,107 @@ WITH
     JOIN AuthorState a ON pp.scholar_id = a.scholar_id AND pp.state_year = a.state_year
   ),
 
-  -- Look up num_papers_percentile from dist_author_metrics_temporal.
-  -- This maps (year_of_first_pub, state_year, total_publications) → percentile.
-  NumPapersPercentile AS (
-    SELECT
-      year_of_first_pub,
-      state_year,
-      metric_value AS total_publications,
-      percentile AS total_publications_percentile
-    FROM `scholar-version2.statistics.dist_author_metrics_temporal`
-    WHERE metric_name = 'total_publications'
-      AND benchmark = 'active_authors'
-  ),
-
-  -- Interpolate num_papers_percentile for each publication (same 6-CTE pattern
-  -- as stats_author_publication_pip_inputs_current)
-  Distances AS (
-    SELECT
-      rp.*,
-      npp.total_publications_percentile,
-      rp.publication_rank - npp.total_publications AS distance,
-      CASE
-        WHEN rp.publication_rank - npp.total_publications >= 0 THEN 'positive'
-        ELSE 'negative'
-      END AS distance_type
-    FROM RankedPubs rp
-    JOIN NumPapersPercentile npp
-      ON rp.year_of_first_pub = npp.year_of_first_pub
-     AND rp.state_year = npp.state_year
-  ),
-  RankedDistances AS (
-    SELECT *,
-      ROW_NUMBER() OVER(PARTITION BY scholar_id, state_year, author_pub_id, distance_type ORDER BY ABS(distance)) AS rank_distance
-    FROM Distances
-  ),
-  FilteredDistances AS (
-    SELECT * FROM RankedDistances WHERE rank_distance = 1
-  ),
-  AggregatedDistances AS (
-    SELECT
-      scholar_id, state_year, author_pub_id,
-      MAX(CASE WHEN distance_type = 'positive' THEN total_publications_percentile END)
-        OVER(PARTITION BY scholar_id, state_year, author_pub_id) AS positive_percentile,
-      MAX(CASE WHEN distance_type = 'negative' THEN total_publications_percentile END)
-        OVER(PARTITION BY scholar_id, state_year, author_pub_id) AS negative_percentile,
-      MAX(CASE WHEN distance_type = 'positive' THEN ABS(distance) END)
-        OVER(PARTITION BY scholar_id, state_year, author_pub_id) AS positive_distance,
-      MAX(CASE WHEN distance_type = 'negative' THEN ABS(distance) END)
-        OVER(PARTITION BY scholar_id, state_year, author_pub_id) AS negative_distance
-    FROM FilteredDistances
-  ),
+  -- Interpolate num_papers_percentile using scalar subqueries against
+  -- dist_author_metrics_temporal. Finds floor and ceiling breakpoints
+  -- for publication_rank, then linearly interpolates.
   InterpolatedPubs AS (
-    SELECT DISTINCT
-      fd.scholar_id,
-      fd.state_year,
-      fd.author_pub_id,
-      fd.citation_percentile AS num_citations_percentile,
-      fd.publication_rank,
-      fd.year_of_first_pub,
+    SELECT
+      scholar_id,
+      state_year,
+      author_pub_id,
+      citation_percentile AS num_citations_percentile,
+      publication_rank,
+      year_of_first_pub,
       CASE
-        WHEN ad.positive_percentile IS NULL THEN 0.0
-        WHEN ad.negative_percentile IS NULL THEN 1.0
-        ELSE (ad.negative_percentile * ad.positive_distance + ad.positive_percentile * ad.negative_distance)
-             / (ad.positive_distance + ad.negative_distance)
+        WHEN (SELECT MAX(d.percentile)
+              FROM `scholar-version2.statistics.dist_author_metrics_temporal` d
+              WHERE d.benchmark = 'active_authors'
+                AND d.metric_name = 'total_publications'
+                AND d.year_of_first_pub = rp.year_of_first_pub
+                AND d.state_year = rp.state_year
+                AND d.metric_value <= rp.publication_rank
+             ) IS NULL THEN 0.0
+        WHEN (SELECT MIN(d.percentile)
+              FROM `scholar-version2.statistics.dist_author_metrics_temporal` d
+              WHERE d.benchmark = 'active_authors'
+                AND d.metric_name = 'total_publications'
+                AND d.year_of_first_pub = rp.year_of_first_pub
+                AND d.state_year = rp.state_year
+                AND d.metric_value >= rp.publication_rank
+             ) IS NULL THEN 1.0
+        WHEN (SELECT MAX(d.metric_value)
+              FROM `scholar-version2.statistics.dist_author_metrics_temporal` d
+              WHERE d.benchmark = 'active_authors'
+                AND d.metric_name = 'total_publications'
+                AND d.year_of_first_pub = rp.year_of_first_pub
+                AND d.state_year = rp.state_year
+                AND d.metric_value <= rp.publication_rank
+             ) = (SELECT MIN(d.metric_value)
+              FROM `scholar-version2.statistics.dist_author_metrics_temporal` d
+              WHERE d.benchmark = 'active_authors'
+                AND d.metric_name = 'total_publications'
+                AND d.year_of_first_pub = rp.year_of_first_pub
+                AND d.state_year = rp.state_year
+                AND d.metric_value >= rp.publication_rank
+             ) THEN (SELECT MAX(d.percentile)
+              FROM `scholar-version2.statistics.dist_author_metrics_temporal` d
+              WHERE d.benchmark = 'active_authors'
+                AND d.metric_name = 'total_publications'
+                AND d.year_of_first_pub = rp.year_of_first_pub
+                AND d.state_year = rp.state_year
+                AND d.metric_value <= rp.publication_rank
+             )
+        ELSE (
+          (SELECT MIN(d.percentile)
+           FROM `scholar-version2.statistics.dist_author_metrics_temporal` d
+           WHERE d.benchmark = 'active_authors'
+             AND d.metric_name = 'total_publications'
+             AND d.year_of_first_pub = rp.year_of_first_pub
+             AND d.state_year = rp.state_year
+             AND d.metric_value >= rp.publication_rank
+          ) * (rp.publication_rank - (SELECT MAX(d.metric_value)
+           FROM `scholar-version2.statistics.dist_author_metrics_temporal` d
+           WHERE d.benchmark = 'active_authors'
+             AND d.metric_name = 'total_publications'
+             AND d.year_of_first_pub = rp.year_of_first_pub
+             AND d.state_year = rp.state_year
+             AND d.metric_value <= rp.publication_rank
+          ))
+          +
+          (SELECT MAX(d.percentile)
+           FROM `scholar-version2.statistics.dist_author_metrics_temporal` d
+           WHERE d.benchmark = 'active_authors'
+             AND d.metric_name = 'total_publications'
+             AND d.year_of_first_pub = rp.year_of_first_pub
+             AND d.state_year = rp.state_year
+             AND d.metric_value <= rp.publication_rank
+          ) * ((SELECT MIN(d.metric_value)
+           FROM `scholar-version2.statistics.dist_author_metrics_temporal` d
+           WHERE d.benchmark = 'active_authors'
+             AND d.metric_name = 'total_publications'
+             AND d.year_of_first_pub = rp.year_of_first_pub
+             AND d.state_year = rp.state_year
+             AND d.metric_value >= rp.publication_rank
+          ) - rp.publication_rank)
+        ) / (
+          (SELECT MIN(d.metric_value)
+           FROM `scholar-version2.statistics.dist_author_metrics_temporal` d
+           WHERE d.benchmark = 'active_authors'
+             AND d.metric_name = 'total_publications'
+             AND d.year_of_first_pub = rp.year_of_first_pub
+             AND d.state_year = rp.state_year
+             AND d.metric_value >= rp.publication_rank
+          ) - (SELECT MAX(d.metric_value)
+           FROM `scholar-version2.statistics.dist_author_metrics_temporal` d
+           WHERE d.benchmark = 'active_authors'
+             AND d.metric_name = 'total_publications'
+             AND d.year_of_first_pub = rp.year_of_first_pub
+             AND d.state_year = rp.state_year
+             AND d.metric_value <= rp.publication_rank
+          )
+        )
       END AS num_papers_percentile
-    FROM FilteredDistances fd
-    JOIN AggregatedDistances ad
-      ON fd.scholar_id = ad.scholar_id
-     AND fd.state_year = ad.state_year
-     AND fd.author_pub_id = ad.author_pub_id
+    FROM RankedPubs rp
   ),
 
   -- Trapezoidal integration (same pattern as stats_author_pip_scores_current)
