@@ -382,22 +382,24 @@ def register_routes(app):
             return jsonify({"error": "No valid author IDs provided"}), 400
 
         now = time.monotonic()
-        to_enqueue = []
         with _rebuild_lock:
             # Evict expired entries
             expired = [k for k, v in _rebuild_timestamps.items() if now - v >= _REBUILD_COOLDOWN]
             for k in expired:
                 del _rebuild_timestamps[k]
-            # Check cooldowns and mark timestamps
-            for sid in scholar_ids:
-                if now - _rebuild_timestamps.get(sid, 0) >= _REBUILD_COOLDOWN:
-                    _rebuild_timestamps[sid] = now
-                    to_enqueue.append(sid)
+            # Filter to authors not on cooldown
+            to_enqueue = [
+                sid for sid in scholar_ids
+                if now - _rebuild_timestamps.get(sid, 0) >= _REBUILD_COOLDOWN
+            ]
 
         enqueued = 0
         skipped = len(scholar_ids) - len(to_enqueue)
         for sid in to_enqueue:
             if enqueue_cache_populate("populate_author_profile", {"scholar_id": sid}):
+                # Only record cooldown after successful enqueue
+                with _rebuild_lock:
+                    _rebuild_timestamps[sid] = now
                 enqueued += 1
         return jsonify({
             "status": "queued",
