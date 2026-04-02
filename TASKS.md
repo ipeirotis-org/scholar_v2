@@ -83,8 +83,8 @@ Create the new component that owns all BigQuery reads and Firestore writes.
 
 ### Remaining post-merge tasks
 
-- [ ] **Run initial cache rebuild** — after first deploy, `POST /admin/rebuild` to populate Firestore from BigQuery
-- [ ] **Verify end-to-end flow** — crawl → ingest → cache invalidation → frontend serves from cache
+- [x] ~~**Run initial cache rebuild**~~ _(not needed — cache populates on-demand via priority queue on cache miss)_
+- [ ] **Verify end-to-end flow** — ingest → cache population on first query → frontend serves from cache
 - [ ] **Update frontend loading/polling UX** (optional)
   - Existing loading page pattern already handles "data not ready" state
   - Consider client-side polling or short auto-refresh for smoother cache-miss UX
