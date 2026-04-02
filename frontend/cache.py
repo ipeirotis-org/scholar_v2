@@ -1,8 +1,7 @@
 """Firestore cache reader for the frontend.
 
 Data population is owned by the Cache Layer (Component 7). The frontend
-reads from Firestore only. The exception is recent-author tracking, which
-is maintained by the frontend and written back for reuse.
+reads from Firestore only.
 """
 
 import logging
@@ -13,11 +12,6 @@ from google.cloud import firestore
 from frontend.config import Config
 
 logger = logging.getLogger(__name__)
-
-RECENT_AUTHORS_COLLECTION = "v3_recent_authors"
-RECENT_AUTHORS_DOC_ID = "recent"
-MAX_RECENT_AUTHORS = 20
-
 
 class FirestoreCache:
     def __init__(self, client=None):
@@ -83,37 +77,3 @@ class FirestoreCache:
             logger.exception("Firestore cache write failed: %s/%s", collection, doc_id)
             return False
 
-    def record_recent_author(self, author_stats):
-        """Record an author as recently queried.
-
-        Maintains a list of the most recently queried authors in Firestore,
-        ordered by query time (most recent first). Deduplicates by scholar_id.
-        """
-        entry = {
-            "scholar_id": author_stats.get("scholar_id"),
-            "name": author_stats.get("name"),
-            "affiliation": author_stats.get("affiliation"),
-            "hindex": author_stats.get("hindex"),
-            "citedby": author_stats.get("citedby"),
-            "pip_auc_score": author_stats.get("pip_auc_score"),
-            "pip_auc_percentile": author_stats.get("pip_auc_score_percentile"),
-        }
-
-        if not entry["scholar_id"]:
-            return
-
-        try:
-            current = self.get(RECENT_AUTHORS_COLLECTION, RECENT_AUTHORS_DOC_ID)
-            if not isinstance(current, list):
-                current = []
-
-            # Remove existing entry for this author (if any) to move to front
-            current = [a for a in current if a.get("scholar_id") != entry["scholar_id"]]
-
-            # Prepend and truncate
-            current = [entry] + current
-            current = current[:MAX_RECENT_AUTHORS]
-
-            self.set(RECENT_AUTHORS_COLLECTION, RECENT_AUTHORS_DOC_ID, current)
-        except Exception:
-            logger.exception("Failed to record recent author: %s", entry.get("scholar_id"))

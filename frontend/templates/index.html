@@ -34,56 +34,11 @@
         </form>
     </div>
 
-    {% if recent_authors %}
-    <div class="mt-5">
-        <h3>Recently Analyzed Authors</h3>
-        <table class="table table-hover table-sm" id="recentAuthorsTable" aria-label="Recently analyzed authors">
-            <thead>
-                <tr>
-                    <th>Name</th>
-                    <th>Affiliation</th>
-                    <th>H-Index</th>
-                    <th>Citations</th>
-                    <th>PiP-AUC</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for author in recent_authors %}
-                <tr style="cursor: pointer;"
-                    onclick="window.location.href='/results?author_id={{ author.scholar_id }}'">
-                    <td><a href="/results?author_id={{ author.scholar_id }}">{{ author.name }}</a></td>
-                    <td>{{ author.affiliation or '' }}</td>
-                    <td>{{ author.hindex }}</td>
-                    <td>{{ '{:,}'.format(author.citedby|int) }}</td>
-                    <td>
-                        {% if author.pip_auc_score %}
-                            {{ author.pip_auc_score|round(4) }}
-                            {% if author.pip_auc_percentile is not none %}
-                                <small class="text-muted">({{ "%.1f"|format(100 * author.pip_auc_percentile) }}% percentile)</small>
-                            {% endif %}
-                        {% else %}
-                            —
-                        {% endif %}
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-    {% endif %}
 </section>
 {% endblock %}
 
 {% block scripts %}
 <script>
-    // Show loading overlay when navigating to author results
-    document.querySelectorAll('#recentAuthorsTable tbody tr').forEach(function(row) {
-        row.addEventListener('click', function(e) {
-            // Don't intercept direct link clicks (let them work normally, but show overlay)
-            showLoadingOverlay();
-        });
-    });
-
     function showLoadingOverlay() {
         var overlay = document.createElement('div');
         overlay.id = 'loadingOverlay';

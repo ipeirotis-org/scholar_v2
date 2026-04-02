@@ -36,7 +36,6 @@ class Config:
     CACHE_PUB_STATS = "v3_pub_stats"
     CACHE_AUTHOR_TEMPORAL = "v3_author_temporal"
     CACHE_AUTHOR_FRESHNESS = "v3_author_freshness"
-    CACHE_RECENT_AUTHORS = "v3_recent_authors"
 
     # Views that have materialized _table counterparts.
     # When USE_MATERIALIZED_TABLES is True, queries use the _table version.

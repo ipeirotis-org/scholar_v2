@@ -119,8 +119,7 @@ def register_routes(app):
     @app.route("/")
     @app.route("/index")
     def index():
-        recent_authors = _read_cache("v3_recent_authors", "recent")
-        return render_template("index.html", recent_authors=recent_authors or [])
+        return render_template("index.html")
 
     def _get_author_freshness(author_id):
         """Read cached freshness for an author.
@@ -197,12 +196,6 @@ def register_routes(app):
 
         # Read statistics cache timestamp (when stats were last computed)
         stats_cached_at = cache.get_timestamp(Config.CACHE_AUTHOR_STATS, author_id)
-
-        # Record this author as recently queried (fire-and-forget)
-        try:
-            cache.record_recent_author(author_stats)
-        except Exception:
-            logger.debug("Failed to record recent author %s", author_id)
 
         return render_template(
             "results.html",
