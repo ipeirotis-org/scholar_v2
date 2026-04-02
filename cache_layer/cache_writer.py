@@ -80,3 +80,27 @@ class CacheWriter:
                 )
 
         return committed
+
+    def delete_collection(self, collection, batch_size=500):
+        """Delete all documents in a Firestore collection.
+
+        Returns the number of documents deleted.
+        """
+        deleted = 0
+        try:
+            collection_ref = self.db.collection(collection)
+            while True:
+                docs = list(collection_ref.limit(batch_size).stream())
+                if not docs:
+                    break
+                batch = self.db.batch()
+                for doc in docs:
+                    batch.delete(doc.reference)
+                batch.commit()
+                deleted += len(docs)
+        except Exception:
+            logger.exception(
+                "Failed to delete collection %s (deleted %d so far)",
+                collection, deleted,
+            )
+        return deleted

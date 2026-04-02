@@ -83,6 +83,23 @@ class TestAdminEndpoints:
         response = client.post("/admin/populate", json={})
         assert response.status_code == 400
 
+    @mock.patch("cache_layer.main.service")
+    def test_flush_cache(self, mock_service, client):
+        mock_service.dispatch.return_value = {"status": "ok", "total_deleted": 50}
+        response = client.post("/admin/flush_cache")
+        assert response.status_code == 200
+        mock_service.dispatch.assert_called_once_with("flush_cache", {})
+
+    @mock.patch("cache_layer.main.service")
+    def test_flush_cache_partial_failure(self, mock_service, client):
+        mock_service.dispatch.return_value = {
+            "status": "partial_failure",
+            "total_deleted": 30,
+            "failed_collections": ["v3_author_stats"],
+        }
+        response = client.post("/admin/flush_cache")
+        assert response.status_code == 207
+
 
 class TestAdminAuth:
     """Test admin endpoint authentication when ADMIN_AUTH_TOKEN is set."""

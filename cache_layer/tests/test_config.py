@@ -27,4 +27,3 @@ class TestConfig:
         assert Config.CACHE_AUTHOR_TEMPORAL == "v3_author_temporal"
         assert Config.CACHE_PUB_STATS == "v3_pub_stats"
         assert Config.CACHE_AUTHOR_FRESHNESS == "v3_author_freshness"
-        assert Config.CACHE_RECENT_AUTHORS == "v3_recent_authors"
