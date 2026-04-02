@@ -21,20 +21,20 @@ WITH
     SELECT
       year_of_first_pub,
       state_year,
-      MAX(IF(metric_name = 'total_publications', values_arr, NULL)) AS tp_vals,
-      MAX(IF(metric_name = 'total_publications', pcts_arr, NULL)) AS tp_pcts,
-      MAX(IF(metric_name = 'total_citations', values_arr, NULL)) AS tc_vals,
-      MAX(IF(metric_name = 'total_citations', pcts_arr, NULL)) AS tc_pcts,
-      MAX(IF(metric_name = 'total_recent_citations_5y', values_arr, NULL)) AS trc_vals,
-      MAX(IF(metric_name = 'total_recent_citations_5y', pcts_arr, NULL)) AS trc_pcts,
-      MAX(IF(metric_name = 'h_index', values_arr, NULL)) AS hi_vals,
-      MAX(IF(metric_name = 'h_index', pcts_arr, NULL)) AS hi_pcts,
-      MAX(IF(metric_name = 'h_index_5y', values_arr, NULL)) AS hi5_vals,
-      MAX(IF(metric_name = 'h_index_5y', pcts_arr, NULL)) AS hi5_pcts,
-      MAX(IF(metric_name = 'i10_index', values_arr, NULL)) AS i10_vals,
-      MAX(IF(metric_name = 'i10_index', pcts_arr, NULL)) AS i10_pcts,
-      MAX(IF(metric_name = 'i10_index_5y', values_arr, NULL)) AS i105_vals,
-      MAX(IF(metric_name = 'i10_index_5y', pcts_arr, NULL)) AS i105_pcts
+      ANY_VALUE(IF(metric_name = 'total_publications', values_arr, NULL)) AS tp_vals,
+      ANY_VALUE(IF(metric_name = 'total_publications', pcts_arr, NULL)) AS tp_pcts,
+      ANY_VALUE(IF(metric_name = 'total_citations', values_arr, NULL)) AS tc_vals,
+      ANY_VALUE(IF(metric_name = 'total_citations', pcts_arr, NULL)) AS tc_pcts,
+      ANY_VALUE(IF(metric_name = 'total_recent_citations_5y', values_arr, NULL)) AS trc_vals,
+      ANY_VALUE(IF(metric_name = 'total_recent_citations_5y', pcts_arr, NULL)) AS trc_pcts,
+      ANY_VALUE(IF(metric_name = 'h_index', values_arr, NULL)) AS hi_vals,
+      ANY_VALUE(IF(metric_name = 'h_index', pcts_arr, NULL)) AS hi_pcts,
+      ANY_VALUE(IF(metric_name = 'h_index_5y', values_arr, NULL)) AS hi5_vals,
+      ANY_VALUE(IF(metric_name = 'h_index_5y', pcts_arr, NULL)) AS hi5_pcts,
+      ANY_VALUE(IF(metric_name = 'i10_index', values_arr, NULL)) AS i10_vals,
+      ANY_VALUE(IF(metric_name = 'i10_index', pcts_arr, NULL)) AS i10_pcts,
+      ANY_VALUE(IF(metric_name = 'i10_index_5y', values_arr, NULL)) AS i105_vals,
+      ANY_VALUE(IF(metric_name = 'i10_index_5y', pcts_arr, NULL)) AS i105_pcts
     FROM DistArrays
     GROUP BY year_of_first_pub, state_year
   )

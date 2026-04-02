@@ -22,16 +22,16 @@ WITH
   DistPivot AS (
     SELECT
       year_of_first_pub,
-      MAX(IF(metric_name = 'hindex', values_arr, NULL)) AS hi_vals,
-      MAX(IF(metric_name = 'hindex', pcts_arr, NULL)) AS hi_pcts,
-      MAX(IF(metric_name = 'citedby', values_arr, NULL)) AS cb_vals,
-      MAX(IF(metric_name = 'citedby', pcts_arr, NULL)) AS cb_pcts,
-      MAX(IF(metric_name = 'i10index', values_arr, NULL)) AS i10_vals,
-      MAX(IF(metric_name = 'i10index', pcts_arr, NULL)) AS i10_pcts,
-      MAX(IF(metric_name = 'total_publications', values_arr, NULL)) AS tp_vals,
-      MAX(IF(metric_name = 'total_publications', pcts_arr, NULL)) AS tp_pcts,
-      MAX(IF(metric_name = 'total_publications_with_citations', values_arr, NULL)) AS tpwc_vals,
-      MAX(IF(metric_name = 'total_publications_with_citations', pcts_arr, NULL)) AS tpwc_pcts
+      ANY_VALUE(IF(metric_name = 'hindex', values_arr, NULL)) AS hi_vals,
+      ANY_VALUE(IF(metric_name = 'hindex', pcts_arr, NULL)) AS hi_pcts,
+      ANY_VALUE(IF(metric_name = 'citedby', values_arr, NULL)) AS cb_vals,
+      ANY_VALUE(IF(metric_name = 'citedby', pcts_arr, NULL)) AS cb_pcts,
+      ANY_VALUE(IF(metric_name = 'i10index', values_arr, NULL)) AS i10_vals,
+      ANY_VALUE(IF(metric_name = 'i10index', pcts_arr, NULL)) AS i10_pcts,
+      ANY_VALUE(IF(metric_name = 'total_publications', values_arr, NULL)) AS tp_vals,
+      ANY_VALUE(IF(metric_name = 'total_publications', pcts_arr, NULL)) AS tp_pcts,
+      ANY_VALUE(IF(metric_name = 'total_publications_with_citations', values_arr, NULL)) AS tpwc_vals,
+      ANY_VALUE(IF(metric_name = 'total_publications_with_citations', pcts_arr, NULL)) AS tpwc_pcts
     FROM DistArrays
     GROUP BY year_of_first_pub
   )
