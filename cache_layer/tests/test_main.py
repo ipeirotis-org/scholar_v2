@@ -65,15 +65,6 @@ class TestBatchTaskEndpoint:
 
 class TestAdminEndpoints:
     @mock.patch("cache_layer.main.service")
-    def test_rebuild(self, mock_service, client):
-        mock_service.dispatch.return_value = {
-            "status": "ok", "total_authors": 100, "enqueued": 100,
-        }
-        response = client.post("/admin/rebuild")
-        assert response.status_code == 200
-        mock_service.dispatch.assert_called_once_with("rebuild_all", {})
-
-    @mock.patch("cache_layer.main.service")
     def test_populate(self, mock_service, client):
         mock_service.dispatch.return_value = {"status": "ok", "scholar_id": "abc123"}
         response = client.post("/admin/populate", json={"scholar_id": "abc123"})
@@ -105,31 +96,17 @@ class TestAdminAuth:
     """Test admin endpoint authentication when ADMIN_AUTH_TOKEN is set."""
 
     @mock.patch("cache_layer.main.Config.ADMIN_AUTH_TOKEN", "secret-token-123")
-    def test_rebuild_rejects_no_auth(self, client):
-        response = client.post("/admin/rebuild")
-        assert response.status_code == 401
-
-    @mock.patch("cache_layer.main.Config.ADMIN_AUTH_TOKEN", "secret-token-123")
-    def test_rebuild_rejects_wrong_token(self, client):
-        response = client.post(
-            "/admin/rebuild",
-            headers={"Authorization": "Bearer wrong-token"},
-        )
-        assert response.status_code == 401
-
-    @mock.patch("cache_layer.main.Config.ADMIN_AUTH_TOKEN", "secret-token-123")
-    @mock.patch("cache_layer.main.service")
-    def test_rebuild_accepts_correct_token(self, mock_service, client):
-        mock_service.dispatch.return_value = {"status": "ok"}
-        response = client.post(
-            "/admin/rebuild",
-            headers={"Authorization": "Bearer secret-token-123"},
-        )
-        assert response.status_code == 200
-
-    @mock.patch("cache_layer.main.Config.ADMIN_AUTH_TOKEN", "secret-token-123")
     def test_populate_rejects_no_auth(self, client):
         response = client.post("/admin/populate", json={"scholar_id": "abc123"})
+        assert response.status_code == 401
+
+    @mock.patch("cache_layer.main.Config.ADMIN_AUTH_TOKEN", "secret-token-123")
+    def test_populate_rejects_wrong_token(self, client):
+        response = client.post(
+            "/admin/populate",
+            json={"scholar_id": "abc123"},
+            headers={"Authorization": "Bearer wrong-token"},
+        )
         assert response.status_code == 401
 
     @mock.patch("cache_layer.main.Config.ADMIN_AUTH_TOKEN", "secret-token-123")
@@ -147,8 +124,8 @@ class TestAdminAuth:
     @mock.patch("cache_layer.main.service")
     def test_no_token_configured_allows_all(self, mock_service, client):
         """When ADMIN_AUTH_TOKEN is empty, all requests are allowed."""
-        mock_service.dispatch.return_value = {"status": "ok"}
-        response = client.post("/admin/rebuild")
+        mock_service.dispatch.return_value = {"status": "ok", "scholar_id": "abc123"}
+        response = client.post("/admin/populate", json={"scholar_id": "abc123"})
         assert response.status_code == 200
 
     @mock.patch("cache_layer.main.Config.ADMIN_AUTH_TOKEN", "secret-token-123")

@@ -195,6 +195,10 @@ Ranked views default to `active_authors` for user-facing percentiles.
 - **Author IDs**: S2 numeric author IDs (e.g., `2942126`). Legacy Google Scholar IDs (alphanumeric) no longer accepted
 - **S2 API key**: Stored in Secret Manager (`projects/875626982900/secrets/s2-api-key`), used by dataset_ingestion for bulk downloads
 
+## Codex Reviews
+
+After pushing commits to a PR, wait for Codex to review. If it reacts with 👍, the PR is clean. If 👀 (googly eyes), it's still reviewing. Address any review comments before considering the PR ready to merge.
+
 ## GCP
 
 - **Project ID**: `scholar-version2`

@@ -3,6 +3,8 @@
 import os
 import secrets
 
+from shared.bq_helpers import bq_raw as _bq_raw, bq_view as _bq_view
+
 
 class Config:
     PROJECT_ID = os.environ.get("GCP_PROJECT_ID", "scholar-version2")
@@ -40,8 +42,8 @@ class Config:
 
     @classmethod
     def bq_view(cls, view_name):
-        return f"`{cls.PROJECT_ID}.{cls.BQ_STATS_DATASET}.{view_name}`"
+        return _bq_view(cls.PROJECT_ID, cls.BQ_STATS_DATASET, view_name)
 
     @classmethod
     def bq_raw(cls, table_name):
-        return f"`{cls.PROJECT_ID}.{cls.BQ_DATASET}.{table_name}`"
+        return _bq_raw(cls.PROJECT_ID, cls.BQ_DATASET, table_name)

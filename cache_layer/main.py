@@ -77,15 +77,6 @@ def _handle_task():
     return jsonify(result), status_code
 
 
-@app.route("/admin/rebuild", methods=["POST"])
-@require_admin_auth
-def admin_rebuild():
-    """Trigger a full cache rebuild. Enqueues tasks to the batch queue."""
-    result = service.dispatch("rebuild_all", {})
-    status_code = 200 if result.get("status") != "error" else 500
-    return jsonify(result), status_code
-
-
 @app.route("/admin/populate", methods=["POST"])
 @require_admin_auth
 def admin_populate():
@@ -111,8 +102,8 @@ def admin_populate():
 def admin_flush_cache():
     """Delete all documents from all Firestore cache collections.
 
-    The cache is fully disposable and can be rebuilt from BigQuery
-    via /admin/rebuild.
+    The cache is fully disposable — it repopulates on-demand as users
+    query the frontend (cache miss triggers priority queue population).
     """
     result = service.dispatch("flush_cache", {})
     status = result.get("status")

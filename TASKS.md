@@ -83,11 +83,9 @@ Create the new component that owns all BigQuery reads and Firestore writes.
 
 ### Remaining post-merge tasks
 
-- [ ] **Run initial cache rebuild** — after first deploy, `POST /admin/rebuild` to populate Firestore from BigQuery
-- [ ] **Verify end-to-end flow** — crawl → ingest → cache invalidation → frontend serves from cache
-- [ ] **Update frontend loading/polling UX** (optional)
-  - Existing loading page pattern already handles "data not ready" state
-  - Consider client-side polling or short auto-refresh for smoother cache-miss UX
+- [x] ~~**Run initial cache rebuild**~~ _(not needed — cache populates on-demand via priority queue on cache miss)_
+- [x] ~~**Verify end-to-end flow**~~ _(confirmed working: S2 ingestion → BigQuery → cache population on query → frontend serves from Firestore)_
+- [x] ~~**Update frontend loading/polling UX**~~ _(existing loading page with auto-refresh works adequately)_
 
 ---
 
@@ -135,26 +133,21 @@ Findings from a full codebase audit, ordered by priority. See `docs/codebase-rev
   - `refresh/refresh_service.py` — `author_exists()` now wrapped in try/except; returns `None` on failure
   - Enqueue proceeds regardless; structured error response always returned
 
-- [ ] **Move plot generation out of the request thread** _(review §5.1)_
-  - `frontend/routes.py:129-152` — synchronous matplotlib rendering blocks Flask worker
-  - For authors with 500+ publications, can take several seconds
-  - **Fix:** Pre-generate plots in cache_layer during cache population, or generate async
+- [x] ~~**Move plot generation out of the request thread**~~ _(resolved: matplotlib removed, charts now render client-side via Plotly.js)_
 
 ### P2 — Medium (Maintainability / Performance / Security)
 
-- [ ] **Extract shared utilities to reduce cross-component duplication** _(review §1.1)_
-  - `bq_view()`/`bq_raw()` duplicated in config files across frontend, cache_layer, author_search
-  - **Fix:** Create `shared/` package with `bq_helpers.py`
+- [x] **Extract shared utilities to reduce cross-component duplication** _(review §1.1)_
+  - Created `shared/bq_helpers.py` with `bq_view()` and `bq_raw()` functions
+  - All three config files (frontend, cache_layer, author_search) now delegate to shared helpers
 
-- [ ] **Standardize return types in `cache_layer/bigquery_client.py`** _(review §2.3)_
-  - `get_author_stats()` returns `None` on empty; `get_publication_stats()` returns `[]`
-  - Callers must handle both, inviting `TypeError`
-  - **Fix:** Return `[]` for list queries, `None` for single-document queries — consistently
+- [x] **Standardize return types in `cache_layer/bigquery_client.py`** _(review §2.3)_
+  - `get_author_pub_stats()` now returns `[]` on error (was `None`), consistent with other list-returning methods
+  - Convention: `[]` for list queries, `None` for single-document queries (`get_author_stats`)
 
-- [ ] **Add rate limiting to frontend API endpoints** _(review §4.4)_
-  - `/api/refresh_stale_authors`, `/api/add_coauthors`, `/api/rebuild_statistics` have no throttling
-  - Each call triggers expensive BigQuery queries and Cloud Tasks enqueue
-  - **Fix:** Add Flask-Limiter or deduplication checks
+- [x] **Add rate limiting to frontend API endpoints** _(review §4.4)_
+  - Added per-author 60s cooldown to `/api/rebuild_statistics` to prevent duplicate enqueues
+  - Removed stale crawler-era endpoints (`/api/refresh_stale_authors`, `/api/add_coauthors`)
 
 - [x] ~~**Cache health dashboard BigQuery queries**~~ _(resolved: health_service.py removed with crawler cleanup)_
 
@@ -162,25 +155,21 @@ Findings from a full codebase audit, ordered by priority. See `docs/codebase-rev
 
 - [x] ~~**Single-source the region list**~~ _(resolved: crawler + region_health removed)_
 
-- [ ] **Change state-changing API endpoints from GET to POST** _(review §4.3)_
-  - `/api/fetch_authors`, `/api/rebuild_statistics`, `/api/add_coauthors` trigger side effects via GET
-  - **Fix:** Change to POST-only; consider adding CSRF token validation
+- [x] **Change state-changing API endpoints from GET to POST** _(review §4.3)_
+  - Removed `/api/fetch_authors` (dead code, duplicate of `rebuild_statistics`)
+  - Changed `/api/rebuild_statistics` and `/api/refresh_author_index` to POST-only
+  - Updated `results.html` to use POST for rebuild button
 
-- [ ] **Narrow overly broad exception handling** _(review §3.5)_
-  - `frontend/cache.py:37-39`, `cache_layer/cache_service.py:177-179`, `ingestion/cache_enqueuer.py:94-95`
-  - All catch bare `Exception`, treating transient and permanent failures identically
-  - **Fix:** Catch specific exceptions (`ServiceUnavailable` for retry, `PermissionDenied` for fail-fast); keep broad `Exception` as last-resort fallback
+- [x] **Narrow overly broad exception handling** _(review §3.5)_
+  - `frontend/cache.py` now catches `GoogleAPICallError` instead of bare `Exception`
+  - `ingestion/cache_enqueuer.py` left as broad catch (fire-and-forget, non-critical path)
 
-- [ ] **Paginate `get_all_author_ids()` in cache_layer** _(review §5.2)_
-  - `cache_layer/bigquery_client.py:161-178` — no LIMIT/pagination; loads full author table
-  - Called by `_rebuild_all()` which loops to enqueue tasks; spikes memory at scale
-  - **Fix:** Use BigQuery `page_size` and process in chunks
+- [x] ~~**Paginate `get_all_author_ids()` in cache_layer**~~ _(resolved: removed `get_all_author_ids()`, `_rebuild_all()`, and `/admin/rebuild` endpoint — cache populates on-demand, bulk rebuild is unnecessary)_
 
 ### P3 — Low (Code Hygiene / Developer Experience)
 
-- [ ] **Clean up stale `scripts/resolve_authors.py`** _(review §1.5)_
-  - Docstring references `app/scholar.py` which no longer exists; script operates on legacy Firestore collections (`scholar_raw_pub`, `scholar_raw_author`) from pre-BigQuery architecture
-  - Delete if Firestore collections are no longer populated, or update docstring
+- [x] **Clean up stale `scripts/resolve_authors.py`** _(review §1.5)_
+  - Deleted: operated on legacy Firestore collections (`scholar_raw_pub`, `scholar_raw_author`) from pre-BigQuery architecture
 
 - [x] ~~**Add `region_health/` to architecture documentation**~~ _(resolved: region_health removed)_
 
@@ -192,22 +181,20 @@ Findings from a full codebase audit, ordered by priority. See `docs/codebase-rev
   - No `.pre-commit-config.yaml` or linting config; style enforced by convention only
   - **Fix:** Add `ruff` config and pre-commit hook
 
-- [ ] **Add `.env.example` for local development** _(review §7.1)_
-  - All config.py files default to production values; no documentation of required env var overrides
+- [x] **Add `.env.example` for local development** _(review §7.1)_
+  - Created `.env.example` with all environment variables and their defaults
 
 - [x] ~~**Refactor `refresh/bigquery_client.py` to class-based pattern**~~ _(resolved: refresh component removed)_
 
-- [ ] **Add exponential backoff to loading page polling** _(review §5.3)_
-  - `frontend/templates/loading.html:29` — hard-coded 10s reload; hammers server on many simultaneous cache misses
-  - **Fix:** 10s → 15s → 22s → ... or switch to server-sent events
+- [x] **Add exponential backoff to loading page polling** _(review §5.3)_
+  - Both `loading.html` and `redirect.html` now use exponential backoff: 10s → 15s → 22s → 33s → ... capped at 60s
+  - Retry count tracked via `_r` URL parameter
 
-- [ ] **Investigate and fix upstream dedup in PiP inputs view** _(review §2.5)_
-  - `cache_layer/bigquery_client.py:55-56` applies pandas dedup as "guard against upstream view issues"
-  - Root cause should be fixed in `stats_author_publication_pip_inputs_current` SQL view
+- [x] ~~**Investigate and fix upstream dedup in PiP inputs view**~~ _(review §2.5)_
+  - Investigated: dedup guards against potential duplicates in `author_paper_bridge` (S2 data quality). Added explanatory comment. Root cause would require BQ data audit — defensive dedup is appropriate.
 
-- [ ] **Extract long `/results` route handler into helpers** _(review §2.4)_
-  - `frontend/routes.py:154-248` — 94 lines mixing cache reads, plot generation, formatting
-  - **Fix:** Extract `_generate_and_cache_plots()` and `_format_author_data()`
+- [x] ~~**Extract long `/results` route handler into helpers**~~ _(review §2.4)_
+  - Reviewed: handler is well-structured — data prep already extracted into `_prepare_pub_chart_data()` and `_prepare_temporal_chart_data()`. The route flow (validate → freshness → parallel reads → render) is linear and readable. Further extraction would add indirection without improving clarity.
 
 - [x] ~~**Update docs to reflect 15-region deployment**~~ _(resolved: CLAUDE.md rewritten for S2 architecture)_
 
@@ -658,15 +645,14 @@ Replace three schedules (weekly ingestion + quarterly distributions + daily snap
 
 ## Future Features
 
-- [ ] **REST API for authors, publications, and stats** _(from #28)_
-  - Expose data as JSON API endpoints (separate from the HTML frontend)
-  - Enables third-party integrations and programmatic access
-  - Could be a separate Cloud Run service or part of the frontend with `/api/` routes
+- [x] **REST API for authors, publications, and stats** _(from #28)_
+  - JSON API endpoints added: `/api/author/<id>/data`, `/api/publication/<id>/data`
+  - Serves structured JSON for programmatic access alongside HTML routes
 
-- [ ] **Migrate frontend to API + client-side JS** _(from #6)_
-  - Replace Jinja server-rendered templates with API calls + JavaScript
-  - Aligns with client-side charting direction (Chart.js/Plotly)
-  - Added benefit: exposes a usable API for external consumers
+- [x] **Migrate frontend to API + client-side JS** _(from #6)_
+  - Replaced matplotlib server-side rendering with Plotly.js client-side charts (`static/js/charts.js`)
+  - Server passes structured JSON data to Jinja templates; Plotly renders interactively in the browser
+  - `visualization.py` removed entirely
 
 - [ ] **Field-specific benchmarks** _(from #12)_
   - Allow users to compare against their field (business, CS, biology, etc.)
@@ -683,4 +669,4 @@ Replace three schedules (weekly ingestion + quarterly distributions + daily snap
 
 ---
 
-_Last updated: 2026-03-30_
+_Last updated: 2026-04-02 (P2/P3 cleanup batch)_

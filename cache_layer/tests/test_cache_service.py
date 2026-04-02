@@ -192,36 +192,3 @@ class TestInvalidateAuthor:
         bq.get_author_freshness.assert_called_once_with("abc123")
 
 
-class TestRebuildAll:
-    def test_no_cache_layer_url(self):
-        svc = _make_service()
-        svc.bq.get_all_author_ids.return_value = ["a1", "a2"]
-
-        with mock.patch.object(Config, "CACHE_LAYER_URL", ""):
-            result = svc.dispatch("rebuild_all", {})
-
-        assert result["status"] == "error"
-        assert "CACHE_LAYER_URL" in result["message"]
-
-    def test_no_authors(self):
-        svc = _make_service()
-        svc.bq.get_all_author_ids.return_value = []
-
-        result = svc.dispatch("rebuild_all", {})
-        assert result["status"] == "error"
-
-    @mock.patch("cache_layer.cache_service._get_tasks_client")
-    def test_enqueues_tasks(self, mock_get_client):
-        svc = _make_service()
-        svc.bq.get_all_author_ids.return_value = ["a1", "a2", "a3"]
-
-        mock_client = mock.MagicMock()
-        mock_get_client.return_value = mock_client
-
-        with mock.patch.object(Config, "CACHE_LAYER_URL", "https://cache-layer.example.com"):
-            result = svc.dispatch("rebuild_all", {})
-
-        assert result["status"] == "ok"
-        assert result["total_authors"] == 3
-        assert result["enqueued"] == 3
-        assert mock_client.create_task.call_count == 3

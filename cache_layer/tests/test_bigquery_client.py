@@ -40,12 +40,12 @@ class TestGetAuthorPubStats:
         pub_ids = [r["author_pub_id"] for r in result]
         assert pub_ids == ["abc:1", "abc:2"]
 
-    def test_returns_none_on_failure(self):
+    def test_returns_empty_list_on_failure(self):
         mock_bq = mock.MagicMock()
         mock_bq.query.side_effect = Exception("BQ error")
         client = BigQueryClient(client=mock_bq)
         result = client.get_author_pub_stats("abc123")
-        assert result is None
+        assert result == []
 
 
 class TestGetAuthorStats:
@@ -132,19 +132,3 @@ class TestGetAuthorFreshness:
         exists, last_updated = client.get_author_freshness("abc123")
         assert exists is False
         assert last_updated is None
-
-
-class TestGetAllAuthorIds:
-    def test_returns_ids(self):
-        import pandas as pd
-        df = pd.DataFrame({"scholar_id": ["a1", "a2", "a3"]})
-        client, _ = _make_client(df)
-        result = client.get_all_author_ids()
-        assert result == ["a1", "a2", "a3"]
-
-    def test_returns_empty_on_failure(self):
-        mock_bq = mock.MagicMock()
-        mock_bq.query.side_effect = Exception("BQ error")
-        client = BigQueryClient(client=mock_bq)
-        result = client.get_all_author_ids()
-        assert result == []

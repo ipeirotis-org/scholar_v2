@@ -3,12 +3,8 @@
 Dispatches by request type and coordinates BigQuery reads + Firestore writes.
 """
 
-import json
 import logging
 import re
-
-from google.api_core.exceptions import AlreadyExists
-from google.cloud import tasks_v2
 
 from cache_layer.bigquery_client import BigQueryClient
 from cache_layer.cache_writer import CacheWriter
@@ -16,17 +12,8 @@ from cache_layer.config import Config
 
 logger = logging.getLogger(__name__)
 
-_tasks_client = None
-
 # S2 author IDs are purely numeric strings
 _S2_ID_RE = re.compile(r"^\d+$")
-
-
-def _get_tasks_client():
-    global _tasks_client
-    if _tasks_client is None:
-        _tasks_client = tasks_v2.CloudTasksClient()
-    return _tasks_client
 
 
 class CacheService:
@@ -44,7 +31,6 @@ class CacheService:
             "populate_publication_detail": self._populate_publication_detail,
             "invalidate_author": self._invalidate_author,
             "warm_author": self._populate_author_profile,
-            "rebuild_all": self._rebuild_all,
             "purge_legacy_cache": self._purge_legacy_cache,
             "flush_cache": self._flush_cache,
         }
@@ -128,62 +114,12 @@ class CacheService:
         # Just delegate to populate — it always overwrites
         return self._populate_author_profile(payload)
 
-    def _rebuild_all(self, payload):
-        """Enqueue populate_author_profile for every known author to the batch queue.
-
-        This fans out individual tasks so the batch queue controls concurrency.
-        """
-        author_ids = self.bq.get_all_author_ids()
-        if not author_ids:
-            return {"status": "error", "message": "No authors found in BigQuery"}
-
-        cache_layer_url = Config.CACHE_LAYER_URL
-        if not cache_layer_url:
-            return {"status": "error", "message": "CACHE_LAYER_URL not configured"}
-
-        client = _get_tasks_client()
-        queue_path = Config.queue_path(Config.QUEUE_NAME_BATCH)
-        target_url = f"{cache_layer_url.rstrip('/')}/tasks/batch"
-
-        enqueued = 0
-        errors = 0
-        for scholar_id in author_ids:
-            task_body = json.dumps({
-                "type": "populate_author_profile",
-                "scholar_id": scholar_id,
-            }).encode()
-
-            task = {
-                "http_request": {
-                    "http_method": tasks_v2.HttpMethod.POST,
-                    "url": target_url,
-                    "headers": {"Content-Type": "application/json"},
-                    "body": task_body,
-                },
-            }
-
-            try:
-                client.create_task(parent=queue_path, task=task)
-                enqueued += 1
-            except AlreadyExists:
-                enqueued += 1  # Already queued, still counts
-            except Exception:
-                logger.exception("Failed to enqueue rebuild task for %s", scholar_id)
-                errors += 1
-
-        return {
-            "status": "ok",
-            "total_authors": len(author_ids),
-            "enqueued": enqueued,
-            "errors": errors,
-        }
-
     def _flush_cache(self, payload):
         """Delete all documents from all Firestore cache collections.
 
-        This is a destructive operation — the cache can be rebuilt from
-        BigQuery via /admin/rebuild. Recent authors will repopulate
-        organically as users query the frontend.
+        This is a destructive operation. The cache repopulates on-demand
+        as users query the frontend. Recent authors will repopulate
+        organically.
         """
         collections = [
             Config.CACHE_AUTHOR_STATS,

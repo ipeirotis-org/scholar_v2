@@ -151,7 +151,11 @@ if (rebuildStatsBtn) {
         this.textContent = "Queuing...";
         this.style.pointerEvents = "none";
         var link = this;
-        fetch("/api/rebuild_statistics?scholar_ids=" + encodeURIComponent(authorId))
+        fetch("/api/rebuild_statistics", {
+            method: "POST",
+            headers: {"Content-Type": "application/x-www-form-urlencoded"},
+            body: "scholar_ids=" + encodeURIComponent(authorId),
+        })
             .then(function(r) { return r.json(); })
             .then(function() { link.textContent = "Queued for Rebuild"; })
             .catch(function() {
