@@ -84,10 +84,8 @@ Create the new component that owns all BigQuery reads and Firestore writes.
 ### Remaining post-merge tasks
 
 - [x] ~~**Run initial cache rebuild**~~ _(not needed — cache populates on-demand via priority queue on cache miss)_
-- [ ] **Verify end-to-end flow** — ingest → cache population on first query → frontend serves from cache
-- [ ] **Update frontend loading/polling UX** (optional)
-  - Existing loading page pattern already handles "data not ready" state
-  - Consider client-side polling or short auto-refresh for smoother cache-miss UX
+- [x] ~~**Verify end-to-end flow**~~ _(confirmed working: S2 ingestion → BigQuery → cache population on query → frontend serves from Firestore)_
+- [x] ~~**Update frontend loading/polling UX**~~ _(existing loading page with auto-refresh works adequately)_
 
 ---
 
