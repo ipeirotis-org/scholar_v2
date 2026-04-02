@@ -8,7 +8,7 @@ is maintained by the frontend and written back for reuse.
 import logging
 from datetime import datetime, timezone
 
-from google.api_core.exceptions import GoogleAPICallError
+from google.api_core.exceptions import GoogleAPICallError, RetryError
 from google.cloud import firestore
 
 from frontend.config import Config
@@ -35,7 +35,7 @@ class FirestoreCache:
                 return None
             cached = doc.to_dict()
             return cached.get("data")
-        except GoogleAPICallError:
+        except (GoogleAPICallError, RetryError):
             logger.exception("Firestore cache read failed: %s/%s", collection, doc_id)
             return None
 
@@ -50,7 +50,7 @@ class FirestoreCache:
                 return None
             cached = doc.to_dict()
             return cached.get("timestamp")
-        except GoogleAPICallError:
+        except (GoogleAPICallError, RetryError):
             logger.exception("Firestore timestamp read failed: %s/%s", collection, doc_id)
             return None
 
@@ -62,7 +62,7 @@ class FirestoreCache:
         try:
             self.db.collection(collection).document(doc_id).delete()
             return True
-        except GoogleAPICallError:
+        except (GoogleAPICallError, RetryError):
             logger.exception("Firestore cache delete failed: %s/%s", collection, doc_id)
             return False
 
@@ -80,7 +80,7 @@ class FirestoreCache:
                 "data": data,
             })
             return True
-        except GoogleAPICallError:
+        except (GoogleAPICallError, RetryError):
             logger.exception("Firestore cache write failed: %s/%s", collection, doc_id)
             return False
 
@@ -116,5 +116,5 @@ class FirestoreCache:
             current = current[:MAX_RECENT_AUTHORS]
 
             self.set(RECENT_AUTHORS_COLLECTION, RECENT_AUTHORS_DOC_ID, current)
-        except GoogleAPICallError:
+        except (GoogleAPICallError, RetryError):
             logger.exception("Failed to record recent author: %s", entry.get("scholar_id"))
