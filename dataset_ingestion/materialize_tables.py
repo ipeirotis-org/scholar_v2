@@ -251,7 +251,9 @@ def _run_sql(sql, description):
     logger.info("Materializing: %s", description)
     t0 = time.monotonic()
 
-    job = client.query(sql, retry=_BQ_RETRY)
+    # retry: retries transport/RPC errors (connection resets, DNS failures)
+    # job_retry: retries BigQuery job-level failures (internalError, etc.)
+    job = client.query(sql, retry=_BQ_RETRY, job_retry=_BQ_RETRY)
     job.result(retry=_BQ_RETRY)
 
     elapsed = time.monotonic() - t0

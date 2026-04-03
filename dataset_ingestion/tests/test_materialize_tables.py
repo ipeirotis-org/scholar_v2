@@ -109,9 +109,10 @@ class TestRunSql:
 
         materialize_tables._run_sql("SELECT 1", "test")
 
-        # Verify retry was passed to both query() and result()
+        # Verify retry (transport) and job_retry (job-level) are passed
         _, kwargs = mock_client.query.call_args
         assert "retry" in kwargs
+        assert "job_retry" in kwargs
         _, result_kwargs = mock_job.result.call_args
         assert "retry" in result_kwargs
 
