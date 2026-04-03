@@ -81,7 +81,7 @@ class TestRunSql:
 
         materialize_tables._run_sql("SELECT 1", "test")
 
-        mock_client.query.assert_called_once_with("SELECT 1")
+        mock_client.query.assert_called_once()
         mock_job.result.assert_called_once()
 
     @patch.object(materialize_tables, "_get_bq_client")
@@ -97,6 +97,22 @@ class TestRunSql:
 
         result = materialize_tables._run_sql("SELECT 1", "test")
         assert result == 42
+
+    @patch.object(materialize_tables, "_get_bq_client")
+    def test_passes_retry_to_query(self, mock_get_client):
+        mock_client = MagicMock()
+        mock_get_client.return_value = mock_client
+        mock_job = MagicMock()
+        mock_job.destination = None
+        mock_client.query.return_value = mock_job
+
+        materialize_tables._run_sql("SELECT 1", "test")
+
+        # Verify retry was passed to both query() and result()
+        _, kwargs = mock_client.query.call_args
+        assert "retry" in kwargs
+        _, result_kwargs = mock_job.result.call_args
+        assert "retry" in result_kwargs
 
 
 class TestApplyTableSubstitutions:
@@ -157,164 +173,318 @@ class TestApplyTableSubstitutions:
         assert result == sql
 
     def test_respects_custom_dataset(self):
-        from unittest.mock import patch
         with patch.object(Config, 'BQ_STATS_DATASET', 'custom_stats'):
             sql = "FROM `scholar-version2.custom_stats.ranked_publication_current`"
             result = materialize_tables._apply_table_substitutions(sql)
             assert "custom_stats.ranked_publication_current_table`" in result
 
 
-class TestMaterializeFromView:
+class TestValidateRowCount:
+    def test_raises_on_zero_rows(self):
+        with pytest.raises(RuntimeError, match="0 rows"):
+            materialize_tables._validate_row_count("my_table", 0)
+
+    def test_warns_on_low_row_count(self, caplog):
+        import logging
+        with caplog.at_level(logging.WARNING):
+            materialize_tables._validate_row_count("my_table", 50)
+        assert "only 50 rows" in caplog.text
+
+    def test_passes_on_normal_row_count(self, caplog):
+        import logging
+        with caplog.at_level(logging.WARNING):
+            materialize_tables._validate_row_count("my_table", 1000)
+        assert caplog.text == ""
+
+
+class TestMaterializeOne:
     @patch.object(materialize_tables, "_get_bq_client")
-    def test_reads_sql_and_executes(self, mock_get_client):
+    def test_materializes_view_table(self, mock_get_client):
         mock_client = MagicMock()
         mock_get_client.return_value = mock_client
         mock_job = MagicMock()
-        mock_job.destination = None
+        mock_job.destination = "project.dataset.table"
         mock_client.query.return_value = mock_job
+        mock_table = MagicMock()
+        mock_table.num_rows = 1000
+        mock_client.get_table.return_value = mock_table
 
-        materialize_tables._materialize_from_view(
-            "base_author_publications.sql",
-            "base_author_publications_table",
-            cluster_by=["scholar_id"],
-        )
+        spec = {
+            "sql_file": "base_author_publications.sql",
+            "table_name": "base_author_publications_table",
+            "cluster_by": ["scholar_id"],
+        }
+        name, rows = materialize_tables._materialize_one(spec)
 
+        assert name == "base_author_publications_table"
+        assert rows == 1000
         sql = mock_client.query.call_args[0][0]
         assert "CREATE OR REPLACE TABLE" in sql
-        assert "base_author_publications_table" in sql
         assert "CLUSTER BY scholar_id" in sql
 
-
-class TestMaterializeDist:
     @patch.object(materialize_tables, "_get_bq_client")
-    def test_executes_dist_sql_directly(self, mock_get_client):
+    def test_materializes_dist_table(self, mock_get_client):
         mock_client = MagicMock()
         mock_get_client.return_value = mock_client
         mock_job = MagicMock()
-        mock_job.destination = None
+        mock_job.destination = "project.dataset.table"
         mock_client.query.return_value = mock_job
+        mock_table = MagicMock()
+        mock_table.num_rows = 500
+        mock_client.get_table.return_value = mock_table
 
-        materialize_tables._materialize_dist(
-            "dist_publication_citations.sql",
-            "dist_publication_citations",
-        )
+        spec = {
+            "sql_file": "dist_publication_citations.sql",
+            "table_name": "dist_publication_citations",
+            "is_dist": True,
+        }
+        name, rows = materialize_tables._materialize_one(spec)
 
+        assert name == "dist_publication_citations"
+        assert rows == 500
         sql = mock_client.query.call_args[0][0]
-        # dist SQL files already contain CREATE TABLE
         assert "CREATE OR REPLACE TABLE" in sql
-        assert "dist_publication_citations" in sql
+
+
+class TestMaterializeLevel:
+    @patch.object(materialize_tables, "_materialize_one")
+    def test_materializes_all_tables_in_level(self, mock_one):
+        mock_one.side_effect = [
+            ("table_a", 100),
+            ("table_b", 200),
+            ("table_c", 300),
+        ]
+        level_spec = {
+            "level": 1,
+            "name": "Test",
+            "tables": [
+                {"sql_file": "a.sql", "table_name": "table_a", "cluster_by": ["x"]},
+                {"sql_file": "b.sql", "table_name": "table_b", "cluster_by": ["y"]},
+                {"sql_file": "c.sql", "table_name": "table_c", "cluster_by": ["z"]},
+            ],
+        }
+
+        results = materialize_tables._materialize_level(level_spec, max_workers=1)
+
+        assert len(results) == 3
+        assert results["table_a"] == 100
+        assert results["table_b"] == 200
+        assert results["table_c"] == 300
+
+    @patch.object(materialize_tables, "_materialize_one")
+    def test_parallel_execution(self, mock_one):
+        mock_one.side_effect = [
+            ("table_a", 100),
+            ("table_b", 200),
+        ]
+        level_spec = {
+            "level": 1,
+            "name": "Test",
+            "tables": [
+                {"sql_file": "a.sql", "table_name": "table_a", "cluster_by": ["x"]},
+                {"sql_file": "b.sql", "table_name": "table_b", "cluster_by": ["y"]},
+            ],
+        }
+
+        results = materialize_tables._materialize_level(level_spec, max_workers=4)
+
+        assert len(results) == 2
+        assert mock_one.call_count == 2
+
+    @patch.object(materialize_tables, "_materialize_one")
+    def test_raises_on_table_failure(self, mock_one):
+        mock_one.side_effect = [
+            ("table_a", 100),
+            RuntimeError("BQ failed"),
+        ]
+        level_spec = {
+            "level": 2,
+            "name": "Test",
+            "tables": [
+                {"sql_file": "a.sql", "table_name": "table_a", "cluster_by": ["x"]},
+                {"sql_file": "b.sql", "table_name": "table_b", "cluster_by": ["y"]},
+            ],
+        }
+
+        with pytest.raises(RuntimeError, match="Level 2 failed"):
+            materialize_tables._materialize_level(level_spec, max_workers=1)
+
+    @patch.object(materialize_tables, "_materialize_one")
+    def test_reports_all_failures_in_parallel(self, mock_one):
+        mock_one.side_effect = [
+            RuntimeError("fail A"),
+            RuntimeError("fail B"),
+        ]
+        level_spec = {
+            "level": 1,
+            "name": "Test",
+            "tables": [
+                {"sql_file": "a.sql", "table_name": "table_a", "cluster_by": ["x"]},
+                {"sql_file": "b.sql", "table_name": "table_b", "cluster_by": ["y"]},
+            ],
+        }
+
+        with pytest.raises(RuntimeError, match="2 table\\(s\\) failed"):
+            materialize_tables._materialize_level(level_spec, max_workers=4)
 
 
 class TestMaterializeLevels:
-    @patch.object(materialize_tables, "_run_sql")
-    @patch.object(materialize_tables, "_read_sql")
-    def test_level_1_materializes_5_tables(self, mock_read, mock_run):
-        mock_read.return_value = "CREATE OR REPLACE VIEW `scholar-version2.statistics.v` AS\nSELECT 1"
-        mock_run.return_value = 0
+    """Test that individual level functions delegate to _materialize_level correctly."""
 
+    @patch.object(materialize_tables, "_materialize_level")
+    def test_level_1_delegates(self, mock_level):
+        mock_level.return_value = {}
         materialize_tables.materialize_level_1()
+        mock_level.assert_called_once_with(materialize_tables._LEVELS[0])
 
-        # 3 view→table + 2 dist tables
-        assert mock_run.call_count == 5
-
-    @patch.object(materialize_tables, "_run_sql")
-    @patch.object(materialize_tables, "_read_sql")
-    def test_level_2_materializes_4_tables(self, mock_read, mock_run):
-        mock_read.return_value = "CREATE OR REPLACE VIEW `scholar-version2.statistics.v` AS\nSELECT 1"
-        mock_run.return_value = 0
-
+    @patch.object(materialize_tables, "_materialize_level")
+    def test_level_2_delegates(self, mock_level):
+        mock_level.return_value = {}
         materialize_tables.materialize_level_2()
+        mock_level.assert_called_once_with(materialize_tables._LEVELS[1])
 
-        # 3 view→table + 1 dist table
-        assert mock_run.call_count == 4
-
-    @patch.object(materialize_tables, "_run_sql")
-    @patch.object(materialize_tables, "_read_sql")
-    def test_level_3_materializes_4_tables(self, mock_read, mock_run):
-        mock_read.return_value = "CREATE OR REPLACE VIEW `scholar-version2.statistics.v` AS\nSELECT 1"
-        mock_run.return_value = 0
-
+    @patch.object(materialize_tables, "_materialize_level")
+    def test_level_3_delegates(self, mock_level):
+        mock_level.return_value = {}
         materialize_tables.materialize_level_3()
+        mock_level.assert_called_once_with(materialize_tables._LEVELS[2])
 
-        assert mock_run.call_count == 4
-
-    @patch.object(materialize_tables, "_run_sql")
-    @patch.object(materialize_tables, "_read_sql")
-    def test_level_4_materializes_3_tables(self, mock_read, mock_run):
-        mock_read.return_value = "CREATE OR REPLACE VIEW `scholar-version2.statistics.v` AS\nSELECT 1"
-        mock_run.return_value = 0
-
+    @patch.object(materialize_tables, "_materialize_level")
+    def test_level_4_delegates(self, mock_level):
+        mock_level.return_value = {}
         materialize_tables.materialize_level_4()
+        mock_level.assert_called_once_with(materialize_tables._LEVELS[3])
 
-        assert mock_run.call_count == 3
-
-    @patch.object(materialize_tables, "_run_sql")
-    @patch.object(materialize_tables, "_read_sql")
-    def test_level_5_materializes_3_tables(self, mock_read, mock_run):
-        mock_read.return_value = "CREATE OR REPLACE VIEW `scholar-version2.statistics.v` AS\nSELECT 1"
-        mock_run.return_value = 0
-
+    @patch.object(materialize_tables, "_materialize_level")
+    def test_level_5_delegates(self, mock_level):
+        mock_level.return_value = {}
         materialize_tables.materialize_level_5()
+        mock_level.assert_called_once_with(materialize_tables._LEVELS[4])
 
-        assert mock_run.call_count == 3
-
-    @patch.object(materialize_tables, "_run_sql")
-    @patch.object(materialize_tables, "_read_sql")
-    def test_level_6_materializes_1_table(self, mock_read, mock_run):
-        mock_read.return_value = "CREATE OR REPLACE VIEW `scholar-version2.statistics.v` AS\nSELECT 1"
-        mock_run.return_value = 0
-
+    @patch.object(materialize_tables, "_materialize_level")
+    def test_level_6_delegates(self, mock_level):
+        mock_level.return_value = {}
         materialize_tables.materialize_level_6()
+        mock_level.assert_called_once_with(materialize_tables._LEVELS[5])
 
-        assert mock_run.call_count == 1
-
-    @patch.object(materialize_tables, "_run_sql")
-    @patch.object(materialize_tables, "_read_sql")
-    def test_level_7_materializes_1_table(self, mock_read, mock_run):
-        mock_read.return_value = "CREATE OR REPLACE VIEW `scholar-version2.statistics.v` AS\nSELECT 1"
-        mock_run.return_value = 0
-
+    @patch.object(materialize_tables, "_materialize_level")
+    def test_level_7_delegates(self, mock_level):
+        mock_level.return_value = {}
         materialize_tables.materialize_level_7()
+        mock_level.assert_called_once_with(materialize_tables._LEVELS[6])
 
-        assert mock_run.call_count == 1
+    def test_level_1_has_5_tables(self):
+        assert len(materialize_tables._LEVELS[0]["tables"]) == 5
+
+    def test_level_2_has_4_tables(self):
+        assert len(materialize_tables._LEVELS[1]["tables"]) == 4
+
+    def test_level_3_has_4_tables(self):
+        assert len(materialize_tables._LEVELS[2]["tables"]) == 4
+
+    def test_level_4_has_3_tables(self):
+        assert len(materialize_tables._LEVELS[3]["tables"]) == 3
+
+    def test_level_5_has_3_tables(self):
+        assert len(materialize_tables._LEVELS[4]["tables"]) == 3
+
+    def test_level_6_has_1_table(self):
+        assert len(materialize_tables._LEVELS[5]["tables"]) == 1
+
+    def test_level_7_has_1_table(self):
+        assert len(materialize_tables._LEVELS[6]["tables"]) == 1
 
 
 class TestMaterializeAll:
-    @patch.object(materialize_tables, "materialize_level_7")
-    @patch.object(materialize_tables, "materialize_level_6")
-    @patch.object(materialize_tables, "materialize_level_5")
-    @patch.object(materialize_tables, "materialize_level_4")
-    @patch.object(materialize_tables, "materialize_level_3")
-    @patch.object(materialize_tables, "materialize_level_2")
-    @patch.object(materialize_tables, "materialize_level_1")
-    def test_calls_all_levels_in_order(self, l1, l2, l3, l4, l5, l6, l7):
+    @patch.object(materialize_tables, "_materialize_level")
+    def test_calls_all_levels_in_order(self, mock_level):
+        mock_level.return_value = {"t": 100}
+
         materialize_tables.materialize_all()
 
-        l1.assert_called_once()
-        l2.assert_called_once()
-        l3.assert_called_once()
-        l4.assert_called_once()
-        l5.assert_called_once()
-        l6.assert_called_once()
-        l7.assert_called_once()
+        assert mock_level.call_count == 7
+        # Verify levels called in order 1-7
+        for i, call_args in enumerate(mock_level.call_args_list):
+            assert call_args[0][0]["level"] == i + 1
 
-    @patch.object(materialize_tables, "materialize_level_7")
-    @patch.object(materialize_tables, "materialize_level_6")
-    @patch.object(materialize_tables, "materialize_level_5")
-    @patch.object(materialize_tables, "materialize_level_4")
-    @patch.object(materialize_tables, "materialize_level_3")
-    @patch.object(materialize_tables, "materialize_level_2")
-    @patch.object(materialize_tables, "materialize_level_1")
-    def test_stops_on_level_failure(self, l1, l2, l3, l4, l5, l6, l7):
-        l3.side_effect = RuntimeError("BQ failed")
+    @patch.object(materialize_tables, "_materialize_level")
+    def test_stops_on_level_failure(self, mock_level):
+        mock_level.side_effect = [
+            {"t1": 100},
+            {"t2": 200},
+            RuntimeError("BQ failed"),
+        ]
 
         with pytest.raises(RuntimeError, match="BQ failed"):
             materialize_tables.materialize_all()
 
-        l1.assert_called_once()
-        l2.assert_called_once()
-        l3.assert_called_once()
-        l4.assert_not_called()
-        l5.assert_not_called()
-        l6.assert_not_called()
-        l7.assert_not_called()
+        assert mock_level.call_count == 3
+
+    @patch.object(materialize_tables, "_materialize_level")
+    def test_start_from_level_skips_earlier(self, mock_level):
+        mock_level.return_value = {"t": 100}
+
+        materialize_tables.materialize_all(start_from_level=4)
+
+        # Should only call levels 4, 5, 6, 7
+        assert mock_level.call_count == 4
+        levels_called = [c[0][0]["level"] for c in mock_level.call_args_list]
+        assert levels_called == [4, 5, 6, 7]
+
+    @patch.object(materialize_tables, "_materialize_level")
+    def test_start_from_level_1_runs_all(self, mock_level):
+        mock_level.return_value = {"t": 100}
+
+        materialize_tables.materialize_all(start_from_level=1)
+
+        assert mock_level.call_count == 7
+
+    def test_start_from_level_0_raises(self):
+        with pytest.raises(ValueError, match="start_from_level must be 1-7"):
+            materialize_tables.materialize_all(start_from_level=0)
+
+    def test_start_from_level_8_raises(self):
+        with pytest.raises(ValueError, match="start_from_level must be 1-7"):
+            materialize_tables.materialize_all(start_from_level=8)
+
+    @patch.object(materialize_tables, "_materialize_level")
+    def test_returns_total_table_count(self, mock_level):
+        mock_level.side_effect = [
+            {"a": 1, "b": 2},
+            {"c": 3},
+            {"d": 4, "e": 5},
+            {"f": 6},
+            {"g": 7, "h": 8},
+            {"i": 9},
+            {"j": 10},
+        ]
+
+        total = materialize_tables.materialize_all()
+        assert total == 10
+
+
+class TestLevelsDataIntegrity:
+    """Verify the _LEVELS data structure is internally consistent."""
+
+    def test_levels_are_numbered_1_through_7(self):
+        assert [l["level"] for l in materialize_tables._LEVELS] == [1, 2, 3, 4, 5, 6, 7]
+
+    def test_all_tables_have_required_keys(self):
+        for level in materialize_tables._LEVELS:
+            for table in level["tables"]:
+                assert "sql_file" in table
+                assert "table_name" in table
+                # Non-dist tables must have cluster_by
+                if not table.get("is_dist"):
+                    assert "cluster_by" in table, f"{table['table_name']} missing cluster_by"
+
+    def test_total_table_count(self):
+        total = sum(len(l["tables"]) for l in materialize_tables._LEVELS)
+        assert total == 21  # 5 + 4 + 4 + 3 + 3 + 1 + 1
+
+    def test_all_sql_files_exist(self):
+        """Verify every referenced SQL file actually exists."""
+        for level in materialize_tables._LEVELS:
+            for table in level["tables"]:
+                path = materialize_tables._SQL_DIR / table["sql_file"]
+                assert path.exists(), f"SQL file missing: {table['sql_file']}"
