@@ -115,6 +115,8 @@ class TestBuildDerivedTables:
         sql = mock_client.query.call_args[0][0]
         assert "paper_citations_by_year" in sql
         assert "citedcorpusid" in sql
+        # Verify dedup to avoid inflated citation counts from duplicate rows
+        assert "DISTINCT" in sql
 
     @patch.object(loader, "_get_bq_client")
     def test_build_author_paper_bridge(self, mock_get_client):
