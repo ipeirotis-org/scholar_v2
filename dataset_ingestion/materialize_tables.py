@@ -27,9 +27,8 @@ import re
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-from google.api_core import exceptions as google_exceptions
-from google.api_core import retry as google_retry
 from google.cloud import bigquery
+from google.cloud.bigquery import retry as bq_retry
 
 from dataset_ingestion.config import Config
 
@@ -71,21 +70,17 @@ _SUBSTITUTION_PAIRS = [
     ("stats_author_pip_scores_temporal_view`", "stats_author_pip_scores_temporal_table`"),
 ]
 
-# Retryable BigQuery exceptions (transient server/quota errors).
-_RETRYABLE_EXCEPTIONS = (
-    google_exceptions.InternalServerError,
-    google_exceptions.ServiceUnavailable,
-    google_exceptions.TooManyRequests,
-)
+# Retry policies for BigQuery.
+# Use the library's built-in predicates (which cover transient reason-based
+# failures like backendError, jobRateLimitExceeded, and transport errors)
+# with adjusted timing for long-running materialization queries.
+_BQ_RETRY = bq_retry.DEFAULT_RETRY.with_delay(
+    initial=5.0, maximum=60.0, multiplier=2.0,
+).with_deadline(600.0)
 
-# Retry predicate for BigQuery queries.
-_BQ_RETRY = google_retry.Retry(
-    predicate=google_retry.if_exception_type(*_RETRYABLE_EXCEPTIONS),
-    initial=5.0,
-    maximum=60.0,
-    multiplier=2.0,
-    deadline=600.0,
-)
+_BQ_JOB_RETRY = bq_retry.DEFAULT_JOB_RETRY.with_delay(
+    initial=5.0, maximum=60.0, multiplier=2.0,
+).with_deadline(600.0)
 
 # ---------------------------------------------------------------------------
 # Data-driven DAG definition
@@ -252,8 +247,8 @@ def _run_sql(sql, description):
     t0 = time.monotonic()
 
     # retry: retries transport/RPC errors (connection resets, DNS failures)
-    # job_retry: retries BigQuery job-level failures (internalError, etc.)
-    job = client.query(sql, retry=_BQ_RETRY, job_retry=_BQ_RETRY)
+    # job_retry: retries BigQuery job-level failures (backendError, etc.)
+    job = client.query(sql, retry=_BQ_RETRY, job_retry=_BQ_JOB_RETRY)
     job.result(retry=_BQ_RETRY)
 
     elapsed = time.monotonic() - t0
