@@ -56,6 +56,9 @@ class Config:
     DOWNLOAD_WORKERS = int(os.environ.get("DOWNLOAD_WORKERS", "4"))
     DOWNLOAD_CHUNK_SIZE = 64 * 1024 * 1024  # 64 MB chunks for streaming
 
+    # Materialization parallelism (max concurrent BQ jobs per DAG level)
+    BQ_MATERIALIZE_WORKERS = int(os.environ.get("BQ_MATERIALIZE_WORKERS", "4"))
+
     @classmethod
     def bq_table(cls, table_name):
         return f"{cls.PROJECT_ID}.{cls.BQ_DATASET}.{table_name}"
