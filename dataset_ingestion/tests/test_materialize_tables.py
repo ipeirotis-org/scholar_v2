@@ -104,6 +104,7 @@ class TestRunSql:
         mock_get_client.return_value = mock_client
         mock_job = MagicMock()
         mock_job.destination = None
+        mock_job.ddl_target_table = None
         mock_client.query.return_value = mock_job
 
         materialize_tables._run_sql("SELECT 1", "test")
@@ -113,6 +114,34 @@ class TestRunSql:
         assert "retry" in kwargs
         _, result_kwargs = mock_job.result.call_args
         assert "retry" in result_kwargs
+
+    @patch.object(materialize_tables, "_get_bq_client")
+    def test_returns_none_when_no_destination(self, mock_get_client):
+        mock_client = MagicMock()
+        mock_get_client.return_value = mock_client
+        mock_job = MagicMock()
+        mock_job.destination = None
+        mock_job.ddl_target_table = None
+        mock_client.query.return_value = mock_job
+
+        result = materialize_tables._run_sql("SELECT 1", "test")
+        assert result is None
+
+    @patch.object(materialize_tables, "_get_bq_client")
+    def test_uses_ddl_target_table_fallback(self, mock_get_client):
+        mock_client = MagicMock()
+        mock_get_client.return_value = mock_client
+        mock_job = MagicMock()
+        mock_job.destination = None
+        mock_job.ddl_target_table = "project.dataset.table"
+        mock_client.query.return_value = mock_job
+        mock_table = MagicMock()
+        mock_table.num_rows = 99
+        mock_client.get_table.return_value = mock_table
+
+        result = materialize_tables._run_sql("SELECT 1", "test")
+        assert result == 99
+        mock_client.get_table.assert_called_once_with("project.dataset.table")
 
 
 class TestApplyTableSubstitutions:
@@ -195,6 +224,18 @@ class TestValidateRowCount:
         with caplog.at_level(logging.WARNING):
             materialize_tables._validate_row_count("my_table", 1000)
         assert caplog.text == ""
+
+    def test_warns_on_none_row_count(self, caplog):
+        """Row count unavailable (None) should warn, not raise."""
+        import logging
+        with caplog.at_level(logging.WARNING):
+            materialize_tables._validate_row_count("my_table", None)
+        assert "row count unavailable" in caplog.text
+
+    def test_none_does_not_raise(self):
+        """Ensure None row count doesn't raise RuntimeError."""
+        # Should not raise
+        materialize_tables._validate_row_count("my_table", None)
 
 
 class TestMaterializeOne:
@@ -326,6 +367,66 @@ class TestMaterializeLevel:
 
         with pytest.raises(RuntimeError, match="2 table\\(s\\) failed"):
             materialize_tables._materialize_level(level_spec, max_workers=4)
+
+    @patch.object(materialize_tables, "_materialize_one")
+    def test_phase_ordering(self, mock_one):
+        """Phase 1 tables run before phase 2 tables."""
+        call_order = []
+
+        def track_call(spec):
+            call_order.append(spec["table_name"])
+            return spec["table_name"], 100
+
+        mock_one.side_effect = track_call
+
+        level_spec = {
+            "level": 2,
+            "name": "Test phases",
+            "tables": [
+                {"sql_file": "a.sql", "table_name": "producer", "cluster_by": ["x"], "phase": 1},
+                {"sql_file": "b.sql", "table_name": "consumer", "cluster_by": ["y"], "phase": 2},
+            ],
+        }
+
+        results = materialize_tables._materialize_level(level_spec, max_workers=1)
+        assert call_order == ["producer", "consumer"]
+        assert len(results) == 2
+
+    @patch.object(materialize_tables, "_materialize_one")
+    def test_phase_1_failure_skips_phase_2(self, mock_one):
+        """If phase 1 fails, phase 2 should not run."""
+        mock_one.side_effect = RuntimeError("phase 1 failed")
+
+        level_spec = {
+            "level": 2,
+            "name": "Test",
+            "tables": [
+                {"sql_file": "a.sql", "table_name": "producer", "cluster_by": ["x"], "phase": 1},
+                {"sql_file": "b.sql", "table_name": "consumer", "cluster_by": ["y"], "phase": 2},
+            ],
+        }
+
+        with pytest.raises(RuntimeError, match="Level 2 failed"):
+            materialize_tables._materialize_level(level_spec, max_workers=1)
+        # Only phase 1 table was attempted
+        assert mock_one.call_count == 1
+
+    @patch.object(materialize_tables, "_materialize_one")
+    def test_default_phase_is_1(self, mock_one):
+        """Tables without explicit phase default to phase 1 (all parallel)."""
+        mock_one.side_effect = [("a", 100), ("b", 200)]
+
+        level_spec = {
+            "level": 1,
+            "name": "Test",
+            "tables": [
+                {"sql_file": "a.sql", "table_name": "a", "cluster_by": ["x"]},
+                {"sql_file": "b.sql", "table_name": "b", "cluster_by": ["y"]},
+            ],
+        }
+
+        results = materialize_tables._materialize_level(level_spec, max_workers=4)
+        assert len(results) == 2
 
 
 class TestMaterializeLevels:
@@ -488,3 +589,19 @@ class TestLevelsDataIntegrity:
             for table in level["tables"]:
                 path = materialize_tables._SQL_DIR / table["sql_file"]
                 assert path.exists(), f"SQL file missing: {table['sql_file']}"
+
+    def test_level_2_has_phase_ordering(self):
+        """Level 2 must have phase 1 (producers) before phase 2 (consumers)."""
+        tables = materialize_tables._LEVELS[1]["tables"]
+        phase_1 = [t for t in tables if t.get("phase", 1) == 1]
+        phase_2 = [t for t in tables if t.get("phase", 1) == 2]
+        assert len(phase_1) == 2  # temporal + ranked
+        assert len(phase_2) == 2  # intermediate + dist
+
+    def test_level_4_has_phase_ordering(self):
+        """Level 4 must have phase 1 (pip scores) before phase 2 (dist_pip_auc)."""
+        tables = materialize_tables._LEVELS[3]["tables"]
+        phase_1 = [t for t in tables if t.get("phase", 1) == 1]
+        phase_2 = [t for t in tables if t.get("phase", 1) == 2]
+        assert len(phase_1) == 2  # pip scores + dist_author_metrics_temporal
+        assert len(phase_2) == 1  # dist_pip_auc_scores

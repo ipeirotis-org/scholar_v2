@@ -92,8 +92,15 @@ _BQ_RETRY = google_retry.Retry(
 # ---------------------------------------------------------------------------
 # Each level is a dict with: level (int), name (str), tables (list of dicts).
 # Table dicts have: sql_file, table_name, cluster_by, and optional
-# partition_by and is_dist (for distribution tables that are already
-# CREATE TABLE statements).
+# partition_by, is_dist (for distribution tables that are already
+# CREATE TABLE statements), and phase (int, default 1).
+#
+# Phase controls execution order WITHIN a level: all phase-1 tables run
+# (possibly in parallel) before any phase-2 tables start. This handles
+# intra-level dependencies introduced by _apply_table_substitutions —
+# e.g. in Level 2, intermediate_author_publication_state_temporal reads
+# stats_publication_citations_temporal_table (after substitution), so
+# the producer must finish before the consumer starts.
 # ---------------------------------------------------------------------------
 
 _LEVELS = [
@@ -112,10 +119,12 @@ _LEVELS = [
         "level": 2,
         "name": "Temporal foundation + first ranked",
         "tables": [
-            {"sql_file": "stats_publication_citations_temporal.sql", "table_name": "stats_publication_citations_temporal_table", "cluster_by": ["author_pub_id", "pub_year", "citation_year"]},
-            {"sql_file": "ranked_publication_current.sql", "table_name": "ranked_publication_current_table", "cluster_by": ["author_pub_id", "pub_year"]},
-            {"sql_file": "intermediate_author_publication_state_temporal.sql", "table_name": "intermediate_author_publication_state_temporal_table", "cluster_by": ["scholar_id", "author_pub_id", "state_year"]},
-            {"sql_file": "dist_publication_citations_temporal.sql", "table_name": "dist_publication_citations_temporal", "is_dist": True},
+            # Phase 1: producers (no intra-level deps)
+            {"sql_file": "stats_publication_citations_temporal.sql", "table_name": "stats_publication_citations_temporal_table", "cluster_by": ["author_pub_id", "pub_year", "citation_year"], "phase": 1},
+            {"sql_file": "ranked_publication_current.sql", "table_name": "ranked_publication_current_table", "cluster_by": ["author_pub_id", "pub_year"], "phase": 1},
+            # Phase 2: consumers (read stats_publication_citations_temporal_table after substitution)
+            {"sql_file": "intermediate_author_publication_state_temporal.sql", "table_name": "intermediate_author_publication_state_temporal_table", "cluster_by": ["scholar_id", "author_pub_id", "state_year"], "phase": 2},
+            {"sql_file": "dist_publication_citations_temporal.sql", "table_name": "dist_publication_citations_temporal", "is_dist": True, "phase": 2},
         ],
     },
     {
@@ -132,9 +141,12 @@ _LEVELS = [
         "level": 4,
         "name": "PiP scores + distributions",
         "tables": [
-            {"sql_file": "stats_author_pip_scores_current.sql", "table_name": "stats_author_pip_scores_current_table", "cluster_by": ["scholar_id", "year_of_first_pub"]},
-            {"sql_file": "dist_pip_auc_scores.sql", "table_name": "dist_pip_auc_scores", "is_dist": True},
-            {"sql_file": "dist_author_metrics_temporal.sql", "table_name": "dist_author_metrics_temporal", "is_dist": True},
+            # Phase 1: producer
+            {"sql_file": "stats_author_pip_scores_current.sql", "table_name": "stats_author_pip_scores_current_table", "cluster_by": ["scholar_id", "year_of_first_pub"], "phase": 1},
+            # Phase 2: dist_pip_auc_scores reads stats_author_pip_scores_current_table after substitution
+            {"sql_file": "dist_pip_auc_scores.sql", "table_name": "dist_pip_auc_scores", "is_dist": True, "phase": 2},
+            # dist_author_metrics_temporal reads from Level 3, no intra-level dep
+            {"sql_file": "dist_author_metrics_temporal.sql", "table_name": "dist_author_metrics_temporal", "is_dist": True, "phase": 1},
         ],
     },
     {
@@ -230,6 +242,10 @@ def _run_sql(sql, description):
 
     Retries on transient BigQuery errors (503, 429, 500) with exponential
     backoff up to a 600s deadline.
+
+    Returns:
+        int row count if available, or None if the row count could not
+        be determined (e.g. DDL without a destination table).
     """
     client = _get_bq_client()
     logger.info("Materializing: %s", description)
@@ -239,11 +255,17 @@ def _run_sql(sql, description):
     job.result(retry=_BQ_RETRY)
 
     elapsed = time.monotonic() - t0
-    row_count = 0
+    row_count = None
 
-    if job.destination:
+    # Try destination first (set for CTAS queries), then ddl_target_table
+    # (set for DDL statements like CREATE OR REPLACE TABLE).
+    target = job.destination
+    if target is None and hasattr(job, "ddl_target_table"):
+        target = job.ddl_target_table
+
+    if target:
         try:
-            table = client.get_table(job.destination)
+            table = client.get_table(target)
             row_count = table.num_rows
             logger.info("  %s: %d rows in %.1fs", description, row_count, elapsed)
         except Exception:
@@ -269,9 +291,20 @@ def _apply_table_substitutions(sql):
 def _validate_row_count(table_name, row_count):
     """Validate that a materialized table has a non-zero row count.
 
+    Args:
+        table_name: Name of the table (for error messages).
+        row_count: Number of rows, or None if unavailable.
+
     Raises RuntimeError for zero-row tables (indicates silent data loss).
-    Logs warnings for suspiciously low counts.
+    Logs warnings for unavailable or suspiciously low counts.
     """
+    if row_count is None:
+        logger.warning(
+            "Table %s: row count unavailable after materialization — "
+            "cannot validate; verify manually",
+            table_name,
+        )
+        return
     if row_count == 0:
         raise RuntimeError(
             f"Table {table_name} has 0 rows after materialization. "
@@ -305,8 +338,45 @@ def _materialize_one(table_spec):
     return table_name, row_count
 
 
+def _run_phase(tables, max_workers):
+    """Run a group of independent tables, optionally in parallel.
+
+    Returns (results_dict, errors_list) where results maps table_name → row_count.
+    """
+    results = {}
+    errors = []
+
+    if max_workers <= 1 or len(tables) <= 1:
+        for spec in tables:
+            try:
+                name, rows = _materialize_one(spec)
+                results[name] = rows
+            except Exception as e:
+                errors.append((spec["table_name"], e))
+    else:
+        with ThreadPoolExecutor(max_workers=min(max_workers, len(tables))) as executor:
+            future_to_name = {
+                executor.submit(_materialize_one, spec): spec["table_name"]
+                for spec in tables
+            }
+            for future in as_completed(future_to_name):
+                table_name = future_to_name[future]
+                try:
+                    name, rows = future.result()
+                    results[name] = rows
+                except Exception as e:
+                    errors.append((table_name, e))
+
+    return results, errors
+
+
 def _materialize_level(level_spec, max_workers=None):
-    """Run all tables in a single DAG level, optionally in parallel.
+    """Run all tables in a single DAG level, respecting phase ordering.
+
+    Tables within the same phase run in parallel; phases run sequentially
+    (all phase-1 tables complete before phase-2 starts). This ensures
+    intra-level dependencies introduced by table substitutions are
+    respected — producers finish before consumers start.
 
     Args:
         level_spec: Dict with 'level', 'name', 'tables' keys.
@@ -325,58 +395,50 @@ def _materialize_level(level_spec, max_workers=None):
     if max_workers is None:
         max_workers = Config.BQ_MATERIALIZE_WORKERS
 
+    # Group tables by phase (default phase=1)
+    phases = {}
+    for spec in tables:
+        phase = spec.get("phase", 1)
+        phases.setdefault(phase, []).append(spec)
+
     logger.info(
-        "=== Level %d: %s (%d tables, workers=%d) ===",
-        level_num, level_name, len(tables), max_workers,
+        "=== Level %d: %s (%d tables, %d phase(s), workers=%d) ===",
+        level_num, level_name, len(tables), len(phases), max_workers,
     )
     t0 = time.monotonic()
 
-    results = {}
-    errors = []
+    all_results = {}
+    all_errors = []
 
-    if max_workers <= 1 or len(tables) <= 1:
-        # Sequential execution
-        for spec in tables:
-            try:
-                name, rows = _materialize_one(spec)
-                results[name] = rows
-            except Exception as e:
-                errors.append((spec["table_name"], e))
-    else:
-        # Parallel execution
-        with ThreadPoolExecutor(max_workers=min(max_workers, len(tables))) as executor:
-            future_to_name = {
-                executor.submit(_materialize_one, spec): spec["table_name"]
-                for spec in tables
-            }
-            for future in as_completed(future_to_name):
-                table_name = future_to_name[future]
-                try:
-                    name, rows = future.result()
-                    results[name] = rows
-                except Exception as e:
-                    errors.append((table_name, e))
+    for phase_num in sorted(phases):
+        phase_tables = phases[phase_num]
+        if len(phases) > 1:
+            logger.info("  Level %d, phase %d: %d tables", level_num, phase_num, len(phase_tables))
+        results, errors = _run_phase(phase_tables, max_workers)
+        all_results.update(results)
+        if errors:
+            all_errors.extend(errors)
+            break  # Don't start next phase if current phase failed
 
     elapsed = time.monotonic() - t0
 
-    if errors:
-        failed_names = [name for name, _ in errors]
+    if all_errors:
+        failed_names = [name for name, _ in all_errors]
         logger.error(
             "=== Level %d FAILED: %d/%d tables failed in %.1fs: %s ===",
-            level_num, len(errors), len(tables), elapsed, ", ".join(failed_names),
+            level_num, len(all_errors), len(tables), elapsed, ", ".join(failed_names),
         )
-        # Re-raise the first error with context
-        first_name, first_error = errors[0]
+        first_name, first_error = all_errors[0]
         raise RuntimeError(
-            f"Level {level_num} failed: {len(errors)} table(s) failed "
+            f"Level {level_num} failed: {len(all_errors)} table(s) failed "
             f"({', '.join(failed_names)})"
         ) from first_error
 
     logger.info(
         "=== Level %d complete: %d tables in %.1fs ===",
-        level_num, len(results), elapsed,
+        level_num, len(all_results), elapsed,
     )
-    return results
+    return all_results
 
 
 # ---------------------------------------------------------------------------
