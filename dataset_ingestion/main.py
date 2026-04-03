@@ -104,9 +104,10 @@ def run_full_load(release_id):
     log_release(release_id, "derived_tables", "full", "success")
 
     # Materialize the full analytics DAG (distributions + ranked tables)
-    start_level = int(os.environ.get("MATERIALIZE_START_LEVEL", "1"))
-    logger.info("Materializing analytics tables (from level %d)...", start_level)
+    logger.info("Materializing analytics tables...")
     try:
+        start_level = int(os.environ.get("MATERIALIZE_START_LEVEL", "1"))
+        logger.info("Starting from level %d", start_level)
         materialize_all(start_from_level=start_level)
     except Exception:
         log_release(release_id, "materialized_tables", "full", "failed")
@@ -207,9 +208,10 @@ def run_diff_load(last_release, target_release):
     log_release(target_release, "derived_tables", "diff", "success")
 
     # Materialize the full analytics DAG (distributions + ranked tables)
-    start_level = int(os.environ.get("MATERIALIZE_START_LEVEL", "1"))
-    logger.info("Materializing analytics tables (from level %d)...", start_level)
+    logger.info("Materializing analytics tables...")
     try:
+        start_level = int(os.environ.get("MATERIALIZE_START_LEVEL", "1"))
+        logger.info("Starting from level %d", start_level)
         materialize_all(start_from_level=start_level)
     except Exception:
         log_release(target_release, "materialized_tables", "diff", "failed")
