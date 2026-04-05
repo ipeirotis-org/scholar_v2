@@ -112,6 +112,28 @@ def _prepare_temporal_chart_data(temporal_stats, author_stats):
 _CACHE_READ_TIMEOUT = 10  # seconds; prevent hanging on slow Firestore reads
 
 
+def _parallel_cache_reads(read_cache_fn, reads):
+    """Run cache reads in parallel with a hard timeout.
+
+    Args:
+        read_cache_fn: callable(collection, doc_id) -> data or None
+        reads: list of (collection, doc_id) tuples
+
+    Returns list of results (data or None) in the same order as reads.
+    Uses shutdown(wait=False, cancel_futures=True) on timeout so the
+    ThreadPoolExecutor context manager doesn't block.
+    """
+    executor = ThreadPoolExecutor(max_workers=len(reads))
+    futures = [executor.submit(read_cache_fn, col, doc) for col, doc in reads]
+    try:
+        return [f.result(timeout=_CACHE_READ_TIMEOUT) for f in futures]
+    except TimeoutError:
+        executor.shutdown(wait=False, cancel_futures=True)
+        return [None] * len(reads)
+    else:
+        executor.shutdown(wait=True)
+
+
 def register_routes(app):
     cache = FirestoreCache()
 
@@ -169,24 +191,13 @@ def register_routes(app):
             )
 
         # Read all data from cache (parallel)
-        with ThreadPoolExecutor(max_workers=3) as executor:
-            author_stats_future = executor.submit(
-                _read_cache, Config.CACHE_AUTHOR_STATS, author_id,
-            )
-            temporal_stats_future = executor.submit(
-                _read_cache, Config.CACHE_AUTHOR_TEMPORAL, author_id,
-            )
-            pub_stats_future = executor.submit(
-                _read_cache, Config.CACHE_AUTHOR_PUB_STATS, author_id,
-            )
-
-            try:
-                author_stats = author_stats_future.result(timeout=_CACHE_READ_TIMEOUT)
-                temporal_stats = temporal_stats_future.result(timeout=_CACHE_READ_TIMEOUT)
-                pub_stats = pub_stats_future.result(timeout=_CACHE_READ_TIMEOUT)
-            except TimeoutError:
-                logger.warning("Cache read timed out for author %s", author_id)
-                author_stats = temporal_stats = pub_stats = None
+        author_stats, temporal_stats, pub_stats = _parallel_cache_reads(
+            _read_cache, [
+                (Config.CACHE_AUTHOR_STATS, author_id),
+                (Config.CACHE_AUTHOR_TEMPORAL, author_id),
+                (Config.CACHE_AUTHOR_PUB_STATS, author_id),
+            ],
+        )
 
         if not author_stats:
             # Cache miss — enqueue population and show loading page
@@ -233,19 +244,12 @@ def register_routes(app):
             flash("Author not found.")
             return redirect(url_for("index"))
 
-        with ThreadPoolExecutor(max_workers=2) as executor:
-            author_stats_future = executor.submit(
-                _read_cache, Config.CACHE_AUTHOR_STATS, author_id,
-            )
-            pub_stats_future = executor.submit(
-                _read_cache, Config.CACHE_AUTHOR_PUB_STATS, author_id,
-            )
-            try:
-                author_stats = author_stats_future.result(timeout=_CACHE_READ_TIMEOUT)
-                pub_stats = pub_stats_future.result(timeout=_CACHE_READ_TIMEOUT)
-            except TimeoutError:
-                logger.warning("Cache read timed out for author %s", author_id)
-                author_stats = pub_stats = None
+        author_stats, pub_stats = _parallel_cache_reads(
+            _read_cache, [
+                (Config.CACHE_AUTHOR_STATS, author_id),
+                (Config.CACHE_AUTHOR_PUB_STATS, author_id),
+            ],
+        )
 
         if not author_stats:
             cache_enqueued = enqueue_cache_populate("populate_author_profile", {"scholar_id": author_id})
@@ -333,24 +337,13 @@ def register_routes(app):
         if not exists:
             return jsonify({"error": "Author not found", "status": "not_found"}), 404
 
-        with ThreadPoolExecutor(max_workers=3) as executor:
-            author_stats_future = executor.submit(
-                _read_cache, Config.CACHE_AUTHOR_STATS, author_id,
-            )
-            temporal_stats_future = executor.submit(
-                _read_cache, Config.CACHE_AUTHOR_TEMPORAL, author_id,
-            )
-            pub_stats_future = executor.submit(
-                _read_cache, Config.CACHE_AUTHOR_PUB_STATS, author_id,
-            )
-
-            try:
-                author_stats = author_stats_future.result(timeout=_CACHE_READ_TIMEOUT)
-                temporal_stats = temporal_stats_future.result(timeout=_CACHE_READ_TIMEOUT)
-                pub_stats = pub_stats_future.result(timeout=_CACHE_READ_TIMEOUT)
-            except TimeoutError:
-                logger.warning("Cache read timed out for author %s", author_id)
-                author_stats = temporal_stats = pub_stats = None
+        author_stats, temporal_stats, pub_stats = _parallel_cache_reads(
+            _read_cache, [
+                (Config.CACHE_AUTHOR_STATS, author_id),
+                (Config.CACHE_AUTHOR_TEMPORAL, author_id),
+                (Config.CACHE_AUTHOR_PUB_STATS, author_id),
+            ],
+        )
 
         if not author_stats:
             enqueue_cache_populate("populate_author_profile", {"scholar_id": author_id})
