@@ -54,18 +54,13 @@ class CacheService:
         if not exists:
             return {"status": "not_found", "scholar_id": scholar_id}
 
-        # Write freshness first
-        self.writer.write(Config.CACHE_AUTHOR_FRESHNESS, scholar_id, {
-            "exists": True,
-            "last_updated": last_updated,
-        })
-
         # Query all data from S2-backed BigQuery views
         author_stats = self.bq.get_author_stats(scholar_id)
         pub_stats = self.bq.get_author_pub_stats(scholar_id)
         temporal_stats = self.bq.get_author_temporal_stats(scholar_id)
 
-        # Write to cache
+        # Write data to cache first, then freshness — so the frontend
+        # never sees a "fresh" marker without the corresponding data.
         writes = []
         if author_stats:
             writes.append((Config.CACHE_AUTHOR_STATS, scholar_id, author_stats))
@@ -75,6 +70,12 @@ class CacheService:
             writes.append((Config.CACHE_AUTHOR_TEMPORAL, scholar_id, temporal_stats))
 
         written = self.writer.write_batch(writes)
+
+        # Write freshness last — only after data is in place
+        self.writer.write(Config.CACHE_AUTHOR_FRESHNESS, scholar_id, {
+            "exists": True,
+            "last_updated": last_updated,
+        })
 
         return {
             "status": "ok",

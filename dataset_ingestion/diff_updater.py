@@ -187,6 +187,9 @@ def apply_diff(release_id, dataset_name, diff):
             _apply_diff_dml(dataset_name, delete_table, update_table)
 
     finally:
-        _drop_temp_tables(dataset_name)
+        try:
+            _drop_temp_tables(dataset_name)
+        except Exception:
+            logger.exception("Failed to clean up temp tables for %s", dataset_name)
 
     return result

@@ -79,7 +79,7 @@ class TestDownloadDataset:
             ["https://example.com/f1.gz", "https://example.com/f2.gz"],
         )
 
-        assert result["downloaded"] == 2
+        assert result["downloaded"] == 0
         assert result["skipped"] == 2
 
     @patch.object(downloader, "download_file")

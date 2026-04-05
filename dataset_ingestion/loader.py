@@ -319,12 +319,21 @@ def log_release(release_id, dataset_name, load_type, status, rows_loaded=0):
             "timestamp": "AUTO",
         }
     ]
-    # Use SQL INSERT for the timestamp
+    # Use parameterized SQL to avoid injection
     sql = f"""
     INSERT INTO `{table_id}` (release_id, dataset_name, load_type, status, rows_loaded, timestamp)
-    VALUES ('{release_id}', '{dataset_name}', '{load_type}', '{status}', {rows_loaded}, CURRENT_TIMESTAMP())
+    VALUES (@release_id, @dataset_name, @load_type, @status, @rows_loaded, CURRENT_TIMESTAMP())
     """
-    client.query(sql).result()
+    job_config = bigquery.QueryJobConfig(
+        query_parameters=[
+            bigquery.ScalarQueryParameter("release_id", "STRING", release_id),
+            bigquery.ScalarQueryParameter("dataset_name", "STRING", dataset_name),
+            bigquery.ScalarQueryParameter("load_type", "STRING", load_type),
+            bigquery.ScalarQueryParameter("status", "STRING", status),
+            bigquery.ScalarQueryParameter("rows_loaded", "INT64", rows_loaded),
+        ]
+    )
+    client.query(sql, job_config=job_config).result()
     logger.info("Logged release %s/%s: %s", release_id, dataset_name, status)
 
 

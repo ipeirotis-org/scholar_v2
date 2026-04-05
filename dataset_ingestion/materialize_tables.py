@@ -220,7 +220,7 @@ def _view_to_table_sql(view_sql, table_name, cluster_by, partition_by=None):
     # when using CLUSTER BY. Strip a trailing ORDER BY clause if present.
     # Only strips ORDER BY at the end of the statement (not inside CTEs).
     select_sql = re.sub(
-        r'\bORDER\s+BY\s+[\w.,\s]+\s*$', '', select_sql, flags=re.IGNORECASE
+        r'\bORDER\s+BY\b[^)]*$', '', select_sql, flags=re.IGNORECASE
     ).rstrip()
 
     table_ref = Config.bq_stats_table_ref(table_name)

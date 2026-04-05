@@ -497,7 +497,10 @@ def register_routes(app):
         author_id = _validate_scholar_id(
             request.args.get("author_id", default_author).strip()
         )
-        threshold = float(request.args.get("threshold", "5"))
+        try:
+            threshold = float(request.args.get("threshold", "5"))
+        except (ValueError, TypeError):
+            return jsonify({"status": "error", "message": "Invalid threshold parameter"}), 400
 
         if not author_id:
             return jsonify({"status": "error", "message": "Invalid author_id"}), 400
