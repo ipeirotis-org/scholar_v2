@@ -140,38 +140,10 @@ jobs:
           --project=${{ env.GCP_PROJECT_ID }})
         echo "CACHE_URL=$URL" >> "$GITHUB_OUTPUT"
 
-    - name: Create or update scheduler — populate recent authors (every 5 min)
-      run: |
-        JOB_NAME="v3-populate-recent-authors"
-        LOCATION="${{ env.GCP_REGION }}"
-        CACHE_URL="${{ steps.get-cache-url.outputs.CACHE_URL }}"
-        BODY='{"type":"populate_recent_authors"}'
-        if gcloud scheduler jobs describe "$JOB_NAME" --location="$LOCATION" > /dev/null 2>&1; then
-          gcloud scheduler jobs update http "$JOB_NAME" \
-            --location="$LOCATION" \
-            --schedule="*/5 * * * *" \
-            --uri="$CACHE_URL/tasks/batch" \
-            --http-method=POST \
-            --update-headers="Content-Type=application/json" \
-            --message-body="$BODY" \
-            --time-zone=UTC \
-            --attempt-deadline=60s
-        else
-          gcloud scheduler jobs create http "$JOB_NAME" \
-            --location="$LOCATION" \
-            --schedule="*/5 * * * *" \
-            --uri="$CACHE_URL/tasks/batch" \
-            --http-method=POST \
-            --headers="Content-Type=application/json" \
-            --message-body="$BODY" \
-            --time-zone=UTC \
-            --attempt-deadline=60s
-        fi
-
-    - name: Delete legacy Google Scholar scheduler jobs (if they exist)
+    - name: Delete legacy scheduler jobs (if they exist)
       run: |
         LOCATION="${{ env.GCP_REGION }}"
-        for JOB_NAME in v3-refresh-stale-authors v3-refresh-error-authors v3-expand-coauthors; do
+        for JOB_NAME in v3-populate-recent-authors v3-refresh-stale-authors v3-refresh-error-authors v3-expand-coauthors; do
           if gcloud scheduler jobs describe "$JOB_NAME" --location="$LOCATION" > /dev/null 2>&1; then
             gcloud scheduler jobs delete "$JOB_NAME" --location="$LOCATION" --quiet
             echo "Deleted legacy scheduler job: $JOB_NAME"

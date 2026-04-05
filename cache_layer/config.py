@@ -25,11 +25,11 @@ class Config:
     ADMIN_AUTH_TOKEN = os.environ.get("CACHE_LAYER_ADMIN_TOKEN", "")
 
     # Use materialized tables instead of live views for all queries.
-    # Default: false (safe for fresh environments where _table objects
-    # don't exist yet). Set to "true" after the first successful
-    # materialization run (via ingestion pipeline or fallback workflow).
+    # Set to "false" only for fresh environments where _table objects
+    # don't exist yet. Production should always use materialized tables
+    # to avoid expensive live view computation on every cache-miss query.
     USE_MATERIALIZED_TABLES = os.environ.get(
-        "USE_MATERIALIZED_TABLES", "false"
+        "USE_MATERIALIZED_TABLES", "true"
     ).lower() in ("true", "1", "yes")
 
     # Firestore cache collection names (must match what the frontend reads)

@@ -56,7 +56,8 @@ class TestBatchTaskEndpoint:
         mock_service.dispatch.return_value = {"status": "ok", "authors_cached": 20}
 
         response = client.post("/tasks/batch", json={
-            "type": "populate_recent_authors",
+            "type": "warm_author",
+            "scholar_id": "2942126",
         })
 
         assert response.status_code == 200

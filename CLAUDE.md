@@ -175,7 +175,7 @@ Ranked views default to `active_authors` for user-facing percentiles.
 - **BigQuery Datasets**: `s2_data` (S2 raw tables + derived), `statistics` (analytics views), `scholar_raw_data` (legacy)
 - **GCS Bucket**: `scholar_data_share` (prefixes: `s2_datasets/`, `bq_load_temp/`)
 - **Cloud Tasks Queues**: `cache-priority`, `cache-batch` (location: `northamerica-northeast1`)
-- **Cloud Scheduler**: `s2-monthly-ingestion` (monthly 1st of month, 02:00 UTC), `v3-populate-recent-authors` (every 5 min)
+- **Cloud Scheduler**: `s2-monthly-ingestion` (monthly 1st of month, 02:00 UTC)
 
 ## CI/CD
 
