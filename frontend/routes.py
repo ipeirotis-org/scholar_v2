@@ -128,17 +128,16 @@ def _parallel_cache_reads(read_cache_fn, reads):
     Returns list of results (data or None) in the same order as reads.
     Uses a single deadline for all futures so total wall time is bounded
     to _CACHE_READ_TIMEOUT regardless of how many reads are in flight.
+    Completed reads are returned even if some time out.
     """
     futures = [_cache_read_pool.submit(read_cache_fn, col, doc) for col, doc in reads]
 
     done, not_done = futures_wait(futures, timeout=_CACHE_READ_TIMEOUT)
 
-    if not_done:
-        for f in not_done:
-            f.cancel()
-        return [None] * len(reads)
+    for f in not_done:
+        f.cancel()
 
-    return [f.result() for f in futures]
+    return [f.result() if f in done else None for f in futures]
 
 
 def register_routes(app):

@@ -71,20 +71,22 @@ class CacheService:
 
         written = self.writer.write_batch(writes)
 
-        # Only write freshness if at least some data was written successfully
-        if written > 0:
+        # Determine status based on write success
+        if writes and written == 0:
+            # Had data to write but all writes failed — don't write freshness
+            status = "error"
+        else:
+            # Write freshness: either data was written successfully, or BQ
+            # returned no data (author exists but has no stats yet).  In both
+            # cases, record freshness so the frontend doesn't re-enqueue.
             self.writer.write(Config.CACHE_AUTHOR_FRESHNESS, scholar_id, {
                 "exists": True,
                 "last_updated": last_updated,
             })
-
-        # Determine status based on write success
-        if writes and written == 0:
-            status = "error"
-        elif written < len(writes):
-            status = "partial_failure"
-        else:
-            status = "ok"
+            if writes and written < len(writes):
+                status = "partial_failure"
+            else:
+                status = "ok"
 
         return {
             "status": status,
