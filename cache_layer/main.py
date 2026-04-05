@@ -73,7 +73,13 @@ def _handle_task():
     logger.info("Processing task: type=%s", request_type)
     result = service.dispatch(request_type, body)
 
-    status_code = 200 if result.get("status") != "error" else 400
+    status = result.get("status")
+    if status == "error":
+        status_code = 400
+    elif status == "not_found":
+        status_code = 404
+    else:
+        status_code = 200
     return jsonify(result), status_code
 
 

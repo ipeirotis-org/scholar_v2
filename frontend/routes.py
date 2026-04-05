@@ -12,7 +12,7 @@ import logging
 import os
 import re
 import time
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, TimeoutError
 
 import pandas as pd
 from flask import (
@@ -109,6 +109,9 @@ def _prepare_temporal_chart_data(temporal_stats, author_stats):
     return result
 
 
+_CACHE_READ_TIMEOUT = 10  # seconds; prevent hanging on slow Firestore reads
+
+
 def register_routes(app):
     cache = FirestoreCache()
 
@@ -177,9 +180,13 @@ def register_routes(app):
                 _read_cache, Config.CACHE_AUTHOR_PUB_STATS, author_id,
             )
 
-            author_stats = author_stats_future.result()
-            temporal_stats = temporal_stats_future.result()
-            pub_stats = pub_stats_future.result()
+            try:
+                author_stats = author_stats_future.result(timeout=_CACHE_READ_TIMEOUT)
+                temporal_stats = temporal_stats_future.result(timeout=_CACHE_READ_TIMEOUT)
+                pub_stats = pub_stats_future.result(timeout=_CACHE_READ_TIMEOUT)
+            except TimeoutError:
+                logger.warning("Cache read timed out for author %s", author_id)
+                author_stats = temporal_stats = pub_stats = None
 
         if not author_stats:
             # Cache miss — enqueue population and show loading page
@@ -233,8 +240,12 @@ def register_routes(app):
             pub_stats_future = executor.submit(
                 _read_cache, Config.CACHE_AUTHOR_PUB_STATS, author_id,
             )
-            author_stats = author_stats_future.result()
-            pub_stats = pub_stats_future.result()
+            try:
+                author_stats = author_stats_future.result(timeout=_CACHE_READ_TIMEOUT)
+                pub_stats = pub_stats_future.result(timeout=_CACHE_READ_TIMEOUT)
+            except TimeoutError:
+                logger.warning("Cache read timed out for author %s", author_id)
+                author_stats = pub_stats = None
 
         if not author_stats:
             cache_enqueued = enqueue_cache_populate("populate_author_profile", {"scholar_id": author_id})
@@ -333,9 +344,13 @@ def register_routes(app):
                 _read_cache, Config.CACHE_AUTHOR_PUB_STATS, author_id,
             )
 
-            author_stats = author_stats_future.result()
-            temporal_stats = temporal_stats_future.result()
-            pub_stats = pub_stats_future.result()
+            try:
+                author_stats = author_stats_future.result(timeout=_CACHE_READ_TIMEOUT)
+                temporal_stats = temporal_stats_future.result(timeout=_CACHE_READ_TIMEOUT)
+                pub_stats = pub_stats_future.result(timeout=_CACHE_READ_TIMEOUT)
+            except TimeoutError:
+                logger.warning("Cache read timed out for author %s", author_id)
+                author_stats = temporal_stats = pub_stats = None
 
         if not author_stats:
             enqueue_cache_populate("populate_author_profile", {"scholar_id": author_id})

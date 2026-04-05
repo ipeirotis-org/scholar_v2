@@ -49,6 +49,16 @@ class TestPriorityTaskEndpoint:
         response = client.post("/tasks/priority", json={"type": "bad_type"})
         assert response.status_code == 400
 
+    @mock.patch("cache_layer.main.service")
+    def test_not_found_returns_404(self, mock_service, client):
+        mock_service.dispatch.return_value = {"status": "not_found", "scholar_id": "unknown"}
+        response = client.post("/tasks/priority", json={
+            "type": "populate_author_profile",
+            "scholar_id": "unknown",
+        })
+        assert response.status_code == 404
+        assert response.get_json()["status"] == "not_found"
+
 
 class TestBatchTaskEndpoint:
     @mock.patch("cache_layer.main.service")
