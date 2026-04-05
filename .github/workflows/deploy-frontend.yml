@@ -72,7 +72,7 @@ jobs:
           --no-allow-unauthenticated \
           --memory=1Gi \
           --timeout=300 \
-          --set-env-vars="GCP_PROJECT_ID=${{ env.GCP_PROJECT_ID }},QUEUE_LOCATION=${{ env.QUEUE_LOCATION }}"
+          --set-env-vars="GCP_PROJECT_ID=${{ env.GCP_PROJECT_ID }},QUEUE_LOCATION=${{ env.QUEUE_LOCATION }},USE_MATERIALIZED_TABLES=true"
 
     - name: Get Cache Layer URL
       id: cache-url
