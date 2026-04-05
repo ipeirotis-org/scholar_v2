@@ -186,10 +186,21 @@ def apply_diff(release_id, dataset_name, diff):
         if delete_table or update_table:
             _apply_diff_dml(dataset_name, delete_table, update_table)
 
+    except BaseException:
+        # Record that the main operation failed so cleanup doesn't mask it
+        _main_failed = True
+        raise
+    else:
+        _main_failed = False
     finally:
         try:
             _drop_temp_tables(dataset_name)
         except Exception:
-            logger.exception("Failed to clean up temp tables for %s", dataset_name)
+            if _main_failed:
+                # Don't mask the original exception; just log cleanup failure
+                logger.exception("Failed to clean up temp tables for %s", dataset_name)
+            else:
+                # Main operation succeeded — surface the cleanup error
+                raise
 
     return result
