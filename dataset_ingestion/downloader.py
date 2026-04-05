@@ -123,7 +123,8 @@ def download_dataset(release_id, dataset_name, file_urls):
                 results["blobs"].append(blob_name)
                 if was_skipped:
                     results["skipped"] += 1
-                results["downloaded"] += 1
+                else:
+                    results["downloaded"] += 1
             except Exception:
                 logger.exception("Failed to download %s", url)
                 results["failed"] += 1

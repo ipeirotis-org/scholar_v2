@@ -12,7 +12,7 @@ import logging
 import os
 import re
 import time
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, wait as futures_wait
 
 import pandas as pd
 from flask import (
@@ -109,6 +109,37 @@ def _prepare_temporal_chart_data(temporal_stats, author_stats):
     return result
 
 
+_CACHE_READ_TIMEOUT = 10  # seconds; prevent hanging on slow Firestore reads
+
+# Shared bounded thread pool for cache reads.  A fixed pool (rather than
+# per-request executors) caps the total number of threads that can be
+# occupied by hung Firestore reads, preventing thread leaks under partial
+# backend outages.
+_cache_read_pool = ThreadPoolExecutor(max_workers=6, thread_name_prefix="cache-read")
+
+
+def _parallel_cache_reads(read_cache_fn, reads):
+    """Run cache reads in parallel with a single overall timeout.
+
+    Args:
+        read_cache_fn: callable(collection, doc_id) -> data or None
+        reads: list of (collection, doc_id) tuples
+
+    Returns list of results (data or None) in the same order as reads.
+    Uses a single deadline for all futures so total wall time is bounded
+    to _CACHE_READ_TIMEOUT regardless of how many reads are in flight.
+    Completed reads are returned even if some time out.
+    """
+    futures = [_cache_read_pool.submit(read_cache_fn, col, doc) for col, doc in reads]
+
+    done, not_done = futures_wait(futures, timeout=_CACHE_READ_TIMEOUT)
+
+    for f in not_done:
+        f.cancel()
+
+    return [f.result() if f in done else None for f in futures]
+
+
 def register_routes(app):
     cache = FirestoreCache()
 
@@ -166,20 +197,13 @@ def register_routes(app):
             )
 
         # Read all data from cache (parallel)
-        with ThreadPoolExecutor(max_workers=3) as executor:
-            author_stats_future = executor.submit(
-                _read_cache, Config.CACHE_AUTHOR_STATS, author_id,
-            )
-            temporal_stats_future = executor.submit(
-                _read_cache, Config.CACHE_AUTHOR_TEMPORAL, author_id,
-            )
-            pub_stats_future = executor.submit(
-                _read_cache, Config.CACHE_AUTHOR_PUB_STATS, author_id,
-            )
-
-            author_stats = author_stats_future.result()
-            temporal_stats = temporal_stats_future.result()
-            pub_stats = pub_stats_future.result()
+        author_stats, temporal_stats, pub_stats = _parallel_cache_reads(
+            _read_cache, [
+                (Config.CACHE_AUTHOR_STATS, author_id),
+                (Config.CACHE_AUTHOR_TEMPORAL, author_id),
+                (Config.CACHE_AUTHOR_PUB_STATS, author_id),
+            ],
+        )
 
         if not author_stats:
             # Cache miss — enqueue population and show loading page
@@ -226,15 +250,12 @@ def register_routes(app):
             flash("Author not found.")
             return redirect(url_for("index"))
 
-        with ThreadPoolExecutor(max_workers=2) as executor:
-            author_stats_future = executor.submit(
-                _read_cache, Config.CACHE_AUTHOR_STATS, author_id,
-            )
-            pub_stats_future = executor.submit(
-                _read_cache, Config.CACHE_AUTHOR_PUB_STATS, author_id,
-            )
-            author_stats = author_stats_future.result()
-            pub_stats = pub_stats_future.result()
+        author_stats, pub_stats = _parallel_cache_reads(
+            _read_cache, [
+                (Config.CACHE_AUTHOR_STATS, author_id),
+                (Config.CACHE_AUTHOR_PUB_STATS, author_id),
+            ],
+        )
 
         if not author_stats:
             cache_enqueued = enqueue_cache_populate("populate_author_profile", {"scholar_id": author_id})
@@ -322,20 +343,13 @@ def register_routes(app):
         if not exists:
             return jsonify({"error": "Author not found", "status": "not_found"}), 404
 
-        with ThreadPoolExecutor(max_workers=3) as executor:
-            author_stats_future = executor.submit(
-                _read_cache, Config.CACHE_AUTHOR_STATS, author_id,
-            )
-            temporal_stats_future = executor.submit(
-                _read_cache, Config.CACHE_AUTHOR_TEMPORAL, author_id,
-            )
-            pub_stats_future = executor.submit(
-                _read_cache, Config.CACHE_AUTHOR_PUB_STATS, author_id,
-            )
-
-            author_stats = author_stats_future.result()
-            temporal_stats = temporal_stats_future.result()
-            pub_stats = pub_stats_future.result()
+        author_stats, temporal_stats, pub_stats = _parallel_cache_reads(
+            _read_cache, [
+                (Config.CACHE_AUTHOR_STATS, author_id),
+                (Config.CACHE_AUTHOR_TEMPORAL, author_id),
+                (Config.CACHE_AUTHOR_PUB_STATS, author_id),
+            ],
+        )
 
         if not author_stats:
             enqueue_cache_populate("populate_author_profile", {"scholar_id": author_id})
@@ -497,7 +511,10 @@ def register_routes(app):
         author_id = _validate_scholar_id(
             request.args.get("author_id", default_author).strip()
         )
-        threshold = float(request.args.get("threshold", "5"))
+        try:
+            threshold = float(request.args.get("threshold", "5"))
+        except (ValueError, TypeError):
+            return jsonify({"status": "error", "message": "Invalid threshold parameter"}), 400
 
         if not author_id:
             return jsonify({"status": "error", "message": "Invalid author_id"}), 400

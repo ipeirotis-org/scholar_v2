@@ -54,18 +54,13 @@ class CacheService:
         if not exists:
             return {"status": "not_found", "scholar_id": scholar_id}
 
-        # Write freshness first
-        self.writer.write(Config.CACHE_AUTHOR_FRESHNESS, scholar_id, {
-            "exists": True,
-            "last_updated": last_updated,
-        })
-
         # Query all data from S2-backed BigQuery views
         author_stats = self.bq.get_author_stats(scholar_id)
         pub_stats = self.bq.get_author_pub_stats(scholar_id)
         temporal_stats = self.bq.get_author_temporal_stats(scholar_id)
 
-        # Write to cache
+        # Write data to cache first, then freshness — so the frontend
+        # never sees a "fresh" marker without the corresponding data.
         writes = []
         if author_stats:
             writes.append((Config.CACHE_AUTHOR_STATS, scholar_id, author_stats))
@@ -76,8 +71,25 @@ class CacheService:
 
         written = self.writer.write_batch(writes)
 
+        # Determine status based on write success
+        if writes and written == 0:
+            # Had data to write but all writes failed — don't write freshness
+            status = "error"
+        else:
+            # Write freshness: either data was written successfully, or BQ
+            # returned no data (author exists but has no stats yet).  In both
+            # cases, record freshness so the frontend doesn't re-enqueue.
+            self.writer.write(Config.CACHE_AUTHOR_FRESHNESS, scholar_id, {
+                "exists": True,
+                "last_updated": last_updated,
+            })
+            if writes and written < len(writes):
+                status = "partial_failure"
+            else:
+                status = "ok"
+
         return {
-            "status": "ok",
+            "status": status,
             "scholar_id": scholar_id,
             "cached": {
                 "author_stats": author_stats is not None,
@@ -97,10 +109,10 @@ class CacheService:
         if not pub_stats:
             return {"status": "not_found", "author_pub_id": author_pub_id}
 
-        self.writer.write(Config.CACHE_PUB_STATS, author_pub_id, pub_stats)
+        success = self.writer.write(Config.CACHE_PUB_STATS, author_pub_id, pub_stats)
 
         return {
-            "status": "ok",
+            "status": "ok" if success else "error",
             "author_pub_id": author_pub_id,
             "records": len(pub_stats),
         }

@@ -73,7 +73,14 @@ def _handle_task():
     logger.info("Processing task: type=%s", request_type)
     result = service.dispatch(request_type, body)
 
-    status_code = 200 if result.get("status") != "error" else 400
+    status = result.get("status")
+    if status == "error":
+        status_code = 400
+    else:
+        # "not_found" and "ok" both return 200 — these are Cloud Tasks
+        # callbacks, so non-2xx triggers retries. A missing author is a
+        # completed outcome, not a delivery failure.
+        status_code = 200
     return jsonify(result), status_code
 
 
