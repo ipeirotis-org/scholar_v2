@@ -12,7 +12,7 @@ import logging
 import os
 import re
 import time
-from concurrent.futures import ThreadPoolExecutor, TimeoutError
+from concurrent.futures import ThreadPoolExecutor, wait as futures_wait
 
 import pandas as pd
 from flask import (
@@ -113,25 +113,27 @@ _CACHE_READ_TIMEOUT = 10  # seconds; prevent hanging on slow Firestore reads
 
 
 def _parallel_cache_reads(read_cache_fn, reads):
-    """Run cache reads in parallel with a hard timeout.
+    """Run cache reads in parallel with a single overall timeout.
 
     Args:
         read_cache_fn: callable(collection, doc_id) -> data or None
         reads: list of (collection, doc_id) tuples
 
     Returns list of results (data or None) in the same order as reads.
-    Uses shutdown(wait=False, cancel_futures=True) on timeout so the
-    ThreadPoolExecutor context manager doesn't block.
+    Uses a single deadline for all futures so total wall time is bounded
+    to _CACHE_READ_TIMEOUT regardless of how many reads are in flight.
     """
     executor = ThreadPoolExecutor(max_workers=len(reads))
     futures = [executor.submit(read_cache_fn, col, doc) for col, doc in reads]
-    try:
-        return [f.result(timeout=_CACHE_READ_TIMEOUT) for f in futures]
-    except TimeoutError:
+
+    done, not_done = futures_wait(futures, timeout=_CACHE_READ_TIMEOUT)
+
+    if not_done:
         executor.shutdown(wait=False, cancel_futures=True)
         return [None] * len(reads)
-    else:
-        executor.shutdown(wait=True)
+
+    executor.shutdown(wait=False)
+    return [f.result() for f in futures]
 
 
 def register_routes(app):
