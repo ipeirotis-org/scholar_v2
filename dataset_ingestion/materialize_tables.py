@@ -192,6 +192,36 @@ def _read_sql(filename):
     return path.read_text()
 
 
+def _strip_trailing_order_by(sql):
+    """Remove a trailing top-level ORDER BY clause from SQL.
+
+    Only strips ORDER BY that appears at parenthesis depth 0 (i.e. not
+    inside window functions or subqueries).  Returns the SQL unchanged
+    if no top-level ORDER BY is found.
+    """
+    upper = sql.upper()
+    depth = 0
+    last_top_level_order_by = -1
+
+    i = 0
+    while i < len(upper):
+        ch = upper[i]
+        if ch == '(':
+            depth += 1
+        elif ch == ')':
+            depth -= 1
+        elif depth == 0 and upper[i:i + 8] == 'ORDER BY':
+            # Verify word boundary: character before must not be alphanumeric/_
+            if i == 0 or not (upper[i - 1].isalnum() or upper[i - 1] == '_'):
+                last_top_level_order_by = i
+        i += 1
+
+    if last_top_level_order_by == -1:
+        return sql
+
+    return sql[:last_top_level_order_by].rstrip()
+
+
 def _view_to_table_sql(view_sql, table_name, cluster_by, partition_by=None):
     """Convert a CREATE VIEW SQL into a CREATE TABLE SQL.
 
@@ -217,11 +247,11 @@ def _view_to_table_sql(view_sql, table_name, cluster_by, partition_by=None):
     select_sql = view_sql[as_idx + 3:].strip().rstrip(";")
 
     # BigQuery doesn't allow ORDER BY in CREATE TABLE ... AS SELECT
-    # when using CLUSTER BY. Strip a trailing ORDER BY clause if present.
-    # Only strips ORDER BY at the end of the statement (not inside CTEs).
-    select_sql = re.sub(
-        r'\bORDER\s+BY\b.*$', '', select_sql, flags=re.IGNORECASE | re.DOTALL
-    ).rstrip()
+    # when using CLUSTER BY. Strip a trailing top-level ORDER BY clause
+    # if present.  We can't use a simple regex because ORDER BY appears
+    # inside window functions; instead we walk backwards to find the last
+    # ORDER BY at parenthesis depth 0.
+    select_sql = _strip_trailing_order_by(select_sql)
 
     table_ref = Config.bq_stats_table_ref(table_name)
     cluster_clause = f"CLUSTER BY {', '.join(cluster_by)}"

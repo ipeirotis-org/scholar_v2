@@ -111,6 +111,12 @@ def _prepare_temporal_chart_data(temporal_stats, author_stats):
 
 _CACHE_READ_TIMEOUT = 10  # seconds; prevent hanging on slow Firestore reads
 
+# Shared bounded thread pool for cache reads.  A fixed pool (rather than
+# per-request executors) caps the total number of threads that can be
+# occupied by hung Firestore reads, preventing thread leaks under partial
+# backend outages.
+_cache_read_pool = ThreadPoolExecutor(max_workers=6, thread_name_prefix="cache-read")
+
 
 def _parallel_cache_reads(read_cache_fn, reads):
     """Run cache reads in parallel with a single overall timeout.
@@ -123,16 +129,15 @@ def _parallel_cache_reads(read_cache_fn, reads):
     Uses a single deadline for all futures so total wall time is bounded
     to _CACHE_READ_TIMEOUT regardless of how many reads are in flight.
     """
-    executor = ThreadPoolExecutor(max_workers=len(reads))
-    futures = [executor.submit(read_cache_fn, col, doc) for col, doc in reads]
+    futures = [_cache_read_pool.submit(read_cache_fn, col, doc) for col, doc in reads]
 
     done, not_done = futures_wait(futures, timeout=_CACHE_READ_TIMEOUT)
 
     if not_done:
-        executor.shutdown(wait=False, cancel_futures=True)
+        for f in not_done:
+            f.cancel()
         return [None] * len(reads)
 
-    executor.shutdown(wait=False)
     return [f.result() for f in futures]
 
 
