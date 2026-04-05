@@ -635,11 +635,17 @@ Replace three schedules (weekly ingestion + quarterly distributions + daily snap
 - [x] Updated CLAUDE.md with new schedule and architecture
 
 **Phase 4: Optimization (ongoing)**
-- [ ] Merge redundant temporal tables (stats + ranked into single table)
+- [x] Run first full materialization and verify row counts/storage
+  - Materialization ran successfully Apr 2-3, 2026 — all 21 tables populated
+  - Total storage: 708 GB in `statistics` dataset (dominated by `intermediate_author_publication_state_temporal_table` at 270 GB and `ranked_publication_citations_temporal_table` at 152 GB)
+- [x] Fix `USE_MATERIALIZED_TABLES` default — was `false`, causing cache-miss queries to hit live views at $128/day. Changed default to `true` and set explicitly in Cloud Run deploy.
+- [x] Delete legacy scheduler jobs (`refresh-authors`, `batch-load-gcs-to-bq`, `add_authors`, `v3-populate-recent-authors`) — all removed, only `s2-monthly-ingestion` remains
+- [x] Set up billing export access (`ipeirotis-hrd.billing` dataset) for cost monitoring
+- [x] Grant `bigquery.resourceViewer` and `cloudscheduler.admin` roles for operational monitoring
+- [ ] Merge redundant temporal tables (stats + ranked into single table) — would save ~141 GB (~$2.83/mo)
 - [ ] Add INT64 range partitioning to large temporal tables
 - [ ] Investigate incremental materialization via `MERGE`
 - [ ] Monitor costs and adjust clustering
-- [ ] Run first full materialization and verify row counts/storage
 
 ---
 
@@ -669,4 +675,4 @@ Replace three schedules (weekly ingestion + quarterly distributions + daily snap
 
 ---
 
-_Last updated: 2026-04-02 (P2/P3 cleanup batch)_
+_Last updated: 2026-04-05 (BigQuery cost fix — USE_MATERIALIZED_TABLES, legacy schedulers removed)_
