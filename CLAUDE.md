@@ -220,6 +220,11 @@ After pushing commits to a PR, wait for Codex to review. If it reacts with 👍,
 | `roles/logging.viewer` | Read Cloud Logging for debugging |
 | `roles/monitoring.viewer` | Read Cloud Monitoring metrics |
 | `roles/errorreporting.viewer` | View error reports |
+| `roles/bigquery.resourceViewer` | Query `INFORMATION_SCHEMA.JOBS` for cost monitoring |
+| `roles/cloudscheduler.admin` | Manage Cloud Scheduler jobs |
+
+**Cross-project access:**
+- `ipeirotis-hrd.billing` dataset: READER access for billing export queries (all GCP project costs)
 
 ### How to Authenticate
 
