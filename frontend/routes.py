@@ -515,7 +515,7 @@ def register_routes(app):
 
     def _parse_limit(raw, default=200, maximum=1000):
         try:
-            return min(int(raw), maximum)
+            return max(1, min(int(raw), maximum))
         except (ValueError, TypeError):
             return default
 
