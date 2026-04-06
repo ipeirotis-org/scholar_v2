@@ -6,6 +6,8 @@ is maintained by the frontend and written back for reuse.
 """
 
 import logging
+import queue
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 
 from google.api_core.exceptions import GoogleAPICallError, RetryError
@@ -18,6 +20,12 @@ logger = logging.getLogger(__name__)
 RECENT_AUTHORS_COLLECTION = "v3_recent_authors"
 RECENT_AUTHORS_DOC_ID = "recent"
 MAX_RECENT_AUTHORS = 20
+
+# Background thread pool for fire-and-forget writes (query logging).
+# Bounded work queue: drop log entries when backlogged rather than OOM.
+_LOG_QUEUE_MAX = 100
+_log_queue: queue.Queue = queue.Queue(maxsize=_LOG_QUEUE_MAX)
+_log_pool = ThreadPoolExecutor(max_workers=2, thread_name_prefix="query-log")
 
 
 class FirestoreCache:
@@ -83,6 +91,49 @@ class FirestoreCache:
         except (GoogleAPICallError, RetryError, ValueError):
             logger.exception("Firestore cache write failed: %s/%s", collection, doc_id)
             return False
+
+    def log_query(self, query_type, query_text, result_count=None, author_id=None,
+                  typeahead=False, scholar=False):
+        """Log a search or profile query to Firestore (fire-and-forget).
+
+        The Firestore write runs in a background thread so it never
+        blocks the calling request handler.
+
+        Args:
+            query_type: 'search' or 'profile_view'
+            query_text: The search string or author ID
+            result_count: Number of results returned (for searches)
+            author_id: Author ID (for profile views)
+            typeahead: Whether this was a typeahead search
+            scholar: Whether S2 API fallback was used
+        """
+        entry = {
+            "timestamp": datetime.now(timezone.utc),
+            "type": query_type,
+            "query": query_text,
+        }
+        if result_count is not None:
+            entry["result_count"] = result_count
+        if author_id:
+            entry["author_id"] = author_id
+        if query_type == "search":
+            entry["typeahead"] = typeahead
+            entry["scholar"] = scholar
+
+        def _write():
+            try:
+                self.db.collection(Config.CACHE_QUERY_LOG).add(entry)
+            except Exception:
+                logger.debug("Failed to log query: %s %s", query_type, query_text)
+            finally:
+                _log_queue.get_nowait()
+
+        try:
+            _log_queue.put_nowait(None)
+        except queue.Full:
+            logger.debug("Query log backlogged, dropping entry")
+            return
+        _log_pool.submit(_write)
 
     def record_recent_author(self, author_stats):
         """Record an author as recently queried.

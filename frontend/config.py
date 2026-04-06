@@ -22,6 +22,7 @@ class Config:
     CACHE_PUB_STATS = "v3_pub_stats"
     CACHE_AUTHOR_TEMPORAL = "v3_author_temporal"
     CACHE_AUTHOR_FRESHNESS = "v3_author_freshness"
+    CACHE_QUERY_LOG = "v3_query_log"
 
     # Cloud Tasks
     QUEUE_LOCATION = os.environ.get("QUEUE_LOCATION", "northamerica-northeast1")

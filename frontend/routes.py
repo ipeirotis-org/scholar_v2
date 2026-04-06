@@ -25,6 +25,8 @@ from flask import (
     url_for,
 )
 
+from google.cloud import firestore
+
 from frontend.cache import FirestoreCache
 from frontend.config import Config
 from frontend.queue_client import enqueue_cache_populate
@@ -227,6 +229,16 @@ def register_routes(app):
             cache.record_recent_author(author_stats)
         except Exception:
             logger.debug("Failed to record recent author %s", author_id)
+
+        # Log profile view
+        try:
+            cache.log_query(
+                "profile_view",
+                author_stats.get("name", author_id),
+                author_id=author_id,
+            )
+        except Exception:
+            logger.debug("Failed to log profile view for %s", author_id)
 
         return render_template(
             "results.html",
@@ -437,6 +449,18 @@ def register_routes(app):
         typeahead = request.args.get("typeahead", "").lower() == "true"
         scholar = request.args.get("scholar", "").lower() == "true"
         results = search_svc.search(author_name, typeahead=typeahead, scholar=scholar)
+
+        # Log non-typeahead searches (typeahead fires on every keystroke)
+        if not typeahead:
+            try:
+                cache.log_query(
+                    "search", author_name,
+                    result_count=len(results),
+                    typeahead=typeahead, scholar=scholar,
+                )
+            except Exception:
+                logger.debug("Failed to log search query")
+
         return jsonify(results)
 
     @app.route("/api/refresh_author_index", methods=["POST"])
@@ -483,6 +507,61 @@ def register_routes(app):
             return results[:100]
         except Exception:
             logger.exception("Failed to query task failures")
+            return []
+
+    # ------------------------------------------------------------------
+    # Query Log
+    # ------------------------------------------------------------------
+
+    def _parse_limit(raw, default=200, maximum=1000):
+        try:
+            return max(1, min(int(raw), maximum))
+        except (ValueError, TypeError):
+            return default
+
+    @app.route("/admin/query-log")
+    def admin_query_log():
+        """View recent search queries and profile views."""
+        query_type = request.args.get("type", "")  # 'search', 'profile_view', or '' for all
+        limit = _parse_limit(request.args.get("limit", "200"))
+        queries = _get_query_log(query_type=query_type, limit=limit)
+        return render_template("query_log.html", queries=queries, query_type=query_type)
+
+    @app.route("/api/query-log")
+    def api_query_log():
+        """JSON API for query log data."""
+        query_type = request.args.get("type", "")
+        limit = _parse_limit(request.args.get("limit", "200"))
+        queries = _get_query_log(query_type=query_type, limit=limit)
+        return jsonify(queries)
+
+    def _get_query_log(query_type="", limit=200):
+        """Read recent queries from Firestore query log.
+
+        Filtering by type is done client-side to avoid requiring a
+        Firestore composite index (order_by + where on different fields).
+        """
+        try:
+            db = cache.db
+            ref = db.collection(Config.CACHE_QUERY_LOG)
+            ref = ref.order_by("timestamp", direction=firestore.Query.DESCENDING)
+            # Fetch extra when filtering so we're likely to fill the limit
+            fetch_limit = limit * 3 if query_type else limit
+            ref = ref.limit(fetch_limit)
+            results = []
+            for doc in ref.stream():
+                data = doc.to_dict()
+                if query_type and data.get("type") != query_type:
+                    continue
+                ts = data.get("timestamp")
+                if ts:
+                    data["timestamp"] = ts.isoformat() if hasattr(ts, "isoformat") else str(ts)
+                results.append(data)
+                if len(results) >= limit:
+                    break
+            return results
+        except Exception:
+            logger.exception("Failed to query log")
             return []
 
     # ------------------------------------------------------------------
