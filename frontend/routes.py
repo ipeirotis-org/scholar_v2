@@ -536,22 +536,29 @@ def register_routes(app):
         return jsonify(queries)
 
     def _get_query_log(query_type="", limit=200):
-        """Read recent queries from Firestore query log."""
+        """Read recent queries from Firestore query log.
+
+        Filtering by type is done client-side to avoid requiring a
+        Firestore composite index (order_by + where on different fields).
+        """
         try:
             db = cache.db
             ref = db.collection(Config.CACHE_QUERY_LOG)
             ref = ref.order_by("timestamp", direction=firestore.Query.DESCENDING)
-            if query_type:
-                ref = ref.where("type", "==", query_type)
-            ref = ref.limit(limit)
+            # Fetch extra when filtering so we're likely to fill the limit
+            fetch_limit = limit * 3 if query_type else limit
+            ref = ref.limit(fetch_limit)
             results = []
             for doc in ref.stream():
                 data = doc.to_dict()
-                # Convert timestamp for JSON serialization
+                if query_type and data.get("type") != query_type:
+                    continue
                 ts = data.get("timestamp")
                 if ts:
                     data["timestamp"] = ts.isoformat() if hasattr(ts, "isoformat") else str(ts)
                 results.append(data)
+                if len(results) >= limit:
+                    break
             return results
         except Exception:
             logger.exception("Failed to query log")
