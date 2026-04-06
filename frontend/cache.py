@@ -6,6 +6,7 @@ is maintained by the frontend and written back for reuse.
 """
 
 import logging
+import queue
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 
@@ -21,6 +22,9 @@ RECENT_AUTHORS_DOC_ID = "recent"
 MAX_RECENT_AUTHORS = 20
 
 # Background thread pool for fire-and-forget writes (query logging).
+# Bounded work queue: drop log entries when backlogged rather than OOM.
+_LOG_QUEUE_MAX = 100
+_log_queue: queue.Queue = queue.Queue(maxsize=_LOG_QUEUE_MAX)
 _log_pool = ThreadPoolExecutor(max_workers=2, thread_name_prefix="query-log")
 
 
@@ -121,7 +125,14 @@ class FirestoreCache:
                 self.db.collection(Config.CACHE_QUERY_LOG).add(entry)
             except Exception:
                 logger.debug("Failed to log query: %s %s", query_type, query_text)
+            finally:
+                _log_queue.get_nowait()
 
+        try:
+            _log_queue.put_nowait(None)
+        except queue.Full:
+            logger.debug("Query log backlogged, dropping entry")
+            return
         _log_pool.submit(_write)
 
     def record_recent_author(self, author_stats):
