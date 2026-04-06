@@ -513,11 +513,17 @@ def register_routes(app):
     # Query Log
     # ------------------------------------------------------------------
 
+    def _parse_limit(raw, default=200, maximum=1000):
+        try:
+            return min(int(raw), maximum)
+        except (ValueError, TypeError):
+            return default
+
     @app.route("/admin/query-log")
     def admin_query_log():
         """View recent search queries and profile views."""
         query_type = request.args.get("type", "")  # 'search', 'profile_view', or '' for all
-        limit = min(int(request.args.get("limit", "200")), 1000)
+        limit = _parse_limit(request.args.get("limit", "200"))
         queries = _get_query_log(query_type=query_type, limit=limit)
         return render_template("query_log.html", queries=queries, query_type=query_type)
 
@@ -525,7 +531,7 @@ def register_routes(app):
     def api_query_log():
         """JSON API for query log data."""
         query_type = request.args.get("type", "")
-        limit = min(int(request.args.get("limit", "200")), 1000)
+        limit = _parse_limit(request.args.get("limit", "200"))
         queries = _get_query_log(query_type=query_type, limit=limit)
         return jsonify(queries)
 
