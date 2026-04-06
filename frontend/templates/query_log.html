@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+
+{% block title %}Query Log -- Scholar Analytics{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Query Log</h2>
+    <p class="text-muted">
+        Recent search queries and profile views.
+        <a href="{{ url_for('api_query_log') }}">JSON API</a>
+    </p>
+
+    <div class="mb-3">
+        <a href="{{ url_for('admin_query_log') }}" class="btn btn-sm {{ 'btn-primary' if not query_type else 'btn-outline-primary' }}">All</a>
+        <a href="{{ url_for('admin_query_log', type='search') }}" class="btn btn-sm {{ 'btn-primary' if query_type == 'search' else 'btn-outline-primary' }}">Searches</a>
+        <a href="{{ url_for('admin_query_log', type='profile_view') }}" class="btn btn-sm {{ 'btn-primary' if query_type == 'profile_view' else 'btn-outline-primary' }}">Profile Views</a>
+    </div>
+
+    {% if queries %}
+    <table class="table table-sm">
+        <thead>
+            <tr>
+                <th>Timestamp</th>
+                <th>Type</th>
+                <th>Query</th>
+                <th>Author ID</th>
+                <th class="text-right">Results</th>
+                <th>Scholar</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for q in queries %}
+            <tr>
+                <td><small>{{ q.timestamp[:19] if q.timestamp else '-' }}</small></td>
+                <td>
+                    {% if q.type == 'search' %}
+                    <span class="badge badge-info">search</span>
+                    {% else %}
+                    <span class="badge badge-secondary">profile</span>
+                    {% endif %}
+                </td>
+                <td>{{ q.query }}</td>
+                <td>
+                    {% if q.author_id %}
+                    <a href="{{ url_for('results', author_id=q.author_id) }}">
+                        <code>{{ q.author_id }}</code>
+                    </a>
+                    {% else %}
+                    -
+                    {% endif %}
+                </td>
+                <td class="text-right">{{ q.result_count if q.result_count is not none else '-' }}</td>
+                <td>{{ 'Yes' if q.scholar else '' }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="alert alert-info">No queries logged yet.</div>
+    {% endif %}
+</div>
+{% endblock %}

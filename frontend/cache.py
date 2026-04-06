@@ -84,6 +84,36 @@ class FirestoreCache:
             logger.exception("Firestore cache write failed: %s/%s", collection, doc_id)
             return False
 
+    def log_query(self, query_type, query_text, result_count=None, author_id=None,
+                  typeahead=False, scholar=False):
+        """Log a search or profile query to Firestore (fire-and-forget).
+
+        Args:
+            query_type: 'search' or 'profile_view'
+            query_text: The search string or author ID
+            result_count: Number of results returned (for searches)
+            author_id: Author ID (for profile views)
+            typeahead: Whether this was a typeahead search
+            scholar: Whether S2 API fallback was used
+        """
+        try:
+            entry = {
+                "timestamp": datetime.now(timezone.utc),
+                "type": query_type,
+                "query": query_text,
+            }
+            if result_count is not None:
+                entry["result_count"] = result_count
+            if author_id:
+                entry["author_id"] = author_id
+            if query_type == "search":
+                entry["typeahead"] = typeahead
+                entry["scholar"] = scholar
+
+            self.db.collection(Config.CACHE_QUERY_LOG).add(entry)
+        except Exception:
+            logger.debug("Failed to log query: %s %s", query_type, query_text)
+
     def record_recent_author(self, author_stats):
         """Record an author as recently queried.
 
