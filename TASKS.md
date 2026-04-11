@@ -91,7 +91,7 @@ Create the new component that owns all BigQuery reads and Firestore writes.
 
 ## Codebase Health — from [codebase review](docs/codebase-review.md) (2026-03-24)
 
-Findings from a full codebase audit, ordered by priority. See `docs/codebase-review.md` for detailed analysis with file/line references.
+Findings from a full codebase audit, ordered by priority. See `docs/codebase-review.md` for detailed analysis with file/line references. A second independent audit ([`docs/codebase_audit_2026-03-24.md`](docs/codebase_audit_2026-03-24.md)) was added later; items from it that are still open are listed in the relevant P1/P3 subsections below and tagged _(audit §N)_.
 
 ### P0 — Critical (Data Integrity / Security)
 
@@ -134,6 +134,18 @@ Findings from a full codebase audit, ordered by priority. See `docs/codebase-rev
   - Enqueue proceeds regardless; structured error response always returned
 
 - [x] ~~**Move plot generation out of the request thread**~~ _(resolved: matplotlib removed, charts now render client-side via Plotly.js)_
+
+- [ ] **Make `record_recent_author` atomic** _(audit §6)_
+  - `frontend/cache.py:138-171` does read-modify-write on the `v3_recent_authors` document without a transaction; concurrent requests can clobber each other and lose recent-author entries.
+  - **Fix:** Wrap the update in a Firestore transaction, or switch to per-author docs + server timestamps and query top-N.
+
+- [ ] **Clean up stale author-search index chunks on rebuild** _(audit §7)_
+  - `author_search/search_service.py:54-61` writes new `chunk_N` docs but never deletes old ones. If the author count shrinks, leftover chunks past the new count remain in Firestore, and `_load_index_from_firestore` iterates past the new end until it hits a gap — surfacing stale/deleted records.
+  - **Fix:** Write a manifest doc with exact `chunk_count` and load by manifest (or, during save, enumerate existing chunks and delete any beyond the new count).
+
+- [ ] **Add OIDC token to ingestion cache-invalidation tasks** _(audit §2/§13)_
+  - `ingestion/cache_enqueuer.py:81-88` creates Cloud Tasks with no `oidc_token`, unlike `frontend/queue_client.py` and `cache_layer/cache_service.py`. In an authenticated Cache Layer environment this results in silent delivery failures and stale caches.
+  - **Fix:** Add `oidc_token` to every task using the same service-account/audience pattern as `frontend/queue_client.py`. Update `ingestion/tests/test_cache_enqueuer.py` to assert the OIDC payload is present.
 
 ### P2 — Medium (Maintainability / Performance / Security)
 
@@ -180,6 +192,19 @@ Findings from a full codebase audit, ordered by priority. See `docs/codebase-rev
 - [ ] **Add linting configuration and pre-commit hooks** _(review §7.3)_
   - No `.pre-commit-config.yaml` or linting config; style enforced by convention only
   - **Fix:** Add `ruff` config and pre-commit hook
+
+- [ ] **Test concurrent access to `search_service._ensure_index_loaded`** _(review §6.2)_
+  - The double-checked locking pattern is untested under concurrent callers. Thread-safety bugs would only surface under load.
+
+- [ ] **Add SQL validation for BigQuery clients** _(review §6.3)_
+  - All BQ client tests mock `client.query()` entirely — SQL syntax, parameter binding, and `LIMIT` enforcement are never verified. A typo would pass all tests.
+  - **Fix:** Add one integration test per component against a test BQ dataset, or introduce `sqlfluff` linting of `bigquery/**/*.sql`.
+
+- [ ] **Test cache staleness boundary in `author_search/cache.py`** _(review §6.5)_
+  - Tests verify fresh and stale states but never the exact 24h TTL boundary; off-by-one timestamp bugs would go undetected.
+
+- [ ] **Test concurrent invocations of `ingestion/batch_load.py`** _(review §6.6)_
+  - No test verifies that two simultaneous runs cannot both process the same GCS file → double-load into BigQuery. The new `bq_loaded` metadata marker should make this safe; add a test that proves it.
 
 - [x] **Add `.env.example` for local development** _(review §7.1)_
   - Created `.env.example` with all environment variables and their defaults
@@ -672,7 +697,77 @@ Replace three schedules (weekly ingestion + quarterly distributions + daily snap
 - [ ] **Author comparison feature**
   - Side-by-side PiP-AUC and percentile plots for multiple authors
 
+---
+
+## Product UX & Benchmarking — from [UX recommendations](docs/product_ux_benchmark_recommendations.md)
+
+The product doc proposes reframing PiP Score from a "ranking" tool into a confidence-aware, cohort-based decision-support product. Items below are roughly ordered by the doc's recommended priority. Most require both frontend work and new analytics in the cache layer.
+
+### Top priority (doc §"Recommended immediate priority order")
+
+- [ ] **Confidence & uncertainty UX layer** _(doc §1, §6, §8)_
+  - Per-profile **Confidence Meter** (High / Medium / Low) driven by coverage %, missing-venue risk, and name-ambiguity signals.
+  - "Why this confidence?" explainer panel.
+  - Confidence-aware rank tiers (Tier A = precise percentile, Tier B = rank range, Tier C = "insufficient confidence").
+  - Needs a new confidence-scoring function in the cache layer and new fields on `v3_author_stats`.
+
+- [ ] **Cohort-first comparison workflow** _(doc §3)_
+  - Expose 3 cohort modes prominently: **career age**, **field**, **institution type**.
+  - Let users choose "Who am I compared to?" before seeing scores.
+  - Label every benchmark output as "relative to selected cohort."
+  - Depends on `benchmark_faculty` + field-specific benchmarks (see Semantic Scholar Migration Phase 3).
+
+- [ ] **Multi-dimensional benchmark scorecard** _(doc §5)_
+  - Replace the single PiP-AUC scalar with a 4-part scorecard:
+    1. **Impact Quality** — citation percentile quality of papers (field-year normalized)
+    2. **Productivity Efficiency** — output adjusted by career age + field norms
+    3. **Consistency** — fraction of years with above-median impact
+    4. **Momentum** — recent slope vs prior baseline
+  - Derive an overall tier + a **style label** (e.g., "High-peak selective", "Consistent builder", "Rapid riser").
+  - Requires new SQL in `bigquery/statistics/` and new cache-layer query methods.
+
+- [ ] **Profile Claim & Correction user loop** _(doc §2)_
+  - "Is this your profile?" claim flow.
+  - Quick actions: remove wrong publication, mark missing publication, merge/split identities.
+  - "User-verified" badge for corrected profiles.
+  - New Firestore collection for user-submitted corrections + moderation workflow.
+
+- [ ] **Decision-mode summaries** _(doc §7)_
+  - Use-case selector: **Hiring / Grants / Self / Department**.
+  - Each mode surfaces different dimensions (e.g., momentum for hiring, consistency for grants).
+  - Exportable summary cards for committee packets (PDF or print-friendly view).
+
+### Secondary priority
+
+- [ ] **Trajectory-first default profile view** _(doc §4)_
+  - Default view = 3-year and 5-year trend cards (momentum, consistency, volatility).
+  - "Career phase lens" (early / mid / late) to mitigate seniority bias.
+  - Much of the underlying data already exists in `ranked_author_metrics_temporal_table`.
+
+- [ ] **Fairness / "How this score is computed" panel** _(doc §6)_
+  - Plain-language bullets explaining the computation.
+  - "What changes your score most?" sensitivity panel.
+  - Per-author "Data caveats" section (missing venues, uncertain identity, sparse years).
+
+- [ ] **"Benchmark alternatives" cross-check panel** _(doc §9)_
+  - Inline links to Google Scholar / ORCID / personal website for triangulation.
+  - Solicit user-reported discrepancies, feeding into the profile quality score.
+
+- [ ] **Guided narrative profile views** _(doc §10)_
+  - Per-author narrative sections: **Strengths**, **Watch-outs**, **Most similar researchers**, **Next-step suggestion**.
+  - "Similar researchers" needs a new nearest-neighbor query over the PiP dimensions.
+
+- [ ] **Homepage messaging revision** _(doc §12)_
+  - Reframe the tagline from "we rank researchers" → "fair, confidence-aware research impact comparisons."
+  - Update `frontend/templates/index.html` hero copy + meta description.
+
+### Product experiments to run (doc §11)
+
+- [ ] **A/B test: Confidence Meter** — metric: reduction in "data looks wrong" feedback.
+- [ ] **A/B test: Cohort selector default** — metric: session depth + profile saves.
+- [ ] **A/B test: Trajectory-first profile** — metric: return usage by evaluators.
+- [ ] **A/B test: 4-part scorecard vs single score** — metric: perceived fairness + recommendation likelihood.
 
 ---
 
-_Last updated: 2026-04-05 (BigQuery cost fix — USE_MATERIALIZED_TABLES, legacy schedulers removed)_
+_Last updated: 2026-04-11 (added Product UX & Benchmarking section from `docs/product_ux_benchmark_recommendations.md`; added audit §2/§6/§7 items from `docs/codebase_audit_2026-03-24.md`; added outstanding testing-gap items from `docs/codebase-review.md` §6)_
