@@ -135,9 +135,9 @@ Findings from a full codebase audit, ordered by priority. See `docs/codebase-rev
 
 - [x] ~~**Move plot generation out of the request thread**~~ _(resolved: matplotlib removed, charts now render client-side via Plotly.js)_
 
-- [ ] **Make `record_recent_author` atomic** _(audit §6)_
-  - `frontend/cache.py:138-171` does read-modify-write on the `v3_recent_authors` document without a transaction; concurrent requests can clobber each other and lose recent-author entries.
-  - **Fix:** Wrap the update in a Firestore transaction, or switch to per-author docs + server timestamps and query top-N.
+- [x] **Make `record_recent_author` atomic** _(audit §6)_
+  - `frontend/cache.py` — `record_recent_author` now wraps the read-modify-write in a `@firestore.transactional` block. The transactional read uses `doc_ref.get(transaction=...)` and the write goes through `transaction.set(doc_ref, ...)`, so concurrent requests cannot clobber each other.
+  - **Tests:** `frontend/tests/test_cache.py` — 7 tests cover the transactional path (empty doc, existing list, move-to-front, truncation, corrupted non-list data, exception handling, one transaction per call).
 
 - [ ] **Clean up stale author-search index chunks on rebuild** _(audit §7)_
   - `author_search/search_service.py:54-61` writes new `chunk_N` docs but never deletes old ones. If the author count shrinks, leftover chunks past the new count remain in Firestore, and `_load_index_from_firestore` iterates past the new end until it hits a gap — surfacing stale/deleted records.
