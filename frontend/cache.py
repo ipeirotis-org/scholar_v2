@@ -140,6 +140,9 @@ class FirestoreCache:
 
         Maintains a list of the most recently queried authors in Firestore,
         ordered by query time (most recent first). Deduplicates by scholar_id.
+
+        The read-modify-write is wrapped in a Firestore transaction so that
+        concurrent requests cannot clobber each other and lose entries.
         """
         entry = {
             "scholar_id": author_stats.get("scholar_id"),
@@ -154,10 +157,20 @@ class FirestoreCache:
         if not entry["scholar_id"]:
             return
 
-        try:
-            current = self.get(RECENT_AUTHORS_COLLECTION, RECENT_AUTHORS_DOC_ID)
-            if not isinstance(current, list):
-                current = []
+        doc_ref = (
+            self.db.collection(RECENT_AUTHORS_COLLECTION)
+            .document(RECENT_AUTHORS_DOC_ID)
+        )
+
+        @firestore.transactional
+        def _update(transaction):
+            snapshot = doc_ref.get(transaction=transaction)
+            current = []
+            if snapshot.exists:
+                data = snapshot.to_dict() or {}
+                existing = data.get("data")
+                if isinstance(existing, list):
+                    current = existing
 
             # Remove existing entry for this author (if any) to move to front
             current = [a for a in current if a.get("scholar_id") != entry["scholar_id"]]
@@ -166,6 +179,12 @@ class FirestoreCache:
             current = [entry] + current
             current = current[:MAX_RECENT_AUTHORS]
 
-            self.set(RECENT_AUTHORS_COLLECTION, RECENT_AUTHORS_DOC_ID, current)
+            transaction.set(doc_ref, {
+                "timestamp": datetime.now(timezone.utc),
+                "data": current,
+            })
+
+        try:
+            _update(self.db.transaction())
         except (GoogleAPICallError, RetryError, ValueError):
             logger.exception("Failed to record recent author: %s", entry.get("scholar_id"))
