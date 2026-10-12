@@ -26,6 +26,23 @@
 
 ---
 
+## Return to Google Scholar
+
+Semantic Scholar data has too much junk (fragmented author profiles, low coverage). Move back to Google Scholar
+via a managed scraping API instead of `scholarly`. Vendor evaluation: [docs/google-scholar-data-sources.md](docs/google-scholar-data-sources.md).
+
+- [x] **Evaluate Google Scholar scraping vendors** (2026-10-12)
+  - Recommendation: SearchApi.io primary, SerpApi fallback (both return profile + per-publication citation histograms)
+  - GS author search by name now requires sign-in (since mid-2025), so no vendor offers it
+- [ ] **Pilot SearchApi.io vs SerpApi** on ~20 authors (~$115; steps in the doc's "Pilot plan")
+  - Verify SearchApi profile page size, histogram completeness, success rate, latency
+  - Measure the fraction of publications whose citation count changes between two snapshots (drives steady-state cost)
+- [ ] **Check legacy `scholar_raw_data` tables** for reusable per-publication histograms to seed the backfill
+- [ ] **Design author discovery without GS name search** (GS URL/ID input, paper-title lookup, index of crawled authors)
+- [ ] **Build vendor-agnostic `ScholarClient` + new crawler component** (raw responses to GCS, normalize in BigQuery)
+
+---
+
 ## BigQuery Cache Layer (Architecture Change)
 
 Decouple the frontend from BigQuery by introducing a dedicated **cache_layer** component. The frontend becomes a pure Firestore reader; all BigQuery queries and cache writes are owned by the cache layer, triggered via Cloud Tasks queues.
