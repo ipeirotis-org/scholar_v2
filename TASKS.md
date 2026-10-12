@@ -31,15 +31,19 @@
 Semantic Scholar data has too much junk (fragmented author profiles, low coverage). Move back to Google Scholar
 via a managed scraping API instead of `scholarly`. Vendor evaluation: [docs/google-scholar-data-sources.md](docs/google-scholar-data-sources.md).
 
-- [x] **Evaluate Google Scholar scraping vendors** (2026-10-12)
-  - Recommendation: SearchApi.io primary, SerpApi fallback (both return profile + per-publication citation histograms)
+- [x] **Evaluate Google Scholar scraping vendors** (2026-10-12, two research rounds)
+  - Recommendation: SearchApi.io primary, SerpApi fallback/canary; Scrapingdog and Scrappa as possible cheap R2 tier after pilot
   - GS author search by name now requires sign-in (since mid-2025), so no vendor offers it
-- [ ] **Pilot SearchApi.io vs SerpApi** on ~20 authors (~$115; steps in the doc's "Pilot plan")
-  - Verify SearchApi profile page size, histogram completeness, success rate, latency
-  - Measure the fraction of publications whose citation count changes between two snapshots (drives steady-state cost)
-- [ ] **Check legacy `scholar_raw_data` tables** for reusable per-publication histograms to seed the backfill
-- [ ] **Design author discovery without GS name search** (GS URL/ID input, paper-title lookup, index of crawled authors)
-- [ ] **Build vendor-agnostic `ScholarClient` + new crawler component** (raw responses to GCS, normalize in BigQuery)
+  - No licensed source (Scopus, WoS, Dimensions) permits public display of derived metrics
+- [ ] **Pilot** on ~20 authors (~$115 + free credits; steps in the doc's "Pilot plan")
+  - SearchApi articles/page (docs suggest 20), Scrapingdog `view_citation` output, Scrappa `start` ≤990 cap
+  - Histogram correctness (zero-citation years), empty-200 rate, latency
+  - Does the author yearly histogram equal the sum of per-paper histograms?
+  - Fraction of publications whose citation count changes between two snapshots
+- [ ] **Check legacy `scholar_raw_data.pub` `cites_per_year`** as backfill seed and ground truth for imputation
+- [ ] **Phase A: profiles only** — vendor-agnostic `ScholarClient` with response validation, raw responses to GCS, current PiP-AUC from GS
+- [ ] **Phase B: temporal metrics** — impute per-paper yearly citations by raking S2 histograms to GS totals; selective `view_citation` fetches; monthly snapshots
+- [ ] **Design author discovery without GS name search** (GS URL/ID input, paper-title lookup, index of crawled authors + coauthors)
 
 ---
 
