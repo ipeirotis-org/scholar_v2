@@ -17,8 +17,10 @@
    2.42M papers of 16.2K authors (snapshots from Feb 2024 – Sep 2025; see [Legacy data](#legacy-gs-data-in-bigquery-checked-2026-11-01)).
    Extend each one to today with the gap between its old and current total, split across years so that each
    author's yearly histogram is matched exactly (verified: the author histogram equals the sum of the paper histograms).
-   Only papers added since the snapshot need a `view_citation` fetch or imputation from S2.
-   Monthly profile snapshots then build exact history going forward.
+   Only *cited* papers added since the snapshot need a `view_citation` fetch (~0.2–0.3M one-off, then ~7K/month).
+   Validated offline on 148 authors over 15 months: per-paper cumulative citations have a 1.5% median error;
+   temporal h-index is exact for 68% of authors and within ±1 for 96%. That is better than GS's own churn in
+   un-refetched past years ([details](#validation-of-histogram-extension-run-2026-11-01)).
 4. **Run a pilot first** (~$115 plus free trial credits) that also tests the two cheap options, Scrapingdog and
    Scrappa, which could be 5–10× cheaper if their per-publication histograms work.
 5. **Author search by name is gone for everyone** (Google sign-in wall since ~May 2025). Discover GS IDs via
@@ -117,7 +119,10 @@ useful as a secondary source for matching papers.
 ## Reducing R2 (per-publication histograms)
 
 No GS page returns per-paper per-year counts in bulk. Export formats are bibliographic only, and year-filtered
-`scholar?cites=` queries cost one request per paper-year. So the options are:
+`scholar?cites=` queries cost one request per paper-year. So the options are listed below.
+
+> **Update 2026-11-01:** option 4 (legacy seed + extension) is validated and is the plan for the reference
+> population. Options 1–2 remain relevant only for authors with no legacy data, such as new on-demand lookups.
 
 1. **Imputation by raking (IPF).** Seed a paper × year matrix from `s2_data.paper_citations_by_year`. Rake it so
    row sums match each paper's GS `num_citations` and column sums match the author's GS yearly histogram. Both
@@ -126,8 +131,8 @@ No GS page returns per-paper per-year counts in bulk. Export formats are bibliog
      across databases (Moed 2016, Martín-Martín 2018).
    - Expected bias: GS indexes earlier and includes more grey literature, so imputation will likely under-allocate
      the most recent 1–2 years.
-   - Pilot check: does the author histogram equal the sum of per-paper histograms? GS deduplicates citing papers,
-     so if not, use it as a soft constraint.
+   - The author histogram equals the sum of per-paper histograms (verified on legacy data), so the column
+     constraint is exact.
 2. **Selective real fetches.** Fetch `view_citation` only for:
    - papers that are or were in the h-core (they drive temporal h-index);
    - papers with no S2 match or an extreme GS/S2 citation ratio;
@@ -188,10 +193,65 @@ more active than average, so treat the rates as an upper bound. Even so, roughly
 month**, about twice the 15% assumed earlier. Re-fetching every changed histogram monthly (scenario C) would mean
 ~0.9M requests/month, which makes the legacy-seed approach more attractive.
 
-**Validation available now**
-- 39,687 publications have two snapshots more than 400 days apart.
-- Hold out the newer histogram, predict it from the older histogram plus the growth split under the author
-  constraint, and measure the error in temporal h-index and percentiles. This needs no new GS requests.
+## Validation of histogram extension (run 2026-11-01)
+
+Script: `scripts/gs_histogram_validation/` (two export queries plus `validate.py`). It uses no GS requests.
+
+**Setup**
+- 148 authors with two profile snapshots: Feb 2024 (t0) and May 2025 (t1), a median gap of 463 days.
+- Both snapshots have at least 90% of publications with histograms within 5 days of the profile.
+- 22,695 publications appear in both snapshots. 2,281 publications were added between t0 and t1, and they are
+  treated as fetched, as they would be in production.
+- Mean h-index is 38. These are authors who were re-crawled, so possibly more active than average.
+- Inputs at t1 are exactly what a fresh profile page gives: each paper's total and the author's yearly histogram.
+  The true t1 per-paper histograms are held out for scoring.
+
+**Estimators**
+
+| | What it does |
+|---|---|
+| E0 | Stale: keep the t0 histograms unchanged |
+| E1 | Split each paper's growth (t1 total − t0 histogram sum) across 2024–2025 by elapsed time |
+| E2 | As E1, then rake to the author's yearly residuals (paper totals exact) |
+| E3 | As E2, seeded with each paper's own recent trend |
+| E4 | As E2, but also places the author's net backfill into pre-2024 years. Dropped: worse than E2 everywhere |
+
+**Results**
+
+| Metric | Through year | E0 stale | E1 | **E2** | E3 | Noise floor: years before t0, not re-fetched |
+|--------|------|----------|----|--------|----|---------------------------------------------|
+| Paper cumulative citations, median rel. error (papers ≥10 cites) | 2024 | 6.5% | 1.5% | **1.5%** | 1.7% | 2.3% (through 2023) |
+| Same, share within 5% | 2024 | 41% | 81% | **81%** | 79% | 74% (through 2023) |
+| Same, share within 5% | 2025 (= t1) | 34% | 90% | **90%** | 90% | — |
+| Paper percentile in pub-year cohort, mean / p95 abs error (pts) | 2024 | 2.1 / 7.2 | 0.8 / 3.2 | **0.8 / 3.1** | 0.8 / 3.2 | 1.2 / 3.6 (through 2023) |
+| Same | 2025 | 2.4 / 9.0 | 0.4 / 1.2 | **0.4 / 1.2** | 0.4 / 1.2 | — |
+| Author h-index exact / within ±1 | 2024 | 26% / 64% | 70% / 96% | **68% / 96%** | 69% / 97% | 57% / 94% (through 2023) |
+| Same | 2025 | 22% / 53% | 68% / 97% | **68% / 97%** | 68% / 97% | — |
+
+**Findings**
+1. **Extension works.** It cuts error 4–6× against stale histograms. The extended years end up *more* accurate
+   than the old years are after 15 months of churn: the 2024 numbers beat the "through 2023" noise floor.
+2. **GS reshuffles past years.** 35% of the absolute per-paper change between snapshots fell in years before
+   2024, but positive and negative changes largely cancel. In 2020, for example, papers gained +3,811 and lost
+   −2,274, for an author-level net of +1,298. This looks like citations moving between merged versions.
+   Net backfill into past years is ~7% of growth. No estimator can predict it per paper, and E4's attempt made
+   things worse. Only a re-fetch corrects it, and its effect is already the "noise floor" column above.
+3. **The author constraint adds little over a pure time split** (E2 ≈ E1). E2 still costs nothing extra and
+   guarantees that author-level yearly totals match GS. A per-paper trend seed (E3) is slightly worse.
+4. **Use E2 in production.** Optional: an annual `view_citation` re-fetch of h-core papers to clear the churn
+   where it matters most.
+
+**Cost inputs measured**
+- 9.0% of a t1 publication list was new since t0 (15 months), but only 35% of those had any citations.
+  Uncited papers have empty histograms and need no fetch.
+- 4.1% of papers had a lower total at t1 than at t0. They are included in the results above without a re-fetch,
+  so re-fetching them is optional.
+
+**Limitations**
+- The gap covers 2 calendar years. Production gaps are 18 months (Apr 2025 snapshots) to 33 months (Feb 2024),
+  covering 3 calendar years. The author constraint keeps year totals exact, but the per-paper split across a
+  middle year is untested.
+- One author cohort and one gap. The authors may be more active than the population.
 
 ## Cost scenarios
 
@@ -202,9 +262,9 @@ lookups not included. Costs below are monthly unless marked one-off.
 | Scenario | Requests | SerpApi | SearchApi.io | Scrappa | Scrapingdog |
 |----------|----------|---------|--------------|---------|-------------|
 | **A. Profiles only** (core PiP-AUC) | ~43K/month (~182K at 20/page) | ~$725 (100K plan) | ~$500 (250K plan) | ~$11 | ~$90 |
-| **B. A + new papers + anomaly/validation fetches** (legacy histograms extended; ~50–100K fetches/month, estimated) | ~95–145K/month (~230–280K) | ~$725–1,475 | ~$500–900 | ~$25–40 | ~$90–200 |
+| **B. A + histogram fetches for newly added, cited papers** (legacy histograms extended with E2; ~7K/month, plus an optional ~1% validation sample) | ~50–90K/month (~190–230K) | ~$725 (100K plan) | ~$500 (250K plan) | ~$15–25 | ~$90 |
 | **C. A + re-fetch every changed histogram** | ~0.95M/month (~1.08M) | ~$3,750 | ~$1,500–2,800 | ~$250 | ~$350 |
-| One-off: catch up on papers added since the legacy snapshot (~0.3–0.5M, not measured) | one-off | ~$1,475–2,750 | ~$900 | ~$100 | ~$90–200 |
+| One-off: histograms for cited papers added since the legacy snapshots (~0.55M new papers, ~0.2–0.3M cited; extrapolated from the validation) | one-off | ~$1,475–2,750 | ~$500–900 | ~$50–75 | ~$90–200 |
 | ~~One-off full R2 backfill (~3M)~~ | not needed | — | — | — | — |
 
 DIY with Oxylabs or residential proxies costs roughly between the Scrappa and Scrapingdog columns, plus engineering
@@ -267,8 +327,10 @@ Scrappa ($10 starter pack) and Oxylabs (2K results).
    - p50/p95 latency;
    - wall-clock time for one prolific author (on-demand target: 1–2 min).
 4. Check that legacy GS IDs and `author_pub_id`s still resolve, and how many papers have been added since each author's snapshot (sets the catch-up cost).
-5. Offline, no GS requests: validate histogram extension on the 39,687 legacy publications with two snapshots more than 400 days apart.
-   (Already answered from legacy data: the author histogram equals the sum of per-paper histograms, and ~25–30% of papers change per month.)
+5. Already answered from legacy data, no GS requests needed:
+   - the author histogram equals the sum of per-paper histograms;
+   - ~25–30% of papers change per month;
+   - histogram extension (E2) is validated (see above).
 7. Ask SearchApi and Oxylabs for written quotes for a ~300K–3M/month Scholar workload.
 
 ## Sources
