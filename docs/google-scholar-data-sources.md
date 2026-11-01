@@ -10,9 +10,14 @@
 1. **Split the problem in two.** Core PiP-AUC (current paper percentiles + author percentiles) needs only
    **profile pages**: ~35–130K requests per refresh of ~15K researchers. The per-publication citations-per-year
    histograms, which are ~98% of the request volume (2–3M), feed only the *temporal* views.
-2. **Vendor: SearchApi.io primary, SerpApi fallback**, behind a vendor-agnostic client with response validation.
-   Both document profiles + per-publication histograms, bill only successful requests, and offer $2M legal indemnity.
-   At the reduced volume in (3) the difference between them is ~$500 vs ~$1,500/month.
+2. **Vendor: SerpApi** (changed after the [pilot](#pilot-results-2026-11-01)), behind a vendor-agnostic client
+   with response validation.
+   - SearchApi.io returns wrong per-paper histograms whenever a paper has a year with zero citations: values
+     after the first gap shift by a year. That hit 9 of 45 sampled papers.
+   - SerpApi matched Scholar exactly.
+   - ScraperAPI is blocked by Scholar.
+   - Expected plan: **SerpApi Searcher, $725/month** (100K searches) for a monthly refresh. Big Data, $275/month,
+     is enough for a quarterly refresh. One Volume month ($1,475) covers the catch-up.
 3. **Temporal histograms: no backfill needed.** The legacy `scholar_raw_data` tables hold real GS histograms for
    2.42M papers of 16.2K authors (snapshots from Feb 2024 – Sep 2025; see [Legacy data](#legacy-gs-data-in-bigquery-checked-2026-11-01)).
    Extend each one to today with the gap between its old and current total, split across the years since the
@@ -21,8 +26,8 @@
    Validated offline on 83 authors over 15 months: per-paper cumulative citations have a 1.2% median error;
    temporal h-index is exact for 82% of authors and within ±1 for 99%. That is better than GS's own churn in
    un-refetched past years ([details](#validation-of-histogram-extension-run-2026-11-01)).
-4. **Run a pilot first** (~$115 plus free trial credits) that also tests the two cheap options, Scrapingdog and
-   Scrappa, which could be 5–10× cheaper if their per-publication histograms work.
+4. **Pilot done on free tiers** (2026-11-01). Scrapingdog and Scrappa were not tested; they are the remaining
+   cheaper options if SerpApi's cost becomes a problem.
 5. **Author search by name is gone for everyone** (Google sign-in wall since ~May 2025). Discover GS IDs via
    profile URLs, paper-title lookups, and our own index of crawled authors.
 6. **No licensed source replaces Google Scholar.** Scopus/WoS terms forbid public display of derived metrics, and
@@ -307,13 +312,16 @@ and block-handling time.
      - the article count across pages matches what the profile claims;
      - a histogram sums to roughly `num_citations`;
      - years come from the data, not from position.
-   - Retry failures on the secondary vendor.
-2. **Primary: SearchApi.io. Fallback and canary: SerpApi.** They have the same coverage, success-only billing and
-   indemnity. SearchApi is ~2–3× cheaper even after its 20-per-page profile pagination. SerpApi has the better-documented
-   track record and 100-per-page profiles, so it also serves as a cross-check on a sample.
+   - Retry profile failures on the secondary vendor (SearchApi); retry histogram failures on SerpApi only.
+2. **Primary: SerpApi.** In the pilot it was the only vendor whose per-paper histograms were correct (see
+   [Pilot results](#pilot-results-2026-11-01)). It also returns 100 publications per profile call and has $2M
+   indemnity. Expected plan: Searcher ($725/month) for a monthly refresh, or Big Data ($275/month) for a
+   quarterly one; see [Subscription sizing](#subscription-sizing-serpapi-prices-checked-2026-11-01).
+   - SearchApi.io can serve as a **profile-only** fallback: its profiles matched SerpApi exactly in the pilot.
+     Never take histograms from it unless its zero-year bug is fixed.
 3. **Ship scenario A first** (profiles → current PiP-AUC), then add temporal metrics by extending the legacy histograms (scenario B).
-4. **Re-evaluate the cheap tier after the pilot.** If Scrapingdog's or Scrappa's histograms prove correct, they can
-   take the bulk R2 fetches at a fraction of the cost, with SearchApi as the fallback. Scrappa's counterparty risk
+4. **Cheaper options, if cost becomes a problem:** Scrapingdog and Scrappa were not piloted. Test them with the
+   same pilot script and the same gappy-histogram check before using either. Scrappa's counterparty risk
    (solo founder, 2-year-old company) argues against making it primary.
 
 ## R3: author discovery without name search
@@ -338,28 +346,83 @@ and block-handling time.
 - Vendors carry the operational exposure, and SerpApi/SearchApi indemnify up to $2M. The ToS/robots position still applies
   to us as the party commissioning the data.
 
-## Pilot plan
+## Pilot results (2026-11-01)
 
-Budget: ~$115 (SearchApi Developer $40/10K, SerpApi Developer $75/5K) plus free credits at Scrapingdog (100 credits),
-Scrappa ($10 starter pack) and Oxylabs (2K results).
+Run on free tiers with `scripts/gs_vendor_pilot/`. Quota used: SerpApi 92 of 250, SearchApi 60 of 100,
+ScraperAPI 160 of 1,000 credits.
 
-1. Pick ~20 authors from the old GS reference set, including at least 3 with >1,000 publications (one >2,000).
-2. Fetch full profiles and all `view_citation` pages through SearchApi and SerpApi. Fetch a small subset through
-   Scrapingdog, Scrappa and Oxylabs raw HTML.
-3. Measure:
-   - SearchApi articles per page;
-   - pagination completeness for prolific authors (including Scrappa's `start` ≤990 cap);
-   - histogram correctness against a direct fetch (zero-citation years, year alignment);
-   - Scrapingdog `view_citation` output;
-   - empty-200 rate;
-   - p50/p95 latency;
-   - wall-clock time for one prolific author (on-demand target: 1–2 min).
-4. Check that legacy GS IDs and `author_pub_id`s still resolve, and how many papers have been added since each author's snapshot (sets the catch-up cost).
-5. Already answered from legacy data, no GS requests needed:
-   - the author histogram equals the sum of per-paper histograms;
-   - ~25–30% of papers change per month;
-   - histogram extension (E2) is validated (see above).
-7. Ask SearchApi and Oxylabs for written quotes for a ~300K–3M/month Scholar workload.
+**Panel.** Five authors from the legacy reference set, chosen by publication-list size:
+
+| Author | Publications |
+|--------|--------------|
+| Omkant Pandey | 61 |
+| Ece Kamar | 149 |
+| Panos Ipeirotis | 225 |
+| Lisa Feldman Barrett | 657 |
+| Anders M. Dale | 1,426 |
+
+For each author, the per-paper histograms covered the 5 most-cited papers, plus random cited and uncited papers:
+65 histograms through SerpApi, and the same 45 for the first three authors through SearchApi.
+
+| Check | SerpApi | SearchApi.io | ScraperAPI (raw HTML) |
+|-------|---------|--------------|------------------------|
+| Success rate | 94/94 calls returned 200 with data, no empty pages | 60/60 | **0/6**: every request was redirected to Google's `/sorry/` page (default, premium, ultra-premium, US geo and JS render all tried). 75 credits were charged for a blocked request |
+| Profile page size | 100 per request (Dale: 1,426 publications in 15 calls) | **20 per request; `num` is ignored** (Kamar: 149 in 9 calls) | — |
+| Profile content | Metrics table with all-time and since-2021 columns, author yearly chart, co-authors, email domain, interests | Identical publication lists, citation counts and author charts | — |
+| Per-paper histogram | Matches Scholar exactly, including zero-citation years (omitted, not zero-filled). Verified on 2 gappy papers against a direct Scholar fetch | **Wrong whenever the histogram has a gap**: values are assigned to consecutive years, so everything after the first zero-citation year shifts. 9 of 45 papers wrong (all 9 with gaps); 30 of 30 without gaps correct | — |
+| Latency p50 / p95 | profile 1.6 / 4.6 s; paper 1.2 / 6.9 s | profile 2.9 / 12.2 s; paper 1.8 / 6.0 s | 3–40 s, all failures |
+
+**Other observations**
+- **Histogram sums.** Per-paper histograms sum to a median 99.3% of the paper's "Cited by" total (minimum
+  92%). The gap is undated citations, consistent with the validation finding.
+- **Churn against legacy.** Compared with the Apr–May 2025 legacy histograms for the same 59 papers, a median
+  0.9% of the old per-year counts moved (p90 6%). Totals rose for 57 of 59. This is consistent with the churn
+  measured in the validation.
+- **List growth.** Publication lists grew 8–14% since the Apr–May 2025 snapshot (~18 months), i.e. ~6–7%/year,
+  in line with the 7%/year used in the cost model.
+- **Cited share.** 72–90% of each author's papers have at least one citation.
+- **Direct fetch.** Two direct `view_citation` fetches from a GCP IP succeeded (plain HTTP, no cookies). That
+  shows the pages are fetchable, not that they are fetchable at volume.
+
+**Consequences**
+- **Use SerpApi for everything.** SearchApi is correct for profiles, but its histogram bug corrupts exactly the
+  low-citation papers that make up most of a cohort, and it costs 5× more profile calls.
+- **A SearchApi-for-profiles hybrid isn't worth it.** SearchApi Scale at $500 plus SerpApi Production at $150
+  would save ~$75/month over SerpApi Searcher, at the cost of a second vendor.
+- **Normalisation must fill missing years with zero.** SerpApi omits zero-citation years, so normalisation should
+  fill zeros between the first and last year.
+- **Drop ScraperAPI.** Don't upgrade it.
+
+## Subscription sizing (SerpApi, prices checked 2026-11-01)
+
+| Plan | $/month | Searches/month | Searches/hour |
+|------|---------|----------------|---------------|
+| Production | 150 | 15,000 | 3,000 |
+| Big Data | 275 | 30,000 | 6,000 |
+| **Searcher** | **725** | **100,000** | 20,000 |
+| Volume | 1,475 | 250,000 | 50,000 |
+| Infrastructure | 2,750 | 500,000 | 100,000 |
+
+Failed, errored and cached searches are not counted. There is no annual discount. Searches left over after a
+downgrade become extra credits.
+
+**Monthly need with a monthly refresh of the 16.2K reference authors**
+
+| Item | Searches/month |
+|------|----------------|
+| Profile pages | ~46K (43.4K at the legacy list sizes, plus ~7% growth) |
+| Histograms for newly added cited papers | ~7K |
+| On-demand lookup of an author with no legacy data | ~150 per author (~2–3 profile pages + one histogram per cited paper) |
+| **Total, before on-demand lookups** | **~53K** |
+
+| Option | Plan | What it covers |
+|--------|------|----------------|
+| Monthly refresh | **Searcher ($725/month)** | Leaves ~47K searches, i.e. ~300 new on-demand authors/month. Above ~300/month, use Volume ($1,475; ~1,300 new authors/month) |
+| Quarterly refresh | **Big Data ($275/month)** | ~16K profile pages/month + 7K histograms ≈ 23K, leaving room for ~45 new authors/month |
+| Catch-up (one-off) | **Volume for one month ($1,475)** | ~46K profile pages, plus histograms for cited papers added since the legacy snapshots: ~0.5M new papers, of which ~0.2–0.25M are cited. Fetch high-impact authors first; anything beyond 250K spills into the first Searcher months |
+
+**First-year total:** ~$9.4K with a monthly refresh (one Volume month plus 11 Searcher months), or ~$4.5K with
+a quarterly refresh.
 
 ## Sources
 
