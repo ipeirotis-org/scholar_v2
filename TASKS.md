@@ -32,13 +32,14 @@ Semantic Scholar data has too much junk (fragmented author profiles, low coverag
 via a managed scraping API instead of `scholarly`. Vendor evaluation: [docs/google-scholar-data-sources.md](docs/google-scholar-data-sources.md).
 
 - [x] **Evaluate Google Scholar scraping vendors** (2026-10-12, two research rounds)
-  - Recommendation: SearchApi.io primary, SerpApi fallback/canary; Scrapingdog and Scrappa as possible cheap R2 tier after pilot
+  - Pre-pilot recommendation was SearchApi.io primary; the pilot switched it to SerpApi (see below)
   - GS author search by name now requires sign-in (since mid-2025), so no vendor offers it
   - No licensed source (Scopus, WoS, Dimensions) permits public display of derived metrics
-- [ ] **Pilot** on ~20 authors (~$115 + free credits; steps in the doc's "Pilot plan")
-  - SearchApi articles/page (docs suggest 20), Scrapingdog `view_citation` output, Scrappa `start` ≤990 cap
-  - Histogram correctness (zero-citation years), empty-200 rate, latency
-  - Legacy GS IDs / `author_pub_id`s still resolve; papers added since snapshot
+- [x] **Pilot on free tiers** (2026-11-01, `scripts/gs_vendor_pilot/`): 5 authors, 65 per-paper histograms
+  - SerpApi: 94/94 OK, 100 pubs/call, histograms match Scholar exactly → **primary vendor**
+  - SearchApi: profiles identical, but histograms wrong whenever a paper has a zero-citation year (9/45) → profile-only fallback
+  - ScraperAPI: blocked by Scholar in every mode → drop
+- [ ] **Subscribe to SerpApi**: Volume ($1,475) for the catch-up month, then by refresh cadence: Searcher ($725/month, monthly), Big Data ($275/month, quarterly, or yearly with ~1,500 new authors/yr), or Production ($150/month, yearly with ~330 new authors/yr)
 - [x] **Check legacy `scholar_raw_data` tables** (2026-11-01)
   - 16.2K authors, 3.45M pubs, real GS histograms for 2.42M cited pubs (99.9%); snapshots Feb 2024 – Sep 2025
   - Author yearly histogram = sum of per-paper histograms (exact constraint); ~25–30% of papers change citations per month
