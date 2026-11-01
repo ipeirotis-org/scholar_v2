@@ -18,17 +18,34 @@ def save():
     json.dump(R, open(OUT, "w"))
 
 
+def valid(key, d):
+    """A 200 can still carry an error or an empty payload (a known vendor failure mode)."""
+    if not isinstance(d, dict) or "error" in d or "_unparsed" in d:
+        return False
+    if key.startswith("citation:"):
+        return "citation" in d
+    _, _, pos = key.split(":")
+    if pos in ("0", "1"):  # first page (SerpApi start=0, SearchApi page=1) must carry the profile
+        return "author" in d and bool(d.get("articles"))
+    return True  # past the end, SearchApi omits "articles" entirely; an empty list ends pagination
+
+
 def once(vendor, key, fn):
-    if key in R[vendor] and R[vendor][key]["status"] == 200:
-        return R[vendor][key]
+    """Fetch unless a valid response is cached. Invalid responses are kept for inspection but retried on rerun."""
+    cached = R[vendor].get(key)
+    if cached and cached["status"] == 200 and valid(key, cached["data"]):
+        return {**cached, "ok": True}
     s, b, dt = fn()
     try:
         d = json.loads(b)
     except ValueError:
         d = {"_unparsed": b[:500]}
+    ok = s == 200 and valid(key, d)
+    if not ok:
+        print(f"  WARNING invalid response for {vendor} {key}: status {s}, keys {list(d)[:6]}")
     R[vendor][key] = {"status": s, "secs": dt, "data": d}
     save()
-    return R[vendor][key]
+    return {**R[vendor][key], "ok": ok}
 
 
 PANEL = {  # author_id: (name, fetch full profile via searchapi?, citations sampled)
@@ -46,9 +63,9 @@ for aid in PANEL:
     arts, start = [], 0
     while True:
         r = once("serpapi", f"author:{aid}:{start}", lambda: pc.serpapi_author(aid, start, 100))
-        page = r["data"].get("articles", []) if r["status"] == 200 else []
+        page = r["data"].get("articles", []) if r["ok"] else []
         arts += page
-        if r["status"] != 200 or len(page) < 100:
+        if not r["ok"] or len(page) < 100:
             break
         start += 100
     profiles[aid] = arts
@@ -61,9 +78,9 @@ for aid, (name, full, _) in PANEL.items():
     n, page = 0, 1
     while True:
         r = once("searchapi", f"author:{aid}:{page}", lambda: pc.searchapi_author(aid, page))
-        arts = r["data"].get("articles", []) if r["status"] == 200 else []
+        arts = r["data"].get("articles", []) if r["ok"] else []
         n += len(arts)
-        if r["status"] != 200 or not r["data"].get("pagination", {}).get("next") or not arts:
+        if not r["ok"] or not r["data"].get("pagination", {}).get("next") or not arts:
             break
         page += 1
     print(f"searchapi {name}: {n} articles in {page} pages")
