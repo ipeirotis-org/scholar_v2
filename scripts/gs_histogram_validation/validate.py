@@ -124,11 +124,19 @@ for sid, snaps in asn.items():
         continue
     A1 = hist(a1["cpy"])
     old = [p for p in pubs1 if p in pubs0 and p in near0 and p in near1]
-    new = [p for p in pubs1 if p not in pubs0 and p in near1]
+    # Every other t1 paper must have a t1 histogram, which is treated as known (fetched in
+    # production). A cited paper with no t1 histogram would leak its citations into the
+    # author residual, so such authors are excluded.
+    if any(p not in near1 and (pubs1[p]["nc"] or 0) > 0 for p in pubs1):
+        diag["authors_skipped_unmodeled"] += 1
+        continue
+    new = [p for p in pubs1 if p in near1 and p not in old]
+    truly_new = [p for p in new if p not in pubs0]
     diag["authors"] += 1
     diag["old_pubs"] += len(old)
-    diag["new_pubs"] += len(new)
-    diag["new_pubs_cited"] += sum(1 for p in new if (pubs1[p]["nc"] or 0) > 0)
+    diag["new_pubs"] += len(truly_new)
+    diag["new_pubs_cited"] += sum(1 for p in truly_new if (pubs1[p]["nc"] or 0) > 0)
+    diag["known_old_pubs_without_t0_hist"] += len(new) - len(truly_new)
     diag["old_pubs_cited_t1"] += sum(1 for p in old if (pubs1[p]["nc"] or 0) > 0)
     diag["t1_pubs"] += len(pubs1)
     diag["missing_truth"] += sum(1 for p in pubs1 if p not in near1)
@@ -249,7 +257,9 @@ for Y in years:
     def pct(vals):
         s = sorted(vals)
         n = len(s)
-        return [bisect.bisect_left(s, v) / max(n - 1, 1) for v in vals]
+        # Production (dist_* + RANGE_BUCKET floor lookup) gives tied values the highest
+        # quantile at or below the value, i.e. roughly the share of the cohort <= value.
+        return [(bisect.bisect_right(s, v) - 1) / max(n - 1, 1) for v in vals]
 
     out = {}
     for k in K:

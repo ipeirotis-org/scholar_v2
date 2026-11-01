@@ -18,8 +18,8 @@
    Extend each one to today with the gap between its old and current total, split across the years since the
    snapshot in proportion to the author's yearly histogram.
    Only *cited* papers added since the snapshot need a `view_citation` fetch (~0.2–0.3M one-off, then ~7K/month).
-   Validated offline on 148 authors over 15 months: per-paper cumulative citations have a 1.2% median error;
-   temporal h-index is exact for 74% of authors and within ±1 for 99%. That is better than GS's own churn in
+   Validated offline on 83 authors over 15 months: per-paper cumulative citations have a 1.2% median error;
+   temporal h-index is exact for 82% of authors and within ±1 for 99%. That is better than GS's own churn in
    un-refetched past years ([details](#validation-of-histogram-extension-run-2026-11-01)).
 4. **Run a pilot first** (~$115 plus free trial credits) that also tests the two cheap options, Scrapingdog and
    Scrappa, which could be 5–10× cheaper if their per-publication histograms work.
@@ -198,11 +198,13 @@ month**, about twice the 15% assumed earlier. Re-fetching every changed histogra
 Script: `scripts/gs_histogram_validation/` (two export queries plus `validate.py`). It uses no GS requests.
 
 **Setup**
-- 148 authors with two profile snapshots: Feb 2024 (t0) and May 2025 (t1), a median gap of 463 days.
-- Both snapshots have at least 90% of publications with histograms within 5 days of the profile.
-- 22,695 publications appear in both snapshots. 2,281 publications were added between t0 and t1, and they are
-  treated as fetched, as they would be in production.
-- Mean h-index is 38. These are authors who were re-crawled, so possibly more active than average.
+- Authors with two profile snapshots: Feb 2024 (t0) and May 2025 (t1), a median gap of 463 days.
+  Both snapshots have at least 90% of publications with histograms within 5 days of the profile.
+- **83 authors** remain after excluding 65 who had any *cited* t1 paper without a t1 histogram. Such papers
+  would leak their citations into the author residual.
+- 10,655 publications appear in both snapshots. Every other t1 paper has a t1 histogram and is treated as known
+  (fetched, as in production): 1,031 new since t0, plus 16 that lacked a t0 histogram.
+- Mean h-index is 33. These are authors who were re-crawled, so possibly more active than average.
 - Inputs at t1 are exactly what a fresh profile page gives: each paper's total and the author's yearly histogram.
   The true t1 per-paper histograms are held out for scoring.
 
@@ -220,22 +222,26 @@ Growth must be computed from GS *totals*: t1 total − t0 total, not t1 total �
 citations with no year, which never appear in the histogram. The first version of this analysis used the histogram
 sum and so kept re-adding that undated gap as fake growth. Fixing it cut allocation error from 0.43 to 0.33.
 
-Scoring covers only papers already published by the scored year, matching production temporal stats, which start
-at `pub_year`.
+Scoring matches production in two ways:
+- Only papers already published by the scored year are scored, since production temporal stats start at `pub_year`.
+- Percentiles use production's tie handling. `dist_*` quantiles plus a `RANGE_BUCKET` floor lookup give tied
+  counts the highest quantile at or below the value, i.e. roughly the share of the cohort with that many
+  citations or fewer.
 
 **Results**
 
 | Metric | Through year | E0 stale | E1 | **E2** | E3 | Noise floor: years before t0, not re-fetched |
 |--------|------|----------|----|--------|----|---------------------------------------------|
-| Paper cumulative citations, median rel. error (papers ≥10 cites) | 2024 | 6.5% | 1.2% | **1.2%** | 1.2% | 2.3% (through 2023) |
-| Same, share within 5% | 2024 | 41% | 83% | **84%** | 82% | 74% (through 2023) |
-| Same, share within 5% | 2025 (= t1) | 34% | 94% | **94%** | 94% | — |
-| Paper percentile in pub-year cohort, mean / p95 abs error (pts) | 2024 | 2.1 / 7.1 | 0.75 / 3.0 | **0.74 / 2.9** | 0.76 / 3.0 | 1.1 / 3.5 (through 2023) |
-| Same | 2025 | 2.4 / 9.0 | 0.29 / 0.97 | **0.29 / 0.97** | 0.29 / 0.97 | — |
-| Author h-index exact / within ±1 | 2024 | 26% / 64% | 74% / 98% | **74% / 99%** | 72% / 99% | 57% / 94% (through 2023) |
-| Same | 2025 | 22% / 53% | 84% / 97% | **84% / 97%** | 84% / 97% | — |
-| Author yearly total vs GS author chart, weighted / median error | 2024 (single year) | 88% / 89% | 14% / 10% | **14% / 9%** | 14% / 9% | — |
-| Same | 2025 (single year) | 95% / 98% | 16% / 14% | **13% / 9%** | 13% / 8% | — |
+| Paper cumulative citations, median rel. error (papers ≥10 cites) | 2024 | 6.7% | 1.3% | **1.2%** | 1.2% | 2.3% (through 2023) |
+| Same, share within 5% | 2024 | 40% | 83% | **83%** | 82% | 74% (through 2023) |
+| Same, share within 5% | 2025 (= t1) | 33% | 94% | **94%** | 94% | — |
+| Paper percentile in pub-year cohort, mean / p95 abs error (pts) | 2024 | 2.0 / 7.2 | 0.72 / 2.8 | **0.70 / 2.7** | 0.73 / 2.8 | 1.0 / 3.7 (through 2023) |
+| Same, share off by >2 pts | 2024 | 21% | 8.5% | **8.1%** | 8.3% | 12% (through 2023) |
+| Same, mean / p95 | 2025 | 2.2 / 8.2 | 0.31 / 1.2 | **0.31 / 1.2** | 0.31 / 1.2 | — |
+| Author h-index exact / within ±1 | 2024 | 27% / 70% | 83% / 99% | **82% / 99%** | 80% / 100% | 55% / 98% (through 2023) |
+| Same | 2025 | 23% / 58% | 87% / 99% | **87% / 99%** | 87% / 99% | — |
+| Author yearly total vs GS author chart, weighted / median error | 2024 (single year) | 89% / 89% | 17% / 10% | **17% / 9%** | 17% / 9% | — |
+| Same | 2025 (single year) | 95% / 98% | 18% / 14% | **15% / 9%** | 15% / 9% | — |
 
 **Findings**
 1. **Extension works.** It cuts per-paper error 5× against stale histograms. Cumulative metrics in the
@@ -262,15 +268,17 @@ at `pub_year`.
    h-core papers to clear the churn where it matters most.
 
 **Cost inputs measured**
-- 9.0% of a t1 publication list was new since t0 (15 months), but only 35% of those had any citations.
+- 8.8% of a t1 publication list was new since t0 (15 months), but only 36% of those had any citations.
   Uncited papers have empty histograms and need no fetch.
-- 5.5% of papers had a lower total at t1 than at t0. They are included in the results above without a re-fetch
+- 5.8% of papers had a lower total at t1 than at t0. They are included in the results above without a re-fetch
   (growth clipped to zero), so re-fetching them is optional.
 
 **Limitations**
 - The gap covers 2 calendar years. Production gaps are 18 months (Apr 2025 snapshots) to 33 months (Feb 2024),
   covering 3 calendar years. The per-paper split across a middle year is untested.
-- One author cohort and one gap. The authors may be more active than the population.
+- One author cohort and one gap, 83 authors. The authors may be more active than the population.
+- Percentiles are computed within the validation papers' own cohorts, not the full population, so they only
+  approximate production percentile shifts.
 
 ## Cost scenarios
 
