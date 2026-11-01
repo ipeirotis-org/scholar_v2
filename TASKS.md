@@ -26,6 +26,34 @@
 
 ---
 
+## Return to Google Scholar
+
+Semantic Scholar data has too much junk (fragmented author profiles, low coverage). Move back to Google Scholar
+via a managed scraping API instead of `scholarly`. Vendor evaluation: [docs/google-scholar-data-sources.md](docs/google-scholar-data-sources.md).
+
+- [x] **Evaluate Google Scholar scraping vendors** (2026-10-12, two research rounds)
+  - Recommendation: SearchApi.io primary, SerpApi fallback/canary; Scrapingdog and Scrappa as possible cheap R2 tier after pilot
+  - GS author search by name now requires sign-in (since mid-2025), so no vendor offers it
+  - No licensed source (Scopus, WoS, Dimensions) permits public display of derived metrics
+- [ ] **Pilot** on ~20 authors (~$115 + free credits; steps in the doc's "Pilot plan")
+  - SearchApi articles/page (docs suggest 20), Scrapingdog `view_citation` output, Scrappa `start` ≤990 cap
+  - Histogram correctness (zero-citation years), empty-200 rate, latency
+  - Legacy GS IDs / `author_pub_id`s still resolve; papers added since snapshot
+- [x] **Check legacy `scholar_raw_data` tables** (2026-11-01)
+  - 16.2K authors, 3.45M pubs, real GS histograms for 2.42M cited pubs (99.9%); snapshots Feb 2024 – Sep 2025
+  - Author yearly histogram = sum of per-paper histograms (exact constraint); ~25–30% of papers change citations per month
+  - Full R2 backfill not needed: extend legacy histograms with growth since snapshot
+- [x] **Validate histogram extension offline** (2026-11-01, `scripts/gs_histogram_validation/`)
+  - 83 authors (complete coverage), Feb 2024 → May 2025: E2 (growth = change in GS total, split by time and raked toward author yearly shares) gives 1.2% median error on per-paper cumulative citations, temporal h-index exact 82% / ±1 99%
+  - Better than GS's own churn in past years (noise floor 2.3%, h exact 55%); stale histograms: 6.7%, h exact 27%
+  - Single-year author totals are not exact (median 9% off); show those from the GS author chart directly
+  - Only cited new papers need `view_citation` (35% of new papers); untested for gaps >2 calendar years
+- [ ] **Phase A: profiles only** — vendor-agnostic `ScholarClient` with response validation, raw responses to GCS, current PiP-AUC from GS
+- [ ] **Phase B: temporal metrics** — extend legacy histograms with E2 (see doc); fetch `view_citation` only for newly added cited papers; optional annual re-fetch of h-core papers; monthly snapshots
+- [ ] **Design author discovery without GS name search** (GS URL/ID input, paper-title lookup, index of crawled authors + coauthors)
+
+---
+
 ## BigQuery Cache Layer (Architecture Change)
 
 Decouple the frontend from BigQuery by introducing a dedicated **cache_layer** component. The frontend becomes a pure Firestore reader; all BigQuery queries and cache writes are owned by the cache layer, triggered via Cloud Tasks queues.
