@@ -15,11 +15,11 @@
    At the reduced volume in (3) the difference between them is ~$500 vs ~$1,500/month.
 3. **Temporal histograms: no backfill needed.** The legacy `scholar_raw_data` tables hold real GS histograms for
    2.42M papers of 16.2K authors (snapshots from Feb 2024 – Sep 2025; see [Legacy data](#legacy-gs-data-in-bigquery-checked-2026-11-01)).
-   Extend each one to today with the gap between its old and current total, split across years so that each
-   author's yearly histogram is matched exactly (verified: the author histogram equals the sum of the paper histograms).
+   Extend each one to today with the gap between its old and current total, split across the years since the
+   snapshot in proportion to the author's yearly histogram.
    Only *cited* papers added since the snapshot need a `view_citation` fetch (~0.2–0.3M one-off, then ~7K/month).
-   Validated offline on 148 authors over 15 months: per-paper cumulative citations have a 1.5% median error;
-   temporal h-index is exact for 68% of authors and within ±1 for 96%. That is better than GS's own churn in
+   Validated offline on 148 authors over 15 months: per-paper cumulative citations have a 1.2% median error;
+   temporal h-index is exact for 74% of authors and within ±1 for 99%. That is better than GS's own churn in
    un-refetched past years ([details](#validation-of-histogram-extension-run-2026-11-01)).
 4. **Run a pilot first** (~$115 plus free trial credits) that also tests the two cheap options, Scrapingdog and
    Scrappa, which could be 5–10× cheaper if their per-publication histograms work.
@@ -211,46 +211,65 @@ Script: `scripts/gs_histogram_validation/` (two export queries plus `validate.py
 | | What it does |
 |---|---|
 | E0 | Stale: keep the t0 histograms unchanged |
-| E1 | Split each paper's growth (t1 total − t0 histogram sum) across 2024–2025 by elapsed time |
-| E2 | As E1, then rake to the author's yearly residuals (paper totals exact) |
+| E1 | Split each paper's growth (t1 total − t0 total) across 2024–2025 by elapsed time |
+| E2 | As E1, then rake toward the author's yearly residuals (paper totals exact; see finding 3) |
 | E3 | As E2, seeded with each paper's own recent trend |
 | E4 | As E2, but also places the author's net backfill into pre-2024 years. Dropped: worse than E2 everywhere |
+
+Growth must be computed from GS *totals*: t1 total − t0 total, not t1 total − t0 histogram sum. GS totals include
+citations with no year, which never appear in the histogram. The first version of this analysis used the histogram
+sum and so kept re-adding that undated gap as fake growth. Fixing it cut allocation error from 0.43 to 0.33.
+
+Scoring covers only papers already published by the scored year, matching production temporal stats, which start
+at `pub_year`.
 
 **Results**
 
 | Metric | Through year | E0 stale | E1 | **E2** | E3 | Noise floor: years before t0, not re-fetched |
 |--------|------|----------|----|--------|----|---------------------------------------------|
-| Paper cumulative citations, median rel. error (papers ≥10 cites) | 2024 | 6.5% | 1.5% | **1.5%** | 1.7% | 2.3% (through 2023) |
-| Same, share within 5% | 2024 | 41% | 81% | **81%** | 79% | 74% (through 2023) |
-| Same, share within 5% | 2025 (= t1) | 34% | 90% | **90%** | 90% | — |
-| Paper percentile in pub-year cohort, mean / p95 abs error (pts) | 2024 | 2.1 / 7.2 | 0.8 / 3.2 | **0.8 / 3.1** | 0.8 / 3.2 | 1.2 / 3.6 (through 2023) |
-| Same | 2025 | 2.4 / 9.0 | 0.4 / 1.2 | **0.4 / 1.2** | 0.4 / 1.2 | — |
-| Author h-index exact / within ±1 | 2024 | 26% / 64% | 70% / 96% | **68% / 96%** | 69% / 97% | 57% / 94% (through 2023) |
-| Same | 2025 | 22% / 53% | 68% / 97% | **68% / 97%** | 68% / 97% | — |
+| Paper cumulative citations, median rel. error (papers ≥10 cites) | 2024 | 6.5% | 1.2% | **1.2%** | 1.2% | 2.3% (through 2023) |
+| Same, share within 5% | 2024 | 41% | 83% | **84%** | 82% | 74% (through 2023) |
+| Same, share within 5% | 2025 (= t1) | 34% | 94% | **94%** | 94% | — |
+| Paper percentile in pub-year cohort, mean / p95 abs error (pts) | 2024 | 2.1 / 7.1 | 0.75 / 3.0 | **0.74 / 2.9** | 0.76 / 3.0 | 1.1 / 3.5 (through 2023) |
+| Same | 2025 | 2.4 / 9.0 | 0.29 / 0.97 | **0.29 / 0.97** | 0.29 / 0.97 | — |
+| Author h-index exact / within ±1 | 2024 | 26% / 64% | 74% / 98% | **74% / 99%** | 72% / 99% | 57% / 94% (through 2023) |
+| Same | 2025 | 22% / 53% | 84% / 97% | **84% / 97%** | 84% / 97% | — |
+| Author yearly total vs GS author chart, weighted / median error | 2024 (single year) | 88% / 89% | 14% / 10% | **14% / 9%** | 14% / 9% | — |
+| Same | 2025 (single year) | 95% / 98% | 16% / 14% | **13% / 9%** | 13% / 8% | — |
 
 **Findings**
-1. **Extension works.** It cuts error 4–6× against stale histograms. The extended years end up *more* accurate
-   than the old years are after 15 months of churn: the 2024 numbers beat the "through 2023" noise floor.
+1. **Extension works.** It cuts per-paper error 5× against stale histograms. Cumulative metrics in the
+   extended years end up *more* accurate than the old years are after 15 months of churn: the 2024 numbers beat
+   the "through 2023" noise floor.
 2. **GS reshuffles past years.** 35% of the absolute per-paper change between snapshots fell in years before
    2024, but positive and negative changes largely cancel. In 2020, for example, papers gained +3,811 and lost
    −2,274, for an author-level net of +1,298. This looks like citations moving between merged versions.
    Net backfill into past years is ~7% of growth. No estimator can predict it per paper, and E4's attempt made
    things worse. Only a re-fetch corrects it, and its effect is already the "noise floor" column above.
-3. **The author constraint adds little over a pure time split** (E2 ≈ E1). E2 still costs nothing extra and
-   guarantees that author-level yearly totals match GS. A per-paper trend seed (E3) is slightly worse.
-4. **Use E2 in production.** Optional: an annual `view_citation` re-fetch of h-core papers to clear the churn
-   where it matters most.
+3. **E2 does not match the author's yearly totals exactly.** The per-year error is a median of 9%.
+   - `ipf()` keeps paper totals exact. It uses the author's yearly residuals only as *shares*, rescaled to the summed
+     paper growth, and clips negative residuals.
+   - Summed growth differs from the window residuals by the net backfill into past years (finding 2) and by
+     decreases clipped to zero. Cells are then rounded.
+   - Single-year totals are therefore off by ~9% (median), while cumulative totals, which drive h-index and
+     percentiles, are within ~1%.
+   - The true per-paper histograms do sum to the author chart (median gap 0%, p90 ~5%), so the gap is in the
+     estimator, not the data.
+   - If yearly author totals are displayed directly, take them from the GS author chart rather than summing estimates.
+4. **The author constraint adds little over a pure time split** (E2 ≈ E1, slightly better on yearly totals).
+   A per-paper trend seed (E3) is no better.
+5. **Use E2 in production**, with growth taken from GS totals. Optional: an annual `view_citation` re-fetch of
+   h-core papers to clear the churn where it matters most.
 
 **Cost inputs measured**
 - 9.0% of a t1 publication list was new since t0 (15 months), but only 35% of those had any citations.
   Uncited papers have empty histograms and need no fetch.
-- 4.1% of papers had a lower total at t1 than at t0. They are included in the results above without a re-fetch,
-  so re-fetching them is optional.
+- 5.5% of papers had a lower total at t1 than at t0. They are included in the results above without a re-fetch
+  (growth clipped to zero), so re-fetching them is optional.
 
 **Limitations**
 - The gap covers 2 calendar years. Production gaps are 18 months (Apr 2025 snapshots) to 33 months (Feb 2024),
-  covering 3 calendar years. The author constraint keeps year totals exact, but the per-paper split across a
-  middle year is untested.
+  covering 3 calendar years. The per-paper split across a middle year is untested.
 - One author cohort and one gap. The authors may be more active than the population.
 
 ## Cost scenarios

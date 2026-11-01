@@ -9,7 +9,7 @@ and compare against the true t1 histograms (H1).
 
 Estimators:
   E0 stale        H0 unchanged
-  E1 time-split   growth g = N1 - sum(H0) split across years by elapsed time
+  E1 time-split   growth g = N1 - N0 (change in the paper's GS total) split across years by elapsed time
   E2 author-IPF   same seed, raked to the author's yearly residuals (rows exact)
   E3 trend-IPF    seed uses each paper's own recent trend, raked like E2
 
@@ -108,6 +108,7 @@ def hindex(cites):
 
 records = []      # per-paper results
 author_rows = []  # per-author results
+author_year_rows = []  # per-author, per-window-year totals
 diag = collections.Counter()
 
 for sid, snaps in asn.items():
@@ -140,15 +141,18 @@ for sid, snaps in asn.items():
 
     # How much true growth lands in years before t0's year (GS backfill)?
     for p in old:
-        for y, v in H1[p].items():
-            d = v - H0[p].get(y, 0)
+        for y in set(H0[p]) | set(H1[p]):
+            d = H1[p].get(y, 0) - H0[p].get(y, 0)
             if y < t0.year:
                 diag["growth_pre_t0"] += abs(d)
             else:
                 diag["growth_window"] += abs(d)
 
-    g = {p: max(N1[p] - sum(H0[p].values()), 0) for p in old}
-    diag["neg_growth_pubs"] += sum(1 for p in old if N1[p] - sum(H0[p].values()) < 0)
+    # Growth = change in the paper's GS total. Not N1 - sum(H0): GS totals include
+    # citations without a year, which never appear in the histogram.
+    N0 = {p: pubs0[p]["nc"] or 0 for p in old}
+    g = {p: max(N1[p] - N0[p], 0) for p in old}
+    diag["neg_growth_pubs"] += sum(1 for p in old if N1[p] - N0[p] < 0)
     # author yearly residual after removing known parts
     R = {}
     for y in yrs:
@@ -202,6 +206,13 @@ for sid, snaps in asn.items():
             row[f"h_{k}"] = hindex(pc)
         author_rows.append(row)
 
+    # Author yearly totals in the growth window: how close is each estimator to GS's own chart?
+    for y in yrs:
+        row = {"sid": sid, "y": y, "a1": A1.get(y, 0)}
+        for k in preds:
+            row[k] = sum(preds[k][p].get(y, 0) for p in old) + sum(H1[p].get(y, 0) for p in new)
+        author_year_rows.append(row)
+
 # ---------- report ----------
 K = ["E0", "E1", "E2", "E3"]
 print("== Validation set ==")
@@ -217,7 +228,8 @@ for k in K:
 years = sorted({Y for r in records for Y in r["true"]})
 print("\n== Per-paper cumulative citations through year Y ==")
 for Y in years:
-    rs = [r for r in records if Y in r["true"]]
+    # Only papers published by Y: production temporal stats start at pub_year.
+    rs = [r for r in records if Y in r["true"] and r["yr"] and r["yr"] <= Y]
     print(f"  Y={Y}  papers={len(rs)}")
     for k in K:
         ae = [abs(r["pred"][Y][k] - r["true"][Y]) for r in rs]
@@ -229,7 +241,7 @@ for Y in years:
 
 print("\n== Percentile within pub-year cohort (cumulative through Y), validation papers only ==")
 for Y in years:
-    rs = [r for r in records if Y in r["true"] and r["yr"]]
+    rs = [r for r in records if Y in r["true"] and r["yr"] and r["yr"] <= Y]
     by = collections.defaultdict(list)
     for r in rs:
         by[r["yr"]].append(r)
@@ -261,4 +273,14 @@ for Y in years:
         w1 = sum(1 for r in rs if abs(r[f"h_{k}"] - r["h_true"]) <= 1) / len(rs)
         mae = sum(abs(r[f"h_{k}"] - r["h_true"]) for r in rs) / len(rs)
         line += f"{k}: exact {ex:.2f} ±1 {w1:.2f} MAE {mae:.2f} | "
+    print(line)
+
+print("\n== Author yearly totals in the growth window vs GS author histogram ==")
+for y in sorted({r["y"] for r in author_year_rows}):
+    rs = [r for r in author_year_rows if r["y"] == y and r["a1"] > 0]
+    line = f"  y={y} author-years={len(rs)}: "
+    for k in K:
+        tot = sum(abs(r[k] - r["a1"]) for r in rs) / sum(r["a1"] for r in rs)
+        rel = sorted(abs(r[k] - r["a1"]) / r["a1"] for r in rs)
+        line += f"{k}: weighted err {tot:.3f} median {rel[len(rel) // 2]:.3f} p90 {rel[int(.9 * len(rel))]:.3f} | "
     print(line)

@@ -44,8 +44,9 @@ via a managed scraping API instead of `scholarly`. Vendor evaluation: [docs/goog
   - Author yearly histogram = sum of per-paper histograms (exact constraint); ~25–30% of papers change citations per month
   - Full R2 backfill not needed: extend legacy histograms with growth since snapshot
 - [x] **Validate histogram extension offline** (2026-11-01, `scripts/gs_histogram_validation/`)
-  - 148 authors, Feb 2024 → May 2025: E2 (time split raked to author yearly histogram) gives 1.5% median error on per-paper cumulative citations, temporal h-index exact 68% / ±1 96%
+  - 148 authors, Feb 2024 → May 2025: E2 (growth = change in GS total, split by time and raked toward author yearly shares) gives 1.2% median error on per-paper cumulative citations, temporal h-index exact 74% / ±1 99%
   - Better than GS's own churn in past years (noise floor 2.3%, h exact 57%); stale histograms: 6.5%, h exact 26%
+  - Single-year author totals are not exact (median 9% off); show those from the GS author chart directly
   - Only cited new papers need `view_citation` (35% of new papers); untested for gaps >2 calendar years
 - [ ] **Phase A: profiles only** — vendor-agnostic `ScholarClient` with response validation, raw responses to GCS, current PiP-AUC from GS
 - [ ] **Phase B: temporal metrics** — extend legacy histograms with E2 (see doc); fetch `view_citation` only for newly added cited papers; optional annual re-fetch of h-core papers; monthly snapshots
