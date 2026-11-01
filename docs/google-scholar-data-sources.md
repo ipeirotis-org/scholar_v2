@@ -223,7 +223,8 @@ citations with no year, which never appear in the histogram. The first version o
 sum and so kept re-adding that undated gap as fake growth. Fixing it cut allocation error from 0.43 to 0.33.
 
 Scoring matches production in two ways:
-- Only papers already published by the scored year are scored, since production temporal stats start at `pub_year`.
+- Only papers already published by the scored year and cited at least once by t1 are scored. Production temporal
+  stats start at `pub_year` and require `citationcount > 0`.
 - Percentiles use production's tie handling. `dist_*` quantiles plus a `RANGE_BUCKET` floor lookup give tied
   counts the highest quantile at or below the value, i.e. roughly the share of the cohort with that many
   citations or fewer.
@@ -235,9 +236,9 @@ Scoring matches production in two ways:
 | Paper cumulative citations, median rel. error (papers ≥10 cites) | 2024 | 6.7% | 1.3% | **1.2%** | 1.2% | 2.3% (through 2023) |
 | Same, share within 5% | 2024 | 40% | 83% | **83%** | 82% | 74% (through 2023) |
 | Same, share within 5% | 2025 (= t1) | 33% | 94% | **94%** | 94% | — |
-| Paper percentile in pub-year cohort, mean / p95 abs error (pts) | 2024 | 2.0 / 7.2 | 0.72 / 2.8 | **0.70 / 2.7** | 0.73 / 2.8 | 1.0 / 3.7 (through 2023) |
-| Same, share off by >2 pts | 2024 | 21% | 8.5% | **8.1%** | 8.3% | 12% (through 2023) |
-| Same, mean / p95 | 2025 | 2.2 / 8.2 | 0.31 / 1.2 | **0.31 / 1.2** | 0.31 / 1.2 | — |
+| Paper percentile in pub-year cohort, mean / p95 abs error (pts) | 2024 | 2.4 / 9.3 | 0.97 / 4.0 | **0.94 / 3.9** | 0.99 / 4.0 | 1.45 / 5.3 (through 2023) |
+| Same, share off by >2 pts | 2024 | 28% | 12% | **12%** | 12% | 18% (through 2023) |
+| Same, mean / p95 | 2025 | 2.7 / 10.3 | 0.39 / 1.6 | **0.39 / 1.6** | 0.39 / 1.6 | — |
 | Author h-index exact / within ±1 | 2024 | 27% / 70% | 83% / 99% | **82% / 99%** | 80% / 100% | 55% / 98% (through 2023) |
 | Same | 2025 | 23% / 58% | 87% / 99% | **87% / 99%** | 87% / 99% | — |
 | Author yearly total vs GS author chart, weighted / median error | 2024 (single year) | 89% / 89% | 17% / 10% | **17% / 9%** | 17% / 9% | — |

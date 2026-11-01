@@ -198,7 +198,7 @@ for sid, snaps in asn.items():
 
     evyrs = list(range(2019, t1.year + 1))
     for p in old:
-        rec = {"sid": sid, "pid": p, "yr": pubs1[p].get("yr"), "growth_true": {}, "true": {}, "pred": {}}
+        rec = {"sid": sid, "pid": p, "yr": pubs1[p].get("yr"), "nc1": N1[p], "growth_true": {}, "true": {}, "pred": {}}
         for Y in evyrs:
             rec["true"][Y] = cum(H1[p], Y)
             rec["pred"][Y] = {k: cum(preds[k][p], Y) for k in preds}
@@ -236,8 +236,9 @@ for k in K:
 years = sorted({Y for r in records for Y in r["true"]})
 print("\n== Per-paper cumulative citations through year Y ==")
 for Y in years:
-    # Only papers published by Y: production temporal stats start at pub_year.
-    rs = [r for r in records if Y in r["true"] and r["yr"] and r["yr"] <= Y]
+    # Production eligibility: published by Y (temporal stats start at pub_year) and cited
+    # at all (stats_publication_citations_temporal requires citationcount > 0).
+    rs = [r for r in records if Y in r["true"] and r["yr"] and r["yr"] <= Y and r["nc1"] > 0]
     print(f"  Y={Y}  papers={len(rs)}")
     for k in K:
         ae = [abs(r["pred"][Y][k] - r["true"][Y]) for r in rs]
@@ -249,7 +250,7 @@ for Y in years:
 
 print("\n== Percentile within pub-year cohort (cumulative through Y), validation papers only ==")
 for Y in years:
-    rs = [r for r in records if Y in r["true"] and r["yr"] and r["yr"] <= Y]
+    rs = [r for r in records if Y in r["true"] and r["yr"] and r["yr"] <= Y and r["nc1"] > 0]
     by = collections.defaultdict(list)
     for r in rs:
         by[r["yr"]].append(r)
