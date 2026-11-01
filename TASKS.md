@@ -38,11 +38,14 @@ via a managed scraping API instead of `scholarly`. Vendor evaluation: [docs/goog
 - [ ] **Pilot** on ~20 authors (~$115 + free credits; steps in the doc's "Pilot plan")
   - SearchApi articles/page (docs suggest 20), Scrapingdog `view_citation` output, Scrappa `start` ≤990 cap
   - Histogram correctness (zero-citation years), empty-200 rate, latency
-  - Does the author yearly histogram equal the sum of per-paper histograms?
-  - Fraction of publications whose citation count changes between two snapshots
-- [ ] **Check legacy `scholar_raw_data.pub` `cites_per_year`** as backfill seed and ground truth for imputation
+  - Legacy GS IDs / `author_pub_id`s still resolve; papers added since snapshot
+- [x] **Check legacy `scholar_raw_data` tables** (2026-11-01)
+  - 16.2K authors, 3.45M pubs, real GS histograms for 2.42M cited pubs (99.9%); snapshots Feb 2024 – Sep 2025
+  - Author yearly histogram = sum of per-paper histograms (exact constraint); ~25–30% of papers change citations per month
+  - Full R2 backfill not needed: extend legacy histograms with growth since snapshot
+- [ ] **Validate histogram extension offline** on 39,687 legacy pubs with two snapshots >400 days apart (no GS requests)
 - [ ] **Phase A: profiles only** — vendor-agnostic `ScholarClient` with response validation, raw responses to GCS, current PiP-AUC from GS
-- [ ] **Phase B: temporal metrics** — impute per-paper yearly citations by raking S2 histograms to GS totals; selective `view_citation` fetches; monthly snapshots
+- [ ] **Phase B: temporal metrics** — extend legacy histograms (growth since snapshot split under the author-histogram constraint); fetch `view_citation` only for new papers and anomalies; monthly snapshots
 - [ ] **Design author discovery without GS name search** (GS URL/ID input, paper-title lookup, index of crawled authors + coauthors)
 
 ---

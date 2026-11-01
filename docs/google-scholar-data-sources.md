@@ -13,10 +13,12 @@
 2. **Vendor: SearchApi.io primary, SerpApi fallback**, behind a vendor-agnostic client with response validation.
    Both document profiles + per-publication histograms, bill only successful requests, and offer $2M legal indemnity.
    At the reduced volume in (3) the difference between them is ~$500 vs ~$1,500/month.
-3. **Temporal histograms: impute, then fetch selectively.** Rake S2's `paper_citations_by_year` (already in BigQuery)
-   to GS per-paper totals and the GS author-level yearly histogram (both on the profile page). Fetch real
-   `view_citation` histograms only for papers that drive temporal h-index / percentiles, papers with no S2 match,
-   and a random sample to measure imputation error. Monthly profile snapshots build exact history going forward.
+3. **Temporal histograms: no backfill needed.** The legacy `scholar_raw_data` tables hold real GS histograms for
+   2.42M papers of 16.2K authors (snapshots from Feb 2024 – Sep 2025; see [Legacy data](#legacy-gs-data-in-bigquery-checked-2026-11-01)).
+   Extend each one to today with the gap between its old and current total, split across years so that each
+   author's yearly histogram is matched exactly (verified: the author histogram equals the sum of the paper histograms).
+   Only papers added since the snapshot need a `view_citation` fetch or imputation from S2.
+   Monthly profile snapshots then build exact history going forward.
 4. **Run a pilot first** (~$115 plus free trial credits) that also tests the two cheap options, Scrapingdog and
    Scrappa, which could be 5–10× cheaper if their per-publication histograms work.
 5. **Author search by name is gone for everyone** (Google sign-in wall since ~May 2025). Discover GS IDs via
@@ -30,7 +32,7 @@ Derived from the retired crawler (`crawler/scholarly_client.py`, removed in 92b3
 
 | Req | GS page | Fields used | Volume per full refresh (~15K researchers) |
 |-----|---------|-------------|-------|
-| **R1** Author profile | `citations?user=ID` (≤100 pubs/page via `cstart`/`pagesize`) | name, affiliation, email domain, interests, citedby/hindex/i10 (all + since-year), author yearly histogram, coauthors, full pub list: title, authors, year, `num_citations`, `author_pub_id` | ~35K at 100/page; ~130K at 20/page |
+| **R1** Author profile | `citations?user=ID` (≤100 pubs/page via `cstart`/`pagesize`) | name, affiliation, email domain, interests, citedby/hindex/i10 (all + since-year), author yearly histogram, coauthors, full pub list: title, authors, year, `num_citations`, `author_pub_id` | 43,385 pages at 100/page; 181,705 at 20/page (measured on legacy data) |
 | **R2** Per-pub histogram | `citations?view_op=view_citation&citation_for_view=ID:PUB` | per-year citation counts (feeds `stats_publication_citations_temporal` and the temporal h-index / PiP views) | **2–3M** (one per publication) |
 | **R3** Author search | `citations?view_op=search_authors` | user ID, name, affiliation | **Blocked**: redirects to Google sign-in since ~May 2025 |
 
@@ -133,20 +135,77 @@ No GS page returns per-paper per-year counts in bulk. Export formats are bibliog
    - Expected 2–3× or larger reduction in R2 volume; measure it.
 3. **Monthly snapshots.** Profile-page deltas give exact per-year growth from now on. Re-fetch `view_citation`
    only when deltas are negative or jumpy (GS merges or re-clustering) or for new papers with existing citations.
-4. **Legacy seed.** The old `scholar_raw_data.pub` table may still hold `cites_per_year` from the `scholarly` era.
-   This would be the best seed for a backfill and the best ground truth for validating imputation. **Not yet
-   checked:** BigQuery calls from this session failed with "Invalid Credentials".
+4. **Legacy seed.** The legacy tables cover nearly the whole reference population (next section), which makes
+   option 1 a narrow problem. Instead of imputing whole histograms from S2, we only need to split each paper's growth
+   since its snapshot across the years after it, under an exact per-author, per-year constraint.
+
+## Legacy GS data in BigQuery (checked 2026-11-01)
+
+| Table | Rows | Size | Notes |
+|-------|------|------|-------|
+| `scholar_raw_data.author` | 27,795 | 1.3 GB | All author snapshots (raw JSON) |
+| `scholar_raw_data.author_latest_table` | 16,207 authors | 1.5 GB | Parsed: metrics, `publications` array, coauthors, raw `data` with author `cites_per_year` |
+| `scholar_raw_data.pub` | 4,115,979 | 5.5 GB | All publication snapshots (raw JSON) |
+| `scholar_raw_data.pub_latest_table` | 3,447,496 pubs (16,171 authors) | 5.6 GB | Parsed: `num_citations`, `pub_year`, `cites_per_year` |
+
+**Coverage**
+- Author profiles list 3.48M publications, and 3.43M of them were fetched (98.6%).
+- 15,720 of the 16,207 authors (97%) have at least 95% of their publications fetched.
+- 123 authors have no publications fetched.
+- Of 2.42M publications with at least one citation, 2,418,747 (99.9%) have a non-empty histogram.
+
+**Freshness**
+
+| When fetched | Publications | Authors |
+|--------------|--------------|---------|
+| Feb 2024 | 2.06M | 13.3K |
+| Apr–May 2025 | 1.29M | 6.7K (overlaps the Feb 2024 set) |
+| Other months, through Sep 2025 | ~0.1M | — |
+
+The last fetch was 2026-03 (a single author).
+
+**Internal consistency**
+- Per-paper histograms sum to the paper's `num_citations` within 5% for 97.3% of papers, and exactly for 65%. The mean ratio is 0.985.
+- The author yearly histogram equals the sum of that author's per-paper histograms. This was checked on 114K author-years (13.8K authors, 2015–2023, at least 20 citations, snapshots taken within 3 days of each other): the median ratio is 1.000 and the 10th–90th percentiles are 1.000–1.001.
+- GS's author histogram is therefore a hard column constraint for splitting the growth since each snapshot.
+
+**Publication-list size**
+- Average 215 publications per author (deciles: 25, 42, 63, 89, 123, 166, 226, 322, 505).
+- 382 authors have at least 1,000 publications.
+- 2 authors sit at exactly 3,000, likely a cap in the old crawler.
+- One full profile refresh is **43,385 pages at 100 per page, or 181,705 at 20 per page** (SearchApi).
+
+**How often citation counts change** (consecutive snapshots of the same publication in `scholar_raw_data.pub`)
+
+| Gap between snapshots | Pairs | Median gap | Changed | Increased | Decreased |
+|-----------------------|-------|-----------|---------|-----------|-----------|
+| < 45 days | 192,614 | 12 days | 15.4% | 13.7% | 1.6% |
+| 45–120 days | 10,619 | 55 days | 30.9% | 28.8% | 2.1% |
+| > 400 days | 39,687 | 462 days | 57.0% | 51.6% | 5.4% |
+
+About a quarter of these papers have zero citations in both snapshots. The authors that were re-fetched may be
+more active than average, so treat the rates as an upper bound. Even so, roughly **25–30% of papers change in a
+month**, about twice the 15% assumed earlier. Re-fetching every changed histogram monthly (scenario C) would mean
+~0.9M requests/month, which makes the legacy-seed approach more attractive.
+
+**Validation available now**
+- 39,687 publications have two snapshots more than 400 days apart.
+- Hold out the newer histogram, predict it from the older histogram plus the growth split under the author
+  constraint, and measure the error in temporal h-index and percentiles. This needs no new GS requests.
 
 ## Cost scenarios
 
-Assumptions: ~15K researchers, average ~150 pubs; monthly profile refresh; on-demand lookups not included.
+Assumptions, from the legacy data: 16.2K researchers, an average of 215 pubs, one profile refresh = 43,385 pages at
+100/page or 181,705 at 20/page (SearchApi), and ~25–30% of papers changing per month. Monthly profile refresh; on-demand
+lookups not included. Costs below are monthly unless marked one-off.
 
-| Scenario | Requests / month | SerpApi | SearchApi.io | Scrappa | Scrapingdog |
-|----------|-----------------|---------|--------------|---------|-------------|
-| **A. Profiles only** (core PiP-AUC) | ~35K (100/page) or ~130K (SearchApi at 20/page) | ~$725 (100K plan) | ~$500 (250K plan) | ~$10–25 | ~$40–90 |
-| **B. A + selective R2** (~150K histogram fetches/month, a guess to be measured) | ~185K / ~280K | ~$1,475 (250K plan) | ~$900 (500K plan) | ~$50 | ~$200 |
-| **C. A + all R2 changes** (~450K/month, assuming ~15% of papers change monthly) | ~485K / ~580K | ~$2,750 | ~$1,500 | ~$125 | ~$200–350 |
-| One-off full backfill of R2 (~3M) | — | ~$7,600 | ~$4,200–5,000 | ~$750 | ~$1,000 |
+| Scenario | Requests | SerpApi | SearchApi.io | Scrappa | Scrapingdog |
+|----------|----------|---------|--------------|---------|-------------|
+| **A. Profiles only** (core PiP-AUC) | ~43K/month (~182K at 20/page) | ~$725 (100K plan) | ~$500 (250K plan) | ~$11 | ~$90 |
+| **B. A + new papers + anomaly/validation fetches** (legacy histograms extended; ~50–100K fetches/month, estimated) | ~95–145K/month (~230–280K) | ~$725–1,475 | ~$500–900 | ~$25–40 | ~$90–200 |
+| **C. A + re-fetch every changed histogram** | ~0.95M/month (~1.08M) | ~$3,750 | ~$1,500–2,800 | ~$250 | ~$350 |
+| One-off: catch up on papers added since the legacy snapshot (~0.3–0.5M, not measured) | one-off | ~$1,475–2,750 | ~$900 | ~$100 | ~$90–200 |
+| ~~One-off full R2 backfill (~3M)~~ | not needed | — | — | — | — |
 
 DIY with Oxylabs or residential proxies costs roughly between the Scrappa and Scrapingdog columns, plus engineering
 and block-handling time.
@@ -164,7 +223,7 @@ and block-handling time.
 2. **Primary: SearchApi.io. Fallback and canary: SerpApi.** They have the same coverage, success-only billing and
    indemnity. SearchApi is ~2–3× cheaper even after its 20-per-page profile pagination. SerpApi has the better-documented
    track record and 100-per-page profiles, so it also serves as a cross-check on a sample.
-3. **Ship scenario A first** (profiles → current PiP-AUC), then add temporal metrics via imputation + selective R2 (scenario B).
+3. **Ship scenario A first** (profiles → current PiP-AUC), then add temporal metrics by extending the legacy histograms (scenario B).
 4. **Re-evaluate the cheap tier after the pilot.** If Scrapingdog's or Scrappa's histograms prove correct, they can
    take the bulk R2 fetches at a fraction of the cost, with SearchApi as the fallback. Scrappa's counterparty risk
    (solo founder, 2-year-old company) argues against making it primary.
@@ -207,9 +266,9 @@ Scrappa ($10 starter pack) and Oxylabs (2K results).
    - empty-200 rate;
    - p50/p95 latency;
    - wall-clock time for one prolific author (on-demand target: 1–2 min).
-4. Check whether the author yearly histogram equals the sum of per-paper histograms (decides the raking constraint).
-5. Re-fetch profiles 2–4 weeks later. Measure the share of papers whose `num_citations` changed, which sets scenario C's volume.
-6. If BigQuery access is restored, test imputation against legacy `cites_per_year` on the metrics we display.
+4. Check that legacy GS IDs and `author_pub_id`s still resolve, and how many papers have been added since each author's snapshot (sets the catch-up cost).
+5. Offline, no GS requests: validate histogram extension on the 39,687 legacy publications with two snapshots more than 400 days apart.
+   (Already answered from legacy data: the author histogram equals the sum of per-paper histograms, and ~25–30% of papers change per month.)
 7. Ask SearchApi and Oxylabs for written quotes for a ~300K–3M/month Scholar workload.
 
 ## Sources
