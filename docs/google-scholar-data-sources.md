@@ -424,6 +424,39 @@ downgrade become extra credits.
 **First-year total:** ~$9.4K with a monthly refresh (one Volume month plus 11 Searcher months), or ~$4.5K with
 a quarterly refresh.
 
+### Yearly refresh
+
+**Searches per author** (legacy averages: 215 publications, 70% cited, lists growing ~7%/year)
+
+| Author type | Searches | What they pay for |
+|-------------|----------|-------------------|
+| Already in legacy data | ~8 per year | ~3 profile pages, plus histograms for the 5–6 cited papers added per year. Older histograms are extended from the profile page at no extra cost |
+| New (no legacy data) | ~150 the first time, then ~8 per year | Mostly one histogram per cited paper |
+
+**Capacity per plan.** SerpApi's monthly allowance doesn't roll over, so spread the refresh evenly: about 1/12 of
+the authors each month.
+
+| Plan | $/month | Searches/year | Existing authors at ~8/yr | *or* new authors at ~150 |
+|------|---------|---------------|---------------------------|--------------------------|
+| Developer | 75 | 60K | ~7,500 | ~400 |
+| Production | 150 | 180K | ~22,000 | ~1,200 |
+| Big Data | 275 | 360K | ~45,000 | ~2,400 |
+| Searcher | 725 | 1.2M | ~150,000 | ~8,000 |
+| Volume | 1,475 | 3M | ~375,000 | ~20,000 |
+
+The last two columns are alternatives. Any mix fits if `existing × 8 + new × 150 ≤ searches/year`.
+
+**For the current 16.2K reference authors**
+- **Production ($150/month).** The refresh takes ~130K searches/year. The remaining ~50K covers ~330 new authors
+  per year (~28/month).
+- **Big Data ($275/month).** Leaves room for ~1,500 new authors per year (~125/month).
+- **One-off catch-up.** Still needed: ~250K searches for papers added since the legacy snapshots. Do it as one
+  Volume month ($1,475) before moving to Production or Big Data.
+- **First-year total:** ~$3.1K on Production or ~$4.5K on Big Data, including the catch-up month.
+
+**Trade-off.** Data is up to 12 months old. Histogram extension over a 12-month gap stays within the validated
+range (15 months), so temporal metrics hold up. Current totals and percentiles are as stale as the last refresh.
+
 ## Sources
 
 - **Vendor docs, pricing, specs:**
