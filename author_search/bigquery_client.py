@@ -41,6 +41,14 @@ class BigQuerySearchClient:
         researchers, the search service falls back to the Semantic
         Scholar API which covers all 102M S2 authors.
         """
+        if Config.IS_GS:
+            # Every profiled GS author (~16K), from the gs_statistics view.
+            sql = f"""
+                SELECT scholar_id, name, affiliation, citedby, hindex
+                FROM {Config.bq_view('ranked_author_current')}
+                ORDER BY name
+            """
+            return self._query(sql)
         sql = f"""
             SELECT scholar_id, name, affiliation, citedby, hindex
             FROM {Config.bq_view('ranked_author_current_table')}

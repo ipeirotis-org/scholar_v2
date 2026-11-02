@@ -4,9 +4,15 @@ from cache_layer.config import Config
 
 
 class TestConfig:
-    def test_bq_view(self):
+    def test_bq_view(self, monkeypatch):
+        monkeypatch.setattr(Config, "USE_MATERIALIZED_TABLES", False)
         result = Config.bq_view("ranked_author_current")
         assert result == "`scholar-version2.statistics.ranked_author_current`"
+
+    def test_bq_view_materialized(self, monkeypatch):
+        monkeypatch.setattr(Config, "USE_MATERIALIZED_TABLES", True)
+        result = Config.bq_view("ranked_author_current")
+        assert result == "`scholar-version2.statistics.ranked_author_current_table`"
 
     def test_bq_raw(self):
         result = Config.bq_raw("author")

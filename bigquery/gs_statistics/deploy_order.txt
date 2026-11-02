@@ -1,0 +1,14 @@
+# Topological order for gs_statistics (GS profiles-only analytics).
+# Lines: <file> <view|table>. Views are deployed once; tables (dist_*) are
+# rebuilt by gs_crawler CRAWL_MODE=materialize after crawls.
+base_author_publications.sql view
+stats_publication_current.sql view
+stats_author_current.sql view
+dist_publication_citations.sql table
+dist_author_metrics.sql table
+ranked_publication_current.sql view
+ranked_author_current.sql view
+stats_author_publication_pip_inputs_current.sql view
+stats_author_pip_scores_current.sql view
+dist_pip_auc_scores.sql table
+ranked_author_pip_scores_current.sql view

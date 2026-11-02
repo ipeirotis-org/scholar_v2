@@ -16,7 +16,7 @@
                 <div class="search-input-wrapper">
                     <input type="text" id="author_name" name="author_name"
                            class="form-control"
-                           placeholder="Search by author name..."
+                           placeholder="{% if data_source == 'gs' %}Search by name, or paste a Google Scholar profile URL...{% else %}Search by author name...{% endif %}"
                            autocomplete="off" required
                            aria-describedby="searchHelp"
                            aria-controls="autocomplete-dropdown"
@@ -251,6 +251,7 @@
     }
 
     function appendScholarOption() {
+        {% if data_source == "gs" %}return;  // no external name search for Google Scholar (sign-in required){% endif %}
         appendMoreOption('Search beyond our database for "' + escapeHtml(authorInput.value.trim()) + '"', function() { searchScholar(); });
     }
 

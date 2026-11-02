@@ -10,7 +10,9 @@ class Config:
     PROJECT_ID = os.environ.get("GCP_PROJECT_ID", "scholar-version2")
     BUCKET_NAME = os.environ.get("GCS_BUCKET", "scholar_data_share")
     BQ_DATASET = os.environ.get("BQ_DATASET", "scholar_raw_data")
-    BQ_STATS_DATASET = os.environ.get("BQ_STATS_DATASET", "statistics")
+    # "s2" (Semantic Scholar) or "gs" (Google Scholar profiles); must match the cache layer.
+    DATA_SOURCE = os.environ.get("DATA_SOURCE", "s2").lower()
+    BQ_STATS_DATASET = os.environ.get("BQ_STATS_DATASET", "gs_statistics" if DATA_SOURCE == "gs" else "statistics")
 
     # Flask
     SECRET_KEY = os.environ.get("SECRET_KEY") or secrets.token_hex(32)

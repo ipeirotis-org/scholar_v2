@@ -11,7 +11,7 @@ PiP-AUC combines citation quality with publication productivity into a single 0-
 1. **Citation percentiles**: Each paper is ranked against all papers published in the same year. These percentiles stabilize within ~3 years of publication, enabling early impact assessment.
 2. **Publication volume percentiles**: An author's paper count is compared against all S2 authors *at the same career stage* (years since first publication), with an `active_authors` benchmark (hindex≥3, pubs≥3) for meaningful differentiation.
 3. **The PiP chart**: Papers are sorted by citation percentile (Y-axis, descending) and plotted against the author's publication count percentile (X-axis). Both axes range 0–1.
-4. **AUC score**: The area under this curve is computed via trapezoidal integration. A PiP-AUC of 0.6 ~ top 25%; 0.8 ~ top 10%.
+4. **AUC score**: The area under this curve is computed via trapezoidal integration. A PiP-AUC of 0.6 ~ top 25%; 0.8 ~ top 10% (S2 population). With Google Scholar data (`DATA_SOURCE=gs`), percentiles are relative to the profiled GS authors (~16K, mostly faculty), so the scale is lower: ~0.23 median, ~0.40 top 25%, ~0.58 top 10% (2026-11).
 
 All author metrics (h-index, citations, i10-index) are also percentile-ranked by cohort (year of first publication).
 
@@ -45,6 +45,13 @@ scholar_v2/
 │   ├── config.py                 # Config with env var overrides
 │   ├── Dockerfile                # Python 3.12-slim
 │   └── tests/
+├── gs_crawler/                   # Cloud Run Job: Google Scholar profiles via SerpApi → gs_data (DATA_SOURCE=gs)
+│   ├── main.py                   # Modes: refresh (daily, budgeted) / authors / materialize / deploy
+│   ├── serpapi_client.py         # SerpApi Scholar Author API + response validation
+│   ├── crawler.py, parser.py     # Profile pagination; pages → snapshot rows
+│   ├── writer.py, scheduler.py   # GCS raw + BigQuery load; refresh selection within budget
+│   ├── materialize.py            # gs_statistics views / dist tables (deploy_order.txt)
+│   └── tests/
 ├── dataset_ingestion/            # Cloud Run Job: monthly S2 dataset ingestion + materialization
 │   ├── main.py                   # Job entry point (full/diff/auto modes)
 │   ├── s2_api_client.py          # S2 Datasets API client (releases, file URLs, diffs)
@@ -66,6 +73,8 @@ scholar_v2/
 │   ├── config.py                 # Config with env var overrides
 │   └── tests/
 ├── bigquery/                     # SQL view definitions (8-level DAG)
+│   ├── gs_data/                  # GS profile snapshot tables, latest views, legacy seed
+│   ├── gs_statistics/            # GS (profiles-only) versions of the non-temporal views
 │   ├── statistics/               # Stats, dist tables, ranked views (Levels 1–7)
 │   └── coauthor_network/         # Co-author graph views
 ├── scripts/                      # One-off utility scripts

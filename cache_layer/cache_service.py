@@ -14,12 +14,31 @@ logger = logging.getLogger(__name__)
 
 # S2 author IDs are purely numeric strings
 _S2_ID_RE = re.compile(r"^\d+$")
+# Google Scholar user IDs are 12 characters, e.g. "PA9La6oAAAAJ"
+_GS_ID_RE = re.compile(r"^[A-Za-z0-9_-]{12}$")
+
+
+def _default_gs_crawl(scholar_id):
+    """Crawl one GS profile via SerpApi and append it to gs_data.
+
+    Returns True if the profile was stored. Imported lazily so S2 deployments
+    don't need the crawler's dependencies.
+    """
+    from gs_crawler.main import crawl_and_store, searches_left
+
+    left = searches_left()
+    if left < Config.GS_ON_DEMAND_MIN_SEARCHES:
+        logger.warning("Skipping on-demand crawl of %s: only %d SerpApi searches left", scholar_id, left)
+        return False
+    summary = crawl_and_store([scholar_id], budget=left - Config.GS_ON_DEMAND_MIN_SEARCHES + 1)
+    return summary["crawled"] == 1
 
 
 class CacheService:
-    def __init__(self, bq=None, writer=None):
+    def __init__(self, bq=None, writer=None, gs_crawl=None):
         self.bq = bq or BigQueryClient()
         self.writer = writer or CacheWriter()
+        self.gs_crawl = gs_crawl or _default_gs_crawl
 
     def dispatch(self, request_type, payload):
         """Dispatch a cache population request by type.
@@ -51,10 +70,19 @@ class CacheService:
             return {"status": "error", "message": "Missing scholar_id"}
 
         exists, last_updated = self.bq.get_author_freshness(scholar_id)
+        if not exists and Config.IS_GS and _GS_ID_RE.match(scholar_id):
+            # Unknown GS author: crawl the profile now (~3 SerpApi searches).
+            try:
+                crawled = self.gs_crawl(scholar_id)
+            except Exception:
+                logger.exception("On-demand GS crawl failed for %s", scholar_id)
+                crawled = False
+            if crawled:
+                exists, last_updated = self.bq.get_author_freshness(scholar_id)
         if not exists:
             return {"status": "not_found", "scholar_id": scholar_id}
 
-        # Query all data from S2-backed BigQuery views
+        # Query all data from the BigQuery views (S2 or GS, per Config.DATA_SOURCE)
         author_stats = self.bq.get_author_stats(scholar_id)
         pub_stats = self.bq.get_author_pub_stats(scholar_id)
         temporal_stats = self.bq.get_author_temporal_stats(scholar_id)
@@ -171,7 +199,10 @@ class CacheService:
         entry that should be purged.
 
         Scans all author-keyed cache collections and deletes non-numeric entries.
+        Refused in GS mode, where every valid key is non-numeric.
         """
+        if Config.IS_GS:
+            return {"status": "error", "message": "purge_legacy_cache is disabled when DATA_SOURCE=gs"}
         collections = [
             Config.CACHE_AUTHOR_STATS,
             Config.CACHE_AUTHOR_PUB_STATS,

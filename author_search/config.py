@@ -7,10 +7,18 @@ from shared.bq_helpers import bq_view as _bq_view
 
 class Config:
     PROJECT_ID = os.environ.get("GCP_PROJECT_ID", "scholar-version2")
-    BQ_STATS_DATASET = os.environ.get("BQ_STATS_DATASET", "statistics")
+    # "s2" or "gs" (Google Scholar profiles). In GS mode the index covers every
+    # profiled author and there is no external name-search fallback: GS author
+    # search requires sign-in, so users paste a profile URL/ID instead.
+    DATA_SOURCE = os.environ.get("DATA_SOURCE", "s2").lower()
+    IS_GS = DATA_SOURCE == "gs"
+    BQ_STATS_DATASET = os.environ.get("BQ_STATS_DATASET", "gs_statistics" if IS_GS else "statistics")
 
     # Firestore cache collection for search results
-    CACHE_COLLECTION = "v3_author_search"
+    # Separate collections per data source so switching DATA_SOURCE never
+    # serves the other source's IDs.
+    CACHE_COLLECTION = "v3_gs_author_search" if IS_GS else "v3_author_search"
+    INDEX_COLLECTION = "v3_gs_author_name_index" if IS_GS else "v3_author_name_index"
 
     # Search cache freshness
     CACHE_TTL_HOURS = 24

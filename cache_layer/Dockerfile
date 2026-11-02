@@ -8,6 +8,8 @@ RUN pip install --upgrade pip setuptools wheel \
 
 COPY cache_layer/ /app/cache_layer/
 COPY shared/ /app/shared/
+# On-demand GS profile crawls (DATA_SOURCE=gs)
+COPY gs_crawler/ /app/gs_crawler/
 
 EXPOSE 8081
 ENV PORT=8081

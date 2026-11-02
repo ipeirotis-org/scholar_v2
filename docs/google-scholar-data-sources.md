@@ -303,6 +303,12 @@ lookups not included. Costs below are monthly unless marked one-off.
 DIY with Oxylabs or residential proxies costs roughly between the Scrappa and Scrapingdog columns, plus engineering
 and block-handling time.
 
+## Status (2026-11-02)
+
+Phase A (profiles only) is built and running in parallel to the S2 pipeline; the app still serves S2 data
+until `DATA_SOURCE=gs` is set. See [architecture-gs-crawler.md](architecture-gs-crawler.md) for components,
+budget on the SerpApi Developer plan (5,000 searches/month), and the switch-over checklist.
+
 ## Recommendation
 
 1. **Build a vendor-agnostic `ScholarClient`** with `get_author(id, page)` and `get_citation(id, pub_id)`.

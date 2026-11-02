@@ -586,7 +586,9 @@ def register_routes(app):
         temporal stats) for a known author using cache reads only, and
         reports per-step timings.
         """
-        default_author = os.environ.get("SPEED_CHECK_AUTHOR_ID", "2942126")
+        default_author = os.environ.get(
+            "SPEED_CHECK_AUTHOR_ID", "PA9La6oAAAAJ" if Config.DATA_SOURCE == "gs" else "2942126"
+        )
         author_id = _validate_scholar_id(
             request.args.get("author_id", default_author).strip()
         )
