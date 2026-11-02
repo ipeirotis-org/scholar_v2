@@ -251,7 +251,7 @@
     }
 
     function appendScholarOption() {
-        {% if data_source == "gs" %}return;  // no external name search for Google Scholar (sign-in required){% endif %}
+        {% if not s2_search_fallback %}return;  // no external name search (GS needs sign-in; S2 fetches are off){% endif %}
         appendMoreOption('Search beyond our database for "' + escapeHtml(authorInput.value.trim()) + '"', function() { searchScholar(); });
     }
 

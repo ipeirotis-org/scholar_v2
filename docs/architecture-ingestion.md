@@ -1,5 +1,10 @@
 # Component 1: Dataset Ingestion
 
+> **Status (2026-11-02): new Semantic Scholar fetches are switched off.** The `s2-monthly-ingestion`
+> scheduler is paused, and `deploy-dataset-ingestion.yml` runs only on manual dispatch and keeps it paused.
+> Existing `s2_data` tables are left as they are. Google Scholar data now comes from the
+> [GS crawler](architecture-gs-crawler.md).
+
 > Part of [System Architecture](ARCHITECTURE.md)
 
 **Purpose:** Download Semantic Scholar bulk datasets and load them into BigQuery. Also materializes the full analytics DAG after loading.

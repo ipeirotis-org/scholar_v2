@@ -29,6 +29,9 @@ class Config:
         "projects/875626982900/secrets/s2-api-key/versions/latest",
     )
     S2_TIMEOUT_SECONDS = int(os.environ.get("S2_TIMEOUT_SECONDS", "10"))
+    # Live S2 API name-search fallback. Off by default since 2026-11-02 (no new
+    # Semantic Scholar fetches); set S2_SEARCH_FALLBACK=true to re-enable.
+    S2_SEARCH_FALLBACK = os.environ.get("S2_SEARCH_FALLBACK", "false").lower() in ("true", "1", "yes")
 
     @classmethod
     def bq_view(cls, view_name):

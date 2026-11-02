@@ -377,7 +377,8 @@ class AuthorSearchService:
         # Always fall back when 0 results; also fall back with scholar=True
         # when < 5 results, giving users broader coverage on explicit request.
         if len(results) == 0 or (scholar and len(results) < 5):
-            results = self._supplement_with_s2(name, results)
+            if Config.S2_SEARCH_FALLBACK:
+                results = self._supplement_with_s2(name, results)
 
         logger.info("Search '%s': %d results (scholar=%s)", name, len(results), scholar)
         # Don't cache empty results — a transient S2 API failure should
