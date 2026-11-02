@@ -43,6 +43,7 @@ def create_app(config=None):
         return {
             "current_year": datetime.datetime.now().year,
             "ga_tracking_id": Config.GA_TRACKING_ID,
+            "data_source": Config.DATA_SOURCE,
         }
 
     from frontend.routes import register_routes

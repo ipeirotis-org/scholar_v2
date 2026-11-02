@@ -17,17 +17,30 @@
     <h4>How are percentiles calculated?</h4>
     <p>
         All metrics (h-index, citations, i10-index, publication count) are percentile-ranked
+        {% if data_source == "gs" %}
+        against active authors among the Google Scholar profiles we track
+        {% else %}
         against active authors in the <a href="https://www.semanticscholar.org/" target="_blank" rel="noopener">Semantic Scholar</a>
-        dataset who started publishing in the same year. This age-aware normalization
+        dataset
+        {% endif %}
+        who started publishing in the same year. This age-aware normalization
         prevents bias toward senior researchers.
     </p>
 
     <h4>How often is data updated?</h4>
     <p>
+        {% if data_source == "gs" %}
+        Author and publication data comes from public
+        <a href="https://scholar.google.com/" target="_blank" rel="noopener">Google Scholar</a> profiles.
+        Profiles are refreshed on a rolling schedule, and a profile we have not seen
+        before is fetched the first time it is requested.
+        Citation-over-time charts are not available yet.
+        {% else %}
         Author and publication data is sourced from the
         <a href="https://www.semanticscholar.org/product/api/dataset" target="_blank" rel="noopener">Semantic Scholar Academic Graph Dataset</a>,
         which is updated weekly.
         Distribution tables (population percentiles) are refreshed quarterly.
+        {% endif %}
     </p>
 
     <h4>Contact</h4>

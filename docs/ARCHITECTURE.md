@@ -43,6 +43,7 @@ PiP Score is a distributed system for analyzing research impact using percentile
 | 3 | **Frontend** | Display precomputed analytics (read-only from Firestore) | User queries, Firestore cache | HTML pages with Plotly.js charts | [architecture-frontend.md](architecture-frontend.md) |
 | 4 | **Author Search** | Find authors by name (in-memory index + S2 API fallback) | Author name query string | Matching author list | [architecture-author-search.md](architecture-author-search.md) |
 | 5 | **Cache Layer** | Populate Firestore cache from BigQuery | Cloud Tasks (priority + batch queues) | Firestore cache documents | [architecture-cache-layer.md](architecture-cache-layer.md) |
+| 6 | **GS Crawler** (Phase A, parallel) | Google Scholar profiles via SerpApi; GS analytics read when `DATA_SOURCE=gs` | SerpApi (Scholar Author API) | `gs_data.*` snapshots, `gs_statistics.*` views | [architecture-gs-crawler.md](architecture-gs-crawler.md) |
 
 ---
 

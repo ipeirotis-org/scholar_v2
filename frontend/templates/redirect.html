@@ -13,7 +13,11 @@
 
     {% if status == "not_found" %}
         <p>Author <strong>{{ author_id }}</strong> was not found in our database.</p>
+        {% if data_source == "gs" %}
+        <p class="text-muted">This Google Scholar profile could not be fetched. Please check the profile ID (the <code>user=</code> value in the profile URL) and try again.</p>
+        {% else %}
         <p class="text-muted">This author may not exist in the Semantic Scholar dataset. Please check the author ID and try again.</p>
+        {% endif %}
     {% else %}
         {# status == "unknown": freshness not cached, author may or may not exist in BQ #}
         {% if has_cached_data %}

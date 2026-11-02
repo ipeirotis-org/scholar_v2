@@ -81,7 +81,11 @@
             <a href="mailto:panos@nyu.edu">Panos Ipeirotis</a>.
         </p>
         <p class="text-center text-muted" style="font-size: 0.85em;">
+            {% if data_source == "gs" %}
+            Data from public <a href="https://scholar.google.com/" target="_blank" rel="noopener">Google Scholar</a> profiles.
+            {% else %}
             Powered by data from <a href="https://www.semanticscholar.org/" target="_blank" rel="noopener">Semantic Scholar</a>.
+            {% endif %}
         </p>
     </footer>
 

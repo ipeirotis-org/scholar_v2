@@ -7,6 +7,7 @@ on:
       - 'frontend/**'
       - 'author_search/**'
       - 'cache_layer/**'
+      - 'gs_crawler/**'
       - '.github/workflows/deploy-frontend.yml'
 
   workflow_dispatch:
@@ -22,6 +23,9 @@ env:
   CACHE_LAYER_IMAGE: cache_layer
   QUEUE_LOCATION: northamerica-northeast1
   FUNCTIONS_BASE: us-central1-scholar-version2.cloudfunctions.net
+  # "s2" (Semantic Scholar) or "gs" (Google Scholar profiles). Set the repository
+  # variable DATA_SOURCE=gs to switch; see docs/google-scholar-data-sources.md.
+  DATA_SOURCE: ${{ vars.DATA_SOURCE || 's2' }}
 
 jobs:
   deploy-cache-layer:
@@ -65,6 +69,12 @@ jobs:
       env:
         IMAGE_PATH: ${{ env.GAR_LOCATION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.REPOSITORY_NAME }}/${{ env.CACHE_LAYER_IMAGE }}:${{ github.sha }}
       run: |-
+        # GS mode crawls unknown authors on demand, which needs the SerpApi key.
+        # Only mounted in GS mode so S2 deploys don't depend on that secret's IAM.
+        SECRETS_FLAG=""
+        if [ "${{ env.DATA_SOURCE }}" = "gs" ]; then
+          SECRETS_FLAG="--set-secrets=SERPAPI_KEY=serpapi-key:latest"
+        fi
         gcloud run deploy ${{ env.CACHE_LAYER_SERVICE }} \
           --image "$IMAGE_PATH" \
           --platform managed \
@@ -72,7 +82,8 @@ jobs:
           --no-allow-unauthenticated \
           --memory=1Gi \
           --timeout=300 \
-          --set-env-vars="GCP_PROJECT_ID=${{ env.GCP_PROJECT_ID }},QUEUE_LOCATION=${{ env.QUEUE_LOCATION }},USE_MATERIALIZED_TABLES=true"
+          --set-env-vars="GCP_PROJECT_ID=${{ env.GCP_PROJECT_ID }},QUEUE_LOCATION=${{ env.QUEUE_LOCATION }},USE_MATERIALIZED_TABLES=true,DATA_SOURCE=${{ env.DATA_SOURCE }}" \
+          $SECRETS_FLAG
 
     - name: Get Cache Layer URL
       id: cache-url
@@ -146,7 +157,7 @@ jobs:
           --region ${{ env.GCP_REGION }} \
           --allow-unauthenticated \
           --memory=1Gi \
-          --set-env-vars="GCP_PROJECT_ID=${{ env.GCP_PROJECT_ID }},CACHE_LAYER_URL=$CACHE_LAYER_URL,QUEUE_LOCATION=${{ env.QUEUE_LOCATION }}" \
+          --set-env-vars="GCP_PROJECT_ID=${{ env.GCP_PROJECT_ID }},CACHE_LAYER_URL=$CACHE_LAYER_URL,QUEUE_LOCATION=${{ env.QUEUE_LOCATION }},DATA_SOURCE=${{ env.DATA_SOURCE }}" \
           --set-secrets="S2_API_KEY=s2-api-key:latest"
 
     - name: Get Cloud Run service URL

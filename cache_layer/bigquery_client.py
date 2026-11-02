@@ -33,8 +33,11 @@ class BigQueryClient:
         """Get per-publication PiP inputs with metadata for an author.
 
         Sources paper details (title, year, citations) from S2 papers table
-        and PiP inputs (percentiles, rank) from the statistics views.
+        (or the GS profile's publication list in GS mode) and PiP inputs
+        (percentiles, rank) from the statistics views.
         """
+        if Config.IS_GS:
+            return self._get_author_pub_stats_gs(scholar_id)
         sql = f"""
             SELECT
                 S.author_pub_id,
@@ -65,6 +68,30 @@ class BigQueryClient:
         df = df.drop_duplicates(subset=["author_pub_id"], keep="first")
         return df.to_dict("records")
 
+    def _get_author_pub_stats_gs(self, scholar_id):
+        sql = f"""
+            SELECT
+                S.author_pub_id,
+                p.title,
+                COALESCE(p.venue, CAST(p.pub_year AS STRING)) AS citation,
+                p.pub_year,
+                p.num_citations,
+                S.num_citations_percentile,
+                S.publication_rank,
+                S.num_papers_percentile
+            FROM {Config.bq_view('stats_author_publication_pip_inputs_current')} S
+            JOIN {Config.bq_view('stats_publication_current')} p
+                ON p.author_pub_id = S.author_pub_id
+            WHERE S.scholar_id = @scholar_id
+              AND p.scholar_id = @scholar_id
+            ORDER BY S.publication_rank
+        """
+        params = [ScalarQueryParameter("scholar_id", "STRING", scholar_id)]
+        df = self._query(sql, params)
+        if df is None:
+            return []
+        return df.drop_duplicates(subset=["author_pub_id"], keep="first").to_dict("records")
+
     def get_author_stats(self, scholar_id):
         """Get author metrics with percentiles and PiP-AUC score."""
         sql = f"""
@@ -82,6 +109,8 @@ class BigQueryClient:
 
     def get_publication_stats(self, author_pub_id):
         """Get temporal citation stats for a publication."""
+        if Config.IS_GS:
+            return []  # GS profiles-only mode: no per-paper citation histograms yet
         current_year = datetime.now().year
         sql = f"""
             SELECT
@@ -105,6 +134,8 @@ class BigQueryClient:
 
     def get_author_temporal_stats(self, scholar_id):
         """Get temporal evolution of author metrics."""
+        if Config.IS_GS:
+            return []  # GS profiles-only mode: temporal metrics not computed yet
         sql = f"""
             SELECT *
             FROM {Config.bq_view('ranked_author_metrics_temporal')}
@@ -124,12 +155,21 @@ class BigQueryClient:
         Queries the S2-backed stats view. The last_updated timestamp comes
         from the S2 author record (CURRENT_TIMESTAMP at view computation time).
         """
-        sql = f"""
-            SELECT last_updated
-            FROM {Config.bq_view('stats_author_current')}
-            WHERE scholar_id = @scholar_id
-            LIMIT 1
-        """
+        if Config.IS_GS:
+            # Cheap lookup on the snapshot view; last_updated = crawl time.
+            sql = f"""
+                SELECT fetched_at AS last_updated
+                FROM {Config.bq_gs('authors_latest')}
+                WHERE scholar_id = @scholar_id
+                LIMIT 1
+            """
+        else:
+            sql = f"""
+                SELECT last_updated
+                FROM {Config.bq_view('stats_author_current')}
+                WHERE scholar_id = @scholar_id
+                LIMIT 1
+            """
         params = [ScalarQueryParameter("scholar_id", "STRING", scholar_id)]
         df = self._query(sql, params)
         if df is not None and not df.empty:

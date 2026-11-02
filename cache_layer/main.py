@@ -134,6 +134,8 @@ def admin_purge_legacy():
     Returns 200 on full success, 207 on partial failure, 500 on total failure.
     """
     result = service.dispatch("purge_legacy_cache", {})
+    if result.get("message", "").startswith("purge_legacy_cache is disabled"):
+        return jsonify(result), 409
     status = result.get("status")
     if status == "ok":
         status_code = 200

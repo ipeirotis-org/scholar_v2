@@ -14,11 +14,13 @@ Three search modes:
 """
 
 import logging
+import re
 import threading
 import time
 
 from author_search.bigquery_client import BigQuerySearchClient
 from author_search.cache import SearchCache
+from author_search.config import Config
 
 logger = logging.getLogger(__name__)
 
@@ -29,12 +31,43 @@ _index_loaded_at = 0
 _INDEX_TTL_SECONDS = 6 * 3600  # Refresh from Firestore every 6 hours
 
 # Firestore collection for the persisted index (chunked)
-_INDEX_COLLECTION = "v3_author_name_index"
+_INDEX_COLLECTION = Config.INDEX_COLLECTION
 _CHUNK_SIZE = 4000
 
 # Result limits
 _TYPEAHEAD_LIMIT = 10
 _FULL_SEARCH_LIMIT = 50
+
+# A GS profile URL (".../citations?user=PA9La6oAAAAJ&hl=en") or a bare 12-char ID.
+_GS_URL_RE = re.compile(r"[?&]user=([A-Za-z0-9_-]{12})(?:[&#]|$)")
+_GS_ID_RE = re.compile(r"^[A-Za-z0-9_-]{12}$")
+
+
+def parse_gs_profile_id(text):
+    """Return the GS user ID in a pasted profile URL or bare ID, else None.
+
+    A bare ID must contain a digit, "_"/"-", or an uppercase letter after the
+    first character, so a capitalised 12-letter name ("Christianson") is
+    still treated as a name search.
+    """
+    text = text.strip()
+    m = _GS_URL_RE.search(text)
+    if m:
+        return m.group(1)
+    if _GS_ID_RE.match(text) and any(c.isdigit() or c.isupper() or c in "_-" for c in text[1:]):
+        return text
+    return None
+
+
+def _gs_id_result(gs_id):
+    """Search result for a pasted GS profile: the indexed author if known, else a stub
+    (the results page fetches unknown profiles on demand)."""
+    with _index_lock:
+        for entry in _author_index:
+            if entry.get("scholar_id") == gs_id:
+                return dict(entry, source="gs_id")
+    return {"scholar_id": gs_id, "name": f"Google Scholar profile {gs_id}", "affiliation": "",
+            "citedby": None, "hindex": None, "source": "gs_id"}
 
 
 def _load_index_from_firestore(cache):
@@ -310,6 +343,11 @@ class AuthorSearchService:
         # Ensure the in-memory index is loaded (pass bq for bootstrap)
         _ensure_index_loaded(self.cache, bq=self.bq)
 
+        if Config.IS_GS:
+            gs_id = parse_gs_profile_id(name)
+            if gs_id:
+                return [_gs_id_result(gs_id)]
+
         if typeahead:
             return _search_in_memory(name, limit=_TYPEAHEAD_LIMIT) or []
 
@@ -327,6 +365,13 @@ class AuthorSearchService:
         if results is None:
             logger.warning("Search '%s': index not loaded, returning empty", name)
             return []
+
+        if Config.IS_GS:
+            # No external name search: GS author search requires sign-in.
+            logger.info("Search '%s': %d results (gs index)", name, len(results))
+            if results:
+                self.cache.set_search_results(cache_key, results)
+            return results
 
         # Supplement with S2 API when we got few local results.
         # Always fall back when 0 results; also fall back with scholar=True

@@ -106,3 +106,24 @@ jobs:
     # ── Level 7: Temporal PiP ranked ───────────────────────────────────
     - name: 'Level 7: ranked_author_pip_scores_temporal'
       run: bq query --project_id=${{ env.PROJECT_ID }} --use_legacy_sql=false < bigquery/statistics/ranked_author_pip_scores_temporal.sql
+
+    # ── Google Scholar (profiles only): gs_data + gs_statistics ─────────
+    # Parallel to the S2 views above; the app reads these only when
+    # DATA_SOURCE=gs. Order comes from bigquery/gs_statistics/deploy_order.txt.
+    # dist_* tables are rebuilt by the gs-crawler job (CRAWL_MODE=materialize).
+    # The one-off legacy seed (bigquery/gs_data/03_seed_from_legacy.sql) is
+    # run manually and is not part of this workflow.
+    - name: 'GS: gs_data tables and latest views'
+      run: |
+        bq query --project_id=${{ env.PROJECT_ID }} --use_legacy_sql=false < bigquery/gs_data/01_tables.sql
+        bq query --project_id=${{ env.PROJECT_ID }} --use_legacy_sql=false < bigquery/gs_data/02_latest_views.sql
+
+    - name: 'GS: gs_statistics views'
+      run: |
+        grep -v '^#' bigquery/gs_statistics/deploy_order.txt | while read -r file kind; do
+          [ -z "$file" ] && continue
+          if [ "$kind" = "view" ]; then
+            echo "Deploying $file"
+            bq query --project_id=${{ env.PROJECT_ID }} --use_legacy_sql=false < "bigquery/gs_statistics/$file"
+          fi
+        done

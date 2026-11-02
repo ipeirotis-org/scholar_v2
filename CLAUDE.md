@@ -45,6 +45,13 @@ scholar_v2/
 │   ├── config.py                 # Config with env var overrides
 │   ├── Dockerfile                # Python 3.12-slim
 │   └── tests/
+├── gs_crawler/                   # Cloud Run Job: Google Scholar profiles via SerpApi → gs_data (DATA_SOURCE=gs)
+│   ├── main.py                   # Modes: refresh (daily, budgeted) / authors / materialize / deploy
+│   ├── serpapi_client.py         # SerpApi Scholar Author API + response validation
+│   ├── crawler.py, parser.py     # Profile pagination; pages → snapshot rows
+│   ├── writer.py, scheduler.py   # GCS raw + BigQuery load; refresh selection within budget
+│   ├── materialize.py            # gs_statistics views / dist tables (deploy_order.txt)
+│   └── tests/
 ├── dataset_ingestion/            # Cloud Run Job: monthly S2 dataset ingestion + materialization
 │   ├── main.py                   # Job entry point (full/diff/auto modes)
 │   ├── s2_api_client.py          # S2 Datasets API client (releases, file URLs, diffs)
@@ -66,6 +73,8 @@ scholar_v2/
 │   ├── config.py                 # Config with env var overrides
 │   └── tests/
 ├── bigquery/                     # SQL view definitions (8-level DAG)
+│   ├── gs_data/                  # GS profile snapshot tables, latest views, legacy seed
+│   ├── gs_statistics/            # GS (profiles-only) versions of the non-temporal views
 │   ├── statistics/               # Stats, dist tables, ranked views (Levels 1–7)
 │   └── coauthor_network/         # Co-author graph views
 ├── scripts/                      # One-off utility scripts

@@ -1,0 +1,4 @@
+google-cloud-bigquery[all]==3.40.1
+google-cloud-storage==2.19.0
+google-cloud-secret-manager==2.23.1
+requests==2.32.3
