@@ -55,9 +55,10 @@ via a managed scraping API instead of `scholarly`. Vendor evaluation: [docs/goog
   - [x] `gs_statistics`: GS versions of the non-temporal analytics views (deployed; validated on pilot authors)
   - [x] Cache layer, frontend and author search behind `DATA_SOURCE` (default `s2`); GS mode crawls unknown authors on demand, accepts pasted GS profile URLs/IDs, disables the legacy purge
   - [x] End-to-end crawl of 2 authors (3 searches)
-  - [ ] Grant `secretAccessor` on `serpapi-key` to the cache layer's runtime account (IAM change, needs approval)
+  - [x] Grant `secretAccessor` on `serpapi-key` to the cache layer's runtime account (approved and applied 2026-11-02)
   - [ ] Deploy `gs-crawler` job + schedulers (merge triggers *Deploy Google Scholar Crawler*)
-  - [ ] Decide on the percentile reference population (profiled GS authors, ~16.2K) and update the "PiP-AUC 0.6 ≈ top 25%" guidance
+  - [x] Percentile reference population: keep the profiled GS authors (decided 2026-11-02); guidance updated (~0.40 top 25%, ~0.58 top 10%)
+  - [x] No daily cap on on-demand crawls (decided 2026-11-02); the 1,000-search reserve and the 25-search floor still apply
   - [ ] Switch: set repo variable `DATA_SOURCE=gs`, redeploy frontend + cache layer, rebuild the author index
 - [ ] **Phase B: temporal metrics** — extend legacy histograms with E2 (see doc); fetch `view_citation` only for newly added cited papers; optional annual re-fetch of h-core papers; monthly snapshots
 - [ ] **Design author discovery without GS name search** (GS URL/ID input, paper-title lookup, index of crawled authors + coauthors)

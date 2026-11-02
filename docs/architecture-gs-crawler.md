@@ -50,15 +50,15 @@ gs-weekly-materialize ──► gs-crawler job (CRAWL_MODE=materialize): rebuild
 - **Cost per author:** an average profile costs ~3 searches, so ~1,300 authors are refreshed a month and the
   16.2K reference set turns over in roughly a year.
 - **On-demand:** a new author costs ~3 searches. These crawls stop when the account is down to
-  `GS_ON_DEMAND_MIN_SEARCHES=25`.
+  `GS_ON_DEMAND_MIN_SEARCHES=25`. There is deliberately no daily cap (decided 2026-11-02).
 - **Free calls:** account checks (`account.json`) and failed searches are not counted by SerpApi.
 
 ## Differences from the S2 analytics
 
 - **Reference population.** Percentiles are relative to the profiled GS authors: ~16.2K, seeded from the
   2024–2025 legacy crawl, plus on-demand additions. The S2 version compared against ~99M S2 authors. This is how
-  the pre-S2 GS version worked, but the scale moves. A PiP-AUC of ~0.58 is the 90th percentile here (as of
-  2026-11).
+  the pre-S2 GS version worked, but the scale moves: a PiP-AUC of ~0.23 is the median, ~0.40 the 75th and
+  ~0.58 the 90th percentile (pooled across cohorts, 2026-11). Kept by decision on 2026-11-02.
 - **Metrics source.** h-index, i10 and citations come straight from the GS profile. The `*5y` columns hold
   the profile's "since YYYY" values.
 - **Cohort year.** `year_of_first_pub` is the earliest *cited* paper with a plausible year, because GS
@@ -68,8 +68,8 @@ gs-weekly-materialize ──► gs-crawler job (CRAWL_MODE=materialize): rebuild
 
 ## Switching the app to GS
 
-1. **Grant secret access.** Give the cache layer's runtime account (`875626982900-compute@developer.gserviceaccount.com`)
-   `roles/secretmanager.secretAccessor` on secret `serpapi-key`. On-demand crawls need it.
+1. ~~**Grant secret access.**~~ Done 2026-11-02: the cache layer's runtime account
+   (`875626982900-compute@developer.gserviceaccount.com`) has `roles/secretmanager.secretAccessor` on `serpapi-key`.
 2. **Check write access.** Make sure that account can append to `gs_data` and write `gs://scholar_data_share/gs_raw/`.
 3. **Flip the setting.** Set the repository variable `DATA_SOURCE=gs` and re-run *Deploy Frontend & Cache Layer*.
 4. **Rebuild the search index.** Call `POST /api/refresh_author_index`. GS mode uses separate Firestore

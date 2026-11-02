@@ -11,7 +11,7 @@ PiP-AUC combines citation quality with publication productivity into a single 0-
 1. **Citation percentiles**: Each paper is ranked against all papers published in the same year. These percentiles stabilize within ~3 years of publication, enabling early impact assessment.
 2. **Publication volume percentiles**: An author's paper count is compared against all S2 authors *at the same career stage* (years since first publication), with an `active_authors` benchmark (hindex≥3, pubs≥3) for meaningful differentiation.
 3. **The PiP chart**: Papers are sorted by citation percentile (Y-axis, descending) and plotted against the author's publication count percentile (X-axis). Both axes range 0–1.
-4. **AUC score**: The area under this curve is computed via trapezoidal integration. A PiP-AUC of 0.6 ~ top 25%; 0.8 ~ top 10%.
+4. **AUC score**: The area under this curve is computed via trapezoidal integration. A PiP-AUC of 0.6 ~ top 25%; 0.8 ~ top 10% (S2 population). With Google Scholar data (`DATA_SOURCE=gs`), percentiles are relative to the profiled GS authors (~16K, mostly faculty), so the scale is lower: ~0.23 median, ~0.40 top 25%, ~0.58 top 10% (2026-11).
 
 All author metrics (h-index, citations, i10-index) are also percentile-ranked by cohort (year of first publication).
 
