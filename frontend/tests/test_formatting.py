@@ -60,7 +60,7 @@ def test_build_standing_gs_wording_and_metric_order():
     s = build_standing(MILANFAR, "gs")
     assert s["phrase"] == "in the top 23%"
     assert s["group"] == "tracked active authors"
-    assert s["cohort"] == "whose first cited publication was in 1990"
+    assert s["cohort"] == "whose career started in 1990"
     assert s["pip_ordinal"] == "77.1st"
     assert s["pip_score"] == 0.4272
     assert [m["label"] for m in s["metrics"]] == [
@@ -73,7 +73,7 @@ def test_build_standing_gs_wording_and_metric_order():
 def test_build_standing_s2_wording():
     s = build_standing(MILANFAR, "s2")
     assert s["group"] == "active Semantic Scholar authors"
-    assert s["cohort"] == "whose first publication was in 1990"
+    assert s["cohort"] == "whose career started in 1990"
 
 
 def test_build_standing_treats_nan_as_missing():

@@ -71,10 +71,11 @@ def build_standing(stats, data_source):
     first_year = int(first_year) if first_year is not None else None
     if data_source == "gs":
         group = "tracked active authors"
-        cohort = f"whose first cited publication was in {first_year}" if first_year else None
     else:
         group = "active Semantic Scholar authors"
-        cohort = f"whose first publication was in {first_year}" if first_year else None
+    # year_of_first_pub is the career-start year (in GS it skips stray early
+    # items), matching the "Career start" label in the page header.
+    cohort = f"whose career started in {first_year}" if first_year else None
 
     pip_score = _number(stats.get("pip_auc_score"))
     pip_pct = _number(stats.get("pip_auc_score_percentile"))

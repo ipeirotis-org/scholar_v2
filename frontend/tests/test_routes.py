@@ -111,7 +111,7 @@ class TestResultsRoute:
             html = response.data.decode()
             # Headline leads with the comparison group, then the raw score
             assert "ranks <span class=\"standing-share\">in the top 10%</span>" in html
-            assert "whose first publication was in 2010" in html
+            assert "whose career started in 2010" in html
             assert "Career start 2010" in html
             assert "PiP-AUC 0.7500" in html
             assert "Cited publications" in html
