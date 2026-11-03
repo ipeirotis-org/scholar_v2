@@ -5,6 +5,9 @@ Dispatches by request type and coordinates BigQuery reads + Firestore writes.
 
 import logging
 import re
+from datetime import datetime, timedelta, timezone
+
+from google.api_core.exceptions import AlreadyExists
 
 from cache_layer.bigquery_client import BigQueryClient
 from cache_layer.cache_writer import CacheWriter
@@ -71,12 +74,17 @@ class CacheService:
 
         exists, last_updated = self.bq.get_author_freshness(scholar_id)
         if not exists and Config.IS_GS and _GS_ID_RE.match(scholar_id):
-            # Unknown GS author: crawl the profile now (~3 SerpApi searches).
+            # Unknown GS author: crawl the profile now (~3 SerpApi searches),
+            # unless another task is already crawling it.
+            if not self._acquire_crawl_lock(scholar_id):
+                return {"status": "in_progress", "scholar_id": scholar_id}
             try:
                 crawled = self.gs_crawl(scholar_id)
             except Exception:
                 logger.exception("On-demand GS crawl failed for %s", scholar_id)
                 crawled = False
+            finally:
+                self._release_crawl_lock(scholar_id)
             if crawled:
                 exists, last_updated = self.bq.get_author_freshness(scholar_id)
         if not exists:
@@ -126,6 +134,41 @@ class CacheService:
             },
             "writes": written,
         }
+
+    def _crawl_lock_ref(self, scholar_id):
+        return self.writer.db.collection(Config.GS_CRAWL_LOCKS).document(scholar_id)
+
+    def _acquire_crawl_lock(self, scholar_id):
+        """Return True if this task may crawl `scholar_id`.
+
+        Uses Firestore create() (fails if the doc exists) as a lock. A lock older
+        than GS_CRAWL_LOCK_MINUTES is treated as abandoned (crashed task) and taken
+        over. If Firestore itself fails, crawl anyway: a duplicate crawl costs a
+        few searches, a missing profile costs the user.
+        """
+        now = datetime.now(timezone.utc)
+        try:
+            ref = self._crawl_lock_ref(scholar_id)
+            try:
+                ref.create({"started_at": now})
+                return True
+            except AlreadyExists:
+                snap = ref.get()
+                started = snap.get("started_at") if snap.exists else None
+                if started and now - started < timedelta(minutes=Config.GS_CRAWL_LOCK_MINUTES):
+                    logger.info("GS crawl of %s already in progress; skipping", scholar_id)
+                    return False
+                ref.set({"started_at": now})
+                return True
+        except Exception:
+            logger.exception("Crawl lock unavailable for %s; crawling without it", scholar_id)
+            return True
+
+    def _release_crawl_lock(self, scholar_id):
+        try:
+            self._crawl_lock_ref(scholar_id).delete()
+        except Exception:
+            logger.exception("Failed to release crawl lock for %s", scholar_id)
 
     def _populate_publication_detail(self, payload):
         """Query BQ for publication temporal data and write to cache."""

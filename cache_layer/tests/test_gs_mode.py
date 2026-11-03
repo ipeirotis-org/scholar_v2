@@ -111,3 +111,64 @@ class TestGsPurgeDisabled:
         result = svc.dispatch("purge_legacy_cache", {})
         assert result["status"] == "error"
         writer.db.collection.assert_not_called()
+
+
+class TestGsCrawlLock:
+    from google.api_core.exceptions import AlreadyExists as _AlreadyExists
+
+    def _service(self, lock_ref):
+        bq, writer = mock.MagicMock(), mock.MagicMock()
+        bq.get_author_freshness.side_effect = [(False, None), (True, datetime.now(timezone.utc))]
+        bq.get_author_stats.return_value = {"name": "A"}
+        bq.get_author_pub_stats.return_value = []
+        bq.get_author_temporal_stats.return_value = []
+        writer.write_batch.return_value = 1
+        writer.db.collection.return_value.document.return_value = lock_ref
+        crawl = mock.MagicMock(return_value=True)
+        return CacheService(bq=bq, writer=writer, gs_crawl=crawl), crawl
+
+    def test_first_task_takes_lock_crawls_and_releases(self, gs_mode):
+        ref = mock.MagicMock()
+        svc, crawl = self._service(ref)
+        result = svc.dispatch("populate_author_profile", {"scholar_id": GS_ID})
+        assert result["status"] == "ok"
+        ref.create.assert_called_once()
+        crawl.assert_called_once_with(GS_ID)
+        ref.delete.assert_called_once()
+
+    def test_concurrent_task_does_not_crawl(self, gs_mode):
+        ref = mock.MagicMock()
+        ref.create.side_effect = self._AlreadyExists("held")
+        ref.get.return_value.exists = True
+        ref.get.return_value.get.return_value = datetime.now(timezone.utc)
+        svc, crawl = self._service(ref)
+        result = svc.dispatch("populate_author_profile", {"scholar_id": GS_ID})
+        assert result["status"] == "in_progress"
+        crawl.assert_not_called()
+        ref.delete.assert_not_called()
+
+    def test_stale_lock_is_taken_over(self, gs_mode):
+        from datetime import timedelta
+        ref = mock.MagicMock()
+        ref.create.side_effect = self._AlreadyExists("held")
+        ref.get.return_value.exists = True
+        ref.get.return_value.get.return_value = datetime.now(timezone.utc) - timedelta(hours=1)
+        svc, crawl = self._service(ref)
+        assert svc.dispatch("populate_author_profile", {"scholar_id": GS_ID})["status"] == "ok"
+        ref.set.assert_called_once()
+        crawl.assert_called_once()
+
+    def test_lock_released_when_crawl_raises(self, gs_mode):
+        ref = mock.MagicMock()
+        svc, crawl = self._service(ref)
+        crawl.side_effect = RuntimeError("SerpApi down")
+        svc.bq.get_author_freshness.side_effect = [(False, None)]
+        assert svc.dispatch("populate_author_profile", {"scholar_id": GS_ID})["status"] == "not_found"
+        ref.delete.assert_called_once()
+
+    def test_firestore_failure_still_crawls(self, gs_mode):
+        ref = mock.MagicMock()
+        ref.create.side_effect = RuntimeError("firestore down")
+        svc, crawl = self._service(ref)
+        assert svc.dispatch("populate_author_profile", {"scholar_id": GS_ID})["status"] == "ok"
+        crawl.assert_called_once()
