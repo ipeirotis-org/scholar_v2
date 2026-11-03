@@ -62,6 +62,45 @@ class TestPartitions:
             wikidata._fetch("a", session)
 
 
+class TestSources:
+    HEADER = "p,g,label,desc,links,enwiki\n"
+
+    def _rows(self, n):
+        return self.HEADER + "".join(
+            f"http://www.wikidata.org/entity/Q{i},{i:012d},Name {i},,1,\n" for i in range(n))
+
+    def test_qlever_full_result_is_used(self, monkeypatch):
+        monkeypatch.setattr(wikidata, "MIN_FULL_ROWS", 3)
+        session = MagicMock()
+        session.get.return_value = _resp(200, self._rows(5))
+        with patch.object(wikidata, "fetch_pageviews", return_value={}):
+            rows = wikidata.fetch_all(session)
+        assert len(rows) == 5
+        assert session.get.call_count == 1
+        assert session.get.call_args.args[0] == wikidata.QLEVER_URL
+        assert "STRSTARTS" not in session.get.call_args.kwargs["params"]["query"]
+
+    def test_short_qlever_result_falls_back_to_wdqs(self, monkeypatch):
+        monkeypatch.setattr(wikidata, "MIN_FULL_ROWS", 100)
+        session = MagicMock()
+        session.get.side_effect = lambda url, **kw: _resp(200, self._rows(5) if url == wikidata.QLEVER_URL
+                                                          else self.HEADER)
+        with patch.object(wikidata, "fetch_pageviews", return_value={}):
+            wikidata.fetch_all(session)
+        wdqs = [c for c in session.get.call_args_list if c.args[0] == wikidata.SPARQL_URL]
+        assert len(wdqs) == len(wikidata.ID_CHARS)
+
+    def test_throttled_small_partition_is_retried_not_failed(self):
+        responses = [_resp(200, self.HEADER + "x\njava.util.concurrent.TimeoutException\n"),
+                     _resp(200, self.HEADER + "http://www.wikidata.org/entity/Q1,l5kAAAAAAAAJ,Ann,,1,\n")]
+        session = MagicMock()
+        session.get.side_effect = responses
+        with patch.object(wikidata.time, "sleep") as sleep:
+            rows = wikidata._fetch_partition("l5k", session)
+        assert [r["g"] for r in rows] == ["l5kAAAAAAAAJ"]
+        sleep.assert_called_once()
+
+
 class TestPageviews:
     def test_maps_normalized_and_redirected_titles_back(self):
         data = {"query": {

@@ -52,9 +52,11 @@ Google Scholar's author search needs a signed-in browser, and SerpApi's Scholar 
 link author names to profiles, so the app cannot turn a name into a GS ID. Wikidata can: ~130K people
 carry a Google Scholar author ID (property P1960). The monthly `wikidata` run:
 
-1. Pulls every P1960 holder with an English label from the public SPARQL endpoint (one query per
-   leading ID character, split further on timeouts), plus the English description, the sitelinks
-   count and the English Wikipedia article title.
+1. Pulls every P1960 holder with an English label (~125K), plus the English description, the
+   sitelinks count and the English Wikipedia article title. One query on QLever (`qlever.dev`,
+   ~20 s); if that fails, the Wikidata Query Service, one query per leading ID character (split
+   further, with back-off, on timeouts). WDQS alone proved fragile: the first production run
+   failed after 26 min when it throttled small partitions.
 2. Adds 60-day English Wikipedia pageviews via the Action API (`prop=pageviews`, 50 titles per
    request, paced, at most 25 min). Best-effort: missing views stay NULL.
 3. Replaces `gs_data.wikidata_authors`, refusing a load that would shrink it by more than half.
