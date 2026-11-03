@@ -38,7 +38,7 @@ scholar_v2/
 │   ├── routes.py                 # Routes: /, /results, /publication, /download, /data, /help, /api/*
 │   ├── cache.py                  # Read-only Firestore cache client
 │   ├── queue_client.py           # Enqueue cache-miss tasks to priority queue
-│   ├── visualization.py          # Matplotlib plot generation (base64 PNG)
+│   ├── formatting.py             # Plain-language percentile wording for the results page
 │   ├── config.py                 # Config with env var overrides
 │   ├── templates/                # Jinja2 HTML templates
 │   ├── static/                   # CSS, JS assets

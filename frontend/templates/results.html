@@ -3,104 +3,138 @@
 {% block title %}{{ stats.get('name', 'Author') }} -- PiP Score{% endblock %}
 
 {% block content %}
-<div class="container mt-4">
-    <section aria-label="Author information">
-        <h2>Author: {{ stats.get('name', 'N/A') }}</h2>
-        <div class="author-details card p-3 mb-4">
-            <ul class="list-unstyled mb-0">
-                <li><strong>Name:</strong> {{ stats.get('name') or 'N/A' }}</li>
-                <li><strong>Affiliation:</strong> {{ stats.get('affiliation') or 'N/A' }}</li>
-                <li><strong>Author ID:</strong> {{ author_id }}</li>
-                {% if stats_cached_at %}
-                <li>
-                    <strong>Statistics Calculated:</strong> {{ stats_cached_at.strftime('%Y-%m-%d %H:%M') }}
-                    (<a href="javascript:void(0);" id="rebuildStatsButton"
-                        data-author-id="{{ author_id }}"
-                        role="button" aria-label="Rebuild author statistics">Rebuild</a>)
-                </li>
-                {% endif %}
-                {% if stats.year_of_first_pub %}
-                <li>
-                    <strong>First Year Active:</strong> {{ stats.year_of_first_pub }}
-                    ({{ current_year - stats.year_of_first_pub + 1 }} years active)
-                </li>
-                {% endif %}
-            </ul>
-        </div>
-    </section>
+<div class="container mt-4 results-page">
+    <header class="author-header" aria-label="Author information">
+        <h1 class="author-name">{{ stats.get('name') or 'N/A' }}</h1>
+        <p class="author-meta">
+            {% if stats.get('affiliation') %}<span>{{ stats.get('affiliation') }}</span>{% endif %}
+            {% if stats.year_of_first_pub %}
+            <span>First cited publication {{ stats.year_of_first_pub }}
+                ({{ current_year - stats.year_of_first_pub + 1 }} years)</span>
+            {% endif %}
+            {% if data_source == "gs" %}
+            <span><a href="https://scholar.google.com/citations?user={{ author_id }}" target="_blank"
+                     rel="noopener">Google Scholar profile &#8599;</a></span>
+            {% endif %}
+        </p>
+    </header>
 
-    <section aria-label="Author metrics">
-        <h3>Research Metrics</h3>
-        <div class="card p-3 mb-4">
-            <ul class="list-unstyled mb-0">
-                <li>
-                    <span class="metrics-explanation" data-toggle="tooltip"
-                          title="Total citations; percentile vs authors who started publishing in {{ stats.year_of_first_pub }}.">
-                        Total Citations</span>: {{ stats.citedby }}
-                    ({{ (100 * stats.citedby_percentile)|round(1) }}% percentile)
-                </li>
-                <li>
-                    <span class="metrics-explanation" data-toggle="tooltip"
-                          title="H-index: largest h such that h publications have at least h citations.">
-                        H-index</span>: {{ stats.hindex }}
-                    ({{ (100 * stats.hindex_percentile)|round(1) }}% percentile)
-                </li>
-                <li>
-                    <span class="metrics-explanation" data-toggle="tooltip"
-                          title="Number of publications with at least one citation.">
-                        Total Publications</span>: {{ stats.total_publications_with_citations }}
-                    ({{ (100 * stats.total_publications_with_citations_percentile)|round(1) }}% percentile)
-                </li>
-                <li>
-                    <span class="metrics-explanation" data-toggle="tooltip"
-                          title="Number of publications with at least 10 citations.">
-                        i10-index</span>: {{ stats.i10index }}
-                    ({{ (100 * stats.i10index_percentile)|round(1) }}% percentile)
-                </li>
-                <li class="mt-2">
-                    <strong>
-                        <span class="metrics-explanation" data-toggle="tooltip"
-                              title="PiP-AUC combines citation quality with publication productivity into a single 0-to-1 score.">
-                            PiP-AUC Score</span>:
-                        {% if stats.pip_auc_score is not none %}
-                            {{ stats.pip_auc_score|round(4) }}
-                            ({{ (100 * stats.pip_auc_score_percentile)|round(1) }}% percentile)
-                        {% else %}
-                            <span class="text-muted">Pending (publication data still being processed)</span>
-                        {% endif %}
-                    </strong>
-                </li>
-            </ul>
-            <div class="mt-2">
-                <a class="btn btn-info btn-sm" data-toggle="collapse" href="#pipExplanation"
-                   role="button" aria-expanded="false" aria-controls="pipExplanation">
-                    Learn more about PiP-AUC Score
-                </a>
-                <div class="collapse mt-2" id="pipExplanation">
-                    <p class="text-justify">
-                        The PiP-AUC score evaluates jointly the citation impact of individual papers,
-                        together with the overall productivity (number of papers) produced by an author.
-                        For each paper, we calculate its citation percentile against all papers published
-                        in the same year. Papers are sorted by decreasing percentile on the y-axis. On the
-                        x-axis, we plot the author's publication count percentile compared to peers who
-                        started publishing in the same year. The area under this curve captures both
-                        impact and quantity of a researcher's work. The score ranges from 0 to 1.
-                    </p>
-                </div>
+    <section class="standing card" aria-labelledby="standingHeadline">
+        <p class="eyebrow">Where this author stands</p>
+        {% if standing.has_pip %}
+        <h2 class="standing-headline" id="standingHeadline">
+            {{ standing.name }} ranks <span class="standing-share">{{ standing.phrase }}</span>
+            of {{ standing.group }}{% if standing.cohort %} {{ standing.cohort }}{% endif %}.
+        </h2>
+        <p class="standing-score">
+            <span class="standing-score-value">PiP-AUC {{ "%.4f"|format(standing.pip_score) }}</span>
+            <span class="standing-score-sep" aria-hidden="true">&middot;</span>
+            <span>{{ standing.pip_ordinal }} percentile in this cohort</span>
+            {% if pub_chart_data %}
+            <span class="standing-score-sep" aria-hidden="true">&middot;</span>
+            <a href="#explore" data-explorer-view="pip" data-explorer-scroll>How the score is computed</a>
+            {% endif %}
+        </p>
+        {% else %}
+        <h2 class="standing-headline" id="standingHeadline">{{ standing.name }}</h2>
+        <p class="standing-score text-muted">PiP-AUC is pending: publication data is still being processed.</p>
+        {% endif %}
+
+        {% if standing.metrics %}
+        <div class="metric-scale" role="table"
+             aria-label="Conventional metrics as percentiles of the same cohort">
+            <div class="metric-head" role="row">
+                <span role="columnheader">Metric</span>
+                <span role="columnheader" class="metric-value">Value</span>
+                <span role="columnheader" class="metric-axis">
+                    <span class="sr-only">Percentile in cohort</span>
+                    {% for tick in [0, 25, 50, 75, 100] %}
+                    <span class="metric-tick" style="left: {{ tick }}%" aria-hidden="true">{{ tick }}</span>
+                    {% endfor %}
+                    {% if standing.has_pip %}
+                    <span class="metric-ref-label" style="left: {{ standing.pip_position }}%"
+                          aria-hidden="true">PiP-AUC</span>
+                    {% endif %}
+                </span>
+                <span role="columnheader" class="metric-pct"><span class="sr-only">Percentile</span></span>
             </div>
+            {% for m in standing.metrics %}
+            <div class="metric-row" role="row">
+                <span class="metric-label" role="rowheader">
+                    <span class="metrics-explanation" data-toggle="tooltip" title="{{ m.help }}">{{ m.label }}</span>
+                </span>
+                <span class="metric-value" role="cell">{{ "{:,}".format(m.value) }}</span>
+                <span class="metric-track" role="cell" aria-label="{{ m.ordinal }} percentile">
+                    <span class="metric-bar" style="width: {{ m.position }}%"></span>
+                    <span class="metric-dot" style="left: {{ m.position }}%"></span>
+                    {% if standing.has_pip %}
+                    <span class="metric-ref" style="left: {{ standing.pip_position }}%" aria-hidden="true"></span>
+                    {% endif %}
+                </span>
+                <span class="metric-pct" role="cell">{{ m.ordinal }}</span>
+            </div>
+            {% endfor %}
         </div>
+        <p class="standing-note">
+            Each row places a conventional metric on the same 0&ndash;100 percentile scale
+            {%- if standing.has_pip %}; the dashed line is the PiP-AUC percentile ({{ standing.pip_ordinal }}){% endif %}.
+            {% if data_source == "gs" %}
+            Tracked active authors are the Google Scholar profiles we crawl with an h-index of at
+            least 3 and at least 3 publications.
+            {% else %}
+            Active authors have an h-index of at least 3 and at least 3 publications.
+            {% endif %}
+            {% if standing.num_records and standing.num_records > standing.num_scored %}
+            Cited publications counts the {{ "{:,}".format(standing.num_scored) }} of
+            {{ "{:,}".format(standing.num_records) }} profile records with at least one citation;
+            only these are scored.
+            {% endif %}
+        </p>
+        {% endif %}
     </section>
 
     {% if pub_chart_data %}
-    <section aria-label="PiP-AUC visualizations">
-        <h3>Visualizations</h3>
-        <div class="row mb-4">
-            <div class="col-md-6">
-                <div id="percentileRankPlot" style="width:100%;height:500px;"></div>
+    <section id="explore" class="explore" aria-labelledby="exploreTitle">
+        <div class="explore-head">
+            <h3 id="exploreTitle">Which works explain this standing</h3>
+            <div class="btn-group btn-group-sm view-toggle" role="group" aria-label="Chart view">
+                <button type="button" class="btn btn-outline-violet active" data-explorer-view="year"
+                        aria-pressed="true">By publication year</button>
+                <button type="button" class="btn btn-outline-violet" data-explorer-view="pip"
+                        aria-pressed="false">PiP curve</button>
             </div>
-            <div class="col-md-6">
-                <div id="pipPlot" style="width:100%;height:500px;"></div>
+        </div>
+        <p class="explore-finding" id="exploreFinding"></p>
+        <div class="row">
+            <div class="col-lg-8">
+                <div id="paperChart" class="paper-chart" role="img"></div>
             </div>
+            <div class="col-lg-4">
+                <aside id="paperPanel" class="paper-panel" aria-live="polite" aria-label="Selected work"></aside>
+            </div>
+        </div>
+
+        <div class="paper-list-wrap">
+            <div class="paper-list-toolbar">
+                <span class="paper-list-count">{{ "{:,}".format(pub_chart_data|length) }} scored works</span>
+                <div class="btn-group btn-group-sm" role="group" aria-label="Sort works by">
+                    <button type="button" class="btn btn-outline-violet active" data-explorer-sort="percentile"
+                            aria-pressed="true">Percentile for its year</button>
+                    <button type="button" class="btn btn-outline-violet" data-explorer-sort="citations"
+                            aria-pressed="false">Citations</button>
+                    <button type="button" class="btn btn-outline-violet" data-explorer-sort="year"
+                            aria-pressed="false">Newest</button>
+                </div>
+            </div>
+            <p class="paper-list-note" id="paperListNote" hidden></p>
+            <div class="paper-list-head" aria-hidden="true">
+                <span>Percentile</span><span>Work</span><span class="text-right">Citations</span>
+            </div>
+            <ol class="paper-list" id="paperList"></ol>
+            <noscript>
+                <p><a href="{{ url_for('publications', author_id=author_id) }}">See the full list of publications.</a></p>
+            </noscript>
+            <button type="button" class="btn btn-link paper-list-more" id="paperListMore" hidden></button>
         </div>
     </section>
     {% endif %}
@@ -122,21 +156,31 @@
     </section>
     {% endif %}
 
-    <section aria-label="Publications">
-        <h3>Publications</h3>
+    <section class="results-footer" aria-label="Data and downloads">
         <p>
-            <a href="{{ url_for('publications', author_id=author_id) }}" class="btn btn-primary">
-                View All Publications
+            <a href="{{ url_for('publications', author_id=author_id) }}" class="btn btn-primary btn-sm">
+                Publications table
             </a>
-            <a href="{{ url_for('download_results', author_id=author_id) }}" class="btn btn-outline-secondary ml-2">
+            <a href="{{ url_for('download_results', author_id=author_id) }}" class="btn btn-outline-secondary btn-sm ml-2">
                 Download CSV
             </a>
+        </p>
+        <p class="text-muted small">
+            Author ID {{ author_id }}.
+            {% if stats_cached_at %}
+            Statistics calculated {{ stats_cached_at.strftime('%Y-%m-%d %H:%M') }} UTC
+            (<a href="javascript:void(0);" id="rebuildStatsButton"
+                data-author-id="{{ author_id }}"
+                role="button" aria-label="Rebuild author statistics">Rebuild</a>).
+            {% endif %}
+            <a href="{{ url_for('help_page') }}">How PiP-AUC works</a>.
         </p>
     </section>
 </div>
 {% endblock %}
 
 {% block scripts %}
+<script src="{{ url_for('static', filename='js/paper_explorer.js') }}"></script>
 <script>
 $(document).ready(function(){
     $('[data-toggle="tooltip"]').tooltip();
@@ -168,11 +212,21 @@ if (rebuildStatsBtn) {
 // Render charts from server-provided JSON data
 var pubChartData = {{ pub_chart_data | tojson }};
 var temporalChartData = {{ temporal_chart_data | tojson }};
-var authorName = {{ stats.get('name', 'N/A') | tojson }};
 
 if (pubChartData && pubChartData.length > 0) {
-    renderPercentileRankPlot('percentileRankPlot', pubChartData, authorName);
-    renderPipPlot('pipPlot', pubChartData, authorName);
+    initPaperExplorer(pubChartData, {
+        sectionId: 'explore',
+        chartId: 'paperChart',
+        panelId: 'paperPanel',
+        listId: 'paperList',
+        listMoreId: 'paperListMore',
+        listNoteId: 'paperListNote',
+        findingId: 'exploreFinding',
+        authorId: {{ author_id | tojson }},
+        authorName: {{ standing.name | tojson }},
+        pipScore: {{ standing.pip_score | tojson }},
+        dataSource: {{ data_source | tojson }}
+    });
 }
 
 if (temporalChartData && temporalChartData.length > 0) {

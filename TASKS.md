@@ -68,6 +68,8 @@ via a managed scraping API instead of `scholarly`. Vendor evaluation: [docs/goog
   - [x] Ingest new Wikidata authors in order of English Wikipedia pageviews: up to 25% of each refresh run (`NEW_AUTHOR_SHARE`); permanent failures cool down 30 days
   - [x] Co-authors listed on profiled authors' pages (~180K) in the name index, ranked by how many profiled authors list them (2026-11-03)
   - [ ] Paper-title lookup
+- [x] **Author results page leads with standing** (2026-11-03): headline names the comparison group ("top 23% of tracked active authors whose first cited publication was in 1990"), PiP-AUC below it, the four conventional metrics on one percentile scale; one chart with a by-year view (90th-percentile line) and a PiP-curve view (shaded area, curve end, median-peer example) sharing a pinned-work panel; sortable list of works below
+  - [ ] Authors in the pinned-work panel: `author_pub_stats` docs for the largest profiles are already ~790 KB of Firestore's 1 MiB, so author lists need a per-paper store or a size cap first (the panel links to the GS record meanwhile)
 
 ---
 

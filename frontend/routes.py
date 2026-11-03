@@ -29,6 +29,7 @@ from google.cloud import firestore
 
 from frontend.cache import RECENT_AUTHORS_COLLECTION, RECENT_AUTHORS_DOC_ID, FirestoreCache
 from frontend.config import Config
+from frontend.formatting import build_standing
 from frontend.queue_client import enqueue_cache_populate
 
 logger = logging.getLogger(__name__)
@@ -68,7 +69,15 @@ def _prepare_pub_chart_data(pub_stats, author_stats):
             pub_year = int(pub_year)
         except (TypeError, ValueError):
             continue
+        # The cached "citation" string is the venue (GS: the profile's
+        # publication line; S2: "venue, year"), or just the year when unknown.
+        # A trailing ", <year>" is dropped since the year is shown separately.
+        citation = p.get("citation")
+        citation = citation.strip() if isinstance(citation, str) else ""
+        venue = re.sub(rf"[,\s]*\b{pub_year}\s*$", "", citation)
         result.append({
+            "author_pub_id": p.get("author_pub_id"),
+            "venue": venue,
             "publication_rank": p.get("publication_rank"),
             "num_citations_percentile": round(100 * (p.get("num_citations_percentile") or 0), 2),
             "num_papers_percentile": round(100 * (p.get("num_papers_percentile") or 0), 2),
@@ -244,6 +253,7 @@ def register_routes(app):
             "results.html",
             author_id=author_id,
             stats=author_stats,
+            standing=build_standing(author_stats, len(pub_chart_data), Config.DATA_SOURCE),
             pub_chart_data=pub_chart_data,
             temporal_chart_data=temporal_chart_data,
             last_updated=last_updated,

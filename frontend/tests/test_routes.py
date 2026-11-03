@@ -108,14 +108,47 @@ class TestResultsRoute:
             test_client = app.test_client()
             response = test_client.get("/results?author_id=123")
             assert response.status_code == 200
-            # Should contain Plotly chart containers (not base64 images)
-            assert b"percentileRankPlot" in response.data
-            assert b"pipPlot" in response.data
-            assert b"hIndexPlot" in response.data
-            # Should contain JSON data for charts
-            assert b"renderPercentileRankPlot" in response.data
+            html = response.data.decode()
+            # Headline leads with the comparison group, then the raw score
+            assert "ranks <span class=\"standing-share\">in the top 10%</span>" in html
+            assert "whose first publication was in 2010" in html
+            assert "PiP-AUC 0.7500" in html
+            assert "Cited publications" in html
+            # One chart + pinned-work panel + list, rendered client-side by Plotly
+            assert 'id="paperChart"' in html
+            assert 'id="paperPanel"' in html
+            assert 'id="paperList"' in html
+            assert "initPaperExplorer" in html
+            assert "hIndexPlot" in html
             # Should NOT contain base64 PNG images
-            assert b"data:image/png;base64" not in response.data
+            assert "data:image/png;base64" not in html
+
+    def test_results_pending_pip_score_renders_without_headline_share(self):
+        from frontend.app import create_app
+
+        with mock.patch("frontend.routes.FirestoreCache") as cache_cls, \
+             mock.patch("frontend.routes.enqueue_cache_populate"):
+            cache_instance = cache_cls.return_value
+
+            def cache_get(collection, doc_id):
+                if collection == "v3_author_freshness":
+                    return {"exists": True}
+                if collection == "v3_author_stats":
+                    return {"name": "New Author", "hindex": 3, "hindex_percentile": 0.2,
+                            "pip_auc_score": float("nan"), "pip_auc_score_percentile": None,
+                            "year_of_first_pub": 2020}
+                return None
+
+            cache_instance.get.side_effect = cache_get
+            cache_instance.get_timestamp.return_value = None
+
+            app = create_app(config={"TESTING": True, "SECRET_KEY": "test"})
+            response = app.test_client().get("/results?author_id=123")
+            assert response.status_code == 200
+            html = response.data.decode()
+            assert "PiP-AUC is pending" in html
+            assert "standing-share" not in html
+            assert 'id="paperChart"' not in html
 
 
 class TestInputValidation:
@@ -348,6 +381,20 @@ class TestPrepareChartData:
         assert result[0]["num_citations_percentile"] == 90.0
         assert result[0]["num_papers_percentile"] == 80.0
         assert result[0]["age"] > 0
+
+    def test_prepare_pub_chart_data_keeps_id_and_venue_without_year(self):
+        from frontend.routes import _prepare_pub_chart_data
+        base = {"publication_rank": 1, "num_citations_percentile": 0.9,
+                "num_papers_percentile": 0.8, "pub_year": 2004, "title": "T",
+                "num_citations": 5, "author_pub_id": "abc:def"}
+        result = _prepare_pub_chart_data([
+            {**base, "citation": "IEEE TIP 13 (10), 1327-1344, 2004"},
+            {**base, "citation": "2004"},
+            {**base, "citation": None},
+            {**base, "citation": float("nan")},
+        ], {})
+        assert result[0]["author_pub_id"] == "abc:def"
+        assert [r["venue"] for r in result] == ["IEEE TIP 13 (10), 1327-1344", "", "", ""]
 
     def test_prepare_pub_chart_data_skips_invalid_year(self):
         from frontend.routes import _prepare_pub_chart_data
