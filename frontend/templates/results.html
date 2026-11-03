@@ -9,7 +9,7 @@
         <p class="author-meta">
             {% if stats.get('affiliation') %}<span>{{ stats.get('affiliation') }}</span>{% endif %}
             {% if stats.year_of_first_pub %}
-            <span>First cited publication {{ stats.year_of_first_pub }}
+            <span>Career start {{ stats.year_of_first_pub }}
                 ({{ current_year - stats.year_of_first_pub + 1 }} years)</span>
             {% endif %}
             {% if data_source == "gs" %}
