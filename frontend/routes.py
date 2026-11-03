@@ -27,7 +27,7 @@ from flask import (
 
 from google.cloud import firestore
 
-from frontend.cache import FirestoreCache
+from frontend.cache import RECENT_AUTHORS_COLLECTION, RECENT_AUTHORS_DOC_ID, FirestoreCache
 from frontend.config import Config
 from frontend.queue_client import enqueue_cache_populate
 
@@ -152,7 +152,7 @@ def register_routes(app):
     @app.route("/")
     @app.route("/index")
     def index():
-        recent_authors = _read_cache("v3_recent_authors", "recent")
+        recent_authors = _read_cache(RECENT_AUTHORS_COLLECTION, RECENT_AUTHORS_DOC_ID)
         return render_template("index.html", recent_authors=recent_authors or [])
 
     def _get_author_freshness(author_id):
