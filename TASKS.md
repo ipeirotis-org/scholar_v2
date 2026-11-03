@@ -70,6 +70,14 @@ via a managed scraping API instead of `scholarly`. Vendor evaluation: [docs/goog
   - [x] Co-authors listed on profiled authors' pages (~180K) in the name index, ranked by how many profiled authors list them (2026-11-03)
   - [ ] Paper-title lookup
 - [x] **Robust career-start year** (2026-11-03): skip stray cited items before a >10-year gap (at most 2 or 5% of cited papers; >5 years dropped real early careers); manual `gs_data.start_year_overrides` (5 rows from the checked sample)
+- [ ] **Field-specific normalization** (deferred 2026-11-03). GS percentiles compare every author with all ~16K
+  profiled authors, so both PiP axes favour high-volume fields. Median PiP percentile by GS-interest field:
+  econ/business 0.36 (median 79 pubs), physics/chemistry 0.57, CS 0.67, medicine 0.67 (198 pubs).
+  Example: Jonathan A. Parker (MIT finance, `uXulDDsAAAAJ`) is at the 21st percentile overall, 32nd among
+  the 308 econ/business authors starting 1990–98 (citations 60th, publication count 38th there).
+  - [ ] Field classifier: GS interests match only ~37% of profiles to a field; add venues and co-author fields
+  - [ ] Display first: a field-relative percentile next to the overall one (5-year cohort bins for cell size)
+  - [ ] Then scoring: paper citation percentiles by field and year, publication counts by field and cohort
 - [x] **Author results page leads with standing** (2026-11-03): headline names the comparison group ("top 23% of tracked active authors whose career started in 1990"), PiP-AUC below it, the four conventional metrics on one percentile scale; one chart with a by-year view (dots shaded by top 10% / 25% / 50% tier with a line at each; axis starts at the career-start year, earlier works noted and kept in the list) and a PiP-curve view (shaded area, curve end, median-peer example) sharing a pinned-work panel; sortable list of works below; author line reads "Career start YYYY" (the robust `year_of_first_pub`)
   - [x] GS mode: publication detail links go to the paper's Google Scholar record; `/publication/...` redirects there (no cache task, no loading page) until Phase B adds per-paper histories (re-enable via `_has_publication_history()` in `frontend/routes.py`)
   - [ ] Authors in the pinned-work panel: `author_pub_stats` docs for the largest profiles are already ~790 KB of Firestore's 1 MiB, so author lists need a per-paper store or a size cap first (the panel links to the GS record meanwhile)
