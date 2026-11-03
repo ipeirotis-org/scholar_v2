@@ -107,10 +107,12 @@ capped at what is left of it, and one too large to fit is cooled down like a fai
 - **Metrics source.** h-index, i10 and citations come straight from the GS profile. The `*5y` columns hold
   the profile's "since YYYY" values.
 - **Cohort year.** `year_of_first_pub` ignores uncited items, and also a small cluster of cited ones
-  (at most 2, or 5% of the cited papers) that sits before a gap of more than 5 years: GS profiles carry
+  (at most 2, or 5% of the cited papers) that sits before a gap of more than 10 years: GS profiles carry
   misdated entries and namesakes' papers decades before the real career (Pietro Perona: one 1963 item,
-  then 1988 onward). This moves 1,689 of 16,207 profiles (2026-11-03). Wrong cases can be fixed by hand
-  in `gs_data.start_year_overrides` (latest `set_at` wins; effective at the next dist rebuild).
+  then 1988 onward). This moves 739 of 16,207 profiles (2026-11-03). A 5-year gap was tried first and
+  dropped real early work before PhD/MD training breaks (6 of 15 in a checked sample). Wrong cases are
+  fixed by hand in `gs_data.start_year_overrides` (latest `set_at` wins; effective at the next dist
+  rebuild); the first five were added from that sample.
 - **No minimum.** There is no ≥6-publication filter, since the population is already curated.
 - **Benchmark.** The `active_authors` benchmark is unchanged: hindex ≥ 3 and ≥ 3 publications.
 

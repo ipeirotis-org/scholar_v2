@@ -9,9 +9,12 @@ CREATE OR REPLACE VIEW `scholar-version2.gs_statistics.stats_author_current` AS
 -- (e.g. Pietro Perona: one untitled 1963 item, then 1988 onward; Anindya Ghose:
 -- a 1975 Lancaster library report, then 2002 onward). In order of precedence:
 --   1. a manual row in gs_data.start_year_overrides (latest set_at wins);
---   2. the first cited paper after the last gap of more than 5 years whose
+--   2. the first cited paper after the last gap of more than 10 years whose
 --      earlier cited papers are few: at most 2, or 5% of the author's cited
---      papers (2026-11-03: moves 1,689 of 16,207 profiles, 985 by 10+ years);
+--      papers (2026-11-03: moves 739 of 16,207 profiles). A 5-year gap moved
+--      1,689, but in a checked sample 6 of 15 had dropped real early work
+--      before a 6-10 year break (PhD or MD training); the strays mostly sat
+--      12-35 years before the career;
 --   3. the earliest cited paper with a plausible year (uncited items never count).
 -- Percentiles are added by ranked_author_current via dist_author_metrics.
 WITH
@@ -37,7 +40,7 @@ WITH
       MIN(pub_year) AS earliest_cited_year,
       -- Only the first paper of a year has a nonzero gap, and its cited_before
       -- counts exactly the papers of earlier years.
-      MAX(IF(gap_years > 5 AND cited_before <= GREATEST(2, 0.05 * cited_total),
+      MAX(IF(gap_years > 10 AND cited_before <= GREATEST(2, 0.05 * cited_total),
              pub_year, NULL)) AS start_after_strays
     FROM CitedYears
     GROUP BY scholar_id
