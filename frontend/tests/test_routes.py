@@ -119,6 +119,8 @@ class TestResultsRoute:
             assert 'id="paperPanel"' in html
             assert 'id="paperList"' in html
             assert "initPaperExplorer" in html
+            # The by-year view starts at the career-start year
+            assert "startYear: 2010," in html
             assert "hIndexPlot" in html
             # Should NOT contain base64 PNG images
             assert "data:image/png;base64" not in html

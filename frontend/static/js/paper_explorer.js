@@ -3,7 +3,10 @@
  *
  * One chart with two views that share a selection:
  *   - "year": each work at (publication year, citation percentile for that year),
- *     with reference lines at the 90th, 75th and 50th percentiles.
+ *     with reference lines at the 90th, 75th and 50th percentiles. The axis
+ *     starts at the author's career-start year (opts.startYear); works dated
+ *     earlier (in GS, stray misdated items or namesakes' papers) are left off
+ *     this view only, and the finding text says how many.
  *   - "pip":  the PiP curve (works in percentile order against the author's
  *     cited-publication count percentile), with the PiP-AUC area shaded.
  * Hover previews a work; click/tap pins it in the side panel. Clicking a spot
@@ -156,6 +159,14 @@
         this.byId = {};
         for (var i = 0; i < papers.length; i++) this.byId[papers[i].id] = papers[i];
 
+        // Career start (stats.year_of_first_pub). It only ever cuts the by-year
+        // view; ignored when missing or when no work would be left to plot.
+        var start = (opts.startYear === null || opts.startYear === undefined) ? NaN : Number(opts.startYear);
+        var onAxis = isFinite(start) ? papers.filter(function (p) { return p.year >= start; }) : [];
+        this.startYear = onAxis.length ? start : null;
+        this.yearPapers = onAxis.length ? onAxis : papers;
+        this.earlierCount = papers.length - this.yearPapers.length;
+
         this.state = { view: 'year', selectedId: null, group: null, sort: 'percentile', expanded: false };
         this.narrow = this._isNarrow();
         this.touch = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
@@ -257,6 +268,15 @@
         return this.state.view === 'year' ? { x: p.year, y: p.pct } : { x: p.x, y: p.pct };
     };
 
+    // Before the career start: kept everywhere except the by-year view.
+    PaperExplorer.prototype._isEarlier = function (p) {
+        return this.startYear !== null && p.year < this.startYear;
+    };
+
+    PaperExplorer.prototype._onChart = function (p) {
+        return this.state.view !== 'year' || !this._isEarlier(p);
+    };
+
     PaperExplorer.prototype._hoverText = function (p) {
         var lines = '<b>' + escapeHtml(shortTitle(p.title, 60)) + '</b><br>' +
             p.year + ' · ' + plural(p.citations, 'citation', 'citations');
@@ -286,10 +306,10 @@
     };
 
     // One dot trace per tier, bottom half first so higher tiers draw on top.
-    PaperExplorer.prototype._tierTraces = function () {
+    PaperExplorer.prototype._tierTraces = function (papers) {
         var groups = TIERS.map(function () { return []; });
         var rest = [];
-        this.papers.forEach(function (p) {
+        papers.forEach(function (p) {
             var t = tierIndex(p.pct);
             (t < 0 ? rest : groups[t]).push(p);
         });
@@ -303,7 +323,8 @@
     PaperExplorer.prototype._ringTrace = function () {
         var self = this;
         var ids = this.state.selectedId ? [this.state.selectedId] : (this.state.group || []);
-        var pts = ids.map(function (id) { return self.byId[id]; }).filter(Boolean);
+        var pts = ids.map(function (id) { return self.byId[id]; })
+            .filter(function (p) { return p && self._onChart(p); });
         return {
             type: 'scatter',
             mode: 'markers',
@@ -357,7 +378,8 @@
 
     PaperExplorer.prototype._yearFigure = function () {
         var papers = this.papers;
-        var years = papers.map(function (p) { return p.year; });
+        // Axis from the first work on or after the career start.
+        var years = this.yearPapers.map(function (p) { return p.year; });
         var minYear = Math.min.apply(null, years);
         var maxYear = Math.max.apply(null, years);
 
@@ -391,7 +413,7 @@
         });
 
         return {
-            data: this._tierTraces().concat([this._ringTrace()]),
+            data: this._tierTraces(this.yearPapers).concat([this._ringTrace()]),
             layout: layout
         };
     };
@@ -516,7 +538,7 @@
         }
 
         return {
-            data: [area].concat(this._tierTraces(), [this._ringTrace()]),
+            data: [area].concat(this._tierTraces(papers), [this._ringTrace()]),
             layout: layout
         };
     };
@@ -551,6 +573,13 @@
                 countAtLeast(papers, TIERS[2].min) + ' the top 50%.' +
                 ' Each dot is one work, placed by when it appeared and by how its citations compare' +
                 ' with other cited works from that year; darker dots rank higher.'));
+            if (this.earlierCount) {
+                this.finding.appendChild(document.createTextNode(
+                    ' The chart starts at ' + this.startYear + ', the career start used for the comparison;' +
+                    ' ' + plural(this.earlierCount, 'work', 'works') + ' dated earlier ' +
+                    (this.earlierCount === 1 ? 'is' : 'are') + ' left off this view but ' +
+                    (this.earlierCount === 1 ? 'stays' : 'stay') + ' in the list below.'));
+            }
         } else {
             var last = papers[n - 1];
             var score = this.opts.pipScore;
@@ -580,16 +609,17 @@
         var self = this;
         var full = this.chart._fullLayout;
         var c0 = this._coords(target);
+        var drawn = this.papers.filter(function (p) { return self._onChart(p); });
         try {
             var xa = full.xaxis, ya = full.yaxis;
             var px = xa.l2p(c0.x), py = ya.l2p(c0.y);
-            return this.papers.filter(function (p) {
+            return drawn.filter(function (p) {
                 var c = self._coords(p);
                 var dx = xa.l2p(c.x) - px, dy = ya.l2p(c.y) - py;
                 return dx * dx + dy * dy <= OVERLAP_PX * OVERLAP_PX;
             }).map(function (p) { return p.id; });
         } catch (e) {
-            return this.papers.filter(function (p) {
+            return drawn.filter(function (p) {
                 var c = self._coords(p);
                 return c.x === c0.x && c.y === c0.y;
             }).map(function (p) { return p.id; });
@@ -717,14 +747,23 @@
         fact('Place on the PiP curve', 'x = ' + trim1(p.x) + ', y = ' + trim1(p.pct));
         this.panel.appendChild(dl);
 
+        var earlier = this._isEarlier(p);
+        if (earlier && this.state.view === 'year') {
+            this.panel.appendChild(el('p', 'paper-panel-hint',
+                'Dated before ' + this.startYear + ', the career start used for the comparison,' +
+                ' so it is not plotted by year.'));
+        }
+
         var actions = el('div', 'paper-panel-actions');
         var other = this.state.view === 'year' ? 'pip' : 'year';
-        var swap = el('button', 'btn btn-sm btn-outline-violet',
-            other === 'pip' ? 'Show it on the PiP curve' : 'Show it by publication year');
-        swap.type = 'button';
-        swap.setAttribute('data-focus-key', 'swap');
-        swap.addEventListener('click', function () { self.setView(other); });
-        actions.appendChild(swap);
+        if (!(earlier && other === 'year')) {
+            var swap = el('button', 'btn btn-sm btn-outline-violet',
+                other === 'pip' ? 'Show it on the PiP curve' : 'Show it by publication year');
+            swap.type = 'button';
+            swap.setAttribute('data-focus-key', 'swap');
+            swap.addEventListener('click', function () { self.setView(other); });
+            actions.appendChild(swap);
+        }
 
         var link = this._paperLink(p);
         if (link) actions.appendChild(link);
