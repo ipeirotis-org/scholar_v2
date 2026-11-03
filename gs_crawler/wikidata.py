@@ -6,8 +6,11 @@ unprofiled author's GS ID by name. Wikidata maps ~130K people to their GS IDs;
 loading that mapping into `gs_data.wikidata_authors` lets the search index offer
 those names too (the results page then crawls the profile on demand).
 
-The full query times out on the public endpoint (60 s), so it runs once per
-leading character of the GS ID, splitting a partition further when it times out.
+The full query runs in ~20 s on QLever (qlever.dev, University of Freiburg),
+which serves a recent Wikidata snapshot without the 60 s limit. If QLever fails,
+the job falls back to the Wikidata Query Service, where the query only fits when
+run once per leading character of the GS ID (split further on timeouts, with a
+back-off, since WDQS also times out when it throttles a busy client).
 """
 
 import csv
@@ -25,6 +28,10 @@ from gs_crawler.config import Config
 logger = logging.getLogger(__name__)
 
 SPARQL_URL = "https://query.wikidata.org/sparql"
+QLEVER_URL = "https://qlever.dev/api/wikidata"
+# Sanity floor for a full QLever result (~125K rows with English labels, 2026-11).
+MIN_FULL_ROWS = 50000
+THROTTLE_PAUSE = 60  # seconds to wait before retrying a small partition on WDQS
 USER_AGENT = "pip-score.org/1.0 (https://www.pip-score.org; Google Scholar ID lookup)"
 GS_ID_RE = re.compile(r"^[A-Za-z0-9_-]{12}$")
 ID_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
@@ -58,17 +65,44 @@ PAGEVIEW_PAUSE = 1.0  # seconds between requests
 PAGEVIEW_MAX_SECONDS = 1500  # keep the job well inside its 1 h task timeout
 
 
-def _query(prefix):
-    # STRSTARTS is case-sensitive, so each prefix is its own partition.
-    return f"""
+_PREFIXES = """PREFIX wdt: <http://www.wikidata.org/prop/direct/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX schema: <http://schema.org/>
+PREFIX wikibase: <http://wikiba.se/ontology#>
+"""
+
+
+def _query(prefix=None):
+    """The P1960 query; with `prefix`, only GS IDs starting with it (case-sensitive)."""
+    gs_filter = f'FILTER(STRSTARTS(?g, "{prefix}"))' if prefix else ""
+    return _PREFIXES + f"""
 SELECT ?p ?g ?label ?desc ?links ?enwiki WHERE {{
   ?p wdt:P1960 ?g .
-  FILTER(STRSTARTS(?g, "{prefix}"))
+  {gs_filter}
   ?p rdfs:label ?label . FILTER(LANG(?label) = "en")
   OPTIONAL {{ ?p wikibase:sitelinks ?links }}
   OPTIONAL {{ ?p schema:description ?desc . FILTER(LANG(?desc) = "en") }}
   OPTIONAL {{ ?art schema:about ?p ; schema:isPartOf <https://en.wikipedia.org/> ; schema:name ?enwiki }}
 }}"""
+
+
+def _fetch_qlever(session):
+    """All rows in one QLever query, or None if it fails or looks incomplete."""
+    try:
+        r = session.get(QLEVER_URL, params={"query": _query()},
+                        headers={"Accept": "text/csv", "User-Agent": USER_AGENT}, timeout=300)
+    except requests.RequestException as e:
+        logger.warning("QLever: %s; falling back to WDQS", type(e).__name__)
+        return None
+    if r.status_code != 200 or not r.text.startswith("p,g,"):
+        logger.warning("QLever: HTTP %s; falling back to WDQS", r.status_code)
+        return None
+    rows = list(csv.DictReader(io.StringIO(r.text)))
+    if len(rows) < MIN_FULL_ROWS:
+        logger.warning("QLever: only %d rows; falling back to WDQS", len(rows))
+        return None
+    logger.info("QLever: %d rows", len(rows))
+    return rows
 
 
 def _fetch(prefix, session):
@@ -94,8 +128,16 @@ def _fetch(prefix, session):
     raise WikidataError(f"prefix {prefix!r}: gave up after {MAX_ATTEMPTS} attempts")
 
 
-def _fetch_partition(prefix, session):
+def _fetch_partition(prefix, session, pause=THROTTLE_PAUSE):
     rows = _fetch(prefix, session)
+    # A partition of a few hundred IDs times out only when WDQS throttles us:
+    # back off and retry before splitting it further.
+    for attempt in range(MAX_ATTEMPTS if len(prefix) >= 2 else 0):
+        if rows is not None:
+            break
+        logger.info("Wikidata prefix %r timed out; retrying in %ds", prefix, pause)
+        time.sleep(pause * (attempt + 1))
+        rows = _fetch(prefix, session)
     if rows is not None:
         return rows
     if len(prefix) >= MAX_PREFIX_LEN:
@@ -103,7 +145,7 @@ def _fetch_partition(prefix, session):
     logger.info("Wikidata prefix %r timed out; splitting", prefix)
     out = []
     for c in ID_CHARS:
-        out.extend(_fetch_partition(prefix + c, session))
+        out.extend(_fetch_partition(prefix + c, session, pause))
     return out
 
 
@@ -198,9 +240,11 @@ def fetch_pageviews(titles, session=None, pause=PAGEVIEW_PAUSE, max_seconds=PAGE
 def fetch_all(session=None):
     session = session or requests.Session()
     fetched_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
-    raw = []
-    for c in ID_CHARS:
-        raw.extend(_fetch_partition(c, session))
+    raw = _fetch_qlever(session)
+    if raw is None:
+        raw = []
+        for c in ID_CHARS:
+            raw.extend(_fetch_partition(c, session))
     rows = normalize(raw, fetched_at)
     views = fetch_pageviews([r["enwiki_title"] for r in rows if r["enwiki_title"]], session)
     for r in rows:
