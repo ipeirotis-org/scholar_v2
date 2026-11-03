@@ -40,6 +40,7 @@ class Config:
     REFRESH_QUEUE_TABLE = "refresh_queue"
     CRAWL_FAILURES_TABLE = "crawl_failures"
     WIKIDATA_AUTHORS_TABLE = "wikidata_authors"  # GS IDs from Wikidata P1960, for name search
+    BQ_STATS_DATASET = os.environ.get("BQ_GS_STATS_DATASET", "gs_statistics")
 
     @classmethod
     def bq_table(cls, table_name):
@@ -49,3 +50,8 @@ class Config:
     def bq_table_ref(cls, table_name):
         """Backtick-quoted table reference for use in SQL."""
         return f"`{cls.bq_table(table_name)}`"
+
+    @classmethod
+    def stats_table_ref(cls, table_name):
+        """Backtick-quoted gs_statistics view or table reference for use in SQL."""
+        return f"`{cls.PROJECT_ID}.{cls.BQ_STATS_DATASET}.{table_name}`"

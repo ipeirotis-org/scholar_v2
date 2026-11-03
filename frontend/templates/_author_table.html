@@ -1,0 +1,49 @@
+{# Clickable author table, shared by the homepage lists and /featured.
+   Rows link to the results page; static/js/author_rows.js shows a loading
+   overlay on click. `ranked` adds a leading # column. Affiliation is hidden
+   on phones so the metrics fit without scrolling. With `initial`, only the
+   first `initial` rows show; a `more_label` button expands the rest in place. #}
+{% macro author_table(authors, table_id, label, ranked=false, initial=none, more_label="See more") %}
+<div class="table-responsive">
+<table class="table table-hover table-sm author-table" id="{{ table_id }}" aria-label="{{ label }}">
+    <thead>
+        <tr>
+            {% if ranked %}<th scope="col">#</th>{% endif %}
+            <th scope="col">Name</th>
+            <th scope="col" class="d-none d-md-table-cell">Affiliation</th>
+            <th scope="col" class="text-nowrap">H-Index</th>
+            <th scope="col">Citations</th>
+            <th scope="col">PiP-AUC</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for author in authors %}
+        {% set href = url_for('results', author_id=author.scholar_id) %}
+        <tr data-href="{{ href }}"{% if initial and loop.index > initial %} data-extra hidden{% endif %}>
+            {% if ranked %}<td class="text-muted">{{ loop.index }}</td>{% endif %}
+            <td><a href="{{ href }}">{{ author.name }}</a></td>
+            <td class="d-none d-md-table-cell">{{ author.affiliation or '' }}</td>
+            <td>{{ author.hindex if author.hindex is not none else '' }}</td>
+            <td>{{ '{:,}'.format(author.citedby|int) if author.citedby is not none else '' }}</td>
+            <td>
+                {% if author.pip_auc_score %}
+                    {{ author.pip_auc_score|round(4) }}
+                    {% if author.pip_auc_percentile is not none %}
+                        <small class="text-muted">({{ "%.1f"|format(100 * author.pip_auc_percentile) }}% percentile)</small>
+                    {% endif %}
+                {% else %}
+                    —
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+</div>
+{% if initial and authors|length > initial %}
+<p class="text-right">
+    <button type="button" class="btn btn-link p-0 author-table-toggle"
+            aria-controls="{{ table_id }}" aria-expanded="false">{{ more_label }}</button>
+</p>
+{% endif %}
+{% endmacro %}

@@ -5,10 +5,11 @@ Modes (CRAWL_MODE):
     MAX_SEARCHES_PER_RUN and never dipping below SERPAPI_SEARCH_RESERVE.
   - authors: crawl the comma-separated GS_AUTHOR_IDS now (may use the reserve).
   - materialize: rebuild gs_statistics distribution tables (percentile breakpoints),
-    then the app's author search index.
+    then the app's author search index and featured authors.
   - deploy: create/replace all gs_statistics views and tables.
   - wikidata: reload gs_data.wikidata_authors (GS IDs from Wikidata, for name search
-    and ingestion priority), then the app's author search index.
+    and ingestion priority), then the app's author search index and featured authors.
+  - featured: rebuild only the homepage's featured authors (most-read Wikipedia articles).
 
 Profiles only: publication lists and per-paper totals, no per-paper citation
 histograms (see docs/google-scholar-data-sources.md).
@@ -19,7 +20,7 @@ import os
 import sys
 from datetime import datetime, timezone
 
-from gs_crawler import cache_invalidate, materialize, scheduler, serpapi_client, wikidata, writer
+from gs_crawler import cache_invalidate, featured, materialize, scheduler, serpapi_client, wikidata, writer
 from gs_crawler.config import Config
 from gs_crawler.crawler import crawl_author
 from gs_crawler.parser import parse_author
@@ -100,6 +101,15 @@ def refresh_search_index():
     return count
 
 
+def refresh_featured():
+    """Rebuild the homepage's featured authors (Firestore); failures are logged."""
+    try:
+        return featured.run()
+    except Exception:
+        logger.exception("Featured authors rebuild failed")
+        return 0
+
+
 def run_refresh():
     left = searches_left()
     budget = min(Config.MAX_SEARCHES_PER_RUN, left - Config.SEARCH_RESERVE)
@@ -129,6 +139,7 @@ def main():
     elif mode == "materialize":
         logger.info("Rebuilt: %s", materialize.run(kinds=("table",)))
         refresh_search_index()
+        refresh_featured()
         return
     elif mode == "deploy":
         logger.info("Deployed: %s", materialize.run(kinds=("view", "table")))
@@ -136,6 +147,11 @@ def main():
     elif mode == "wikidata":
         logger.info("Wikidata GS IDs loaded: %d", wikidata.run())
         refresh_search_index()
+        refresh_featured()
+        return
+    elif mode == "featured":
+        if not featured.run():
+            sys.exit(1)
         return
     else:
         raise SystemExit(f"Unknown CRAWL_MODE: {mode}")
