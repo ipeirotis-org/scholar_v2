@@ -106,16 +106,19 @@ jobs:
         JOB_URI="https://${{ env.GCP_REGION }}-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/${{ env.GCP_PROJECT_ID }}/jobs/${{ env.JOB_NAME }}:run"
         upsert() {
           NAME="$1"; SCHEDULE="$2"; BODY="$3"
+          # create takes --headers; update only accepts --update-headers.
           ACTION=create
+          HEADERS_FLAG="--headers=Content-Type=application/json"
           if gcloud scheduler jobs describe "$NAME" --location="${{ env.GCP_REGION }}" > /dev/null 2>&1; then
             ACTION=update
+            HEADERS_FLAG="--update-headers=Content-Type=application/json"
           fi
           gcloud scheduler jobs $ACTION http "$NAME" \
             --location="${{ env.GCP_REGION }}" \
             --schedule="$SCHEDULE" \
             --uri="$JOB_URI" \
             --http-method=POST \
-            --headers="Content-Type=application/json" \
+            "$HEADERS_FLAG" \
             --message-body="$BODY" \
             --time-zone=UTC \
             --attempt-deadline=600s \
