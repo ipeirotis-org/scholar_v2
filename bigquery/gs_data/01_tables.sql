@@ -76,3 +76,13 @@ CREATE TABLE IF NOT EXISTS `scholar-version2.gs_data.crawl_failures` (
   failed_at TIMESTAMP NOT NULL,
   error STRING
 );
+
+-- Manual career-start years for profiles the automatic rule in
+-- gs_statistics.stats_author_current gets wrong. One row per correction; the
+-- latest set_at wins. Takes effect at the next dist table rebuild.
+CREATE TABLE IF NOT EXISTS `scholar-version2.gs_data.start_year_overrides` (
+  scholar_id STRING NOT NULL,
+  year_of_first_pub INT64 NOT NULL,
+  note STRING,          -- why, e.g. "1975 item is a namesake's report"
+  set_at TIMESTAMP NOT NULL
+);

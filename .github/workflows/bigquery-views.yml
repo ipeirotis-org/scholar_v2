@@ -110,7 +110,10 @@ jobs:
     # ── Google Scholar (profiles only): gs_data + gs_statistics ─────────
     # Parallel to the S2 views above; the app reads these only when
     # DATA_SOURCE=gs. Order comes from bigquery/gs_statistics/deploy_order.txt.
-    # dist_* tables are rebuilt by the gs-crawler job (CRAWL_MODE=materialize).
+    # Views and dist_* tables are deployed together, in deploy_order.txt order, so a
+    # change to the inputs (e.g. the cohort year) never leaves the percentile tables
+    # describing the old cohorts. The gs-crawler job (CRAWL_MODE=materialize) also
+    # rebuilds the dist_* tables weekly after crawls.
     # The one-off legacy seed (bigquery/gs_data/03_seed_from_legacy.sql) is
     # run manually and is not part of this workflow.
     - name: 'GS: gs_data tables and latest views'
@@ -118,12 +121,11 @@ jobs:
         bq query --project_id=${{ env.PROJECT_ID }} --use_legacy_sql=false < bigquery/gs_data/01_tables.sql
         bq query --project_id=${{ env.PROJECT_ID }} --use_legacy_sql=false < bigquery/gs_data/02_latest_views.sql
 
-    - name: 'GS: gs_statistics views'
+    - name: 'GS: gs_statistics views and dist tables'
       run: |
+        set -e
         grep -v '^#' bigquery/gs_statistics/deploy_order.txt | while read -r file kind; do
           [ -z "$file" ] && continue
-          if [ "$kind" = "view" ]; then
-            echo "Deploying $file"
-            bq query --project_id=${{ env.PROJECT_ID }} --use_legacy_sql=false < "bigquery/gs_statistics/$file"
-          fi
+          echo "Deploying $file ($kind)"
+          bq query --project_id=${{ env.PROJECT_ID }} --use_legacy_sql=false < "bigquery/gs_statistics/$file"
         done
