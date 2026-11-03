@@ -1029,3 +1029,8 @@ footer p {
 .author-table tbody tr[data-href] {
     cursor: pointer;
 }
+
+.author-table-toggle,
+.author-table-toggle:hover {
+    color: var(--nyu-teal-deep);
+}

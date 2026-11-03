@@ -127,3 +127,42 @@ def test_featured_is_gs_only(make_client):
 def test_nav_links_to_featured_in_gs_mode(make_client):
     client, _ = make_client([_author(1)])
     assert 'href="/featured">Featured</a>' in client.get("/help").get_data(as_text=True)
+
+
+def _recent_client(monkeypatch, recent):
+    from frontend.app import create_app
+
+    monkeypatch.setattr(Config, "DATA_SOURCE", "gs")
+    patcher = mock.patch("frontend.routes.FirestoreCache")
+    cache_cls = patcher.start()
+    cache_cls.return_value.get.side_effect = (
+        lambda collection, doc_id: recent if collection == RECENT_AUTHORS_COLLECTION else None
+    )
+    app = create_app(config={"TESTING": True, "SECRET_KEY": "test"})
+    return app.test_client(), patcher
+
+
+def test_homepage_hides_recent_beyond_first_five(monkeypatch):
+    from frontend.routes import HOMEPAGE_RECENT
+
+    recent = [_author(i) for i in range(1, 9)]
+    client, patcher = _recent_client(monkeypatch, recent)
+    try:
+        html = client.get("/").get_data(as_text=True)
+    finally:
+        patcher.stop()
+    shown = f'<tr data-href="/results?author_id=FEAT{HOMEPAGE_RECENT:04d}AAAJ">'
+    hidden = f'<tr data-href="/results?author_id=FEAT{HOMEPAGE_RECENT + 1:04d}AAAJ" data-extra hidden>'
+    assert shown in html and hidden in html
+    assert "Featured Author 8<" in html  # rendered, just hidden until expanded
+    assert 'aria-controls="recentAuthorsTable" aria-expanded="false">See more recent authors</button>' in html
+
+
+def test_homepage_with_few_recent_has_no_toggle(monkeypatch):
+    client, patcher = _recent_client(monkeypatch, [_author(i) for i in range(1, 6)])
+    try:
+        html = client.get("/").get_data(as_text=True)
+    finally:
+        patcher.stop()
+    assert "data-extra" not in html
+    assert "See more recent authors" not in html

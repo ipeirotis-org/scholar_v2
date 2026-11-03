@@ -56,6 +56,8 @@ GS_CITATION_URL = "https://scholar.google.com/citations?view_op=view_citation&hl
 
 # Featured authors shown on the homepage; /featured lists all of them.
 HOMEPAGE_FEATURED = 10
+# Recent authors shown before "See more" expands the list (up to MAX_RECENT_AUTHORS).
+HOMEPAGE_RECENT = 5
 
 
 def _validate_scholar_id(scholar_id):
@@ -232,6 +234,7 @@ def register_routes(app):
             "index.html", recent_authors=recent_authors, prefill_name=prefill_name,
             featured_authors=featured_authors[:HOMEPAGE_FEATURED],
             more_featured=len(featured_authors) > HOMEPAGE_FEATURED,
+            homepage_recent=HOMEPAGE_RECENT,
         )
 
     @app.route("/featured")

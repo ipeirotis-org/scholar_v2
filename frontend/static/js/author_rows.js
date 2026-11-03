@@ -22,6 +22,19 @@
         });
     });
 
+    // "See more" buttons show the rows a table hides at first, and hide them again.
+    document.querySelectorAll('.author-table-toggle').forEach(function(button) {
+        var table = document.getElementById(button.getAttribute('aria-controls'));
+        if (!table) return;
+        var moreLabel = button.textContent;
+        button.addEventListener('click', function() {
+            var expand = button.getAttribute('aria-expanded') !== 'true';
+            table.querySelectorAll('tr[data-extra]').forEach(function(row) { row.hidden = !expand; });
+            button.setAttribute('aria-expanded', String(expand));
+            button.textContent = expand ? 'Show fewer' : moreLabel;
+        });
+    });
+
     // Remove the overlay when returning via the browser's back/forward buttons.
     window.addEventListener('pageshow', function() {
         var overlay = document.getElementById('loadingOverlay');
