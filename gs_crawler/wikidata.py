@@ -192,23 +192,32 @@ def _pageview_window(today=None):
     return start.strftime("%Y%m%d"), end.strftime("%Y%m%d")
 
 
-def _article_views(title, session, window):
+def _article_views(title, session, window, deadline=None):
     """Views of one English Wikipedia article over `window`; 0 if the API has no
-    data for it, None on failure."""
+    data for it, None on failure or once `deadline` (time.monotonic()) has passed."""
     url = PAGEVIEW_URL.format(title=quote(title.replace(" ", "_"), safe=""),
                               start=window[0], end=window[1])
+
+    def pause(seconds):
+        if deadline is not None:
+            seconds = min(seconds, deadline - time.monotonic())
+        if seconds > 0:
+            time.sleep(seconds)
+
     for attempt in range(MAX_ATTEMPTS):
+        if deadline is not None and time.monotonic() > deadline:
+            return None
         try:
             r = session.get(url, headers={"User-Agent": USER_AGENT}, timeout=30)
         except requests.RequestException:
-            time.sleep(2 * (attempt + 1))
+            pause(2 * (attempt + 1))
             continue
         if r.status_code == 429 or r.status_code >= 500:
             try:
                 wait = int(r.headers.get("Retry-After") or 0)
             except ValueError:
                 wait = 0
-            time.sleep(min(max(wait, 2 * (attempt + 1)), 60))
+            pause(min(max(wait, 2 * (attempt + 1)), 60))
             continue
         if r.status_code == 404:
             return 0  # no recorded views (new or rarely read article)
@@ -235,7 +244,8 @@ def fetch_pageviews(titles, session=None, workers=PAGEVIEW_WORKERS,
         else:
             s = getattr(local, "session", None) or requests.Session()
             local.session = s
-        return title, _article_views(title, s, window)
+        # Queued titles past the deadline return at once instead of draining the chunk.
+        return title, _article_views(title, s, window, deadline)
 
     views, failed = {}, 0
     deadline = time.monotonic() + max_seconds

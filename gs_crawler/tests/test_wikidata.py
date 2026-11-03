@@ -139,6 +139,25 @@ class TestPageviews:
         views = wikidata.fetch_pageviews([f"T{i}" for i in range(50)], session=session, window=self.WINDOW)
         assert views == {}
 
+    def test_deadline_stops_queued_and_retrying_work(self):
+        session = MagicMock()
+        session.get.return_value = _resp(429, headers={"Retry-After": "60"})
+        with patch.object(wikidata.time, "sleep") as sleep:
+            # Past the deadline: no request at all.
+            assert wikidata._article_views("A", session, self.WINDOW, deadline=0) is None
+            session.get.assert_not_called()
+            # Deadline 5 s away: the 60 s Retry-After wait is cut to what is left.
+            now = wikidata.time.monotonic()
+            assert wikidata._article_views("A", session, self.WINDOW, deadline=now + 5) is None
+        assert all(call.args[0] <= 5 for call in sleep.call_args_list)
+
+    def test_fetch_pageviews_stops_mid_chunk_at_deadline(self):
+        session = MagicMock()
+        session.get.return_value = _resp(200, json_data={"items": [{"views": 1}]})
+        views = wikidata.fetch_pageviews([f"T{i}" for i in range(300)], session=session,
+                                         workers=2, max_seconds=0, window=self.WINDOW)
+        assert views == {} and session.get.call_count == 0
+
     def test_window_is_60_full_days_before_today(self):
         from datetime import date
         assert wikidata._pageview_window(date(2026, 11, 3)) == ("20260904", "20261102")
