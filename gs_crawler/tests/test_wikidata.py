@@ -102,27 +102,46 @@ class TestSources:
 
 
 class TestPageviews:
-    def test_maps_normalized_and_redirected_titles_back(self):
-        data = {"query": {
-            "normalized": [{"from": "judea_Pearl", "to": "Judea pearl"}],
-            "redirects": [{"from": "Judea pearl", "to": "Judea Pearl"}],
-            "pages": [
-                {"title": "Judea Pearl", "pageviews": {"2026-10-01": 100, "2026-10-02": None, "2026-10-03": 50}},
-                {"title": "Peyman Milanfar", "pageviews": {"2026-10-01": 7}},
-                {"title": "Missing Page", "missing": True},
-            ]}}
+    WINDOW = ("20260904", "20261102")
+
+    def test_sums_daily_views_and_encodes_title(self):
         session = MagicMock()
-        session.get.return_value = _resp(200, json_data=data)
-        views = wikidata._pageview_batch(["judea_Pearl", "Peyman Milanfar", "Missing Page"], session)
-        assert views == {"judea_Pearl": 150, "Peyman Milanfar": 7}
+        session.get.return_value = _resp(200, json_data={"items": [{"views": 100}, {"views": 50}]})
+        assert wikidata._article_views("Judea Pearl/Bio", session, self.WINDOW) == 150
+        url = session.get.call_args.args[0]
+        assert "/user/Judea_Pearl%2FBio/daily/20260904/20261102" in url
+
+    def test_missing_article_counts_as_zero_and_errors_as_none(self):
+        session = MagicMock()
+        session.get.return_value = _resp(404, json_data={})
+        assert wikidata._article_views("Nobody", session, self.WINDOW) == 0
+        session.get.return_value = _resp(403, json_data={})
+        assert wikidata._article_views("Nobody", session, self.WINDOW) is None
+
+    def test_rate_limit_is_retried(self):
+        session = MagicMock()
+        session.get.side_effect = [_resp(429, headers={"Retry-After": "1"}),
+                                   _resp(200, json_data={"items": [{"views": 7}]})]
+        with patch.object(wikidata.time, "sleep") as sleep:
+            assert wikidata._article_views("Peyman Milanfar", session, self.WINDOW) == 7
+        sleep.assert_called_once()
+
+    def test_fetch_pageviews_covers_every_title(self):
+        session = MagicMock()
+        session.get.return_value = _resp(200, json_data={"items": [{"views": 3}]})
+        titles = [f"T{i}" for i in range(450)]
+        views = wikidata.fetch_pageviews(titles, session=session, workers=4, window=self.WINDOW)
+        assert len(views) == 450 and set(views.values()) == {3}
 
     def test_failures_leave_views_empty_without_raising(self):
         session = MagicMock()
-        session.get.return_value = _resp(503, "down")
-        with patch.object(wikidata.time, "sleep"):
-            views = wikidata.fetch_pageviews([f"T{i}" for i in range(600)], session, pause=0)
+        session.get.return_value = _resp(403, "forbidden")
+        views = wikidata.fetch_pageviews([f"T{i}" for i in range(50)], session=session, window=self.WINDOW)
         assert views == {}
-        assert session.get.call_count == 10  # gives up after 10 failed batches with no data
+
+    def test_window_is_60_full_days_before_today(self):
+        from datetime import date
+        assert wikidata._pageview_window(date(2026, 11, 3)) == ("20260904", "20261102")
 
 
 class TestLoad:

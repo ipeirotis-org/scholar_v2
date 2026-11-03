@@ -57,8 +57,10 @@ carry a Google Scholar author ID (property P1960). The monthly `wikidata` run:
    ~20 s); if that fails, the Wikidata Query Service, one query per leading ID character (split
    further, with back-off, on timeouts). WDQS alone proved fragile: the first production run
    failed after 26 min when it throttled small partitions.
-2. Adds 60-day English Wikipedia pageviews via the Action API (`prop=pageviews`, 50 titles per
-   request, paced, at most 25 min). Best-effort: missing views stay NULL.
+2. Adds 60-day English Wikipedia pageviews from the per-article REST endpoint (~22K articles,
+   8 workers, at most 25 min, best-known by sitelinks first). Best-effort: missing views stay NULL.
+   The Action API's `prop=pageviews` was tried first; it answers only ~5 titles per request
+   before asking for a continuation, so it covered 2.4K of 22K articles in the time allowed.
 3. Replaces `gs_data.wikidata_authors`, refusing a load that would shrink it by more than half.
 4. Rebuilds the app's author name index (the weekly `materialize` run does this too).
 
