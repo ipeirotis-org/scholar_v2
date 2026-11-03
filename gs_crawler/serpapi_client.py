@@ -65,8 +65,17 @@ def validate_author_page(data, start):
         # search: accepting it on a continuation page would silently truncate the list.
         raise SerpApiError(f"search status {status or 'missing'}", transient=True)
     if start > 0 and "articles" not in data:
-        # Only the explicit "no results" error above marks the end of a profile.
+        # A full profile page without articles marks the end of a list whose length
+        # is a multiple of 100 (seen 2026-11-03: 800 articles, start=800 returned the
+        # author block but no articles). Anything thinner, e.g. metadata only, is
+        # untrustworthy: accepting it would silently truncate the list.
+        if (data.get("author") or {}).get("name"):
+            return
         raise SerpApiError(f"continuation page start={start} has no articles field", transient=True)
+    if start == 0 and not data.get("author") and "articles" not in data:
+        # Metadata only, no author block at all: the profile was deleted or made
+        # private (seen 2026-11-03 on legacy profiles). Retrying would bill daily.
+        raise SerpApiError("profile not found (first page has only metadata)", transient=False)
     if start == 0:
         if not (data.get("author") or {}).get("name"):
             raise SerpApiError("first page has no author name", transient=True)

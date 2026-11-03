@@ -45,6 +45,18 @@ class TestValidateAuthorPage:
     def test_no_results_past_the_end_is_ok(self):
         validate_author_page({"error": "Google hasn't returned any results for this query."}, 100)
 
+    def test_metadata_only_first_page_is_permanent(self):
+        with pytest.raises(SerpApiError) as exc:
+            validate_author_page({"search_metadata": {"status": "Success"}, "search_parameters": {}}, 0)
+        assert not exc.value.transient
+
+    def test_deleted_profile_is_not_retried(self, serpapi_key):
+        from gs_crawler import crawler
+        gone = {"search_metadata": {"status": "Success"}, "search_parameters": {}}
+        with patch("requests.get", return_value=_response(200, gone)) as get:
+            result = crawler.crawl_author("GONEAAAAAAAJ")
+        assert not result.ok and result.permanent and get.call_count == 1
+
     def test_failed_search_status_is_invalid(self):
         page = make_page(3)
         page["search_metadata"]["status"] = "Error"
@@ -98,6 +110,21 @@ class TestContinuationPages:
     def test_success_without_articles_field_is_invalid(self):
         with pytest.raises(SerpApiError, match="no articles field"):
             validate_author_page({"search_metadata": {"status": "Success"}}, 100)
+
+    def test_full_page_without_articles_ends_the_list(self):
+        # 800-article profile: start=800 returns the author block but no articles.
+        page = {"search_metadata": {"status": "Success"}, "author": {"name": "Maurizio Porfiri"},
+                "cited_by": {}, "co_authors": []}
+        validate_author_page(page, 800)
+
+    def test_crawl_of_exact_multiple_of_100_is_complete(self, serpapi_key):
+        from gs_crawler import crawler
+        end = {"search_metadata": {"status": "Success"}, "author": {"name": "A"}}
+        responses = [_response(200, make_page(100)), _response(200, make_page(100, offset=100, first=False)),
+                     _response(200, end)]
+        with patch("requests.get", side_effect=responses) as get:
+            result = crawler.crawl_author("TESTAAAAAAAJ")
+        assert result.ok and len(result.pages) == 2 and get.call_count == 3
 
     def test_success_with_articles_is_valid(self):
         validate_author_page(make_page(26, offset=100, first=False), 100)
