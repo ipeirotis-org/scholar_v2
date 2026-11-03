@@ -50,6 +50,8 @@ def candidates_query():
           FROM {wikidata} w
           LEFT JOIN {latest} a USING (scholar_id)
           WHERE a.scholar_id IS NULL
+            -- Living scholars only (see gs_crawler/wikidata.py); NULL flags never qualify.
+            AND w.is_scholarly IS TRUE AND w.died IS NOT TRUE AND w.is_politician IS NOT TRUE
             AND w.scholar_id NOT IN (SELECT scholar_id FROM pending)
             AND w.scholar_id NOT IN (SELECT scholar_id FROM failed)
           ORDER BY w.enwiki_views_60d DESC NULLS LAST, w.sitelinks DESC NULLS LAST, w.scholar_id

@@ -50,6 +50,9 @@ SCHEMA = [
     bigquery.SchemaField("enwiki_title", "STRING"),
     bigquery.SchemaField("enwiki_views_60d", "INTEGER"),
     bigquery.SchemaField("fetched_at", "TIMESTAMP", mode="REQUIRED"),
+    bigquery.SchemaField("died", "BOOLEAN"),
+    bigquery.SchemaField("is_scholarly", "BOOLEAN"),
+    bigquery.SchemaField("is_politician", "BOOLEAN"),
 ]
 
 
@@ -74,24 +77,37 @@ PAGEVIEW_WORKERS = 8
 PAGEVIEW_MAX_SECONDS = 2400  # leaves ~20 min of the job's 1 h task timeout
 
 
-_PREFIXES = """PREFIX wdt: <http://www.wikidata.org/prop/direct/>
+_PREFIXES = """PREFIX wd: <http://www.wikidata.org/entity/>
+PREFIX wdt: <http://www.wikidata.org/prop/direct/>
 PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
 PREFIX schema: <http://schema.org/>
 PREFIX wikibase: <http://wikiba.se/ontology#>
 """
 
 
+# Ingestion is limited to living people with a scholarly occupation (or a subclass):
+# researcher, engineer, academic, university teacher, physician. Without this the
+# most-viewed candidates were Einstein, Newton, Marx, Xi Jinping and Joe Biden, who
+# would waste the budget and distort the percentile reference population.
+# Politicians (Q82955) are left out even when they also hold an academic occupation.
+SCHOLARLY_OCCUPATIONS = "wd:Q1650915 wd:Q81096 wd:Q3400985 wd:Q1622272 wd:Q39631"
+
+
 def _query(prefix=None):
     """The P1960 query; with `prefix`, only GS IDs starting with it (case-sensitive)."""
     gs_filter = f'FILTER(STRSTARTS(?g, "{prefix}"))' if prefix else ""
     return _PREFIXES + f"""
-SELECT ?p ?g ?label ?desc ?links ?enwiki WHERE {{
+SELECT ?p ?g ?label ?desc ?links ?enwiki ?dead ?scholarly ?politician WHERE {{
   ?p wdt:P1960 ?g .
   {gs_filter}
   ?p rdfs:label ?label . FILTER(LANG(?label) = "en")
   OPTIONAL {{ ?p wikibase:sitelinks ?links }}
   OPTIONAL {{ ?p schema:description ?desc . FILTER(LANG(?desc) = "en") }}
   OPTIONAL {{ ?art schema:about ?p ; schema:isPartOf <https://en.wikipedia.org/> ; schema:name ?enwiki }}
+  OPTIONAL {{ ?p wdt:P570 ?death }}
+  BIND(BOUND(?death) AS ?dead)
+  BIND(EXISTS {{ VALUES ?occ {{ {SCHOLARLY_OCCUPATIONS} }} ?p wdt:P106/wdt:P279* ?occ }} AS ?scholarly)
+  BIND(EXISTS {{ ?p wdt:P106/wdt:P279* wd:Q82955 }} AS ?politician)
 }}"""
 
 
@@ -158,6 +174,11 @@ def _fetch_partition(prefix, session, pause=THROTTLE_PAUSE):
     return out
 
 
+def _bool(value):
+    value = (value or "").strip().lower()
+    return True if value in ("true", "1") else False if value in ("false", "0") else None
+
+
 def _int(value):
     try:
         return int(value)
@@ -183,6 +204,9 @@ def normalize(raw_rows, fetched_at):
             "enwiki_title": (r.get("enwiki") or "").strip() or None,
             "enwiki_views_60d": None,
             "fetched_at": fetched_at,
+            "died": _bool(r.get("dead")),
+            "is_scholarly": _bool(r.get("scholarly")),
+            "is_politician": _bool(r.get("politician")),
         })
     return out
 

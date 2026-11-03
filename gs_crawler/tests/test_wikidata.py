@@ -37,6 +37,20 @@ class TestNormalize:
         assert second["description"] is None and second["sitelinks"] is None and second["enwiki_title"] is None
 
 
+class TestFlags:
+    def test_flags_parsed_from_query_booleans(self):
+        raw = [{"p": "http://www.wikidata.org/entity/Q937", "g": "qc6CJjYAAAAJ", "label": "Albert Einstein",
+                "dead": "true", "scholarly": "true", "politician": "false"},
+               {"p": "http://www.wikidata.org/entity/Q7", "g": "DDDDDDDDDDDJ", "label": "No Flags"}]
+        einstein, plain = wikidata.normalize(raw, "2026-11-03T00:00:00+00:00")
+        assert (einstein["died"], einstein["is_scholarly"], einstein["is_politician"]) == (True, True, False)
+        assert (plain["died"], plain["is_scholarly"], plain["is_politician"]) == (None, None, None)
+
+    def test_query_asks_for_flags(self):
+        q = wikidata._query()
+        assert "wdt:P570" in q and "wd:Q81096" in q and "wd:Q82955" in q and "PREFIX wd:" in q
+
+
 class TestPartitions:
     def test_timed_out_prefix_is_split(self):
         header = "p,g,label,desc,links,enwiki\n"
@@ -243,6 +257,11 @@ class TestNewAuthorShare:
     def test_zero_share_skips_new_authors(self):
         batch = scheduler.select_batch(20, client=_Client(self.ROWS), new_author_share=0)
         assert [sid for sid, _, _ in batch] == ["queued", "stale1", "stale2"]
+
+    def test_query_limits_new_authors_to_living_scholars(self):
+        sql = scheduler.candidates_query()
+        assert "w.is_scholarly IS TRUE" in sql
+        assert "w.died IS NOT TRUE" in sql and "w.is_politician IS NOT TRUE" in sql
 
     def test_query_orders_new_authors_by_pageviews_and_skips_failures(self):
         sql = scheduler.candidates_query()

@@ -73,6 +73,9 @@ to a web search for the profile.
 
 **Ingestion priority.** Each refresh run spends up to `NEW_AUTHOR_SHARE` (25%) of its budget on
 Wikidata authors we have never crawled, most-viewed Wikipedia article first, then by sitelinks.
+Only living people with a scholarly occupation are eligible (~116K): researcher, engineer, academic,
+university teacher or physician (or a subclass), and not a politician. Unfiltered, the most-viewed
+candidates were Einstein, Newton, Marx, Xi Jinping and Joe Biden. Search still lists everyone.
 Unused share goes back to refreshes. The share is enforced on actual searches: a new profile's crawl is
 capped at what is left of it, and one too large to fit is cooled down like a failure. Permanent failures (no profile behind the ID) go to
 `gs_data.crawl_failures`, and the scheduler skips those IDs for `FAILURE_COOLDOWN_DAYS` (30).
