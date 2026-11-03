@@ -65,9 +65,9 @@ class TestGsIndexQuery:
 
 
 class TestWikidataIndex:
-    def _client(self, profiled, wikidata):
+    def _client(self, profiled, wikidata, coauthors=()):
         client = BigQuerySearchClient.__new__(BigQuerySearchClient)
-        client._query = mock.MagicMock(side_effect=[profiled, wikidata])
+        client._query = mock.MagicMock(side_effect=[profiled, wikidata, list(coauthors)])
         return client
 
     def test_index_adds_unprofiled_wikidata_authors(self, gs_mode):
@@ -78,6 +78,39 @@ class TestWikidataIndex:
         wiki_sql = client._query.call_args_list[1][0][0]
         assert "gs_data.wikidata_authors`" in wiki_sql
         assert "NOT IN" in wiki_sql and "ranked_author_current`" in wiki_sql
+
+    def test_coauthors_added_and_merged_with_wikidata(self, gs_mode):
+        client = self._client(
+            [{"scholar_id": "A", "name": "Profiled"}],
+            [{"scholar_id": "W", "name": "Both Places", "affiliation": "American computer scientist",
+              "sitelinks": 3, "source": "wikidata"}],
+            [{"scholar_id": "W", "name": "Both", "affiliation": "Professor, NYU", "coauthor_of": 4,
+              "source": "coauthor"},
+             {"scholar_id": "C", "name": "Only Coauthor", "affiliation": None, "coauthor_of": 2,
+              "source": "coauthor"}])
+        index = {a["scholar_id"]: a for a in client.get_all_author_names()}
+        assert set(index) == {"A", "W", "C"}
+        assert index["W"]["affiliation"] == "Professor, NYU" and index["W"]["source"] == "wikidata"
+        assert index["W"]["coauthor_of"] == 4 and index["W"]["name"] == "Both Places"
+        assert index["C"]["source"] == "coauthor"
+        co_sql = client._query.call_args_list[2][0][0]
+        assert "UNNEST(a.coauthors)" in co_sql and "ranked_author_current`" in co_sql
+
+    def test_failed_coauthor_query_keeps_the_rest(self, gs_mode):
+        client = self._client([{"scholar_id": "A", "name": "Profiled"}],
+                              [{"scholar_id": "W", "name": "Wiki", "source": "wikidata"}], [])
+        assert [a["scholar_id"] for a in client.get_all_author_names()] == ["A", "W"]
+
+    def test_coauthors_rank_after_wikidata_then_by_coauthor_count(self, gs_mode, monkeypatch):
+        monkeypatch.setattr(ss, "_author_index", [
+            {"scholar_id": "C1", "name": "Ann Lee", "name_lower": "ann lee", "source": "coauthor", "coauthor_of": 1},
+            {"scholar_id": "C5", "name": "Ann Lee", "name_lower": "ann lee", "source": "coauthor", "coauthor_of": 5},
+            {"scholar_id": "W1", "name": "Ann Lee", "name_lower": "ann lee", "source": "wikidata", "sitelinks": 1},
+            {"scholar_id": "P0", "name": "Ann Lee", "name_lower": "ann lee", "citedby": 0},
+        ])
+        results = ss._search_in_memory("ann lee")
+        assert [r["scholar_id"] for r in results] == ["P0", "W1", "C5", "C1"]
+        assert results[2]["source"] == "coauthor"
 
     def test_no_index_from_wikidata_alone(self, gs_mode):
         client = self._client([], [{"scholar_id": "x", "name": "Only Wikidata"}])

@@ -38,6 +38,7 @@ def test_empty_search_offers_paste_hint_in_gs_mode(gs_client):
     html = gs_client.get("/").get_data(as_text=True)
     assert "appendPasteHint();" in html
     assert "not analyzed yet" in html
+    assert 'author.source === "coauthor"' in html
 
 
 def test_no_paste_hint_in_s2_mode(client):

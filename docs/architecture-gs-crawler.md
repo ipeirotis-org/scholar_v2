@@ -68,8 +68,12 @@ carry a Google Scholar author ID (property P1960). The monthly `wikidata` run:
 3. Replaces `gs_data.wikidata_authors`, refusing a load that would shrink it by more than half.
 4. Rebuilds the app's author name index (the weekly `materialize` run does this too).
 
-**Search.** The index holds every profiled author plus the unprofiled Wikidata ones, which show
-their Wikidata description and "not analyzed yet"; selecting one crawls the profile on demand.
+**Search.** The index holds every profiled author, the unprofiled Wikidata ones (~121K) and the
+unprofiled co-authors listed on profiled authors' pages (~180K, ~157K of them not on Wikidata),
+about 290K entries. Unprofiled entries show "not analyzed yet"; selecting one crawls the profile on
+demand. Ranking: profiled authors by citations, then Wikidata people by sitelinks, then co-authors by
+how many profiled authors list them. For people in both lists, the co-author box's affiliation
+replaces the Wikidata description.
 Names that are in neither still need a pasted profile URL; the empty result says so and links
 to a web search for the profile.
 

@@ -13,9 +13,11 @@ class Config:
     DATA_SOURCE = os.environ.get("DATA_SOURCE", "s2").lower()
     IS_GS = DATA_SOURCE == "gs"
     BQ_STATS_DATASET = os.environ.get("BQ_STATS_DATASET", "gs_statistics" if IS_GS else "statistics")
-    # GS mode also indexes unprofiled researchers whose GS ID is on Wikidata.
+    # GS mode also indexes unprofiled researchers whose GS ID is on Wikidata or who
+    # are listed as co-authors on a profiled author's page.
     BQ_GS_DATASET = os.environ.get("BQ_GS_DATASET", "gs_data")
     WIKIDATA_AUTHORS_TABLE = "wikidata_authors"
+    AUTHORS_LATEST_VIEW = "authors_latest"  # co-author lists of profiled authors
 
     # Firestore cache collection for search results
     # Separate collections per data source so switching DATA_SOURCE never
