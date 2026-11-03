@@ -15,6 +15,14 @@ from cache_layer.config import Config
 logger = logging.getLogger(__name__)
 
 
+def _json_list(raw):
+    """A JSON array column as a list of dicts; [] for NULL (NaN or None) or JSON null."""
+    if not isinstance(raw, str):
+        return []
+    value = json.loads(raw)
+    return value if isinstance(value, list) else []
+
+
 class BigQueryClient:
     def __init__(self, client=None):
         self.client = client or bigquery.Client(project=Config.PROJECT_ID)
@@ -99,10 +107,11 @@ class BigQueryClient:
         P.* carries pip_auc_score and pip_auc_score_percentile, plus in GS mode
         the field columns: field_group and field_source (the author's own field)
         and field_percentiles_json (the PiP-AUC percentile among peers in each
-        of the field groups). Selecting them through P.* keeps the query valid
-        against a view deployed before or after the field columns were added.
-        The JSON becomes field_percentiles, a list of plain dicts that Firestore
-        stores as an array of maps.
+        of the field groups); S.* carries field_metric_percentiles_json (the
+        four metrics among the same peers). Selecting them through S.* and P.*
+        keeps the query valid against views deployed before or after the field
+        columns were added. Both JSON columns become field_percentiles, one plain
+        dict per field group, which Firestore stores as an array of maps.
         """
         sql = f"""
             SELECT S.*, P.* EXCEPT (scholar_id, year_of_first_pub)
@@ -117,8 +126,14 @@ class BigQueryClient:
             return None
         stats = df.iloc[0].to_dict()
         if "field_percentiles_json" in stats:
-            raw = stats.pop("field_percentiles_json")
-            stats["field_percentiles"] = json.loads(raw) if isinstance(raw, str) else []
+            stats["field_percentiles"] = _json_list(stats.pop("field_percentiles_json"))
+        if "field_metric_percentiles_json" in stats:
+            # S.* (ranked_author_current) adds the four metrics' percentiles among the
+            # same field peers; fold them into each field's entry.
+            metrics = {m.get("field_group"): m for m in _json_list(stats.pop("field_metric_percentiles_json"))}
+            for row in stats.get("field_percentiles", []):
+                for key, value in (metrics.get(row.get("field_group")) or {}).items():
+                    row.setdefault(key, value)
         return stats
 
     def get_publication_stats(self, author_pub_id):

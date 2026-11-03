@@ -8,6 +8,14 @@ CREATE OR REPLACE VIEW `scholar-version2.gs_statistics.ranked_author_current` AS
 --
 -- GS version: hindex5y/citedby5y/i10index5y carry the profile's "since YYYY" values;
 -- their percentiles stay 0.0 (no 5y distribution yet).
+--
+-- field_metric_percentiles_json (for the author's field page): a JSON array with
+-- one object per field group, {field_group, hindex_percentile, citedby_percentile,
+-- i10index_percentile, total_publications_with_citations_percentile}, against the
+-- same peers as the field PiP-AUC percentiles (dist_pip_auc_scores_field; window
+-- and peer count are in ranked_author_pip_scores_current.field_percentiles_json).
+-- Each is the share of peers at or below the author's value, so ties count as
+-- below, as in the overall percentiles above; NULL under 30 peers.
 WITH
   DistArrays AS (
     SELECT
@@ -34,6 +42,14 @@ WITH
       ANY_VALUE(IF(metric_name = 'total_publications_with_citations', pcts_arr, NULL)) AS tpwc_pcts
     FROM DistArrays
     GROUP BY year_of_first_pub
+  ),
+  FieldDists AS (
+    SELECT
+      year_of_first_pub,
+      ARRAY_AGG(STRUCT(field_group, peer_count, hindex_values, citedby_values, i10index_values,
+                       total_publications_with_citations_values) ORDER BY field_group) AS fields
+    FROM `scholar-version2.gs_statistics.dist_pip_auc_scores_field`
+    GROUP BY year_of_first_pub
   )
 SELECT
   b.scholar_id,
@@ -57,9 +73,23 @@ SELECT
   COALESCE(dp.i10_pcts[SAFE_ORDINAL(RANGE_BUCKET(b.i10index, dp.i10_vals))], 0.0) AS i10index_percentile,
   0.0 AS i10index5y_percentile,
   COALESCE(dp.tp_pcts[SAFE_ORDINAL(RANGE_BUCKET(b.total_publications, dp.tp_vals))], 0.0) AS total_publications_percentile,
-  COALESCE(dp.tpwc_pcts[SAFE_ORDINAL(RANGE_BUCKET(b.total_publications_with_citations, dp.tpwc_vals))], 0.0) AS total_publications_with_citations_percentile
+  COALESCE(dp.tpwc_pcts[SAFE_ORDINAL(RANGE_BUCKET(b.total_publications_with_citations, dp.tpwc_vals))], 0.0) AS total_publications_with_citations_percentile,
+  (SELECT TO_JSON_STRING(ARRAY_AGG(STRUCT(
+            x.field_group,
+            IF(x.peer_count >= 30, (SELECT COUNTIF(v <= b.hindex) FROM UNNEST(x.hindex_values) v) / x.peer_count, NULL)
+              AS hindex_percentile,
+            IF(x.peer_count >= 30, (SELECT COUNTIF(v <= b.citedby) FROM UNNEST(x.citedby_values) v) / x.peer_count, NULL)
+              AS citedby_percentile,
+            IF(x.peer_count >= 30, (SELECT COUNTIF(v <= COALESCE(b.i10index, 0)) FROM UNNEST(x.i10index_values) v) / x.peer_count, NULL)
+              AS i10index_percentile,
+            IF(x.peer_count >= 30, (SELECT COUNTIF(v <= b.total_publications_with_citations)
+                                    FROM UNNEST(x.total_publications_with_citations_values) v) / x.peer_count, NULL)
+              AS total_publications_with_citations_percentile)
+          ORDER BY x.field_group))
+   FROM UNNEST(fd.fields) AS x) AS field_metric_percentiles_json
 FROM `scholar-version2.gs_statistics.stats_author_current` b
-LEFT JOIN DistPivot dp ON dp.year_of_first_pub = b.year_of_first_pub;
+LEFT JOIN DistPivot dp ON dp.year_of_first_pub = b.year_of_first_pub
+LEFT JOIN FieldDists fd ON fd.year_of_first_pub = b.year_of_first_pub;
 -- GS version keeps authors with no cited papers (year_of_first_pub IS NULL): they
 -- get 0.0 percentiles instead of disappearing, which would leave the frontend
 -- waiting forever for stats of an author that gs_data says exists.

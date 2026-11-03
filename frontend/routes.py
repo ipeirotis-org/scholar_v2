@@ -37,7 +37,7 @@ from frontend.cache import (
     is_legacy_s2_id,
 )
 from frontend.config import Config
-from frontend.formatting import build_standing, percentile_rank
+from frontend.formatting import build_standing, field_comparison, percentile_rank
 from frontend.queue_client import enqueue_cache_populate
 
 logger = logging.getLogger(__name__)
@@ -262,6 +262,9 @@ def register_routes(app):
             return redirect(url_for("index"))
         if is_legacy_s2_id(author_id):
             return _legacy_author_page(author_id)
+        if request.args.get("field"):
+            # The field comparison moved to its own page (links shared before kept ?field=).
+            return redirect(url_for("field_page", author_id=author_id, field=request.args["field"]))
 
         # Check cached freshness
         exists, last_updated = _get_author_freshness(author_id)
@@ -335,13 +338,34 @@ def register_routes(app):
             "results.html",
             author_id=author_id,
             stats=author_stats,
-            standing=build_standing(author_stats, Config.DATA_SOURCE,
-                                    field=request.args.get("field")),
+            standing=build_standing(author_stats, Config.DATA_SOURCE),
             pub_chart_data=pub_chart_data,
             temporal_chart_data=temporal_chart_data,
             last_updated=last_updated,
             stats_cached_at=stats_cached_at,
         )
+
+    @app.route("/field")
+    def field_page():
+        """The author's standing among peers in one field group (GS mode).
+
+        Reads the same cached author stats as /results; anything it cannot show
+        (no cache entry yet, S2 mode, no field percentiles) goes to /results,
+        which handles loading and refreshing.
+        """
+        author_id = _validate_scholar_id(request.args.get("author_id", "").strip())
+        if not author_id:
+            flash("A valid author ID is required.")
+            return redirect(url_for("index"))
+        stats = None
+        if Config.DATA_SOURCE == "gs" and not is_legacy_s2_id(author_id):
+            stats = _read_cache(Config.CACHE_AUTHOR_STATS, author_id)
+        standing = build_standing(stats, Config.DATA_SOURCE) if stats else None
+        fields = field_comparison(stats, request.args.get("field")) if standing and standing["has_pip"] else None
+        if not fields:
+            return redirect(url_for("results", author_id=author_id))
+        return render_template("field.html", author_id=author_id, stats=stats,
+                               standing=standing, fc=fields)
 
     @app.route("/publications/<author_id>")
     def publications(author_id):

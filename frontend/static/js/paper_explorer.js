@@ -1,7 +1,7 @@
 /**
  * PiP Score — paper explorer for the author results page.
  *
- * One chart with two views that share a selection:
+ * One chart with two views that share a selection (the page opens on "pip"):
  *   - "year": each work at (publication year, citation percentile for that year),
  *     with reference lines at the 90th, 75th and 50th percentiles. The axis
  *     starts at the author's career-start year (opts.startYear); works dated
@@ -165,7 +165,8 @@
         this.yearPapers = onAxis.length ? onAxis : papers;
         this.earlierCount = papers.length - this.yearPapers.length;
 
-        this.state = { view: 'year', selectedId: null, group: null, sort: 'percentile', expanded: false };
+        // Opens on the PiP curve, the chart the score comes from; the by-year view is one click away.
+        this.state = { view: 'pip', selectedId: null, group: null, sort: 'percentile', expanded: false };
         this.narrow = this._isNarrow();
         this.touch = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
     }

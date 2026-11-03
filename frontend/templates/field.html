@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% from "_metric_scale.html" import metric_scale %}
+
+{% block title %}{{ standing.name }}{% if fc.current %} in {{ fc.current.name }}{% endif %} -- PiP Score{% endblock %}
+
+{% block content %}
+<div class="container mt-4 results-page">
+    {% include "_author_header.html" %}
+
+    <section class="standing card" aria-labelledby="fieldHeadline">
+        <p class="eyebrow">Within a field</p>
+        {# A GET form so the picker works without JavaScript; with it, choosing a
+           field loads that field's page (?field= keeps it in the link). #}
+        <form class="field-picker" method="get" action="{{ url_for('field_page') }}" data-field-picker>
+            <input type="hidden" name="author_id" value="{{ author_id }}">
+            <label for="fieldSelect">Compare with authors in</label>
+            <select id="fieldSelect" name="field" class="field-select">
+                {% if not fc.selected %}<option value="" selected disabled>choose a field</option>{% endif %}
+                {% for c in fc.choices %}
+                <option value="{{ c.name }}"
+                        {%- if c.name == fc.selected %} selected{% endif %}
+                        {%- if not c.rankable %} disabled{% endif %}>
+                    {{- c.name }}{% if c.name == fc.own %} (from profile){% endif %}
+                    {%- if not c.rankable %} (too few authors){% endif -%}
+                </option>
+                {% endfor %}
+            </select>
+            <noscript><button type="submit" class="btn btn-sm btn-outline-violet">Compare</button></noscript>
+        </form>
+
+        {% if fc.current %}
+        {% set cur = fc.current %}
+        <h2 class="standing-headline" id="fieldHeadline">
+            {{ standing.name }} ranks <span class="standing-share">{{ cur.phrase }}</span>
+            of the {{ "{:,}".format(cur.peers) }} tracked active authors in {{ cur.name }}
+            {%- if cur.cohort %} {{ cur.cohort }}{% endif %}.
+        </h2>
+        <p class="standing-score">
+            <span class="standing-score-value">PiP-AUC {{ "%.4f"|format(standing.pip_score) }}</span>
+            <span class="standing-score-sep" aria-hidden="true">&middot;</span>
+            <a href="{{ url_for('results', author_id=author_id) }}">Across all fields: {{ standing.pip_ordinal }}
+                percentile{% if stats.year_of_first_pub %} (career start {{ stats.year_of_first_pub }}){% endif %}</a>
+        </p>
+
+        {% if cur.metrics %}
+        {{ metric_scale(cur.metrics, cur.position,
+                        "Conventional metrics as percentiles among the same field peers") }}
+        {% endif %}
+        <p class="standing-note">
+            Fields differ in how much people publish and how often they cite, so this page compares
+            the author only with tracked active authors in {{ cur.name }} (Google Scholar profiles we
+            crawl with an h-index of at least 3 and at least 3 publications) whose career started
+            within a few years of theirs; the window widens until it holds at least 100 authors.
+            {%- if cur.metrics %} Each row places a metric among the same authors; the dashed line is
+            the PiP-AUC percentile ({{ cur.ordinal }}).{% endif %}
+            {% if fc.own %}
+            {{ fc.own }} is this author's field from
+            {% if fc.own_from_coauthors %}the Google Scholar interests of their co-authors{% else %}their
+            Google Scholar interests{% endif %}; choose another field above to compare there.
+            {% endif %}
+        </p>
+        {% else %}
+        <h2 class="standing-headline" id="fieldHeadline">{{ standing.name }}</h2>
+        <p class="standing-score">
+            {% if fc.own %}
+            Too few tracked active authors in {{ fc.own }} started their careers near this author's to
+            rank within it. Choose another field above.
+            {% else %}
+            This author's Google Scholar profile names no field we recognize. Choose a field above to see
+            where the author stands among its authors.
+            {% endif %}
+        </p>
+        {% endif %}
+    </section>
+
+    <p><a href="{{ url_for('results', author_id=author_id) }}">&larr; Back to the full profile</a></p>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Choosing a field loads its page; the form is a plain GET so it also works without JavaScript.
+(function () {
+    var form = document.querySelector('[data-field-picker]');
+    if (!form) { return; }
+    form.querySelector('select').addEventListener('change', function () { form.submit(); });
+})();
+</script>
+{% endblock %}

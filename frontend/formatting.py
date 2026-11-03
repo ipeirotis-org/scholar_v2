@@ -64,15 +64,44 @@ def _career_window(start, end):
     return f"whose career started {int(start)}\u2013{int(end)}"
 
 
+_METRICS = [
+    ("hindex", "h-index", "Largest h such that h publications have at least h citations."),
+    ("citedby", "Total citations", "Citations across all publications on the profile."),
+    ("i10index", "i10-index", "Publications with at least 10 citations."),
+    ("total_publications_with_citations", "Cited publications",
+     "Publications with at least one citation. Only these enter the PiP score."),
+]
+
+
+def _metric_rows(stats, percentiles):
+    """Rows for the metric scale: each metric's value from stats, its percentile from
+    percentiles[f"{key}_percentile"] (the stats doc itself, or one field's entry)."""
+    rows = []
+    for key, label, help_text in _METRICS:
+        value = _number(stats.get(key))
+        pct = _number(percentiles.get(f"{key}_percentile"))
+        if value is None or pct is None:
+            continue
+        rows.append({
+            "label": label,
+            "help": help_text,
+            "value": int(value),
+            "position": round(100 * pct, 1),
+            "ordinal": ordinal_percentile(pct),
+        })
+    return rows
+
+
 def field_comparison(stats, requested=None):
-    """The PiP-AUC standing within each field group, for the results page's field picker.
+    """The standing within each field group, for the author's field page.
 
     stats["field_percentiles"] (GS mode; see
-    bigquery/gs_statistics/ranked_author_pip_scores_current.sql) lists every field
-    group with the career-start window of its peers, their count and the author's
-    percentile among them. The picker starts on `requested` (the ?field= URL
-    parameter) when that group can be ranked, else on the author's own group
-    (field_group), else on nothing, so the viewer picks.
+    bigquery/gs_statistics/ranked_author_pip_scores_current.sql and
+    ranked_author_current.sql) lists every field group with the career-start window
+    of its peers, their count, and the author's PiP-AUC and metric percentiles among
+    them. The page starts on `requested` (the ?field= URL parameter) when that group
+    can be ranked, else on the author's own group (field_group), else on nothing,
+    so the viewer picks.
 
     Returns None when the cache entry has no field percentiles (S2 mode, no
     PiP score, or an entry cached before field percentiles existed).
@@ -91,8 +120,11 @@ def field_comparison(stats, requested=None):
             "name": name,
             "rankable": rankable,
             "phrase": standing_phrase(pct) if rankable else None,
+            "position": round(100 * pct, 1) if rankable else None,
+            "ordinal": ordinal_percentile(pct) if rankable else None,
             "peers": int(peers) if rankable else 0,
             "cohort": _career_window(row.get("cohort_start"), row.get("cohort_end")),
+            "metrics": _metric_rows(stats, row) if rankable else [],
         })
     if not choices:
         return None
@@ -115,7 +147,7 @@ def field_comparison(stats, requested=None):
     }
 
 
-def build_standing(stats, data_source, field=None):
+def build_standing(stats, data_source):
     """Collect what the results page headline and metric scale need.
 
     Everything comes from the author stats document, so the page stays
@@ -124,7 +156,6 @@ def build_standing(stats, data_source, field=None):
     Args:
         stats: cached author stats (percentiles as 0-1 fractions).
         data_source: "gs" or "s2"; picks the wording of the comparison group.
-        field: field group to compare within first (the ?field= URL parameter).
     """
     first_year = _number(stats.get("year_of_first_pub"))
     first_year = int(first_year) if first_year is not None else None
@@ -140,26 +171,10 @@ def build_standing(stats, data_source, field=None):
     pip_pct = _number(stats.get("pip_auc_score_percentile"))
     has_pip = pip_score is not None and pip_pct is not None
 
-    metrics = []
-    for key, label, help_text in [
-        ("hindex", "h-index",
-         "Largest h such that h publications have at least h citations."),
-        ("citedby", "Total citations", "Citations across all publications on the profile."),
-        ("i10index", "i10-index", "Publications with at least 10 citations."),
-        ("total_publications_with_citations", "Cited publications",
-         "Publications with at least one citation. Only these enter the PiP score."),
-    ]:
-        value = _number(stats.get(key))
-        pct = _number(stats.get(f"{key}_percentile"))
-        if value is None or pct is None:
-            continue
-        metrics.append({
-            "label": label,
-            "help": help_text,
-            "value": int(value),
-            "position": round(100 * float(pct), 1),
-            "ordinal": ordinal_percentile(pct),
-        })
+    metrics = _metric_rows(stats, stats)
+    # The field comparison lives on its own page; the results page links to it,
+    # naming the author's own field when there is one.
+    fields = field_comparison(stats) if has_pip else None
 
     return {
         "name": stats.get("name") or "This author",
@@ -170,7 +185,7 @@ def build_standing(stats, data_source, field=None):
         "phrase": standing_phrase(pip_pct) if has_pip else None,
         "pip_position": round(100 * float(pip_pct), 1) if has_pip else None,
         "pip_ordinal": ordinal_percentile(pip_pct) if has_pip else None,
-        "field": field_comparison(stats, field) if has_pip else None,
+        "field_link": {"own": fields["own"]} if fields else None,
         "metrics": metrics,
         "num_cited": int(_number(stats.get("total_publications_with_citations")) or 0),
         "num_records": int(_number(stats.get("total_publications")) or 0),
