@@ -26,7 +26,9 @@ cache miss in GS mode ──► cache layer ──► gs_crawler.crawl_and_store
                 ▼
         gs_statistics.* views + dist_* tables ──► cache layer ──► Firestore ──► frontend
 
-gs-weekly-materialize ──► gs-crawler job (CRAWL_MODE=materialize): rebuild dist_* tables
+gs-weekly-materialize ──► gs-crawler job (CRAWL_MODE=materialize): rebuild dist_* tables + search index
+gs-monthly-wikidata ──► gs-crawler job (CRAWL_MODE=wikidata): Wikidata GS IDs + Wikipedia pageviews
+        └─► gs_data.wikidata_authors ──► search index (unprofiled names) + refresh scheduler (new authors)
 ```
 
 ## Components
@@ -39,16 +41,42 @@ gs-weekly-materialize ──► gs-crawler job (CRAWL_MODE=materialize): rebuild
 | `gs_crawler/writer.py` | Raw pages to GCS, rows to BigQuery (load jobs; publications before authors) |
 | `gs_crawler/scheduler.py` | Pick authors within the search budget: queued on-demand requests first, then stalest |
 | `gs_crawler/materialize.py` | Deploy `gs_statistics` views / rebuild `dist_*` tables in `deploy_order.txt` order |
-| `gs_crawler/main.py` | Job entry point: `CRAWL_MODE=refresh \| authors \| materialize \| deploy` |
+| `gs_crawler/wikidata.py` | GS IDs from Wikidata (P1960) with sitelinks and English Wikipedia pageviews → `gs_data.wikidata_authors` |
+| `gs_crawler/main.py` | Job entry point: `CRAWL_MODE=refresh \| authors \| materialize \| deploy \| wikidata` |
 | `bigquery/gs_data/` | Snapshot tables, latest views, one-off legacy seed |
 | `bigquery/gs_statistics/` | GS versions of the non-temporal analytics views (same output columns as `statistics`) |
+
+## Finding authors we have not crawled (Wikidata)
+
+Google Scholar's author search needs a signed-in browser, and SerpApi's Scholar results no longer
+link author names to profiles, so the app cannot turn a name into a GS ID. Wikidata can: ~130K people
+carry a Google Scholar author ID (property P1960). The monthly `wikidata` run:
+
+1. Pulls every P1960 holder with an English label from the public SPARQL endpoint (one query per
+   leading ID character, split further on timeouts), plus the English description, the sitelinks
+   count and the English Wikipedia article title.
+2. Adds 60-day English Wikipedia pageviews via the Action API (`prop=pageviews`, 50 titles per
+   request, paced, at most 25 min). Best-effort: missing views stay NULL.
+3. Replaces `gs_data.wikidata_authors`, refusing a load that would shrink it by more than half.
+4. Rebuilds the app's author name index (the weekly `materialize` run does this too).
+
+**Search.** The index holds every profiled author plus the unprofiled Wikidata ones, which show
+their Wikidata description and "not analyzed yet"; selecting one crawls the profile on demand.
+Names that are in neither still need a pasted profile URL; the empty result says so and links
+to a web search for the profile.
+
+**Ingestion priority.** Each refresh run spends up to `NEW_AUTHOR_SHARE` (25%) of its budget on
+Wikidata authors we have never crawled, most-viewed Wikipedia article first, then by sitelinks.
+Unused share goes back to refreshes. Permanent failures (no profile behind the ID) go to
+`gs_data.crawl_failures`, and the scheduler skips those IDs for `FAILURE_COOLDOWN_DAYS` (30).
 
 ## Budget (SerpApi Developer plan, 5,000 searches/month)
 
 - **Refresh:** `MAX_SEARCHES_PER_RUN=130` per daily run, about 3,900 a month. Runs never take the account
-  below `SERPAPI_SEARCH_RESERVE=1000`, which is kept for on-demand lookups.
-- **Cost per author:** an average profile costs ~3 searches, so ~1,300 authors are refreshed a month and the
-  16.2K reference set turns over in roughly a year.
+  below `SERPAPI_SEARCH_RESERVE=1000`, which is kept for on-demand lookups. Up to a quarter of each run
+  (~32 searches, ~10 authors a day) goes to new Wikidata authors.
+- **Cost per author:** an average profile costs ~3 searches, so ~1,300 authors are crawled a month. With
+  ~300 of those new, the 16.2K reference set turns over in roughly 16 months while it grows by ~3,600 a year.
 - **On-demand:** a new author costs ~3 searches. A Firestore lock (`v3_gs_crawl_locks/{id}`, 10 min) ensures one crawl per author even though the loading page re-enqueues a populate task on every reload. These crawls stop when the account is down to
   `GS_ON_DEMAND_MIN_SEARCHES=25`. There is deliberately no daily cap (decided 2026-11-02).
 - **Free calls:** account checks (`account.json`) and failed searches are not counted by SerpApi.

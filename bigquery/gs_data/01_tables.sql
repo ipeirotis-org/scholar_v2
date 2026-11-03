@@ -45,3 +45,24 @@ CREATE TABLE IF NOT EXISTS `scholar-version2.gs_data.refresh_queue` (
   requested_at TIMESTAMP NOT NULL,
   source STRING
 );
+
+-- GS author IDs from Wikidata (P1960) for name search of unprofiled authors.
+-- Replaced in full by gs_crawler CRAWL_MODE=wikidata (schema in gs_crawler/wikidata.py).
+CREATE TABLE IF NOT EXISTS `scholar-version2.gs_data.wikidata_authors` (
+  scholar_id STRING NOT NULL,
+  wikidata_id STRING NOT NULL,
+  name STRING NOT NULL,
+  description STRING,   -- Wikidata English description, shown under the name in search
+  sitelinks INT64,      -- number of Wikimedia sites with an article about the person
+  enwiki_title STRING,
+  enwiki_views_60d INT64,  -- English Wikipedia pageviews, last 60 days (ingestion priority)
+  fetched_at TIMESTAMP NOT NULL
+);
+
+-- Permanent crawl failures (no profile behind the ID). The refresh scheduler skips
+-- an ID for FAILURE_COOLDOWN_DAYS after its last failure. Written by gs_crawler.
+CREATE TABLE IF NOT EXISTS `scholar-version2.gs_data.crawl_failures` (
+  scholar_id STRING NOT NULL,
+  failed_at TIMESTAMP NOT NULL,
+  error STRING
+);

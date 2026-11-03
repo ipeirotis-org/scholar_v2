@@ -51,6 +51,13 @@ PUBLICATION_SNAPSHOTS_SCHEMA = [
 ]
 
 
+CRAWL_FAILURES_SCHEMA = [
+    bigquery.SchemaField("scholar_id", "STRING", mode="REQUIRED"),
+    bigquery.SchemaField("failed_at", "TIMESTAMP", mode="REQUIRED"),
+    bigquery.SchemaField("error", "STRING"),
+]
+
+
 def _bq():
     global _bq_client
     if _bq_client is None:
@@ -100,3 +107,11 @@ def load_snapshots(author_rows, publication_rows):
     n_auth = _load(author_rows, Config.AUTHOR_SNAPSHOTS_TABLE, AUTHOR_SNAPSHOTS_SCHEMA)
     logger.info("Loaded %d author and %d publication snapshot rows", n_auth, n_pubs)
     return n_auth, n_pubs
+
+
+def record_failures(failure_rows):
+    """Append permanent crawl failures; the scheduler skips these IDs for a while."""
+    n = _load(failure_rows, Config.CRAWL_FAILURES_TABLE, CRAWL_FAILURES_SCHEMA)
+    if n:
+        logger.info("Recorded %d permanent crawl failures", n)
+    return n

@@ -4,8 +4,11 @@ Modes (CRAWL_MODE):
   - refresh: crawl queued on-demand authors, then the stalest profiles, within
     MAX_SEARCHES_PER_RUN and never dipping below SERPAPI_SEARCH_RESERVE.
   - authors: crawl the comma-separated GS_AUTHOR_IDS now (may use the reserve).
-  - materialize: rebuild gs_statistics distribution tables (percentile breakpoints).
+  - materialize: rebuild gs_statistics distribution tables (percentile breakpoints),
+    then the app's author search index.
   - deploy: create/replace all gs_statistics views and tables.
+  - wikidata: reload gs_data.wikidata_authors (GS IDs from Wikidata, for name search
+    and ingestion priority), then the app's author search index.
 
 Profiles only: publication lists and per-paper totals, no per-paper citation
 histograms (see docs/google-scholar-data-sources.md).
@@ -16,7 +19,7 @@ import os
 import sys
 from datetime import datetime, timezone
 
-from gs_crawler import cache_invalidate, materialize, scheduler, serpapi_client, writer
+from gs_crawler import cache_invalidate, materialize, scheduler, serpapi_client, wikidata, writer
 from gs_crawler.config import Config
 from gs_crawler.crawler import crawl_author
 from gs_crawler.parser import parse_author
@@ -35,7 +38,7 @@ def searches_left():
 
 def crawl_and_store(author_ids, budget):
     """Crawl authors in order until `budget` searches are used. Returns a summary dict."""
-    author_rows, pub_rows, crawled_ids = [], [], []
+    author_rows, pub_rows, crawled_ids, failures = [], [], [], []
     summary = {"crawled": 0, "failed": 0, "searches": 0, "skipped": 0}
     for scholar_id in author_ids:
         remaining = budget - summary["searches"]
@@ -46,6 +49,9 @@ def crawl_and_store(author_ids, budget):
         summary["searches"] += result.searches
         if not result.ok:
             summary["failed"] += 1
+            if result.permanent:
+                failures.append({"scholar_id": scholar_id, "error": (result.error or "")[:500],
+                                 "failed_at": datetime.now(timezone.utc).isoformat(timespec="seconds")})
             continue
         fetched_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
         writer.write_raw_pages(scholar_id, fetched_at, result.pages)
@@ -55,9 +61,30 @@ def crawl_and_store(author_ids, budget):
         crawled_ids.append(scholar_id)
         summary["crawled"] += 1
     writer.load_snapshots(author_rows, pub_rows)
+    try:
+        writer.record_failures(failures)
+    except Exception:
+        logger.exception("Could not record %d crawl failures", len(failures))
     # Only after the snapshots are in BigQuery, so a repopulation sees the new data.
     cache_invalidate.invalidate_authors(crawled_ids)
     return summary
+
+
+def refresh_search_index():
+    """Rebuild the frontend's author name index (Firestore) so newly crawled and
+    Wikidata authors become searchable. Needs DATA_SOURCE=gs; failures are logged."""
+    from author_search.config import Config as SearchConfig
+    if not SearchConfig.IS_GS:
+        logger.info("DATA_SOURCE is not gs; leaving the search index alone")
+        return 0
+    from author_search.search_service import refresh_author_index
+    try:
+        count = refresh_author_index()
+    except Exception:
+        logger.exception("Search index rebuild failed")
+        return 0
+    logger.info("Search index rebuilt: %d authors", count)
+    return count
 
 
 def run_refresh():
@@ -86,9 +113,14 @@ def main():
         summary = run_authors(ids)
     elif mode == "materialize":
         logger.info("Rebuilt: %s", materialize.run(kinds=("table",)))
+        refresh_search_index()
         return
     elif mode == "deploy":
         logger.info("Deployed: %s", materialize.run(kinds=("view", "table")))
+        return
+    elif mode == "wikidata":
+        logger.info("Wikidata GS IDs loaded: %d", wikidata.run())
+        refresh_search_index()
         return
     else:
         raise SystemExit(f"Unknown CRAWL_MODE: {mode}")

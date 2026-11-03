@@ -20,6 +20,8 @@ See the [blog post](https://www.behind-the-enemy-lines.com/2024/01/the-pip-auc-s
 > **Data source (2026-11-03):** the live app serves Google Scholar profile data (`DATA_SOURCE=gs`, see
 > [`docs/architecture-gs-crawler.md`](docs/architecture-gs-crawler.md)). The S2 pipeline below is frozen: no new
 > fetches, kept for rollback (`DATA_SOURCE=s2`).
+> Name search covers the profiled GS authors plus ~130K unprofiled researchers whose GS ID is on Wikidata
+> (`gs_data.wikidata_authors`, reloaded monthly); others need a pasted profile URL.
 
 ## Task Tracking
 
@@ -190,7 +192,7 @@ Ranked views default to `active_authors` for user-facing percentiles.
 - **BigQuery Datasets**: `s2_data` (S2 raw tables + derived), `statistics` (analytics views), `scholar_raw_data` (legacy)
 - **GCS Bucket**: `scholar_data_share` (prefixes: `s2_datasets/`, `bq_load_temp/`)
 - **Cloud Tasks Queues**: `cache-priority`, `cache-batch` (location: `northamerica-northeast1`)
-- **Cloud Scheduler**: `s2-monthly-ingestion` (monthly 1st of month, 02:00 UTC; **paused** 2026-11-02), `gs-daily-refresh` (04:17 UTC), `gs-weekly-materialize` (Mon 05:47 UTC)
+- **Cloud Scheduler**: `s2-monthly-ingestion` (monthly 1st of month, 02:00 UTC; **paused** 2026-11-02), `gs-daily-refresh` (04:17 UTC), `gs-weekly-materialize` (Mon 05:47 UTC), `gs-monthly-wikidata` (3rd, 03:41 UTC)
 
 ## CI/CD
 
