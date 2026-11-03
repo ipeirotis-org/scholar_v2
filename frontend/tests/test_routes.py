@@ -155,6 +155,49 @@ class TestResultsRoute:
             assert "counts the 0 of" not in normalized
             assert 'id="paperChart"' not in html
 
+    @staticmethod
+    def _render_with_stats(stats):
+        from frontend.app import create_app
+
+        with mock.patch("frontend.routes.FirestoreCache") as cache_cls, \
+             mock.patch("frontend.routes.enqueue_cache_populate"):
+            cache_instance = cache_cls.return_value
+
+            def cache_get(collection, doc_id):
+                if collection == "v3_author_freshness":
+                    return {"exists": True}
+                if collection == "v3_author_stats":
+                    return stats
+                return None
+
+            cache_instance.get.side_effect = cache_get
+            cache_instance.get_timestamp.return_value = None
+            app = create_app(config={"TESTING": True, "SECRET_KEY": "test"})
+            html = app.test_client().get("/results?author_id=123").get_data(as_text=True)
+        return " ".join(html.split())
+
+    def test_results_show_field_standing(self):
+        html = self._render_with_stats({
+            "name": "Jonathan A. Parker", "pip_auc_score": 0.0692, "pip_auc_score_percentile": 0.211,
+            "year_of_first_pub": 1994, "field_group": "Economics & Business", "field_source": "interests",
+            "field_cohort_start": 1992, "field_cohort_end": 1996, "field_peer_count": 151,
+            "field_pip_auc_score_percentile": 0.34})
+        assert "ahead of 21.1%" in html  # overall headline unchanged
+        assert ("Within <strong>Economics &amp; Business</strong>: "
+                "<span class=\"standing-share\">ahead of 34%</span> of 151 tracked active authors "
+                "whose career started 1992–1996.") in html
+        assert "author's Google Scholar interests" in html
+
+    def test_results_without_field_skip_the_field_line(self):
+        # Firestore keeps a NULL field_group as NaN; old cache entries have no field keys.
+        for extra in ({"field_group": float("nan"), "field_peer_count": None,
+                       "field_pip_auc_score_percentile": float("nan")}, {}):
+            html = self._render_with_stats(dict({
+                "name": "A", "pip_auc_score": 0.4272, "pip_auc_score_percentile": 0.771,
+                "year_of_first_pub": 1990}, **extra))
+            assert "in the top 23%" in html
+            assert "standing-field" not in html
+
     def test_results_pending_pip_score_renders_without_headline_share(self):
         from frontend.app import create_app
 

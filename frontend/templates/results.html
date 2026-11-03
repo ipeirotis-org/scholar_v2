@@ -35,6 +35,20 @@
             <a href="#explore" data-explorer-view="pip" data-explorer-scroll>How the score is computed</a>
             {% endif %}
         </p>
+        {% if standing.field %}
+        <p class="standing-field">
+            Within <strong>{{ standing.field.name }}</strong>:
+            <span class="standing-share">{{ standing.field.phrase }}</span>
+            of {{ "{:,}".format(standing.field.peers) }} tracked active authors
+            {%- if standing.field.cohort %} {{ standing.field.cohort }}{% endif %}.
+            <span class="standing-field-note">
+                Fields differ in how much people publish and how often they cite, so this compares the
+                PiP-AUC score only with the same field. Field taken from the
+                {% if standing.field.from_coauthors %}Google Scholar interests of this author's
+                co-authors{% else %}author's Google Scholar interests{% endif %}.
+            </span>
+        </p>
+        {% endif %}
         {% else %}
         <h2 class="standing-headline" id="standingHeadline">{{ standing.name }}</h2>
         <p class="standing-score text-muted">PiP-AUC is pending: publication data is still being processed.</p>

@@ -43,6 +43,10 @@ class TestGsQueries:
         sql = bq.query.call_args[0][0]
         assert "gs_statistics.ranked_author_current`" in sql
         assert "_table" not in sql
+        # Field columns come through P.* (pip scores view), so the query works
+        # whether or not the deployed view has them yet.
+        assert "gs_statistics.ranked_author_pip_scores_current`" in sql
+        assert "P.* EXCEPT (scholar_id, year_of_first_pub)" in sql
 
     def test_freshness_reads_snapshot_view(self, gs_mode):
         import pandas as pd

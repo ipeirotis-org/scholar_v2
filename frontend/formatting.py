@@ -18,6 +18,14 @@ def _number(value):
     return None if math.isnan(value) else value
 
 
+def _text(value):
+    """Return value as a non-empty string, or None (pandas stores NULL strings as NaN)."""
+    if value is None or isinstance(value, float):
+        return None
+    text = str(value).strip()
+    return text or None
+
+
 def _trim(value):
     """Format a number with at most one decimal, dropping a trailing '.0'."""
     text = f"{value:.1f}"
@@ -55,6 +63,37 @@ def standing_phrase(fraction):
     if float(fraction) >= 0.5:
         return f"in the top {top_share(fraction)}%"
     return f"ahead of {_trim(100 * float(fraction))}%"
+
+
+def field_standing(stats):
+    """The author's PiP-AUC standing among field peers, or None.
+
+    The cache layer adds field_* columns in GS mode (see
+    bigquery/gs_statistics/ranked_author_pip_scores_current.sql): the field
+    group, the career-start window of the peers and their count, and the
+    percentile among them. Missing when the author has no field, the window is
+    too thin, or the cache entry predates field percentiles.
+    """
+    name = _text(stats.get("field_group"))
+    pct = _number(stats.get("field_pip_auc_score_percentile"))
+    peers = _number(stats.get("field_peer_count"))
+    if not name or pct is None or not peers:
+        return None
+    start = _number(stats.get("field_cohort_start"))
+    end = _number(stats.get("field_cohort_end"))
+    if start is None or end is None:
+        cohort = None
+    elif int(start) == int(end):
+        cohort = f"whose career started in {int(start)}"
+    else:
+        cohort = f"whose career started {int(start)}–{int(end)}"
+    return {
+        "name": name,
+        "phrase": standing_phrase(pct),
+        "peers": int(peers),
+        "cohort": cohort,
+        "from_coauthors": _text(stats.get("field_source")) == "coauthors",
+    }
 
 
 def build_standing(stats, data_source):
@@ -111,6 +150,7 @@ def build_standing(stats, data_source):
         "phrase": standing_phrase(pip_pct) if has_pip else None,
         "pip_position": round(100 * float(pip_pct), 1) if has_pip else None,
         "pip_ordinal": ordinal_percentile(pip_pct) if has_pip else None,
+        "field": field_standing(stats) if has_pip else None,
         "metrics": metrics,
         "num_cited": int(_number(stats.get("total_publications_with_citations")) or 0),
         "num_records": int(_number(stats.get("total_publications")) or 0),

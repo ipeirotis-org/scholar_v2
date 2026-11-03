@@ -15,6 +15,11 @@ PiP-AUC combines citation quality with publication productivity into a single 0-
 
 All author metrics (h-index, citations, i10-index) are also percentile-ranked by cohort (year of first publication).
 
+In GS mode each author also gets one of 11 field groups (from their GS interests, else their co-authors'), and the
+results page adds the PiP-AUC percentile among active authors in the same field with a similar career start
+(`gs_statistics.author_fields`, `dist_pip_auc_scores_field`; field columns on `ranked_author_pip_scores_current`).
+The scores themselves are not field-normalized yet (see TASKS.md "Field-specific normalization").
+
 See the [blog post](https://www.behind-the-enemy-lines.com/2024/01/the-pip-auc-score-for-research.html) for the full methodology.
 
 > **Data source (2026-11-03):** the live app serves Google Scholar profile data (`DATA_SOURCE=gs`, see

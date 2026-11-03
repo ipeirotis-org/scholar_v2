@@ -4,6 +4,7 @@ import pytest
 
 from frontend.formatting import (
     build_standing,
+    field_standing,
     ordinal_percentile,
     standing_phrase,
     top_share,
@@ -74,6 +75,42 @@ def test_build_standing_s2_wording():
     s = build_standing(MILANFAR, "s2")
     assert s["group"] == "active Semantic Scholar authors"
     assert s["cohort"] == "whose career started in 1990"
+
+
+FIELD = {
+    "field_group": "Computer Science", "field_source": "interests",
+    "field_cohort_start": 1988, "field_cohort_end": 1992, "field_peer_count": 412,
+    "field_pip_auc_score_percentile": 0.6547,
+}
+
+
+def test_build_standing_adds_field_standing():
+    f = build_standing(dict(MILANFAR, **FIELD), "gs")["field"]
+    assert f == {
+        "name": "Computer Science",
+        "phrase": "in the top 35%",
+        "peers": 412,
+        "cohort": "whose career started 1988–1992",
+        "from_coauthors": False,
+    }
+
+
+def test_field_standing_wording_variants():
+    one_year = field_standing(dict(FIELD, field_cohort_start=1990, field_cohort_end=1990,
+                                   field_source="coauthors"))
+    assert one_year["cohort"] == "whose career started in 1990"
+    assert one_year["from_coauthors"] is True
+    assert field_standing(dict(FIELD, field_cohort_start=None))["cohort"] is None
+
+
+def test_field_standing_missing_when_any_part_is_missing():
+    assert field_standing(MILANFAR) is None  # cache entry from before field percentiles
+    assert field_standing(dict(FIELD, field_group=float("nan"))) is None
+    assert field_standing(dict(FIELD, field_pip_auc_score_percentile=float("nan"))) is None
+    assert field_standing(dict(FIELD, field_peer_count=None)) is None
+    # No overall PiP score: no field line either
+    stats = dict(MILANFAR, **FIELD, pip_auc_score=None)
+    assert build_standing(stats, "gs")["field"] is None
 
 
 def test_build_standing_treats_nan_as_missing():

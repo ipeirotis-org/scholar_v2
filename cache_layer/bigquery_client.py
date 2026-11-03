@@ -93,9 +93,16 @@ class BigQueryClient:
         return df.drop_duplicates(subset=["author_pub_id"], keep="first").to_dict("records")
 
     def get_author_stats(self, scholar_id):
-        """Get author metrics with percentiles and PiP-AUC score."""
+        """Get author metrics with percentiles and PiP-AUC score.
+
+        P.* carries pip_auc_score and pip_auc_score_percentile, plus in GS mode
+        the field columns (field_group, field_source, field_cohort_start,
+        field_cohort_end, field_peer_count, field_pip_auc_score_percentile).
+        Selecting them through P.* keeps the query valid against a view deployed
+        before or after the field columns were added.
+        """
         sql = f"""
-            SELECT S.*, P.pip_auc_score, P.pip_auc_score_percentile
+            SELECT S.*, P.* EXCEPT (scholar_id, year_of_first_pub)
             FROM {Config.bq_view('ranked_author_current')} S
             LEFT JOIN {Config.bq_view('ranked_author_pip_scores_current')} P
               ON P.scholar_id = S.scholar_id

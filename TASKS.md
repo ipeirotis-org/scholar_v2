@@ -70,32 +70,39 @@ via a managed scraping API instead of `scholarly`. Vendor evaluation: [docs/goog
   - [x] Co-authors listed on profiled authors' pages (~180K) in the name index, ranked by how many profiled authors list them (2026-11-03)
   - [ ] Paper-title lookup
 - [x] **Robust career-start year** (2026-11-03): skip stray cited items before a >10-year gap (at most 2 or 5% of cited papers; >5 years dropped real early careers); manual `gs_data.start_year_overrides` (5 rows from the checked sample)
-- [ ] **Field-specific normalization** (deferred 2026-11-03). GS percentiles compare every author with all ~16K
-  profiled authors, so both PiP axes favour high-volume fields. Median PiP percentile by GS-interest field:
-  econ/business 0.36 (median 79 pubs), physics/chemistry 0.57, CS 0.67, medicine 0.67 (198 pubs).
-  Example: Jonathan A. Parker (MIT finance, `uXulDDsAAAAJ`) is at the 21st percentile overall, 32nd among
-  the 308 econ/business authors starting 1990–98 (citations 60th, publication count 38th there).
-  - [ ] First-pass fields (proposed 2026-11-03): 11 comparison groups, each a union of S2 `fieldsOfStudy` labels
-    so a venue classifier can reuse `s2_data.papers`. Numbers from a keyword pass over GS interests
-    (`scripts/field_first_pass.sql`): authors; median papers per career year; median PiP percentile
-    - High volume: Medicine & Health (2,050; 6.8; 0.62), Physics & Astronomy (738; 6.6; 0.62), Engineering
-      (722; 5.6; 0.57), Computer Science (2,347; 5.5; 0.63), Chemistry & Materials (778; 5.4; 0.63)
-    - Middle: Earth & Environment (508; 5.2; 0.51), Psychology & Cognitive Science (746; 4.4; 0.53), Mathematics
-      & Statistics (683; 4.0; 0.46), Biology incl. Neuroscience (2,064 + 683; 3.6 / 3.9; 0.46 both)
-    - Low volume: Social Sciences (960; 3.1; 0.32), Economics & Business (1,234 + 478; 2.7 / 2.6; 0.35 / 0.30)
-    - Humanities (252; 2.5; 0.14): show the label but compare with Social Sciences (median 5-year cohort cell: 15)
-    - Merged pairs have the same norms; S2 has no Neuroscience label, and Business alone has a median cell of 26
-    - S2 mapping: Chemistry & Materials = Chemistry + Materials Science; Earth & Environment = Geology +
-      Environmental Science; Biology = Biology + Agricultural and Food Sciences; Social Sciences = Political
-      Science, Sociology, Education, Law, Geography; Humanities = History, Philosophy, Art, Linguistics; the rest 1:1
-    - Cell sizes: 5-year cohort cells hold ≥50 authors for careers starting 1980–2014 in most fields (not Earth &
-      Environment, Business, Humanities); pool thin cells into 10-year bins or the broader group
-  - [ ] Field classifier: the keyword pass assigns 88% of profiles (1,415 list no interests, 556 match no rule;
-    misses are rule gaps such as pathology, MRI, pain), not the ~37% noted earlier, but its accuracy is unchecked.
-    40–60% of authors match more than one field, so settle the primary-field rule (now: most matching interests,
-    ties to the first listed) and where computational biology, biostatistics (now Medicine), cognitive
-    neuroscience (now Psychology) and computational social science go; then venues and co-author fields for the rest
-  - [ ] Display first: a field-relative percentile next to the overall one (5-year cohort bins for cell size)
+- [ ] **Field-specific normalization** (display shipped 2026-11-03; scoring still open). GS percentiles compare
+  every author with all ~16K profiled authors, so both PiP axes favour high-volume fields. Example: Jonathan A.
+  Parker (MIT finance, `uXulDDsAAAAJ`) is at the 21st percentile overall, 34th among the 151 Economics & Business
+  authors whose career started 1992–1996.
+  - [x] Field groups (2026-11-03): 11 groups, each a union of S2 `fieldsOfStudy` labels (so a venue classifier can
+    reuse `s2_data.papers`). Neuroscience sits with Biology and Business with Economics (same norms; S2 has no
+    Neuroscience label); Humanities sits with Social Sciences (252 authors, too few to rank). Authors (from
+    co-authors); median papers per career year; median overall PiP percentile (`scripts/field_norms.sql`):
+    - High volume: Medicine & Health (2,547; 6.9; 0.63), Physics & Astronomy (758; 6.1; 0.62), Chemistry &
+      Materials (720; 5.6; 0.63), Computer Science (2,579; 5.4; 0.63), Engineering (806; 5.4; 0.55)
+    - Middle: Earth & Environmental Sciences (740; 5.2; 0.51), Psychology & Cognitive Science (763; 4.3; 0.53),
+      Mathematics & Statistics (545; 3.9; 0.47), Biology & Neuroscience (2,602; 3.7; 0.47)
+    - Low volume: Social Sciences & Humanities (1,423; 3.0; 0.28), Economics & Business (1,556; 2.6; 0.31)
+    - No field: 1,175 (3.2; 0.33)
+    - S2 mapping: Chemistry & Materials = Chemistry + Materials Science; Earth & Environmental Sciences = Geology +
+      Environmental Science; Biology & Neuroscience = Biology + Agricultural and Food Sciences; Social Sciences &
+      Humanities = Political Science, Sociology, Education, Law, Geography, History, Philosophy, Art, Linguistics;
+      the rest 1:1
+  - [x] Field classifier (2026-11-03): `gs_statistics.author_interest_fields` maps each GS interest to the first
+    matching rule (a fixed list of common cross-field labels, then keyword rules in priority order, with methods
+    words such as "optimization" losing to domain words) and takes the group most interests map to, ties to the
+    first listed; 14,333 profiles (88%). `author_coauthor_fields` (table, weekly) adds 706 more from profiled
+    co-authors (≥2 with a group, top group holds a majority): 93% in all. A random sample of 80 had 3 errors, all
+    fixed by rule changes
+    - [ ] Venues for the remaining 7% (1,175 profiles; their median overall PiP percentile is 0.33)
+  - [x] Display (2026-11-03): the results page adds "Within <field>: in the top X% of N tracked active authors
+    whose career started A–B" under the overall score. Peers: active authors in the group whose career started
+    within ±2 years, widened (3, 4, 5, 7, 10) until ≥100 (`dist_pip_auc_scores_field`); hidden under 30 peers.
+    Field columns ride on `ranked_author_pip_scores_current` (a separate view added ~3 s per cache-layer lookup).
+    Every group's median active author lands at the field 50th percentile
+    - [ ] Existing Firestore `v3_author_stats` entries only get the field columns when the author is re-cached
+      (re-crawl or cache flush)
+    - [ ] Field percentiles for the four conventional metrics too (h-index, citations, i10, cited publications)
   - [ ] Then scoring: paper citation percentiles by field and year, publication counts by field and cohort
 - [x] **Author results page leads with standing** (2026-11-03): headline names the comparison group ("top 23% of tracked active authors whose career started in 1990"), PiP-AUC below it, the four conventional metrics on one percentile scale; one chart with a by-year view (dots shaded by top 10% / 25% / 50% tier with a line at each; axis starts at the career-start year, earlier works noted and kept in the list) and a PiP-curve view (shaded area, curve end, median-peer example) sharing a pinned-work panel; sortable list of works below; author line reads "Career start YYYY" (the robust `year_of_first_pub`)
   - [x] GS mode: publication detail links go to the paper's Google Scholar record; `/publication/...` redirects there (no cache task, no loading page) until Phase B adds per-paper histories (re-enable via `_has_publication_history()` in `frontend/routes.py`)

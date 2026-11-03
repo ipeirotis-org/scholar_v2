@@ -449,6 +449,24 @@ footer p {
     color: var(--nyu-violet-50);
 }
 
+/* Field-relative standing, right under the score line */
+.standing-score:has(+ .standing-field) {
+    margin-bottom: 0.6rem;
+}
+
+.standing-field {
+    color: var(--ink);
+    max-width: 46rem;
+    margin-bottom: 1.5rem;
+}
+
+.standing-field-note {
+    display: block;
+    font-size: 0.82rem;
+    color: var(--ink-muted);
+    margin-top: 0.2rem;
+}
+
 /* One percentile scale for the conventional metrics */
 .metric-scale {
     display: grid;
