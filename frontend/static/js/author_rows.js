@@ -1,5 +1,7 @@
 // Author tables (templates/_author_table.html): the whole row links to the
 // results page, with a loading overlay while the next page is fetched.
+// Text cut off with an ellipsis is marked (full text as a tooltip), and a
+// click on it expands that row in place instead of navigating.
 // showLoadingOverlay is also used by the homepage search.
 (function() {
     function showLoadingOverlay() {
@@ -12,10 +14,28 @@
     }
     window.showLoadingOverlay = showLoadingOverlay;
 
+    function markTruncated() {
+        document.querySelectorAll('.author-table td.cell-text').forEach(function(cell) {
+            if (cell.closest('tr').classList.contains('is-expanded')) return;
+            var cut = cell.scrollWidth > cell.clientWidth + 1;
+            cell.classList.toggle('is-truncated', cut);
+            if (cut) cell.title = cell.textContent.trim();
+            else cell.removeAttribute('title');
+        });
+    }
+
     document.querySelectorAll('.author-table tbody tr[data-href]').forEach(function(row) {
         row.addEventListener('click', function(e) {
-            // Modified clicks on the name link open a new tab; leave those alone.
             var link = e.target.closest('a');
+            var cell = e.target.closest('td');
+            // A click on cut-off text (not on the name link) expands or collapses the row.
+            if (!link && cell && cell.classList.contains('cell-text') &&
+                (cell.classList.contains('is-truncated') || row.classList.contains('is-expanded'))) {
+                row.classList.toggle('is-expanded');
+                if (!row.classList.contains('is-expanded')) markTruncated();
+                return;
+            }
+            // Modified clicks on the name link open a new tab; leave those alone.
             if (link && (e.ctrlKey || e.metaKey || e.shiftKey || e.button !== 0)) return;
             showLoadingOverlay();
             if (!link) window.location.href = row.dataset.href;
@@ -32,8 +52,16 @@
             table.querySelectorAll('tr[data-extra]').forEach(function(row) { row.hidden = !expand; });
             button.setAttribute('aria-expanded', String(expand));
             button.textContent = expand ? 'Show fewer' : moreLabel;
+            markTruncated();
         });
     });
+
+    var resizeTimer = null;
+    window.addEventListener('resize', function() {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(markTruncated, 150);
+    });
+    markTruncated();
 
     // Remove the overlay when returning via the browser's back/forward buttons.
     window.addEventListener('pageshow', function() {
