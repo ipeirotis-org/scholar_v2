@@ -1,7 +1,8 @@
 """Plain-language formatting of percentiles for the author results page.
 
-Percentiles arrive from the cache as fractions (0.771) and are shown as
-ordinals ("77.1st") or as a top share ("top 23%").
+Percentiles arrive from the cache as fractions (0.771) and are shown in one
+form everywhere: whole-number ordinals ("77th percentile"). The paper explorer
+(static/js/paper_explorer.js) follows the same rule.
 """
 
 import math
@@ -26,43 +27,31 @@ def _text(value):
     return text or None
 
 
-def _trim(value):
-    """Format a number with at most one decimal, dropping a trailing '.0'."""
-    text = f"{value:.1f}"
-    return text[:-2] if text.endswith(".0") else text
+def percentile_rank(fraction):
+    """Whole-number percentile for display: 0.771 -> 77, clamped to 1..99.
 
-
-def _suffix(text):
-    if "." not in text:
-        n = int(text)
-        if 10 <= n % 100 <= 20:
-            return "th"
-    return {"1": "st", "2": "nd", "3": "rd"}.get(text[-1], "th")
+    Floored, so the number is a share the author is at least ahead of (0.779 shows
+    as 77), and clamped the way test-score percentile ranks are, so the top author
+    of a cohort reads "99th" rather than "100th". Decimals would be false
+    precision: a cohort holds a few hundred authors.
+    """
+    return min(99, max(1, math.floor(100 * float(fraction) + 1e-9)))
 
 
 def ordinal_percentile(fraction):
-    """0.771 -> '77.1st', 0.86 -> '86th', 0.682 -> '68.2nd'."""
+    """0.771 -> '77th', 0.913 -> '91st', 0.112 -> '11th'."""
     if fraction is None:
         return ""
-    text = _trim(100 * float(fraction))
-    return text + _suffix(text)
-
-
-def top_share(fraction):
-    """Share of the cohort at or above this percentile: 0.771 -> '23', 0.994 -> '0.6'."""
-    share = max(0.1, 100 - 100 * float(fraction))
-    if share >= 10:
-        return str(int(round(share)))
-    return _trim(share)
+    n = percentile_rank(fraction)
+    suffix = "th" if 10 <= n % 100 <= 20 else {1: "st", 2: "nd", 3: "rd"}.get(n % 10, "th")
+    return f"{n}{suffix}"
 
 
 def standing_phrase(fraction):
-    """'in the top 23%' for upper-half percentiles, 'ahead of 31%' below the median."""
+    """'at the 77th percentile', or None when missing."""
     if fraction is None:
         return None
-    if float(fraction) >= 0.5:
-        return f"in the top {top_share(fraction)}%"
-    return f"ahead of {_trim(100 * float(fraction))}%"
+    return f"at the {ordinal_percentile(fraction)} percentile"
 
 
 def _career_window(start, end):

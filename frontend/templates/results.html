@@ -28,8 +28,6 @@
         </h2>
         <p class="standing-score">
             <span class="standing-score-value">PiP-AUC {{ "%.4f"|format(standing.pip_score) }}</span>
-            <span class="standing-score-sep" aria-hidden="true">&middot;</span>
-            <span>{{ standing.pip_ordinal }} percentile in this cohort</span>
             {% if pub_chart_data %}
             <span class="standing-score-sep" aria-hidden="true">&middot;</span>
             <a href="#explore" data-explorer-view="pip" data-explorer-scroll>How the score is computed</a>

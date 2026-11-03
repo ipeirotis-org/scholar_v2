@@ -110,7 +110,8 @@ class TestResultsRoute:
             assert response.status_code == 200
             html = response.data.decode()
             # Headline leads with the comparison group, then the raw score
-            assert "ranks <span class=\"standing-share\">in the top 10%</span>" in html
+            assert "ranks <span class=\"standing-share\">at the 90th percentile</span>" in html
+            assert "percentile in this cohort" not in html  # one scale: no second percentile line
             assert "whose career started in 2010" in html
             assert "Career start 2010" in html
             assert "PiP-AUC 0.7500" in html
@@ -191,13 +192,13 @@ class TestResultsRoute:
 
     def test_results_show_field_picker_on_own_field(self):
         html = self._render_with_stats(self.PARKER)
-        assert "ahead of 21.1%" in html  # overall headline unchanged
+        assert "at the 21st percentile" in html  # overall headline unchanged
         assert '<option value="Economics &amp; Business" selected' in html
         assert "Economics &amp; Business (from profile)</option>" in html
-        assert ('<span class="standing-share" data-field-phrase>ahead of 34%</span> '
+        assert ('<span class="standing-share" data-field-phrase>at the 34th percentile</span> '
                 "of <span data-field-peers>151</span> tracked active authors "
                 "<span data-field-cohort>whose career started 1992–1996</span>.") in html
-        assert 'data-phrase="ahead of 12%"' in html  # other fields ready for the picker
+        assert 'data-phrase="at the 12th percentile"' in html  # other fields ready for the picker
         assert "Physics &amp; Astronomy (too few authors)</option>" in html
         assert '<option value="Physics &amp; Astronomy" disabled' in html
         assert "this author's Google Scholar interests" in html
@@ -205,7 +206,7 @@ class TestResultsRoute:
     def test_results_field_parameter_picks_the_comparison(self):
         html = self._render_with_stats(self.PARKER, query="&field=Computer+Science")
         assert '<option value="Computer Science" selected' in html
-        assert "data-field-phrase>ahead of 12%</span>" in html
+        assert "data-field-phrase>at the 12th percentile</span>" in html
 
     def test_results_without_own_field_ask_for_a_choice(self):
         html = self._render_with_stats(dict(self.PARKER, field_group=float("nan"),
@@ -218,7 +219,7 @@ class TestResultsRoute:
         # Cache entries from before field percentiles, and S2 mode
         html = self._render_with_stats({"name": "A", "pip_auc_score": 0.4272,
                                         "pip_auc_score_percentile": 0.771, "year_of_first_pub": 1990})
-        assert "in the top 23%" in html
+        assert "at the 77th percentile" in html
         assert "data-field-compare" not in html
 
     def test_results_pending_pip_score_renders_without_headline_share(self):

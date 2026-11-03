@@ -20,12 +20,12 @@
     'use strict';
 
     // Dots are shaded by tier: one violet getting lighter as the tier widens
-    // (OKLab L 0.37 / 0.55 / 0.71), then a light neutral gray for the bottom half.
+    // (OKLab L 0.37 / 0.55 / 0.71), then a light neutral gray below the 50th percentile.
     var COLOR = {
-        accent: '#57068c',      // works in the top 10% for their year; PiP curve
-        top25: '#8a55b8',       // top 25% (but not top 10%)
-        top50: '#b48fd4',       // top 50% (but not top 25%)
-        muted: '#bdb8c4',       // bottom half
+        accent: '#57068c',      // works at the 90th percentile or above for their year; PiP curve
+        top25: '#8a55b8',       // 75th-89th percentile
+        top50: '#b48fd4',       // 50th-74th percentile
+        muted: '#bdb8c4',       // below the 50th percentile
         selected: '#007a6d',    // selection ring
         ink: '#333333',
         inkMuted: '#6c6675',
@@ -35,11 +35,12 @@
         surface: '#ffffff'
     };
     // Highest first. A work belongs to the first tier whose min it reaches;
-    // counts in labels are cumulative (the top 25% includes the top 10%).
+    // counts on the reference lines are cumulative (the 75th-percentile line counts
+    // works at the 90th and above too).
     var TIERS = [
-        { min: 90, share: 10, color: COLOR.accent, barClass: 'is-top10' },
-        { min: 75, share: 25, color: COLOR.top25, barClass: 'is-top25' },
-        { min: 50, share: 50, color: COLOR.top50, barClass: 'is-top50' }
+        { min: 90, label: '90th percentile and up', color: COLOR.accent, barClass: 'is-top10' },
+        { min: 75, label: '75th\u201389th percentile', color: COLOR.top25, barClass: 'is-top25' },
+        { min: 50, label: '50th\u201374th percentile', color: COLOR.top50, barClass: 'is-top50' }
     ];
     var LIST_PREVIEW = 12;
     var OVERLAP_PX = 7;
@@ -57,23 +58,20 @@
         return t.slice(-2) === '.0' ? t.slice(0, -2) : t;
     }
 
-    function ordinal(v) {
-        var t = trim1(v);
-        if (t.indexOf('.') < 0) {
-            var n = parseInt(t, 10) % 100;
-            if (n >= 10 && n <= 20) return t + 'th';
-        }
-        return t + ({ '1': 'st', '2': 'nd', '3': 'rd' }[t.charAt(t.length - 1)] || 'th');
+    // Whole-number percentile (0-100 in), floored and clamped to 1..99, as in
+    // formatting.percentile_rank: 89.95 -> 89, 100 -> 99.
+    function percentileRank(v) {
+        return Math.min(99, Math.max(1, Math.floor(Number(v) + 1e-9)));
     }
 
-    function topShare(pct) {
-        var share = Math.max(0.1, 100 - pct);
-        return share >= 10 ? String(Math.round(share)) : trim1(share);
+    function ordinal(v) {
+        var n = percentileRank(v);
+        var suffix = (n % 100 >= 10 && n % 100 <= 20) ? 'th' : ({ 1: 'st', 2: 'nd', 3: 'rd' }[n % 10] || 'th');
+        return n + suffix;
     }
 
     function standingForYear(pct, year) {
-        if (pct >= 50) return 'Top ' + topShare(pct) + '% among cited works published in ' + year;
-        return 'Ahead of ' + trim1(pct) + '% of cited works published in ' + year;
+        return ordinal(pct) + ' percentile among cited works published in ' + year;
     }
 
     function plural(n, one, many) {
@@ -313,9 +311,9 @@
             var t = tierIndex(p.pct);
             (t < 0 ? rest : groups[t]).push(p);
         });
-        var traces = [this._dotTrace(rest, COLOR.muted, 'Bottom 50% for its year')];
+        var traces = [this._dotTrace(rest, COLOR.muted, 'Below the 50th percentile for its year')];
         for (var i = TIERS.length - 1; i >= 0; i--) {
-            traces.push(this._dotTrace(groups[i], TIERS[i].color, 'Top ' + TIERS[i].share + '% for its year'));
+            traces.push(this._dotTrace(groups[i], TIERS[i].color, TIERS[i].label + ' for its year'));
         }
         return traces;
     };
@@ -405,7 +403,7 @@
             layout.annotations.push({
                 xref: 'paper', x: 0, xanchor: 'left', yref: 'y', y: tier.min, yanchor: 'bottom',
                 yshift: 1, showarrow: false,
-                text: 'Top ' + tier.share + '%' + (i === 0 ? ' for its year' : '') + ': ' +
+                text: ordinal(tier.min) + ' percentile' + (i === 0 ? ' for its year' : '') + ': ' +
                       countAtLeast(papers, tier.min) + ' of ' + papers.length,
                 font: { size: 11, color: COLOR.inkMuted },
                 bgcolor: 'rgba(255,255,255,0.8)', borderpad: 1
@@ -566,11 +564,11 @@
         this.finding.textContent = '';
         if (this.state.view === 'year') {
             var lead = el('strong', null, countAtLeast(papers, TIERS[0].min) + ' of ' + n +
-                ' scored works reached the top 10% for their publication year.');
+                ' scored works reached the 90th percentile for their publication year.');
             this.finding.appendChild(lead);
             this.finding.appendChild(document.createTextNode(
-                ' ' + countAtLeast(papers, TIERS[1].min) + ' reached the top 25% and ' +
-                countAtLeast(papers, TIERS[2].min) + ' the top 50%.' +
+                ' ' + countAtLeast(papers, TIERS[1].min) + ' reached the 75th and ' +
+                countAtLeast(papers, TIERS[2].min) + ' the 50th.' +
                 ' Each dot is one work, placed by when it appeared and by how its citations compare' +
                 ' with other cited works from that year; darker dots rank higher.'));
             if (this.earlierCount) {
@@ -866,7 +864,7 @@
             btn.setAttribute('data-paper-id', p.id);
 
             var pct = el('span', 'paper-row-pct');
-            pct.appendChild(el('span', 'paper-row-pct-value', p.pct.toFixed(1)));
+            pct.appendChild(el('span', 'paper-row-pct-value', String(percentileRank(p.pct))));
             var bar = el('span', 'paper-row-bar');
             var tier = tierIndex(p.pct);
             var fill = el('span', 'paper-row-bar-fill' + (tier >= 0 ? ' ' + TIERS[tier].barClass : ''));

@@ -98,7 +98,7 @@ def test_numbers_fit_one_line_each(make_client):
     html = client.get("/").get_data(as_text=True)
     # PiP-AUC with four decimals and its percentile in a column of its own, both right-aligned.
     assert '<td class="col-num">0.5950</td>' in html
-    assert '<td class="col-num text-muted">89.5</td>' in html
+    assert '<td class="col-num text-muted">89</td>' in html  # whole percentile, as on results pages
     assert '<td class="col-num d-none d-sm-table-cell">756,277</td>' in html
     assert "% percentile" not in html
     # Missing scores leave a dash and an empty percentile cell.

@@ -6,42 +6,48 @@ from frontend.formatting import (
     build_standing,
     field_comparison,
     ordinal_percentile,
+    percentile_rank,
     standing_phrase,
-    top_share,
 )
 
 
 @pytest.mark.parametrize("fraction, expected", [
-    (0.771, "77.1st"),
+    (0.771, "77th"),
     (0.86, "86th"),
-    (0.682, "68.2nd"),
-    (0.453, "45.3rd"),
-    (0.799, "79.9th"),
+    (0.682, "68th"),
+    (0.453, "45th"),
+    (0.799, "79th"),  # floored, never rounded up
     (0.11, "11th"),
     (0.12, "12th"),
+    (0.13, "13th"),
     (0.21, "21st"),
-    (0.0, "0th"),
+    (0.913, "91st"),
+    (0.022, "2nd"),
+    (0.033, "3rd"),
 ])
 def test_ordinal_percentile(fraction, expected):
     assert ordinal_percentile(fraction) == expected
 
 
 @pytest.mark.parametrize("fraction, expected", [
-    (0.771, "23"),
-    (0.994, "0.6"),
-    (0.95, "5"),
-    (0.955, "4.5"),
-    (1.0, "0.1"),
+    (0.753, 75),
+    (0.29, 29),    # 100 * 0.29 is 28.999... in floating point
+    (0.57, 57),
+    (0.999, 99),
+    (1.0, 99),     # the top of a cohort reads 99th, not 100th
+    (0.0, 1),      # and the bottom 1st, not 0th
+    (0.004, 1),
 ])
-def test_top_share(fraction, expected):
-    assert top_share(fraction) == expected
+def test_percentile_rank_floors_and_clamps(fraction, expected):
+    assert percentile_rank(fraction) == expected
 
 
-def test_standing_phrase_switches_below_median():
-    assert standing_phrase(0.771) == "in the top 23%"
-    assert standing_phrase(0.5) == "in the top 50%"
-    assert standing_phrase(0.312) == "ahead of 31.2%"
+def test_standing_phrase_is_a_percentile_on_both_sides_of_the_median():
+    assert standing_phrase(0.771) == "at the 77th percentile"
+    assert standing_phrase(0.5) == "at the 50th percentile"
+    assert standing_phrase(0.312) == "at the 31st percentile"
     assert standing_phrase(None) is None
+    assert ordinal_percentile(None) == ""
 
 
 MILANFAR = {
@@ -59,10 +65,10 @@ MILANFAR = {
 
 def test_build_standing_gs_wording_and_metric_order():
     s = build_standing(MILANFAR, "gs")
-    assert s["phrase"] == "in the top 23%"
+    assert s["phrase"] == "at the 77th percentile"
     assert s["group"] == "tracked active authors"
     assert s["cohort"] == "whose career started in 1990"
-    assert s["pip_ordinal"] == "77.1st"
+    assert s["pip_ordinal"] == "77th"
     assert s["pip_score"] == 0.4272
     assert [m["label"] for m in s["metrics"]] == [
         "h-index", "Total citations", "i10-index", "Cited publications"]
@@ -97,13 +103,13 @@ def test_field_comparison_starts_on_the_authors_field():
     assert fc["own"] == "Computer Science" and fc["selected"] == "Computer Science"
     assert fc["own_from_coauthors"] is False
     assert fc["current"] == {
-        "name": "Computer Science", "rankable": True, "phrase": "in the top 35%",
+        "name": "Computer Science", "rankable": True, "phrase": "at the 65th percentile",
         "peers": 412, "cohort": "whose career started 1988\u20131992",
     }
     assert [c["name"] for c in fc["choices"]] == [
         "Computer Science", "Economics & Business", "Physics & Astronomy"]
     econ, physics = fc["choices"][1], fc["choices"][2]
-    assert econ["phrase"] == "in the top 5%" and econ["cohort"] == "whose career started in 1990"
+    assert econ["phrase"] == "at the 95th percentile" and econ["cohort"] == "whose career started in 1990"
     assert physics["rankable"] is False and physics["phrase"] is None
 
 
