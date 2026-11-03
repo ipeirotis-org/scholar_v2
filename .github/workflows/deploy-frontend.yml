@@ -23,9 +23,10 @@ env:
   CACHE_LAYER_IMAGE: cache_layer
   QUEUE_LOCATION: northamerica-northeast1
   FUNCTIONS_BASE: us-central1-scholar-version2.cloudfunctions.net
-  # "s2" (Semantic Scholar) or "gs" (Google Scholar profiles). Set the repository
-  # variable DATA_SOURCE=gs to switch; see docs/google-scholar-data-sources.md.
-  DATA_SOURCE: ${{ vars.DATA_SOURCE || 's2' }}
+  # "gs" (Google Scholar profiles, default since 2026-11-03) or "s2" (Semantic
+  # Scholar, frozen snapshot). Set the repository variable DATA_SOURCE=s2 to roll
+  # back; see docs/architecture-gs-crawler.md.
+  DATA_SOURCE: ${{ vars.DATA_SOURCE || 'gs' }}
 
 jobs:
   deploy-cache-layer:

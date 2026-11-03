@@ -59,7 +59,7 @@ via a managed scraping API instead of `scholarly`. Vendor evaluation: [docs/goog
   - [ ] Deploy `gs-crawler` job + schedulers (merge triggers *Deploy Google Scholar Crawler*)
   - [x] Percentile reference population: keep the profiled GS authors (decided 2026-11-02); guidance updated (~0.40 top 25%, ~0.58 top 10%)
   - [x] No daily cap on on-demand crawls (decided 2026-11-02); the 1,000-search reserve and the 25-search floor still apply
-  - [ ] Switch: set repo variable `DATA_SOURCE=gs`, redeploy frontend + cache layer, rebuild the author index
+  - [x] Switch to GS (2026-11-03): `deploy-frontend.yml` defaults to `DATA_SOURCE=gs`; roll back with repo variable `DATA_SOURCE=s2`
 - [x] **Switch off new Semantic Scholar fetches** (2026-11-02): `s2-monthly-ingestion` scheduler paused; `deploy-dataset-ingestion.yml` manual-only and keeps it paused; live S2 API name-search fallback off by default (`S2_SEARCH_FALLBACK`). Existing `s2_data` untouched
 - [ ] **Phase B: temporal metrics** — extend legacy histograms with E2 (see doc); fetch `view_citation` only for newly added cited papers; optional annual re-fetch of h-core papers; monthly snapshots
 - [ ] **Design author discovery without GS name search** (GS URL/ID input, paper-title lookup, index of crawled authors + coauthors)

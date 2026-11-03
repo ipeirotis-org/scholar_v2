@@ -17,6 +17,10 @@ All author metrics (h-index, citations, i10-index) are also percentile-ranked by
 
 See the [blog post](https://www.behind-the-enemy-lines.com/2024/01/the-pip-auc-score-for-research.html) for the full methodology.
 
+> **Data source (2026-11-03):** the live app serves Google Scholar profile data (`DATA_SOURCE=gs`, see
+> [`docs/architecture-gs-crawler.md`](docs/architecture-gs-crawler.md)). The S2 pipeline below is frozen: no new
+> fetches, kept for rollback (`DATA_SOURCE=s2`).
+
 ## Task Tracking
 
 All current and planned tasks are tracked in [`TASKS.md`](TASKS.md). Check there for planned features and next steps.
@@ -204,7 +208,7 @@ Ranked views default to `active_authors` for user-facing percentiles.
 - **Firestore caching** in the Flask app uses timestamp comparison: cache is invalidated when the author's latest data is newer than the cache entry
 - **Task idempotency**: Cloud Tasks deduplicates naturally (AlreadyExists is caught gracefully)
 - **BigQuery schema**: S2 data stored in native tables; legacy `scholar_raw_data` stored as `{document_id, timestamp, data}` where `data` is a JSON string
-- **Author IDs**: S2 numeric author IDs (e.g., `2942126`). Legacy Google Scholar IDs (alphanumeric) no longer accepted
+- **Author IDs**: Google Scholar user IDs (12 chars, e.g., `PA9La6oAAAAJ`) in GS mode; S2 numeric IDs (e.g., `2942126`) only when `DATA_SOURCE=s2`
 - **S2 API key**: Stored in Secret Manager (`projects/875626982900/secrets/s2-api-key`), used by dataset_ingestion for bulk downloads
 
 ## Codex Reviews
