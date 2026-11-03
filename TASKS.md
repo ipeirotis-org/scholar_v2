@@ -75,7 +75,26 @@ via a managed scraping API instead of `scholarly`. Vendor evaluation: [docs/goog
   econ/business 0.36 (median 79 pubs), physics/chemistry 0.57, CS 0.67, medicine 0.67 (198 pubs).
   Example: Jonathan A. Parker (MIT finance, `uXulDDsAAAAJ`) is at the 21st percentile overall, 32nd among
   the 308 econ/business authors starting 1990–98 (citations 60th, publication count 38th there).
-  - [ ] Field classifier: GS interests match only ~37% of profiles to a field; add venues and co-author fields
+  - [ ] First-pass fields (proposed 2026-11-03): 11 comparison groups, each a union of S2 `fieldsOfStudy` labels
+    so a venue classifier can reuse `s2_data.papers`. Numbers from a keyword pass over GS interests
+    (`scripts/field_first_pass.sql`): authors; median papers per career year; median PiP percentile
+    - High volume: Medicine & Health (2,050; 6.8; 0.62), Physics & Astronomy (738; 6.6; 0.62), Engineering
+      (722; 5.6; 0.57), Computer Science (2,347; 5.5; 0.63), Chemistry & Materials (778; 5.4; 0.63)
+    - Middle: Earth & Environment (508; 5.2; 0.51), Psychology & Cognitive Science (746; 4.4; 0.53), Mathematics
+      & Statistics (683; 4.0; 0.46), Biology incl. Neuroscience (2,064 + 683; 3.6 / 3.9; 0.46 both)
+    - Low volume: Social Sciences (960; 3.1; 0.32), Economics & Business (1,234 + 478; 2.7 / 2.6; 0.35 / 0.30)
+    - Humanities (252; 2.5; 0.14): show the label but compare with Social Sciences (median 5-year cohort cell: 15)
+    - Merged pairs have the same norms; S2 has no Neuroscience label, and Business alone has a median cell of 26
+    - S2 mapping: Chemistry & Materials = Chemistry + Materials Science; Earth & Environment = Geology +
+      Environmental Science; Biology = Biology + Agricultural and Food Sciences; Social Sciences = Political
+      Science, Sociology, Education, Law, Geography; Humanities = History, Philosophy, Art, Linguistics; the rest 1:1
+    - Cell sizes: 5-year cohort cells hold ≥50 authors for careers starting 1980–2014 in most fields (not Earth &
+      Environment, Business, Humanities); pool thin cells into 10-year bins or the broader group
+  - [ ] Field classifier: the keyword pass assigns 88% of profiles (1,415 list no interests, 556 match no rule;
+    misses are rule gaps such as pathology, MRI, pain), not the ~37% noted earlier, but its accuracy is unchecked.
+    40–60% of authors match more than one field, so settle the primary-field rule (now: most matching interests,
+    ties to the first listed) and where computational biology, biostatistics (now Medicine), cognitive
+    neuroscience (now Psychology) and computational social science go; then venues and co-author fields for the rest
   - [ ] Display first: a field-relative percentile next to the overall one (5-year cohort bins for cell size)
   - [ ] Then scoring: paper citation percentiles by field and year, publication counts by field and cohort
 - [x] **Author results page leads with standing** (2026-11-03): headline names the comparison group ("top 23% of tracked active authors whose career started in 1990"), PiP-AUC below it, the four conventional metrics on one percentile scale; one chart with a by-year view (dots shaded by top 10% / 25% / 50% tier with a line at each; axis starts at the career-start year, earlier works noted and kept in the list) and a PiP-curve view (shaded area, curve end, median-peer example) sharing a pinned-work panel; sortable list of works below; author line reads "Career start YYYY" (the robust `year_of_first_pub`)
