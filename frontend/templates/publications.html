@@ -41,10 +41,18 @@
                         <td>
                             {{ pub.title }}
                             {% if pub.citation %}<br><em>{{ pub.citation }}</em>{% endif %}
+                            {% if data_source == "gs" %}
+                            {% set record = gs_record_url(pub.author_pub_id) %}
+                            {% if record %}
+                            <br>
+                            <a href="{{ record }}" target="_blank" rel="noopener">View on Google Scholar &#8599;</a>
+                            {% endif %}
+                            {% else %}
                             <br>
                             <a href="{{ url_for('publication_details', author_id=author_id, pub_id=pub.author_pub_id) }}">
                                 View Details
                             </a>
+                            {% endif %}
                         </td>
                         <td>{{ pub.pub_year }}</td>
                         <td>{{ pub.num_citations }}</td>
