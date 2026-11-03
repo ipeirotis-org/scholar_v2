@@ -16,7 +16,7 @@ import os
 import sys
 from datetime import datetime, timezone
 
-from gs_crawler import materialize, scheduler, serpapi_client, writer
+from gs_crawler import cache_invalidate, materialize, scheduler, serpapi_client, writer
 from gs_crawler.config import Config
 from gs_crawler.crawler import crawl_author
 from gs_crawler.parser import parse_author
@@ -35,7 +35,7 @@ def searches_left():
 
 def crawl_and_store(author_ids, budget):
     """Crawl authors in order until `budget` searches are used. Returns a summary dict."""
-    author_rows, pub_rows = [], []
+    author_rows, pub_rows, crawled_ids = [], [], []
     summary = {"crawled": 0, "failed": 0, "searches": 0, "skipped": 0}
     for scholar_id in author_ids:
         remaining = budget - summary["searches"]
@@ -52,8 +52,11 @@ def crawl_and_store(author_ids, budget):
         author_row, pubs = parse_author(result.pages, scholar_id, fetched_at)
         author_rows.append(author_row)
         pub_rows.extend(pubs)
+        crawled_ids.append(scholar_id)
         summary["crawled"] += 1
     writer.load_snapshots(author_rows, pub_rows)
+    # Only after the snapshots are in BigQuery, so a repopulation sees the new data.
+    cache_invalidate.invalidate_authors(crawled_ids)
     return summary
 
 

@@ -18,7 +18,8 @@ from frontend.config import Config
 logger = logging.getLogger(__name__)
 
 RECENT_AUTHORS_COLLECTION = "v3_recent_authors"
-RECENT_AUTHORS_DOC_ID = "recent"
+# Separate history per data source so GS mode never lists S2 authors (and vice versa).
+RECENT_AUTHORS_DOC_ID = "recent_gs" if Config.DATA_SOURCE == "gs" else "recent"
 MAX_RECENT_AUTHORS = 20
 
 # Background thread pool for fire-and-forget writes (query logging).

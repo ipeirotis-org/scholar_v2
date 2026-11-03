@@ -58,8 +58,13 @@ def validate_author_page(data, start):
         transient = not any(s in msg.lower() for s in ("invalid", "not found", "doesn't exist"))
         raise SerpApiError(f"SerpApi error: {msg}", transient=transient)
     status = (data.get("search_metadata") or {}).get("status")
-    if status and status != "Success":
-        raise SerpApiError(f"search status {status}", transient=True)
+    if status != "Success":
+        # Missing metadata ({} or a truncated body) is as untrustworthy as a failed
+        # search: accepting it on a continuation page would silently truncate the list.
+        raise SerpApiError(f"search status {status or 'missing'}", transient=True)
+    if start > 0 and "articles" not in data:
+        # Only the explicit "no results" error above marks the end of a profile.
+        raise SerpApiError(f"continuation page start={start} has no articles field", transient=True)
     if start == 0:
         if not (data.get("author") or {}).get("name"):
             raise SerpApiError("first page has no author name", transient=True)
@@ -105,11 +110,22 @@ def fetch_author_page(author_id, start=0):
 
 
 def get_account():
-    """Return SerpApi account info (plan, searches left). Free: not counted as a search."""
-    response = requests.get(
-        f"{Config.SERPAPI_BASE}/account.json",
-        params={"api_key": _get_api_key()},
-        timeout=Config.SERPAPI_TIMEOUT,
-    )
-    response.raise_for_status()
-    return response.json()
+    """Return SerpApi account info (plan, searches left). Free: not counted as a search.
+
+    Errors are re-raised as SerpApiError without the original exception chain:
+    requests' messages include the request URL, which carries the API key.
+    """
+    error = None
+    try:
+        response = requests.get(
+            f"{Config.SERPAPI_BASE}/account.json",
+            params={"api_key": _get_api_key()},
+            timeout=Config.SERPAPI_TIMEOUT,
+        )
+        if response.status_code != 200:
+            error = SerpApiError(f"account request failed: HTTP {response.status_code}", transient=True)
+        else:
+            return response.json()
+    except (requests.RequestException, ValueError) as exc:
+        error = SerpApiError(f"account request failed: {type(exc).__name__}", transient=True)
+    raise error from None

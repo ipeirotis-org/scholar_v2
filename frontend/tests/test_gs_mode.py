@@ -27,3 +27,8 @@ def test_s2_wording_by_default(client):
     assert Config.DATA_SOURCE == "s2"
     html = client.get("/help").get_data(as_text=True)
     assert "semanticscholar.org" in html
+
+
+def test_search_beyond_option_hidden_without_s2_fallback(client):
+    html = client.get("/").get_data(as_text=True)
+    assert "return;  // no external name search" in html

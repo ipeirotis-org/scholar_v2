@@ -10,6 +10,11 @@ from frontend.config import Config
 logger = logging.getLogger(__name__)
 
 
+def _s2_search_fallback():
+    from author_search.config import Config as SearchConfig
+    return SearchConfig.S2_SEARCH_FALLBACK and Config.DATA_SOURCE != "gs"
+
+
 def create_app(config=None):
     """Create and configure the Flask application."""
     app = Flask(
@@ -44,6 +49,7 @@ def create_app(config=None):
             "current_year": datetime.datetime.now().year,
             "ga_tracking_id": Config.GA_TRACKING_ID,
             "data_source": Config.DATA_SOURCE,
+            "s2_search_fallback": _s2_search_fallback(),
         }
 
     from frontend.routes import register_routes

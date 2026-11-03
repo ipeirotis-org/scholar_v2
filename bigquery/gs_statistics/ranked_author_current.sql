@@ -59,5 +59,7 @@ SELECT
   COALESCE(dp.tp_pcts[SAFE_ORDINAL(RANGE_BUCKET(b.total_publications, dp.tp_vals))], 0.0) AS total_publications_percentile,
   COALESCE(dp.tpwc_pcts[SAFE_ORDINAL(RANGE_BUCKET(b.total_publications_with_citations, dp.tpwc_vals))], 0.0) AS total_publications_with_citations_percentile
 FROM `scholar-version2.gs_statistics.stats_author_current` b
-LEFT JOIN DistPivot dp ON dp.year_of_first_pub = b.year_of_first_pub
-WHERE b.year_of_first_pub IS NOT NULL;
+LEFT JOIN DistPivot dp ON dp.year_of_first_pub = b.year_of_first_pub;
+-- GS version keeps authors with no cited papers (year_of_first_pub IS NULL): they
+-- get 0.0 percentiles instead of disappearing, which would leave the frontend
+-- waiting forever for stats of an author that gs_data says exists.

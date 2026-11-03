@@ -88,3 +88,47 @@ class TestFetchAuthorPage:
             with pytest.raises(SerpApiError) as err:
                 serpapi_client.fetch_author_page("ABC", 0)
         assert "test-key" not in str(err.value)
+
+
+class TestContinuationPages:
+    def test_empty_object_is_invalid(self):
+        with pytest.raises(SerpApiError, match="status missing"):
+            validate_author_page({}, 100)
+
+    def test_success_without_articles_field_is_invalid(self):
+        with pytest.raises(SerpApiError, match="no articles field"):
+            validate_author_page({"search_metadata": {"status": "Success"}}, 100)
+
+    def test_success_with_articles_is_valid(self):
+        validate_author_page(make_page(26, offset=100, first=False), 100)
+
+    def test_crawl_does_not_store_truncated_profile(self, serpapi_key):
+        from gs_crawler import crawler
+        responses = [_response(200, make_page(100))] + [_response(200, {})] * 3
+        with patch("requests.get", side_effect=responses):
+            result = crawler.crawl_author("TESTAAAAAAAJ")
+        assert not result.ok
+
+
+class TestGetAccount:
+    def test_http_error_does_not_leak_key(self, serpapi_key):
+        r = _response(401, {"error": "Invalid API key"})
+        r.raise_for_status.side_effect = requests.HTTPError(
+            "401 Client Error for url: https://serpapi.com/account.json?api_key=test-key")
+        with patch("requests.get", return_value=r):
+            with pytest.raises(SerpApiError) as err:
+                serpapi_client.get_account()
+        assert "test-key" not in str(err.value)
+        assert err.value.__cause__ is None and err.value.__context__ is None
+
+    def test_network_error_does_not_leak_key(self, serpapi_key):
+        exc = requests.ConnectionError("https://serpapi.com/account.json?api_key=test-key failed")
+        with patch("requests.get", side_effect=exc):
+            with pytest.raises(SerpApiError) as err:
+                serpapi_client.get_account()
+        assert "test-key" not in str(err.value)
+        assert err.value.__cause__ is None and err.value.__context__ is None
+
+    def test_success(self, serpapi_key):
+        with patch("requests.get", return_value=_response(200, {"total_searches_left": 42})):
+            assert serpapi_client.get_account()["total_searches_left"] == 42

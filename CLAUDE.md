@@ -85,7 +85,8 @@ scholar_v2/
 ## Data Flow
 
 ```
-1. INGEST: Monthly Cloud Scheduler (1st of month, 02:00 UTC)
+1. INGEST: Monthly Cloud Scheduler (1st of month, 02:00 UTC) — PAUSED since 2026-11-02 (no new S2 fetches;
+           existing s2_data stays as-is; GS data comes from gs_crawler)
              → dataset_ingestion Cloud Run Job
              → Download S2 dataset diffs from S2 S3 → GCS
              → BigQuery bulk load (papers, citations, authors)
@@ -117,7 +118,8 @@ scholar_v2/
              → In-memory index of ~360K prominent S2 authors (reloaded from Firestore every 6h; Firestore index rebuilt from BQ on bootstrap/manual trigger)
              → Filtered to hindex >= 20, citedby > 5000
              → Instant substring matching, sorted by citation count
-             → S2 API fallback for less-known researchers (102M authors)
+             → S2 API fallback for less-known researchers (102M authors) — off by default since
+               2026-11-02 (S2_SEARCH_FALLBACK=true re-enables)
              → Results cached in Firestore (24h TTL)
 ```
 
@@ -184,12 +186,13 @@ Ranked views default to `active_authors` for user-facing percentiles.
 - **BigQuery Datasets**: `s2_data` (S2 raw tables + derived), `statistics` (analytics views), `scholar_raw_data` (legacy)
 - **GCS Bucket**: `scholar_data_share` (prefixes: `s2_datasets/`, `bq_load_temp/`)
 - **Cloud Tasks Queues**: `cache-priority`, `cache-batch` (location: `northamerica-northeast1`)
-- **Cloud Scheduler**: `s2-monthly-ingestion` (monthly 1st of month, 02:00 UTC)
+- **Cloud Scheduler**: `s2-monthly-ingestion` (monthly 1st of month, 02:00 UTC; **paused** 2026-11-02), `gs-daily-refresh` (04:17 UTC), `gs-weekly-materialize` (Mon 05:47 UTC)
 
 ## CI/CD
 
 - **deploy-frontend.yml**: Push to `main` → Docker build → deploy Cloud Run frontend (`us-central1`)
-- **deploy-dataset-ingestion.yml**: Monthly S2 dataset ingestion + full DAG materialization (Cloud Run Job)
+- **deploy-dataset-ingestion.yml**: S2 dataset ingestion job (manual dispatch only; keeps `s2-monthly-ingestion` paused)
+- **deploy-gs-crawler.yml**: Google Scholar crawler job + daily refresh / weekly materialize schedulers
 - **deploy-ingestion.yml**: Deploy GCS→BQ ingestion function
 - **deploy-infrastructure.yml**: Cloud Tasks queues + Cloud Scheduler jobs
 - **bigquery-views.yml**: Deploy analytics SQL views in topological DAG order (views kept for dev/debugging)

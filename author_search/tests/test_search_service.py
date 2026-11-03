@@ -112,8 +112,9 @@ class TestFullSearch:
         assert results == cached
 
     @mock.patch("author_search.search_service._search_in_memory")
-    def test_scholar_flag_triggers_s2_fallback_when_few_results(self, mock_search):
-        """scholar=True queries S2 API when index returns few results."""
+    def test_scholar_flag_triggers_s2_fallback_when_few_results(self, mock_search, monkeypatch):
+        """scholar=True queries S2 API when index returns few results (fallback enabled)."""
+        monkeypatch.setattr("author_search.config.Config.S2_SEARCH_FALLBACK", True)
         mock_search.return_value = [_make_author("id1")]  # Only 1 result < 5
         cache = mock.MagicMock()
         cache.get_search_results.return_value = None
@@ -144,8 +145,9 @@ class TestFullSearch:
         assert len(results) == 10
 
     @mock.patch("author_search.search_service._search_in_memory")
-    def test_auto_s2_fallback_when_zero_local_results(self, mock_search):
-        """Default search (scholar=False) auto-falls back to S2 API on 0 results."""
+    def test_auto_s2_fallback_when_zero_local_results(self, mock_search, monkeypatch):
+        """Default search (scholar=False) auto-falls back to S2 API on 0 results (fallback enabled)."""
+        monkeypatch.setattr("author_search.config.Config.S2_SEARCH_FALLBACK", True)
         mock_search.return_value = []  # No local results
         cache = mock.MagicMock()
         cache.get_search_results.return_value = None
@@ -159,6 +161,19 @@ class TestFullSearch:
         mock_s2.assert_called_once()
         assert len(results) == 1
         assert results[0]["scholar_id"] == "2508783"
+
+    @mock.patch("author_search.search_service._search_in_memory")
+    def test_s2_fallback_off_by_default(self, mock_search):
+        """No live S2 API calls unless S2_SEARCH_FALLBACK is enabled."""
+        mock_search.return_value = []
+        cache = mock.MagicMock()
+        cache.get_search_results.return_value = None
+
+        with mock.patch("author_search.s2_client.search_authors") as mock_s2:
+            svc = AuthorSearchService(bq_client=mock.MagicMock(), cache=cache)
+            assert svc.search("T. Cowen", scholar=True) == []
+
+        mock_s2.assert_not_called()
 
     @mock.patch("author_search.search_service._search_in_memory")
     def test_no_auto_s2_fallback_when_local_results_exist(self, mock_search):
