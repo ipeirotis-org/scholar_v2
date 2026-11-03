@@ -1,45 +1,44 @@
 {# Clickable author table, shared by the homepage lists and /featured.
-   Rows link to the results page; static/js/author_rows.js shows a loading
-   overlay on click. `ranked` adds a leading # column. Affiliation is hidden
-   on phones so the metrics fit without scrolling. With `initial`, only the
-   first `initial` rows show; a `more_label` button expands the rest in place. #}
+   One line per row: names and affiliations that do not fit end in "…" and
+   expand in place when clicked (static/js/author_rows.js); anywhere else on
+   the row opens the results page. Numbers are right-aligned. Narrow screens
+   drop columns so names stay readable: affiliation below 992px, h-index below
+   768px, citations below 576px.
+   `ranked` adds a leading # column. With `initial`, only the first `initial`
+   rows show; a `more_label` button expands the rest in place. #}
 {% macro author_table(authors, table_id, label, ranked=false, initial=none, more_label="See more") %}
-<div class="table-responsive">
 <table class="table table-hover table-sm author-table" id="{{ table_id }}" aria-label="{{ label }}">
     <thead>
         <tr>
-            {% if ranked %}<th scope="col">#</th>{% endif %}
-            <th scope="col">Name</th>
-            <th scope="col" class="d-none d-md-table-cell">Affiliation</th>
-            <th scope="col" class="text-nowrap">H-Index</th>
-            <th scope="col">Citations</th>
-            <th scope="col">PiP-AUC</th>
+            {% if ranked %}<th scope="col" class="col-rank">#</th>{% endif %}
+            <th scope="col" class="col-name">Name</th>
+            <th scope="col" class="col-affiliation d-none d-lg-table-cell">Affiliation</th>
+            <th scope="col" class="col-num col-hindex d-none d-md-table-cell">H-Index</th>
+            <th scope="col" class="col-num col-cites d-none d-sm-table-cell">Citations</th>
+            <th scope="col" class="col-num col-pip">PiP-AUC</th>
+            <th scope="col" class="col-num col-pct" title="PiP-AUC percentile within the author's career-start cohort">Percentile</th>
         </tr>
     </thead>
     <tbody>
         {% for author in authors %}
         {% set href = url_for('results', author_id=author.scholar_id) %}
         <tr data-href="{{ href }}"{% if initial and loop.index > initial %} data-extra hidden{% endif %}>
-            {% if ranked %}<td class="text-muted">{{ loop.index }}</td>{% endif %}
-            <td><a href="{{ href }}">{{ author.name }}</a></td>
-            <td class="d-none d-md-table-cell">{{ author.affiliation or '' }}</td>
-            <td>{{ author.hindex if author.hindex is not none else '' }}</td>
-            <td>{{ '{:,}'.format(author.citedby|int) if author.citedby is not none else '' }}</td>
-            <td>
-                {% if author.pip_auc_score %}
-                    {{ author.pip_auc_score|round(4) }}
-                    {% if author.pip_auc_percentile is not none %}
-                        <small class="text-muted">({{ "%.1f"|format(100 * author.pip_auc_percentile) }}% percentile)</small>
-                    {% endif %}
-                {% else %}
-                    —
-                {% endif %}
-            </td>
+            {% if ranked %}<td class="col-rank text-muted">{{ loop.index }}</td>{% endif %}
+            <td class="col-name cell-text"><a href="{{ href }}">{{ author.name }}</a></td>
+            <td class="col-affiliation cell-text d-none d-lg-table-cell">{{ author.affiliation or '' }}</td>
+            <td class="col-num d-none d-md-table-cell">{{ author.hindex if author.hindex is not none else '' }}</td>
+            <td class="col-num d-none d-sm-table-cell">{{ '{:,}'.format(author.citedby|int) if author.citedby is not none else '' }}</td>
+            {% if author.pip_auc_score %}
+            <td class="col-num">{{ "%.4f"|format(author.pip_auc_score) }}</td>
+            <td class="col-num text-muted">{{ "%.1f"|format(100 * author.pip_auc_percentile) if author.pip_auc_percentile is not none else '' }}</td>
+            {% else %}
+            <td class="col-num text-muted">—</td>
+            <td class="col-num"></td>
+            {% endif %}
         </tr>
         {% endfor %}
     </tbody>
 </table>
-</div>
 {% if initial and authors|length > initial %}
 <p class="text-right">
     <button type="button" class="btn btn-link p-0 author-table-toggle"

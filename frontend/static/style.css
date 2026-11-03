@@ -310,11 +310,14 @@ a:hover {
 
 footer {
     display: flex;
+    flex-direction: column;
     justify-content: center;
     align-items: center;
+    gap: 0.25rem;
+    text-align: center;
     background-color: var(--nyu-violet);
     color: var(--nyu-white);
-    padding: 15px 0;
+    padding: 15px 16px;
     box-shadow: var(--box-shadow-footer);
 }
 
@@ -329,6 +332,12 @@ footer a:hover {
 
 footer p {
     margin: 0;
+}
+
+footer .footer-source {
+    color: var(--nyu-violet-10);
+    font-size: 0.85em;
+    opacity: 0.85;
 }
 
 @media (max-width: 768px) {
@@ -1066,9 +1075,45 @@ footer p {
     }
 }
 
-/* Author tables (homepage lists, /featured): the whole row is a link */
+/* Author tables (homepage lists, /featured): one line per row, the whole
+   row is a link. Fixed layout so long text ends in an ellipsis instead of
+   widening the table; the affiliation column takes the remaining width. */
+.author-table {
+    table-layout: fixed;
+    width: 100%;
+}
+
+.author-table th,
+.author-table td {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
 .author-table tbody tr[data-href] {
     cursor: pointer;
+}
+
+.author-table .col-rank { width: 3rem; text-align: right; }
+.author-table .col-num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+.author-table .col-hindex { width: 5.5rem; }
+.author-table .col-cites { width: 6.5rem; }
+.author-table .col-pip { width: 6rem; }
+.author-table .col-pct { width: 6.5rem; }
+
+/* Below 992px the affiliation is hidden and the name takes the remaining width. */
+@media (min-width: 992px) {
+    .author-table .col-name { width: 24%; }
+}
+
+/* Cut-off text (marked by author_rows.js) expands its row on click. */
+.author-table td.is-truncated { cursor: zoom-in; }
+.author-table tr.is-expanded td.cell-text {
+    white-space: normal;
+    cursor: zoom-out;
 }
 
 .author-table-toggle,
