@@ -460,11 +460,34 @@ footer p {
     margin-bottom: 1.5rem;
 }
 
+.standing-field-line {
+    margin-bottom: 0;
+}
+
+.field-select {
+    font: inherit;
+    font-weight: 600;
+    color: var(--ink);
+    background-color: #fff;
+    border: 1px solid var(--nyu-violet-50);
+    border-radius: 4px;
+    padding: 0.05rem 0.35rem;
+    max-width: 100%;
+}
+
+.field-select:focus {
+    outline: 2px solid var(--nyu-violet);
+    outline-offset: 1px;
+}
+
+.field-result[hidden] {
+    display: none;
+}
+
 .standing-field-note {
-    display: block;
     font-size: 0.82rem;
     color: var(--ink-muted);
-    margin-top: 0.2rem;
+    margin: 0.2rem 0 0;
 }
 
 /* One percentile scale for the conventional metrics */

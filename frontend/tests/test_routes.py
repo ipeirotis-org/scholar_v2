@@ -156,7 +156,7 @@ class TestResultsRoute:
             assert 'id="paperChart"' not in html
 
     @staticmethod
-    def _render_with_stats(stats):
+    def _render_with_stats(stats, query=""):
         from frontend.app import create_app
 
         with mock.patch("frontend.routes.FirestoreCache") as cache_cls, \
@@ -173,30 +173,53 @@ class TestResultsRoute:
             cache_instance.get.side_effect = cache_get
             cache_instance.get_timestamp.return_value = None
             app = create_app(config={"TESTING": True, "SECRET_KEY": "test"})
-            html = app.test_client().get("/results?author_id=123").get_data(as_text=True)
+            html = app.test_client().get("/results?author_id=123" + query).get_data(as_text=True)
         return " ".join(html.split())
 
-    def test_results_show_field_standing(self):
-        html = self._render_with_stats({
-            "name": "Jonathan A. Parker", "pip_auc_score": 0.0692, "pip_auc_score_percentile": 0.211,
-            "year_of_first_pub": 1994, "field_group": "Economics & Business", "field_source": "interests",
-            "field_cohort_start": 1992, "field_cohort_end": 1996, "field_peer_count": 151,
-            "field_pip_auc_score_percentile": 0.34})
-        assert "ahead of 21.1%" in html  # overall headline unchanged
-        assert ("Within <strong>Economics &amp; Business</strong>: "
-                "<span class=\"standing-share\">ahead of 34%</span> of 151 tracked active authors "
-                "whose career started 1992–1996.") in html
-        assert "author's Google Scholar interests" in html
+    PARKER = {
+        "name": "Jonathan A. Parker", "pip_auc_score": 0.0692, "pip_auc_score_percentile": 0.211,
+        "year_of_first_pub": 1994, "field_group": "Economics & Business", "field_source": "interests",
+        "field_percentiles": [
+            {"field_group": "Computer Science", "cohort_start": 1992, "cohort_end": 1996,
+             "peer_count": 380, "percentile": 0.12},
+            {"field_group": "Economics & Business", "cohort_start": 1992, "cohort_end": 1996,
+             "peer_count": 151, "percentile": 0.34},
+            {"field_group": "Physics & Astronomy", "cohort_start": 1986, "cohort_end": 2004,
+             "peer_count": 20, "percentile": None},
+        ],
+    }
 
-    def test_results_without_field_skip_the_field_line(self):
-        # Firestore keeps a NULL field_group as NaN; old cache entries have no field keys.
-        for extra in ({"field_group": float("nan"), "field_peer_count": None,
-                       "field_pip_auc_score_percentile": float("nan")}, {}):
-            html = self._render_with_stats(dict({
-                "name": "A", "pip_auc_score": 0.4272, "pip_auc_score_percentile": 0.771,
-                "year_of_first_pub": 1990}, **extra))
-            assert "in the top 23%" in html
-            assert "standing-field" not in html
+    def test_results_show_field_picker_on_own_field(self):
+        html = self._render_with_stats(self.PARKER)
+        assert "ahead of 21.1%" in html  # overall headline unchanged
+        assert '<option value="Economics &amp; Business" selected' in html
+        assert "Economics &amp; Business (from profile)</option>" in html
+        assert ('<span class="standing-share" data-field-phrase>ahead of 34%</span> '
+                "of <span data-field-peers>151</span> tracked active authors "
+                "<span data-field-cohort>whose career started 1992–1996</span>.") in html
+        assert 'data-phrase="ahead of 12%"' in html  # other fields ready for the picker
+        assert "Physics &amp; Astronomy (too few authors)</option>" in html
+        assert '<option value="Physics &amp; Astronomy" disabled' in html
+        assert "this author's Google Scholar interests" in html
+
+    def test_results_field_parameter_picks_the_comparison(self):
+        html = self._render_with_stats(self.PARKER, query="&field=Computer+Science")
+        assert '<option value="Computer Science" selected' in html
+        assert "data-field-phrase>ahead of 12%</span>" in html
+
+    def test_results_without_own_field_ask_for_a_choice(self):
+        html = self._render_with_stats(dict(self.PARKER, field_group=float("nan"),
+                                            field_source=float("nan")))
+        assert '<option value="" selected>choose a field</option>' in html
+        assert "data-field-result aria-live=\"polite\" hidden>" in html
+        assert "names no field we recognize" in html
+
+    def test_results_without_field_percentiles_skip_the_picker(self):
+        # Cache entries from before field percentiles, and S2 mode
+        html = self._render_with_stats({"name": "A", "pip_auc_score": 0.4272,
+                                        "pip_auc_score_percentile": 0.771, "year_of_first_pub": 1990})
+        assert "in the top 23%" in html
+        assert "data-field-compare" not in html
 
     def test_results_pending_pip_score_renders_without_headline_share(self):
         from frontend.app import create_app

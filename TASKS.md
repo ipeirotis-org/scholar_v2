@@ -95,11 +95,17 @@ via a managed scraping API instead of `scholarly`. Vendor evaluation: [docs/goog
     co-authors (≥2 with a group, top group holds a majority): 93% in all. A random sample of 80 had 3 errors, all
     fixed by rule changes
     - [ ] Venues for the remaining 7% (1,175 profiles; their median overall PiP percentile is 0.33)
-  - [x] Display (2026-11-03): the results page adds "Within <field>: in the top X% of N tracked active authors
+  - [x] Display (2026-11-03): the results page adds "Within [field ▾]: in the top X% of N tracked active authors
     whose career started A–B" under the overall score. Peers: active authors in the group whose career started
-    within ±2 years, widened (3, 4, 5, 7, 10) until ≥100 (`dist_pip_auc_scores_field`); hidden under 30 peers.
-    Field columns ride on `ranked_author_pip_scores_current` (a separate view added ~3 s per cache-layer lookup).
-    Every group's median active author lands at the field 50th percentile
+    within ±2 years, widened (3, 4, 5, 7, 10) until ≥100 (`dist_pip_auc_scores_field`); fields with under 30
+    peers are disabled. Every group's median active author lands at the field 50th percentile
+    - [x] Field picker: starts on the author's own field (or asks, for the 7% without one); any of the 11 can be
+      chosen, and `?field=` keeps the choice in the link. Prompted by business-school faculty whose GS interests
+      read as CS (e.g. `PA9La6oAAAAJ`: 65th among CS peers, 95th among Economics & Business peers).
+      `ranked_author_pip_scores_current` carries all 11 as `field_percentiles_json` (a separate view added ~3 s
+      per cache-layer lookup); the cache layer stores them as `field_percentiles`
+    - [ ] Institution-type comparison ("among business-school faculty"): affiliation/email matching finds ~690
+      such profiles but needs checking first
     - [ ] Existing Firestore `v3_author_stats` entries only get the field columns when the author is re-cached
       (re-crawl or cache flush)
     - [ ] Field percentiles for the four conventional metrics too (h-index, citations, i10, cited publications)

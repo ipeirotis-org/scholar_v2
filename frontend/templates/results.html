@@ -36,18 +36,49 @@
             {% endif %}
         </p>
         {% if standing.field %}
-        <p class="standing-field">
-            Within <strong>{{ standing.field.name }}</strong>:
-            <span class="standing-share">{{ standing.field.phrase }}</span>
-            of {{ "{:,}".format(standing.field.peers) }} tracked active authors
-            {%- if standing.field.cohort %} {{ standing.field.cohort }}{% endif %}.
-            <span class="standing-field-note">
+        {% set fc = standing.field %}
+        {# A GET form so the picker works without JavaScript; with it, the sentence
+           updates in place and ?field= keeps the choice in the URL for sharing. #}
+        <form class="standing-field" method="get" action="{{ url_for('results') }}" data-field-compare>
+            <input type="hidden" name="author_id" value="{{ author_id }}">
+            <p class="standing-field-line">
+                <label for="fieldSelect">Within</label>
+                <select id="fieldSelect" name="field" class="field-select" data-field-select>
+                    {% if not fc.selected %}<option value="" selected>choose a field</option>{% endif %}
+                    {% for c in fc.choices %}
+                    <option value="{{ c.name }}"
+                            {%- if c.name == fc.selected %} selected{% endif %}
+                            {%- if not c.rankable %} disabled{% endif %}
+                            data-phrase="{{ c.phrase or '' }}"
+                            data-peers="{{ '{:,}'.format(c.peers) }}"
+                            data-cohort="{{ c.cohort or '' }}">
+                        {{- c.name }}{% if c.name == fc.own %} (from profile){% endif %}
+                        {%- if not c.rankable %} (too few authors){% endif -%}
+                    </option>
+                    {% endfor %}
+                </select>
+                {#- No whitespace before the colon #}<noscript> <button type="submit"
+                    class="btn btn-sm btn-outline-violet">Compare</button></noscript><span
+                    class="field-result" data-field-result aria-live="polite"
+                    {%- if not fc.current %} hidden{% endif %}>:
+                    <span class="standing-share" data-field-phrase>{{ fc.current.phrase if fc.current }}</span>
+                    of <span data-field-peers>{{ "{:,}".format(fc.current.peers) if fc.current }}</span>
+                    tracked active authors <span data-field-cohort>{{ fc.current.cohort if fc.current }}</span>.
+                </span>
+            </p>
+            <p class="standing-field-note">
                 Fields differ in how much people publish and how often they cite, so this compares the
-                PiP-AUC score only with the same field. Field taken from the
-                {% if standing.field.from_coauthors %}Google Scholar interests of this author's
-                co-authors{% else %}author's Google Scholar interests{% endif %}.
-            </span>
-        </p>
+                PiP-AUC score only with authors in one field.
+                {% if fc.own %}
+                {{ fc.own }} comes from
+                {% if fc.own_from_coauthors %}the Google Scholar interests of this author's
+                co-authors{% else %}this author's Google Scholar interests{% endif %}; choose another
+                field to see where the author stands there.
+                {% else %}
+                This author's Google Scholar profile names no field we recognize; pick one to compare.
+                {% endif %}
+            </p>
+        </form>
         {% endif %}
         {% else %}
         <h2 class="standing-headline" id="standingHeadline">{{ standing.name }}</h2>
@@ -222,6 +253,30 @@ if (rebuildStatsBtn) {
             });
     });
 }
+
+// Field picker: show the standing within the chosen field and keep it in the URL
+(function () {
+    var select = document.querySelector('[data-field-select]');
+    if (!select) { return; }
+    var form = select.form;
+    var result = form.querySelector('[data-field-result]');
+    form.addEventListener('submit', function (e) { e.preventDefault(); });
+    select.addEventListener('change', function () {
+        var opt = select.options[select.selectedIndex];
+        var url = new URL(window.location.href);
+        if (!opt || !opt.value) {
+            result.hidden = true;
+            url.searchParams.delete('field');
+        } else {
+            form.querySelector('[data-field-phrase]').textContent = opt.getAttribute('data-phrase');
+            form.querySelector('[data-field-peers]').textContent = opt.getAttribute('data-peers');
+            form.querySelector('[data-field-cohort]').textContent = opt.getAttribute('data-cohort');
+            result.hidden = false;
+            url.searchParams.set('field', opt.value);
+        }
+        window.history.replaceState(null, '', url);
+    });
+})();
 
 // Render charts from server-provided JSON data
 var pubChartData = {{ pub_chart_data | tojson }};

@@ -65,6 +65,35 @@ class TestGetAuthorStats:
         result = client.get_author_stats("abc123")
         assert result is None
 
+    def test_field_percentiles_json_becomes_a_list(self):
+        import pandas as pd
+        df = pd.DataFrame([{
+            "scholar_id": "abc123", "name": "Test", "field_group": "Computer Science",
+            "field_percentiles_json": '[{"field_group":"Computer Science","cohort_start":1998,'
+                                      '"cohort_end":2002,"peer_count":450,"percentile":0.655},'
+                                      '{"field_group":"Engineering","cohort_start":1997,'
+                                      '"cohort_end":2003,"peer_count":12,"percentile":null}]',
+        }])
+        client, _ = _make_client(df)
+        result = client.get_author_stats("abc123")
+        assert "field_percentiles_json" not in result
+        assert result["field_percentiles"] == [
+            {"field_group": "Computer Science", "cohort_start": 1998, "cohort_end": 2002,
+             "peer_count": 450, "percentile": 0.655},
+            {"field_group": "Engineering", "cohort_start": 1997, "cohort_end": 2003,
+             "peer_count": 12, "percentile": None},
+        ]
+
+    def test_missing_field_percentiles(self):
+        import pandas as pd
+        # NULL JSON (no PiP score) reads back as NaN or None
+        for raw in (float("nan"), None):
+            client, _ = _make_client(pd.DataFrame([{"scholar_id": "a", "field_percentiles_json": raw}]))
+            assert client.get_author_stats("a")["field_percentiles"] == []
+        # A view without the field columns (S2 mode, or GS before the deploy)
+        client, _ = _make_client(pd.DataFrame([{"scholar_id": "a", "pip_auc_score": 0.5}]))
+        assert "field_percentiles" not in client.get_author_stats("a")
+
 
 class TestGetPublicationStats:
     def test_returns_records(self):
