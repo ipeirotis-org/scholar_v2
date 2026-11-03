@@ -3,6 +3,7 @@
 All queries use parameterized SQL to prevent injection.
 """
 
+import json
 import logging
 from datetime import datetime
 
@@ -93,9 +94,18 @@ class BigQueryClient:
         return df.drop_duplicates(subset=["author_pub_id"], keep="first").to_dict("records")
 
     def get_author_stats(self, scholar_id):
-        """Get author metrics with percentiles and PiP-AUC score."""
+        """Get author metrics with percentiles and PiP-AUC score.
+
+        P.* carries pip_auc_score and pip_auc_score_percentile, plus in GS mode
+        the field columns: field_group and field_source (the author's own field)
+        and field_percentiles_json (the PiP-AUC percentile among peers in each
+        of the field groups). Selecting them through P.* keeps the query valid
+        against a view deployed before or after the field columns were added.
+        The JSON becomes field_percentiles, a list of plain dicts that Firestore
+        stores as an array of maps.
+        """
         sql = f"""
-            SELECT S.*, P.pip_auc_score, P.pip_auc_score_percentile
+            SELECT S.*, P.* EXCEPT (scholar_id, year_of_first_pub)
             FROM {Config.bq_view('ranked_author_current')} S
             LEFT JOIN {Config.bq_view('ranked_author_pip_scores_current')} P
               ON P.scholar_id = S.scholar_id
@@ -105,7 +115,11 @@ class BigQueryClient:
         df = self._query(sql, params)
         if df is None or df.empty:
             return None
-        return df.iloc[0].to_dict()
+        stats = df.iloc[0].to_dict()
+        if "field_percentiles_json" in stats:
+            raw = stats.pop("field_percentiles_json")
+            stats["field_percentiles"] = json.loads(raw) if isinstance(raw, str) else []
+        return stats
 
     def get_publication_stats(self, author_pub_id):
         """Get temporal citation stats for a publication."""

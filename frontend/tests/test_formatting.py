@@ -4,6 +4,7 @@ import pytest
 
 from frontend.formatting import (
     build_standing,
+    field_comparison,
     ordinal_percentile,
     standing_phrase,
     top_share,
@@ -74,6 +75,65 @@ def test_build_standing_s2_wording():
     s = build_standing(MILANFAR, "s2")
     assert s["group"] == "active Semantic Scholar authors"
     assert s["cohort"] == "whose career started in 1990"
+
+
+def _row(group, pct, peers=200, start=1988, end=1992):
+    return {"field_group": group, "cohort_start": start, "cohort_end": end,
+            "peer_count": peers, "percentile": pct}
+
+
+FIELDS = {
+    "field_group": "Computer Science", "field_source": "interests",
+    "field_percentiles": [
+        _row("Computer Science", 0.6547, peers=412),
+        _row("Economics & Business", 0.95, peers=243, start=1990, end=1990),
+        _row("Physics & Astronomy", None, peers=21),  # window too thin to rank
+    ],
+}
+
+
+def test_field_comparison_starts_on_the_authors_field():
+    fc = build_standing(dict(MILANFAR, **FIELDS), "gs")["field"]
+    assert fc["own"] == "Computer Science" and fc["selected"] == "Computer Science"
+    assert fc["own_from_coauthors"] is False
+    assert fc["current"] == {
+        "name": "Computer Science", "rankable": True, "phrase": "in the top 35%",
+        "peers": 412, "cohort": "whose career started 1988\u20131992",
+    }
+    assert [c["name"] for c in fc["choices"]] == [
+        "Computer Science", "Economics & Business", "Physics & Astronomy"]
+    econ, physics = fc["choices"][1], fc["choices"][2]
+    assert econ["phrase"] == "in the top 5%" and econ["cohort"] == "whose career started in 1990"
+    assert physics["rankable"] is False and physics["phrase"] is None
+
+
+def test_field_comparison_honours_a_requested_field():
+    stats = dict(MILANFAR, **FIELDS)
+    assert build_standing(stats, "gs", field="Economics & Business")["field"]["selected"] == \
+        "Economics & Business"
+    # Unknown or unrankable requests fall back to the author's own field
+    for bad in ("Astrology", "Physics & Astronomy", "", None):
+        assert field_comparison(stats, bad)["selected"] == "Computer Science"
+
+
+def test_field_comparison_without_an_own_field_waits_for_a_choice():
+    # Firestore keeps a NULL field_group as NaN
+    stats = dict(MILANFAR, **dict(FIELDS, field_group=float("nan"), field_source=float("nan")))
+    fc = field_comparison(stats)
+    assert fc["own"] is None and fc["selected"] is None and fc["current"] is None
+    assert field_comparison(stats, "Economics & Business")["selected"] == "Economics & Business"
+    # Own field present but too thin to rank: nothing selected either
+    thin = dict(FIELDS, field_group="Physics & Astronomy", field_source="coauthors")
+    fc = field_comparison(thin)
+    assert fc["own"] == "Physics & Astronomy" and fc["own_from_coauthors"] is True
+    assert fc["selected"] is None
+
+
+def test_field_comparison_missing():
+    assert field_comparison(MILANFAR) is None  # cache entry from before field percentiles
+    assert field_comparison(dict(FIELDS, field_percentiles=[])) is None
+    # No overall PiP score: no field comparison either
+    assert build_standing(dict(MILANFAR, **FIELDS, pip_auc_score=None), "gs")["field"] is None
 
 
 def test_build_standing_treats_nan_as_missing():

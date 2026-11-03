@@ -26,7 +26,7 @@ cache miss in GS mode ──► cache layer ──► gs_crawler.crawl_and_store
                 ▼
         gs_statistics.* views + dist_* tables ──► cache layer ──► Firestore ──► frontend
 
-gs-weekly-materialize ──► gs-crawler job (CRAWL_MODE=materialize): rebuild dist_* tables + search index
+gs-weekly-materialize ──► gs-crawler job (CRAWL_MODE=materialize): rebuild dist_* + author_coauthor_fields tables + search index
         + featured authors
 gs-monthly-wikidata ──► gs-crawler job (CRAWL_MODE=wikidata): Wikidata GS IDs + Wikipedia pageviews
         └─► gs_data.wikidata_authors ──► search index (unprofiled names) + refresh scheduler (new authors)
@@ -42,12 +42,12 @@ gs-monthly-wikidata ──► gs-crawler job (CRAWL_MODE=wikidata): Wikidata GS 
 | `gs_crawler/parser.py` | SerpApi pages → snapshot rows (legacy column names: `citedby`, `hindex`, `i10index`, `email_domain`, ...) |
 | `gs_crawler/writer.py` | Raw pages to GCS, rows to BigQuery (load jobs; publications before authors) |
 | `gs_crawler/scheduler.py` | Pick authors within the search budget: queued on-demand requests first, then stalest |
-| `gs_crawler/materialize.py` | Deploy `gs_statistics` views / rebuild `dist_*` tables in `deploy_order.txt` order |
+| `gs_crawler/materialize.py` | Deploy `gs_statistics` views / rebuild its tables (`dist_*`, `author_coauthor_fields`) in `deploy_order.txt` order |
 | `gs_crawler/wikidata.py` | GS IDs from Wikidata (P1960) with sitelinks and English Wikipedia pageviews → `gs_data.wikidata_authors` |
 | `gs_crawler/featured.py` | Homepage featured authors: profiled authors with the most-read Wikipedia articles → Firestore `v3_featured_authors/featured_gs` |
 | `gs_crawler/main.py` | Job entry point: `CRAWL_MODE=refresh \| authors \| materialize \| deploy \| wikidata \| featured` |
 | `bigquery/gs_data/` | Snapshot tables, latest views, one-off legacy seed |
-| `bigquery/gs_statistics/` | GS versions of the non-temporal analytics views (same output columns as `statistics`) |
+| `bigquery/gs_statistics/` | GS versions of the non-temporal analytics views (same output columns as `statistics`), plus field groups (`author_*fields`) and field-relative PiP-AUC percentiles (`dist_pip_auc_scores_field`, extra `field_*` columns on `ranked_author_pip_scores_current`) |
 
 ## Finding authors we have not crawled (Wikidata)
 

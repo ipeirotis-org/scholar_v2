@@ -70,13 +70,45 @@ via a managed scraping API instead of `scholarly`. Vendor evaluation: [docs/goog
   - [x] Co-authors listed on profiled authors' pages (~180K) in the name index, ranked by how many profiled authors list them (2026-11-03)
   - [ ] Paper-title lookup
 - [x] **Robust career-start year** (2026-11-03): skip stray cited items before a >10-year gap (at most 2 or 5% of cited papers; >5 years dropped real early careers); manual `gs_data.start_year_overrides` (5 rows from the checked sample)
-- [ ] **Field-specific normalization** (deferred 2026-11-03). GS percentiles compare every author with all ~16K
-  profiled authors, so both PiP axes favour high-volume fields. Median PiP percentile by GS-interest field:
-  econ/business 0.36 (median 79 pubs), physics/chemistry 0.57, CS 0.67, medicine 0.67 (198 pubs).
-  Example: Jonathan A. Parker (MIT finance, `uXulDDsAAAAJ`) is at the 21st percentile overall, 32nd among
-  the 308 econ/business authors starting 1990–98 (citations 60th, publication count 38th there).
-  - [ ] Field classifier: GS interests match only ~37% of profiles to a field; add venues and co-author fields
-  - [ ] Display first: a field-relative percentile next to the overall one (5-year cohort bins for cell size)
+- [ ] **Field-specific normalization** (display shipped 2026-11-03; scoring still open). GS percentiles compare
+  every author with all ~16K profiled authors, so both PiP axes favour high-volume fields. Example: Jonathan A.
+  Parker (MIT finance, `uXulDDsAAAAJ`) is at the 21st percentile overall, 34th among the 151 Economics & Business
+  authors whose career started 1992–1996.
+  - [x] Field groups (2026-11-03): 11 groups, each a union of S2 `fieldsOfStudy` labels (so a venue classifier can
+    reuse `s2_data.papers`). Neuroscience sits with Biology and Business with Economics (same norms; S2 has no
+    Neuroscience label); Humanities sits with Social Sciences (252 authors, too few to rank). Authors (from
+    co-authors); median papers per career year; median overall PiP percentile (`scripts/field_norms.sql`):
+    - High volume: Medicine & Health (2,547; 6.9; 0.63), Physics & Astronomy (758; 6.1; 0.62), Chemistry &
+      Materials (720; 5.6; 0.63), Computer Science (2,579; 5.4; 0.63), Engineering (806; 5.4; 0.55)
+    - Middle: Earth & Environmental Sciences (740; 5.2; 0.51), Psychology & Cognitive Science (763; 4.3; 0.53),
+      Mathematics & Statistics (545; 3.9; 0.47), Biology & Neuroscience (2,602; 3.7; 0.47)
+    - Low volume: Social Sciences & Humanities (1,423; 3.0; 0.28), Economics & Business (1,556; 2.6; 0.31)
+    - No field: 1,175 (3.2; 0.33)
+    - S2 mapping: Chemistry & Materials = Chemistry + Materials Science; Earth & Environmental Sciences = Geology +
+      Environmental Science; Biology & Neuroscience = Biology + Agricultural and Food Sciences; Social Sciences &
+      Humanities = Political Science, Sociology, Education, Law, Geography, History, Philosophy, Art, Linguistics;
+      the rest 1:1
+  - [x] Field classifier (2026-11-03): `gs_statistics.author_interest_fields` maps each GS interest to the first
+    matching rule (a fixed list of common cross-field labels, then keyword rules in priority order, with methods
+    words such as "optimization" losing to domain words) and takes the group most interests map to, ties to the
+    first listed; 14,333 profiles (88%). `author_coauthor_fields` (table, weekly) adds 706 more from profiled
+    co-authors (≥2 with a group, top group holds a majority): 93% in all. A random sample of 80 had 3 errors, all
+    fixed by rule changes
+    - [ ] Venues for the remaining 7% (1,175 profiles; their median overall PiP percentile is 0.33)
+  - [x] Display (2026-11-03): the results page adds "Within [field ▾]: in the top X% of N tracked active authors
+    whose career started A–B" under the overall score. Peers: active authors in the group whose career started
+    within ±2 years, widened (3, 4, 5, 7, 10) until ≥100 (`dist_pip_auc_scores_field`); fields with under 30
+    peers are disabled. Every group's median active author lands at the field 50th percentile
+    - [x] Field picker: starts on the author's own field (or asks, for the 7% without one); any of the 11 can be
+      chosen, and `?field=` keeps the choice in the link. Prompted by business-school faculty whose GS interests
+      read as CS (e.g. `PA9La6oAAAAJ`: 65th among CS peers, 95th among Economics & Business peers).
+      `ranked_author_pip_scores_current` carries all 11 as `field_percentiles_json` (a separate view added ~3 s
+      per cache-layer lookup); the cache layer stores them as `field_percentiles`
+    - [ ] Institution-type comparison ("among business-school faculty"): affiliation/email matching finds ~690
+      such profiles but needs checking first
+    - [ ] Existing Firestore `v3_author_stats` entries only get the field columns when the author is re-cached
+      (re-crawl or cache flush)
+    - [ ] Field percentiles for the four conventional metrics too (h-index, citations, i10, cited publications)
   - [ ] Then scoring: paper citation percentiles by field and year, publication counts by field and cohort
 - [x] **Featured authors on the homepage** (2026-11-03): a pinned section above "Recently Analyzed Authors" with the ten profiled authors whose English Wikipedia articles were read most over the last 60 days, and `/featured` (nav link "Featured") with the top 100. Built by `gs_crawler/featured.py` after the weekly materialize and the monthly Wikidata reload (`CRAWL_MODE=featured` alone); leaves out deceased people and h-index < 10. The recent list shows 5 authors with an in-place "See more" for the rest (up to 20). Both lists share `templates/_author_table.html`; affiliation is hidden on phones
 - [x] **Author results page leads with standing** (2026-11-03): headline names the comparison group ("top 23% of tracked active authors whose career started in 1990"), PiP-AUC below it, the four conventional metrics on one percentile scale; one chart with a by-year view (dots shaded by top 10% / 25% / 50% tier with a line at each; axis starts at the career-start year, earlier works noted and kept in the list) and a PiP-curve view (shaded area, curve end, median-peer example) sharing a pinned-work panel; sortable list of works below; author line reads "Career start YYYY" (the robust `year_of_first_pub`)

@@ -26,6 +26,21 @@
         who started publishing in the same year. This age-aware normalization
         prevents bias toward senior researchers.
     </p>
+    {% if data_source == "gs" %}
+    <h4>How does the field comparison work?</h4>
+    <p>
+        Fields differ in how much people publish and how often they cite, so the results page
+        also ranks the PiP-AUC score within the author's field: active authors in the same field
+        whose career started within a few years of the author's (the window widens until it
+        holds at least 100 authors). The field comes from the author's Google Scholar
+        interests, or, when those name no field, from the interests of their co-authors. People who
+        work across fields can pick any of the others on the page, and the link keeps that choice.
+        There are 11 fields:
+        Computer Science; Mathematics &amp; Statistics; Physics &amp; Astronomy; Chemistry &amp; Materials;
+        Engineering; Earth &amp; Environmental Sciences; Biology &amp; Neuroscience; Medicine &amp; Health;
+        Psychology &amp; Cognitive Science; Economics &amp; Business; Social Sciences &amp; Humanities.
+    </p>
+    {% endif %}
 
     <h4>How often is data updated?</h4>
     <p>
