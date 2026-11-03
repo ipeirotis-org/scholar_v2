@@ -37,7 +37,7 @@ from frontend.cache import (
     is_legacy_s2_id,
 )
 from frontend.config import Config
-from frontend.formatting import build_standing, field_comparison, percentile_rank
+from frontend.formatting import build_standing, field_comparison, percentile_text
 from frontend.queue_client import enqueue_cache_populate
 
 logger = logging.getLogger(__name__)
@@ -189,7 +189,7 @@ def _parallel_cache_reads(read_cache_fn, reads):
 def register_routes(app):
     cache = FirestoreCache()
     app.jinja_env.globals["gs_record_url"] = _gs_record_url
-    app.jinja_env.filters["percentile"] = percentile_rank  # 0.753 -> 75, as on the results page
+    app.jinja_env.filters["percentile"] = percentile_text  # 0.753 -> "75" as on the results page; NaN -> ""
 
     def _read_cache(collection, doc_id):
         """Read from Firestore cache. Returns data or None."""

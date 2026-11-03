@@ -28,21 +28,31 @@ def _text(value):
 
 
 def percentile_rank(fraction):
-    """Whole-number percentile for display: 0.771 -> 77, clamped to 1..99.
+    """Whole-number percentile for display: 0.771 -> 77, clamped to 1..99; None when missing.
 
     Floored, so the number is a share the author is at least ahead of (0.779 shows
     as 77), and clamped the way test-score percentile ranks are, so the top author
     of a cohort reads "99th" rather than "100th". Decimals would be false
-    precision: a cohort holds a few hundred authors.
+    precision: a cohort holds a few hundred authors. Missing and non-finite values
+    (cached NaN for authors without a PiP score) give None instead of raising.
     """
-    return min(99, max(1, math.floor(100 * float(fraction) + 1e-9)))
+    value = _number(fraction)
+    if value is None or math.isinf(value):
+        return None
+    return min(99, max(1, math.floor(100 * value + 1e-9)))
+
+
+def percentile_text(fraction):
+    """Template filter: '77' for 0.771, '' when missing (homepage author tables)."""
+    n = percentile_rank(fraction)
+    return "" if n is None else str(n)
 
 
 def ordinal_percentile(fraction):
-    """0.771 -> '77th', 0.913 -> '91st', 0.112 -> '11th'."""
-    if fraction is None:
-        return ""
+    """0.771 -> '77th', 0.913 -> '91st', 0.112 -> '11th'; '' when missing."""
     n = percentile_rank(fraction)
+    if n is None:
+        return ""
     suffix = "th" if 10 <= n % 100 <= 20 else {1: "st", 2: "nd", 3: "rd"}.get(n % 10, "th")
     return f"{n}{suffix}"
 

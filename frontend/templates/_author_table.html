@@ -30,7 +30,7 @@
             <td class="col-num d-none d-sm-table-cell">{{ '{:,}'.format(author.citedby|int) if author.citedby is not none else '' }}</td>
             {% if author.pip_auc_score %}
             <td class="col-num">{{ "%.4f"|format(author.pip_auc_score) }}</td>
-            <td class="col-num text-muted">{{ author.pip_auc_percentile|percentile if author.pip_auc_percentile is not none else '' }}</td>
+            <td class="col-num text-muted">{{ author.pip_auc_percentile|percentile }}</td>
             {% else %}
             <td class="col-num text-muted">—</td>
             <td class="col-num"></td>

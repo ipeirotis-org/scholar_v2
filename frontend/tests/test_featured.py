@@ -106,6 +106,15 @@ def test_numbers_fit_one_line_each(make_client):
     assert html.count('class="col-name cell-text"') == 3  # two featured rows, one recent
 
 
+def test_author_without_pip_score_does_not_break_the_homepage(make_client):
+    # Authors without scored publications are cached with NaN score and percentile.
+    client, _ = make_client([_author(1, pip_auc_score=float("nan"), pip_auc_percentile=float("nan")),
+                             _author(2)])
+    response = client.get("/")
+    assert response.status_code == 200
+    assert "Featured Author 2<" in response.get_data(as_text=True)
+
+
 def test_featured_names_are_escaped(make_client):
     client, _ = make_client([_author(1, name="<script>x</script>")])
     html = client.get("/featured").get_data(as_text=True)

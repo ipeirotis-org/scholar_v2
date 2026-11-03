@@ -7,6 +7,7 @@ from frontend.formatting import (
     field_comparison,
     ordinal_percentile,
     percentile_rank,
+    percentile_text,
     standing_phrase,
 )
 
@@ -37,9 +38,18 @@ def test_ordinal_percentile(fraction, expected):
     (1.0, 99),     # the top of a cohort reads 99th, not 100th
     (0.0, 1),      # and the bottom 1st, not 0th
     (0.004, 1),
+    (None, None),
+    (float("nan"), None),  # cached for authors without a PiP score
+    (float("inf"), None),
 ])
 def test_percentile_rank_floors_and_clamps(fraction, expected):
     assert percentile_rank(fraction) == expected
+
+
+def test_missing_percentiles_format_as_empty():
+    assert ordinal_percentile(float("nan")) == ""
+    assert percentile_text(float("nan")) == "" and percentile_text(None) == ""
+    assert percentile_text(0.753) == "75"
 
 
 def test_standing_phrase_is_a_percentile_on_both_sides_of_the_median():
