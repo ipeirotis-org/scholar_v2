@@ -94,6 +94,29 @@ class TestSources:
         assert session.get.call_args.args[0] == wikidata.QLEVER_URL
         assert "STRSTARTS" not in session.get.call_args.kwargs["params"]["query"]
 
+    def test_qlever_rate_limit_is_retried(self, monkeypatch):
+        monkeypatch.setattr(wikidata, "MIN_FULL_ROWS", 3)
+        session = MagicMock()
+        session.get.side_effect = [_resp(429, "slow down", headers={"Retry-After": "90"}),
+                                   _resp(503, "busy"), _resp(200, self._rows(5))]
+        with patch.object(wikidata.time, "sleep") as sleep:
+            rows = wikidata._fetch_qlever(session)
+        assert len(rows) == 5 and session.get.call_count == 3
+        assert [c.args[0] for c in sleep.call_args_list] == [90, 180]  # Retry-After wins when longer
+
+    def test_qlever_gives_up_after_retries(self):
+        session = MagicMock()
+        session.get.return_value = _resp(429, "slow down")
+        with patch.object(wikidata.time, "sleep"):
+            assert wikidata._fetch_qlever(session) is None
+        assert session.get.call_count == len(wikidata.QLEVER_WAITS) + 1
+
+    def test_qlever_client_error_falls_back_at_once(self):
+        session = MagicMock()
+        session.get.return_value = _resp(400, "bad query")
+        assert wikidata._fetch_qlever(session) is None
+        assert session.get.call_count == 1
+
     def test_short_qlever_result_falls_back_to_wdqs(self, monkeypatch):
         monkeypatch.setattr(wikidata, "MIN_FULL_ROWS", 100)
         session = MagicMock()
@@ -124,7 +147,7 @@ class TestCarryForward:
         session.get.return_value = _resp(200, self.HEADER + csv_rows)
         seen = []
 
-        def fake_fetch(titles):
+        def fake_fetch(titles, max_seconds=None):
             seen.extend(titles)
             return {t: v for t, v in reached.items()}
 
@@ -142,6 +165,17 @@ class TestCarryForward:
         assert views["Known"] == (123, "2026-10-03T03:41:00+00:00")
         assert views["New Famous"][0] == 900 and views["New Famous"][1] is not None
         assert views["New Obscure"] == (None, None)
+
+    def test_pageview_window_shrinks_by_fetch_time(self, monkeypatch):
+        monkeypatch.setattr(wikidata, "MIN_FULL_ROWS", 1)
+        monkeypatch.setattr(wikidata, "RUN_FETCH_SECONDS", 1000)
+        clock = iter([0.0, 900.0])  # QLever (with retries) took 900 s
+        monkeypatch.setattr(wikidata.time, "monotonic", lambda: next(clock))
+        session = MagicMock()
+        session.get.return_value = _resp(200, self.HEADER + "http://www.wikidata.org/entity/Q1,AAAAAAAAAAAJ,A,,1,A\n")
+        with patch.object(wikidata, "fetch_pageviews", return_value={}) as fp:
+            wikidata.fetch_all(session)
+        assert fp.call_args.kwargs["max_seconds"] == 100
 
     def test_stalest_views_refreshed_first(self, monkeypatch):
         csv_rows = ("http://www.wikidata.org/entity/Q1,AAAAAAAAAAAJ,Fresh Famous,,90,Fresh Famous\n"

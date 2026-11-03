@@ -35,6 +35,7 @@ QLEVER_URL = "https://qlever.dev/api/wikidata"
 # Sanity floor for a full QLever result (~125K rows with English labels, 2026-11).
 MIN_FULL_ROWS = 50000
 THROTTLE_PAUSE = 60  # seconds to wait before retrying a small partition on WDQS
+QLEVER_WAITS = (60, 180, 420)  # back-off before QLever retries (~11 min in all)
 USER_AGENT = "pip-score.org/1.0 (https://www.pip-score.org; Google Scholar ID lookup)"
 GS_ID_RE = re.compile(r"^[A-Za-z0-9_-]{12}$")
 ID_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
@@ -76,6 +77,9 @@ PAGEVIEW_WORKERS = 8
 # covers ~8K of the ~22K articles. Views are carried forward between runs and the
 # titles without any go first, so coverage is complete after about three runs.
 PAGEVIEW_MAX_SECONDS = 2400  # leaves ~20 min of the job's 1 h task timeout
+# Whole-run budget for fetching (QLever retries + pageviews), leaving ~7 min of
+# the 1 h task timeout for the load and the search index rebuild.
+RUN_FETCH_SECONDS = 3180
 
 
 _PREFIXES = """PREFIX wd: <http://www.wikidata.org/entity/>
@@ -112,23 +116,41 @@ SELECT ?p ?g ?label ?desc ?links ?enwiki ?dead ?scholarly ?politician WHERE {{
 }}"""
 
 
-def _fetch_qlever(session):
-    """All rows in one QLever query, or None if it fails or looks incomplete."""
-    try:
-        r = session.get(QLEVER_URL, params={"query": _query()},
-                        headers={"Accept": "text/csv", "User-Agent": USER_AGENT}, timeout=300)
-    except requests.RequestException as e:
-        logger.warning("QLever: %s; falling back to WDQS", type(e).__name__)
-        return None
-    if r.status_code != 200 or not r.text.startswith("p,g,"):
-        logger.warning("QLever: HTTP %s; falling back to WDQS", r.status_code)
-        return None
-    rows = list(csv.DictReader(io.StringIO(r.text)))
-    if len(rows) < MIN_FULL_ROWS:
-        logger.warning("QLever: only %d rows; falling back to WDQS", len(rows))
-        return None
-    logger.info("QLever: %d rows", len(rows))
-    return rows
+def _fetch_qlever(session, waits=QLEVER_WAITS):
+    """All rows in one QLever query, or None if it keeps failing or looks incomplete.
+
+    Rate limits (429) and server errors are retried after `waits` seconds (or
+    Retry-After, if longer): the 2026-11-03 scheduled run got a 429 and fell back
+    to WDQS, which cannot finish within the job's hour.
+    """
+    for attempt in range(len(waits) + 1):
+        if attempt:
+            time.sleep(wait)
+        wait = waits[attempt] if attempt < len(waits) else 0
+        try:
+            r = session.get(QLEVER_URL, params={"query": _query()},
+                            headers={"Accept": "text/csv", "User-Agent": USER_AGENT}, timeout=300)
+        except requests.RequestException as e:
+            logger.warning("QLever: %s (attempt %d)", type(e).__name__, attempt + 1)
+            continue
+        if r.status_code == 429 or r.status_code >= 500:
+            try:
+                wait = max(wait, min(int(r.headers.get("Retry-After") or 0), 600))
+            except ValueError:
+                pass
+            logger.warning("QLever: HTTP %s (attempt %d)", r.status_code, attempt + 1)
+            continue
+        if r.status_code != 200 or not r.text.startswith("p,g,"):
+            logger.warning("QLever: HTTP %s; falling back to WDQS", r.status_code)
+            return None
+        rows = list(csv.DictReader(io.StringIO(r.text)))
+        if len(rows) < MIN_FULL_ROWS:
+            logger.warning("QLever: only %d rows; falling back to WDQS", len(rows))
+            return None
+        logger.info("QLever: %d rows", len(rows))
+        return rows
+    logger.warning("QLever: gave up after %d attempts; falling back to WDQS", len(waits) + 1)
+    return None
 
 
 def _fetch(prefix, session):
@@ -323,6 +345,7 @@ def fetch_all(session=None, previous=None):
     is carried forward for articles this run does not reach."""
     session = session or requests.Session()
     previous = previous or {}
+    started = time.monotonic()
     fetched_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
     raw = _fetch_qlever(session)
     if raw is None:
@@ -340,7 +363,8 @@ def fetch_all(session=None, previous=None):
         return (1, prev[1] or "", -(r["sitelinks"] or 0))
 
     with_article = sorted((r for r in rows if r["enwiki_title"]), key=order)
-    views = fetch_pageviews([r["enwiki_title"] for r in with_article])
+    budget = min(PAGEVIEW_MAX_SECONDS, RUN_FETCH_SECONDS - (time.monotonic() - started))
+    views = fetch_pageviews([r["enwiki_title"] for r in with_article], max_seconds=max(0, budget))
     for r in rows:
         title = r["enwiki_title"]
         if title in views:
