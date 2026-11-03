@@ -27,8 +27,10 @@ cache miss in GS mode ──► cache layer ──► gs_crawler.crawl_and_store
         gs_statistics.* views + dist_* tables ──► cache layer ──► Firestore ──► frontend
 
 gs-weekly-materialize ──► gs-crawler job (CRAWL_MODE=materialize): rebuild dist_* + author_coauthor_fields tables + search index
+        + featured authors
 gs-monthly-wikidata ──► gs-crawler job (CRAWL_MODE=wikidata): Wikidata GS IDs + Wikipedia pageviews
         └─► gs_data.wikidata_authors ──► search index (unprofiled names) + refresh scheduler (new authors)
+                                         + featured authors (homepage)
 ```
 
 ## Components
@@ -42,7 +44,8 @@ gs-monthly-wikidata ──► gs-crawler job (CRAWL_MODE=wikidata): Wikidata GS 
 | `gs_crawler/scheduler.py` | Pick authors within the search budget: queued on-demand requests first, then stalest |
 | `gs_crawler/materialize.py` | Deploy `gs_statistics` views / rebuild its tables (`dist_*`, `author_coauthor_fields`) in `deploy_order.txt` order |
 | `gs_crawler/wikidata.py` | GS IDs from Wikidata (P1960) with sitelinks and English Wikipedia pageviews → `gs_data.wikidata_authors` |
-| `gs_crawler/main.py` | Job entry point: `CRAWL_MODE=refresh \| authors \| materialize \| deploy \| wikidata` |
+| `gs_crawler/featured.py` | Homepage featured authors: profiled authors with the most-read Wikipedia articles → Firestore `v3_featured_authors/featured_gs` |
+| `gs_crawler/main.py` | Job entry point: `CRAWL_MODE=refresh \| authors \| materialize \| deploy \| wikidata \| featured` |
 | `bigquery/gs_data/` | Snapshot tables, latest views, one-off legacy seed |
 | `bigquery/gs_statistics/` | GS versions of the non-temporal analytics views (same output columns as `statistics`), plus field groups (`author_*fields`) and field-relative PiP-AUC percentiles (`dist_pip_auc_scores_field`, extra `field_*` columns on `ranked_author_pip_scores_current`) |
 
@@ -67,7 +70,19 @@ carry a Google Scholar author ID (property P1960). The monthly `wikidata` run:
    stay NULL. Rejected alternatives: the Action API's `prop=pageviews` answers ~5 titles per
    request before asking for a continuation; the monthly pageview dump is 5.7 GB.
 3. Replaces `gs_data.wikidata_authors`, refusing a load that would shrink it by more than half.
-4. Rebuilds the app's author name index (the weekly `materialize` run does this too).
+4. Rebuilds the app's author name index and the featured authors (the weekly `materialize` run does
+   both too).
+
+**Featured authors.** The homepage pins the ten profiled authors whose English Wikipedia articles
+were read most over the last 60 days; `/featured` lists the top 100. `gs_crawler/featured.py` ranks
+`gs_data.wikidata_authors.enwiki_views_60d` among profiled authors, leaves out deceased people and
+profiles with an h-index below 10 (stubs and people known for something else: in 2026-11, a George
+Soros profile with h-index 1 and Rachael Gunn, the Olympic breakdancer, at 7), and stores each entry
+with the recent-list fields plus the article title and views in `v3_featured_authors/featured_gs`.
+It runs after the weekly percentile rebuild, so the scores match what the cache layer serves, and
+after the monthly Wikidata reload; `CRAWL_MODE=featured` rebuilds it alone. An empty result keeps
+the stored list. The featured authors' result pages are cached like any other: on first view, or
+when the daily refresh invalidates them.
 
 **Search.** The index holds every profiled author, the unprofiled Wikidata ones (~121K) and the
 unprofiled co-authors listed on profiled authors' pages (~180K, ~157K of them not on Wikidata),

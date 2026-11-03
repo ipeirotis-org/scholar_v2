@@ -39,6 +39,11 @@
                     <li class="nav-item">
                         <a class="nav-link" href="{{ url_for('index') }}">Home</a>
                     </li>
+                    {% if data_source == "gs" %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('featured') }}">Featured</a>
+                    </li>
+                    {% endif %}
                     <li class="nav-item">
                         <a class="nav-link" href="{{ url_for('data') }}">Data</a>
                     </li>

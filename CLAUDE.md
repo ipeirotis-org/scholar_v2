@@ -42,7 +42,7 @@ scholar_v2/
 ├── frontend/                     # Flask web application (Cloud Run) — reads Firestore only
 │   ├── main.py                   # App entry point
 │   ├── app.py                    # Flask app factory with security headers
-│   ├── routes.py                 # Routes: /, /results, /publication, /download, /data, /help, /api/*
+│   ├── routes.py                 # Routes: /, /results, /featured, /publication, /download, /data, /help, /api/*
 │   ├── cache.py                  # Read-only Firestore cache client
 │   ├── queue_client.py           # Enqueue cache-miss tasks to priority queue
 │   ├── formatting.py             # Plain-language percentile wording for the results page
@@ -60,11 +60,12 @@ scholar_v2/
 │   ├── Dockerfile                # Python 3.12-slim
 │   └── tests/
 ├── gs_crawler/                   # Cloud Run Job: Google Scholar profiles via SerpApi → gs_data (DATA_SOURCE=gs)
-│   ├── main.py                   # Modes: refresh (daily, budgeted) / authors / materialize / deploy
+│   ├── main.py                   # Modes: refresh (daily, budgeted) / authors / materialize / deploy / wikidata / featured
 │   ├── serpapi_client.py         # SerpApi Scholar Author API + response validation
 │   ├── crawler.py, parser.py     # Profile pagination; pages → snapshot rows
 │   ├── writer.py, scheduler.py   # GCS raw + BigQuery load; refresh selection within budget
 │   ├── materialize.py            # gs_statistics views / dist tables (deploy_order.txt)
+│   ├── featured.py               # Homepage featured authors (most-read Wikipedia articles) → Firestore
 │   └── tests/
 ├── dataset_ingestion/            # Cloud Run Job: monthly S2 dataset ingestion + materialization
 │   ├── main.py                   # Job entry point (full/diff/auto modes)
