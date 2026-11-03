@@ -106,8 +106,9 @@ via a managed scraping API instead of `scholarly`. Vendor evaluation: [docs/goog
       per cache-layer lookup); the cache layer stores them as `field_percentiles`
     - [ ] Institution-type comparison ("among business-school faculty"): affiliation/email matching finds ~690
       such profiles but needs checking first
-    - [ ] Existing Firestore `v3_author_stats` entries only get the field columns when the author is re-cached
-      (re-crawl or cache flush)
+    - [x] Re-cache existing Firestore `v3_author_stats` entries (2026-11-03): after the deploy, all 28 cached
+      authors were re-populated through the `cache-batch` queue (overwritten in place, no loading pages); all 28
+      now carry `field_percentiles`. Leftover view `gs_statistics.ranked_author_field_current` dropped
     - [ ] Field percentiles for the four conventional metrics too (h-index, citations, i10, cited publications)
   - [ ] Then scoring: paper citation percentiles by field and year, publication counts by field and cohort
 - [x] **Featured authors on the homepage** (2026-11-03): a pinned section above "Recently Analyzed Authors" with the ten profiled authors whose English Wikipedia articles were read most over the last 60 days, and `/featured` (nav link "Featured") with the top 100. Built by `gs_crawler/featured.py` after the weekly materialize and the monthly Wikidata reload (`CRAWL_MODE=featured` alone); leaves out deceased people and h-index < 10. The recent list shows 5 authors with an in-place "See more" for the rest (up to 20). Both lists share `templates/_author_table.html`; affiliation is hidden on phones
