@@ -17,8 +17,11 @@ import csv
 import io
 import logging
 import re
+import threading
 import time
-from datetime import datetime, timezone
+from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime, timedelta, timezone
+from urllib.parse import quote
 
 import requests
 from google.cloud import bigquery
@@ -55,13 +58,16 @@ class WikidataError(Exception):
 
 
 # English Wikipedia pageviews (last 60 days) rank which unprofiled authors the
-# refresh job ingests first. The Action API takes 50 titles per request, so
-# ~22K articles need ~450 requests; they are paced, and views are best-effort:
-# a failed batch leaves NULL and ingestion falls back to the sitelinks count.
-WIKI_API_URL = "https://en.wikipedia.org/w/api.php"
-PAGEVIEW_BATCH = 50
+# refresh job ingests first. The Action API's prop=pageviews returns only ~5
+# titles per request before asking for a continuation (the first production run
+# got views for 2.4K of 22K articles), so this uses the per-article REST endpoint,
+# one request per article from a few parallel workers. Views are best-effort:
+# titles go in order of sitelinks, so a time limit leaves out the least known,
+# and a missing value is NULL (ingestion then falls back to the sitelinks count).
+PAGEVIEW_URL = ("https://wikimedia.org/api/rest_v1/metrics/pageviews/per-article/"
+                "en.wikipedia.org/all-access/user/{title}/daily/{start}/{end}")
 PAGEVIEW_DAYS = 60
-PAGEVIEW_PAUSE = 1.0  # seconds between requests
+PAGEVIEW_WORKERS = 8
 PAGEVIEW_MAX_SECONDS = 1500  # keep the job well inside its 1 h task timeout
 
 
@@ -178,62 +184,86 @@ def normalize(raw_rows, fetched_at):
     return out
 
 
-def _pageview_batch(titles, session):
-    """{requested title: views over PAGEVIEW_DAYS} for one batch; None on failure."""
-    params = {"action": "query", "prop": "pageviews", "pvipdays": PAGEVIEW_DAYS,
-              "titles": "|".join(titles), "redirects": 1, "format": "json", "formatversion": 2}
+def _pageview_window(today=None):
+    """(start, end) as YYYYMMDD: the PAGEVIEW_DAYS full days before today (UTC)."""
+    today = today or datetime.now(timezone.utc).date()
+    end = today - timedelta(days=1)
+    start = end - timedelta(days=PAGEVIEW_DAYS - 1)
+    return start.strftime("%Y%m%d"), end.strftime("%Y%m%d")
+
+
+def _article_views(title, session, window, deadline=None):
+    """Views of one English Wikipedia article over `window`; 0 if the API has no
+    data for it, None on failure or once `deadline` (time.monotonic()) has passed."""
+    url = PAGEVIEW_URL.format(title=quote(title.replace(" ", "_"), safe=""),
+                              start=window[0], end=window[1])
+
+    def pause(seconds):
+        if deadline is not None:
+            seconds = min(seconds, deadline - time.monotonic())
+        if seconds > 0:
+            time.sleep(seconds)
+
     for attempt in range(MAX_ATTEMPTS):
+        if deadline is not None and time.monotonic() > deadline:
+            return None
         try:
-            r = session.get(WIKI_API_URL, params=params, headers={"User-Agent": USER_AGENT}, timeout=60)
-        except requests.RequestException as e:
-            logger.warning("Pageviews batch: %s (attempt %d)", type(e).__name__, attempt + 1)
-            time.sleep(5 * (attempt + 1))
+            r = session.get(url, headers={"User-Agent": USER_AGENT}, timeout=30)
+        except requests.RequestException:
+            pause(2 * (attempt + 1))
             continue
-        if r.status_code == 429:
-            time.sleep(min(int(r.headers.get("Retry-After") or 30), 120))
+        if r.status_code == 429 or r.status_code >= 500:
+            try:
+                wait = int(r.headers.get("Retry-After") or 0)
+            except ValueError:
+                wait = 0
+            pause(min(max(wait, 2 * (attempt + 1)), 60))
             continue
+        if r.status_code == 404:
+            return 0  # no recorded views (new or rarely read article)
         if r.status_code != 200:
             return None
         try:
-            query = r.json().get("query") or {}
+            items = r.json().get("items") or []
         except ValueError:
             return None
-        # Map the titles the API resolved back to the ones we asked for.
-        back = {t: t for t in titles}
-        for step in ("normalized", "redirects"):
-            for m in query.get(step) or []:
-                if m.get("from") in back:
-                    back[m["to"]] = back.pop(m["from"])
-        views = {}
-        for page in query.get("pages") or []:
-            asked = back.get(page.get("title"))
-            daily = page.get("pageviews")
-            if asked is not None and isinstance(daily, dict):
-                views[asked] = sum(v or 0 for v in daily.values())
-        return views
+        return sum(int(i.get("views") or 0) for i in items)
     return None
 
 
-def fetch_pageviews(titles, session=None, pause=PAGEVIEW_PAUSE, max_seconds=PAGEVIEW_MAX_SECONDS):
-    """{title: views} for as many titles as the API returns; never raises."""
-    session = session or requests.Session()
-    titles = sorted(set(titles))
+def fetch_pageviews(titles, session=None, workers=PAGEVIEW_WORKERS,
+                    max_seconds=PAGEVIEW_MAX_SECONDS, window=None):
+    """{title: views} for as many titles as time allows, in the given order; never raises."""
+    window = window or _pageview_window()
+    titles = list(dict.fromkeys(titles))
+    local = threading.local()
+
+    def views_of(title):
+        if session is not None:
+            s = session
+        else:
+            s = getattr(local, "session", None) or requests.Session()
+            local.session = s
+        # Queued titles past the deadline return at once instead of draining the chunk.
+        return title, _article_views(title, s, window, deadline)
+
     views, failed = {}, 0
     deadline = time.monotonic() + max_seconds
-    for i in range(0, len(titles), PAGEVIEW_BATCH):
-        if time.monotonic() > deadline:
-            logger.warning("Pageviews: time limit reached after %d titles", i)
-            break
-        batch = _pageview_batch(titles[i:i + PAGEVIEW_BATCH], session)
-        if batch is None:
-            failed += 1
-            if failed >= 10 and not views:
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        # Submit in chunks so the deadline can stop the run without queuing everything.
+        for i in range(0, len(titles), workers * 25):
+            if time.monotonic() > deadline:
+                logger.warning("Pageviews: time limit reached after %d titles", i)
+                break
+            for title, n in pool.map(views_of, titles[i:i + workers * 25]):
+                if n is None:
+                    failed += 1
+                else:
+                    views[title] = n
+            if failed > 500 and not views:
                 logger.warning("Pageviews unavailable; leaving them NULL")
                 break
-        else:
-            views.update(batch)
-        time.sleep(pause)
-    logger.info("Pageviews for %d of %d articles (%d failed batches)", len(views), len(titles), failed)
+    logger.info("Pageviews for %d of %d articles (%d failed)", len(views), len(titles), failed)
     return views
 
 
@@ -246,7 +276,10 @@ def fetch_all(session=None):
         for c in ID_CHARS:
             raw.extend(_fetch_partition(c, session))
     rows = normalize(raw, fetched_at)
-    views = fetch_pageviews([r["enwiki_title"] for r in rows if r["enwiki_title"]], session)
+    # Best-known first, so a time limit leaves out the least known.
+    with_article = sorted((r for r in rows if r["enwiki_title"]),
+                          key=lambda r: r["sitelinks"] or 0, reverse=True)
+    views = fetch_pageviews([r["enwiki_title"] for r in with_article])
     for r in rows:
         r["enwiki_views_60d"] = views.get(r["enwiki_title"])
     return rows
