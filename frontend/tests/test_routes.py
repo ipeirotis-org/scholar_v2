@@ -111,7 +111,8 @@ class TestResultsRoute:
             html = response.data.decode()
             # Headline leads with the comparison group, then the raw score
             assert "ranks <span class=\"standing-share\">in the top 10%</span>" in html
-            assert "whose first publication was in 2010" in html
+            assert "whose career started in 2010" in html
+            assert "Career start 2010" in html
             assert "PiP-AUC 0.7500" in html
             assert "Cited publications" in html
             # One chart + pinned-work panel + list, rendered client-side by Plotly
@@ -119,6 +120,8 @@ class TestResultsRoute:
             assert 'id="paperPanel"' in html
             assert 'id="paperList"' in html
             assert "initPaperExplorer" in html
+            # The by-year view starts at the career-start year
+            assert "startYear: 2010," in html
             assert "hIndexPlot" in html
             # Should NOT contain base64 PNG images
             assert "data:image/png;base64" not in html

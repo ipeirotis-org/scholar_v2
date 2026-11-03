@@ -852,11 +852,20 @@ footer p {
     display: block;
     height: 100%;
     border-radius: 2px;
-    background: #a49cb0;
+    background: #bdb8c4;
 }
 
-.paper-row-bar-fill.is-top {
+/* Same tier shades as the chart dots (COLOR in paper_explorer.js). */
+.paper-row-bar-fill.is-top10 {
     background: var(--nyu-violet);
+}
+
+.paper-row-bar-fill.is-top25 {
+    background: #8a55b8;
+}
+
+.paper-row-bar-fill.is-top50 {
+    background: #b48fd4;
 }
 
 .paper-row-title {

@@ -3,7 +3,10 @@
  *
  * One chart with two views that share a selection:
  *   - "year": each work at (publication year, citation percentile for that year),
- *     with a reference line at the 90th percentile.
+ *     with reference lines at the 90th, 75th and 50th percentiles. The axis
+ *     starts at the author's career-start year (opts.startYear); works dated
+ *     earlier (in GS, stray misdated items or namesakes' papers) are left off
+ *     this view only, and the finding text says how many.
  *   - "pip":  the PiP curve (works in percentile order against the author's
  *     cited-publication count percentile), with the PiP-AUC area shaded.
  * Hover previews a work; click/tap pins it in the side panel. Clicking a spot
@@ -16,9 +19,13 @@
 (function (window, document) {
     'use strict';
 
+    // Dots are shaded by tier: one violet getting lighter as the tier widens
+    // (OKLab L 0.37 / 0.55 / 0.71), then a light neutral gray for the bottom half.
     var COLOR = {
-        accent: '#57068c',      // works in the top 10% for their year
-        muted: '#a49cb0',       // all other works
+        accent: '#57068c',      // works in the top 10% for their year; PiP curve
+        top25: '#8a55b8',       // top 25% (but not top 10%)
+        top50: '#b48fd4',       // top 50% (but not top 25%)
+        muted: '#bdb8c4',       // bottom half
         selected: '#007a6d',    // selection ring
         ink: '#333333',
         inkMuted: '#6c6675',
@@ -27,7 +34,13 @@
         areaFill: 'rgba(87, 6, 140, 0.10)',
         surface: '#ffffff'
     };
-    var TOP_THRESHOLD = 90;
+    // Highest first. A work belongs to the first tier whose min it reaches;
+    // counts in labels are cumulative (the top 25% includes the top 10%).
+    var TIERS = [
+        { min: 90, share: 10, color: COLOR.accent, barClass: 'is-top10' },
+        { min: 75, share: 25, color: COLOR.top25, barClass: 'is-top25' },
+        { min: 50, share: 50, color: COLOR.top50, barClass: 'is-top50' }
+    ];
     var LIST_PREVIEW = 12;
     var OVERLAP_PX = 7;
 
@@ -86,6 +99,18 @@
         return node;
     }
 
+    // Index into TIERS for a percentile, or -1 for the bottom half.
+    function tierIndex(pct) {
+        for (var i = 0; i < TIERS.length; i++) {
+            if (pct >= TIERS[i].min) return i;
+        }
+        return -1;
+    }
+
+    function countAtLeast(papers, min) {
+        return papers.filter(function (p) { return p.pct >= min; }).length;
+    }
+
     // Focus the element in container whose attr equals value, else the fallback
     // selector's match, else the container itself (which has tabindex=-1).
     function focusWithin(container, attr, value, fallbackSelector) {
@@ -133,6 +158,14 @@
         this.papers = papers;
         this.byId = {};
         for (var i = 0; i < papers.length; i++) this.byId[papers[i].id] = papers[i];
+
+        // Career start (stats.year_of_first_pub). It only ever cuts the by-year
+        // view; ignored when missing or when no work would be left to plot.
+        var start = (opts.startYear === null || opts.startYear === undefined) ? NaN : Number(opts.startYear);
+        var onAxis = isFinite(start) ? papers.filter(function (p) { return p.year >= start; }) : [];
+        this.startYear = onAxis.length ? start : null;
+        this.yearPapers = onAxis.length ? onAxis : papers;
+        this.earlierCount = papers.length - this.yearPapers.length;
 
         this.state = { view: 'year', selectedId: null, group: null, sort: 'percentile', expanded: false };
         this.narrow = this._isNarrow();
@@ -235,6 +268,15 @@
         return this.state.view === 'year' ? { x: p.year, y: p.pct } : { x: p.x, y: p.pct };
     };
 
+    // Before the career start: kept everywhere except the by-year view.
+    PaperExplorer.prototype._isEarlier = function (p) {
+        return this.startYear !== null && p.year < this.startYear;
+    };
+
+    PaperExplorer.prototype._onChart = function (p) {
+        return this.state.view !== 'year' || !this._isEarlier(p);
+    };
+
     PaperExplorer.prototype._hoverText = function (p) {
         var lines = '<b>' + escapeHtml(shortTitle(p.title, 60)) + '</b><br>' +
             p.year + ' · ' + plural(p.citations, 'citation', 'citations');
@@ -263,10 +305,26 @@
         };
     };
 
+    // One dot trace per tier, bottom half first so higher tiers draw on top.
+    PaperExplorer.prototype._tierTraces = function (papers) {
+        var groups = TIERS.map(function () { return []; });
+        var rest = [];
+        papers.forEach(function (p) {
+            var t = tierIndex(p.pct);
+            (t < 0 ? rest : groups[t]).push(p);
+        });
+        var traces = [this._dotTrace(rest, COLOR.muted, 'Bottom 50% for its year')];
+        for (var i = TIERS.length - 1; i >= 0; i--) {
+            traces.push(this._dotTrace(groups[i], TIERS[i].color, 'Top ' + TIERS[i].share + '% for its year'));
+        }
+        return traces;
+    };
+
     PaperExplorer.prototype._ringTrace = function () {
         var self = this;
         var ids = this.state.selectedId ? [this.state.selectedId] : (this.state.group || []);
-        var pts = ids.map(function (id) { return self.byId[id]; }).filter(Boolean);
+        var pts = ids.map(function (id) { return self.byId[id]; })
+            .filter(function (p) { return p && self._onChart(p); });
         return {
             type: 'scatter',
             mode: 'markers',
@@ -320,9 +378,8 @@
 
     PaperExplorer.prototype._yearFigure = function () {
         var papers = this.papers;
-        var top = papers.filter(function (p) { return p.pct >= TOP_THRESHOLD; });
-        var rest = papers.filter(function (p) { return p.pct < TOP_THRESHOLD; });
-        var years = papers.map(function (p) { return p.year; });
+        // Axis from the first work on or after the career start.
+        var years = this.yearPapers.map(function (p) { return p.year; });
         var minYear = Math.min.apply(null, years);
         var maxYear = Math.max.apply(null, years);
 
@@ -338,21 +395,25 @@
             fixedrange: this.touch
         };
         layout.yaxis = this._yAxis();
-        layout.shapes.push({
-            type: 'line', xref: 'paper', x0: 0, x1: 1, yref: 'y', y0: TOP_THRESHOLD, y1: TOP_THRESHOLD,
-            line: { color: COLOR.reference, width: 1, dash: 'dash' }, layer: 'below'
-        });
-        layout.annotations.push({
-            xref: 'paper', x: 0, xanchor: 'left', yref: 'y', y: TOP_THRESHOLD, yanchor: 'bottom',
-            yshift: 1, showarrow: false,
-            text: 'Top 10% for its year: ' + top.length + ' of ' + papers.length,
-            font: { size: 11, color: COLOR.inkMuted }
+        // One dashed line per tier, fainter as the tier widens; counts are cumulative.
+        TIERS.forEach(function (tier, i) {
+            layout.shapes.push({
+                type: 'line', xref: 'paper', x0: 0, x1: 1, yref: 'y', y0: tier.min, y1: tier.min,
+                line: { color: COLOR.reference, width: 1, dash: 'dash' },
+                opacity: [1, 0.6, 0.4][i], layer: 'below'
+            });
+            layout.annotations.push({
+                xref: 'paper', x: 0, xanchor: 'left', yref: 'y', y: tier.min, yanchor: 'bottom',
+                yshift: 1, showarrow: false,
+                text: 'Top ' + tier.share + '%' + (i === 0 ? ' for its year' : '') + ': ' +
+                      countAtLeast(papers, tier.min) + ' of ' + papers.length,
+                font: { size: 11, color: COLOR.inkMuted },
+                bgcolor: 'rgba(255,255,255,0.8)', borderpad: 1
+            });
         });
 
         return {
-            data: [this._dotTrace(rest, COLOR.muted, 'Other works'),
-                   this._dotTrace(top, COLOR.accent, 'Top 10% for its year'),
-                   this._ringTrace()],
+            data: this._tierTraces(this.yearPapers).concat([this._ringTrace()]),
             layout: layout
         };
     };
@@ -476,13 +537,8 @@
             }
         }
 
-        var top = papers.filter(function (p) { return p.pct >= TOP_THRESHOLD; });
-        var rest = papers.filter(function (p) { return p.pct < TOP_THRESHOLD; });
         return {
-            data: [area,
-                   this._dotTrace(rest, COLOR.muted, 'Other works'),
-                   this._dotTrace(top, COLOR.accent, 'Top 10% for its year'),
-                   this._ringTrace()],
+            data: [area].concat(this._tierTraces(papers), [this._ringTrace()]),
             layout: layout
         };
     };
@@ -507,14 +563,23 @@
         if (!this.finding) return;
         var papers = this.papers;
         var n = papers.length;
-        var top = papers.filter(function (p) { return p.pct >= TOP_THRESHOLD; }).length;
         this.finding.textContent = '';
         if (this.state.view === 'year') {
-            var lead = el('strong', null, top + ' of ' + n + ' scored works reached the top 10% for their publication year.');
+            var lead = el('strong', null, countAtLeast(papers, TIERS[0].min) + ' of ' + n +
+                ' scored works reached the top 10% for their publication year.');
             this.finding.appendChild(lead);
             this.finding.appendChild(document.createTextNode(
+                ' ' + countAtLeast(papers, TIERS[1].min) + ' reached the top 25% and ' +
+                countAtLeast(papers, TIERS[2].min) + ' the top 50%.' +
                 ' Each dot is one work, placed by when it appeared and by how its citations compare' +
-                ' with other cited works from that year.'));
+                ' with other cited works from that year; darker dots rank higher.'));
+            if (this.earlierCount) {
+                this.finding.appendChild(document.createTextNode(
+                    ' The chart starts at ' + this.startYear + ', the career start used for the comparison;' +
+                    ' ' + plural(this.earlierCount, 'work', 'works') + ' dated earlier ' +
+                    (this.earlierCount === 1 ? 'is' : 'are') + ' left off this view but ' +
+                    (this.earlierCount === 1 ? 'stays' : 'stay') + ' in the list below.'));
+            }
         } else {
             var last = papers[n - 1];
             var score = this.opts.pipScore;
@@ -544,16 +609,17 @@
         var self = this;
         var full = this.chart._fullLayout;
         var c0 = this._coords(target);
+        var drawn = this.papers.filter(function (p) { return self._onChart(p); });
         try {
             var xa = full.xaxis, ya = full.yaxis;
             var px = xa.l2p(c0.x), py = ya.l2p(c0.y);
-            return this.papers.filter(function (p) {
+            return drawn.filter(function (p) {
                 var c = self._coords(p);
                 var dx = xa.l2p(c.x) - px, dy = ya.l2p(c.y) - py;
                 return dx * dx + dy * dy <= OVERLAP_PX * OVERLAP_PX;
             }).map(function (p) { return p.id; });
         } catch (e) {
-            return this.papers.filter(function (p) {
+            return drawn.filter(function (p) {
                 var c = self._coords(p);
                 return c.x === c0.x && c.y === c0.y;
             }).map(function (p) { return p.id; });
@@ -681,14 +747,23 @@
         fact('Place on the PiP curve', 'x = ' + trim1(p.x) + ', y = ' + trim1(p.pct));
         this.panel.appendChild(dl);
 
+        var earlier = this._isEarlier(p);
+        if (earlier && this.state.view === 'year') {
+            this.panel.appendChild(el('p', 'paper-panel-hint',
+                'Dated before ' + this.startYear + ', the career start used for the comparison,' +
+                ' so it is not plotted by year.'));
+        }
+
         var actions = el('div', 'paper-panel-actions');
         var other = this.state.view === 'year' ? 'pip' : 'year';
-        var swap = el('button', 'btn btn-sm btn-outline-violet',
-            other === 'pip' ? 'Show it on the PiP curve' : 'Show it by publication year');
-        swap.type = 'button';
-        swap.setAttribute('data-focus-key', 'swap');
-        swap.addEventListener('click', function () { self.setView(other); });
-        actions.appendChild(swap);
+        if (!(earlier && other === 'year')) {
+            var swap = el('button', 'btn btn-sm btn-outline-violet',
+                other === 'pip' ? 'Show it on the PiP curve' : 'Show it by publication year');
+            swap.type = 'button';
+            swap.setAttribute('data-focus-key', 'swap');
+            swap.addEventListener('click', function () { self.setView(other); });
+            actions.appendChild(swap);
+        }
 
         var link = this._paperLink(p);
         if (link) actions.appendChild(link);
@@ -793,7 +868,8 @@
             var pct = el('span', 'paper-row-pct');
             pct.appendChild(el('span', 'paper-row-pct-value', p.pct.toFixed(1)));
             var bar = el('span', 'paper-row-bar');
-            var fill = el('span', 'paper-row-bar-fill' + (p.pct >= TOP_THRESHOLD ? ' is-top' : ''));
+            var tier = tierIndex(p.pct);
+            var fill = el('span', 'paper-row-bar-fill' + (tier >= 0 ? ' ' + TIERS[tier].barClass : ''));
             fill.style.width = Math.max(0, Math.min(100, p.pct)) + '%';
             bar.appendChild(fill);
             pct.appendChild(bar);
