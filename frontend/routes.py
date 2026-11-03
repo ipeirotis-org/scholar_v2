@@ -276,7 +276,7 @@ def register_routes(app):
             "results.html",
             author_id=author_id,
             stats=author_stats,
-            standing=build_standing(author_stats, len(pub_chart_data), Config.DATA_SOURCE),
+            standing=build_standing(author_stats, Config.DATA_SOURCE),
             pub_chart_data=pub_chart_data,
             temporal_chart_data=temporal_chart_data,
             last_updated=last_updated,

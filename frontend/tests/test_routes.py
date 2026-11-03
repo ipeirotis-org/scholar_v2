@@ -123,6 +123,35 @@ class TestResultsRoute:
             # Should NOT contain base64 PNG images
             assert "data:image/png;base64" not in html
 
+    def test_results_cited_count_comes_from_author_stats(self):
+        """A failed publication-list read must not turn the note into '0 of 282'."""
+        from frontend.app import create_app
+
+        with mock.patch("frontend.routes.FirestoreCache") as cache_cls, \
+             mock.patch("frontend.routes.enqueue_cache_populate"):
+            cache_instance = cache_cls.return_value
+
+            def cache_get(collection, doc_id):
+                if collection == "v3_author_freshness":
+                    return {"exists": True}
+                if collection == "v3_author_stats":
+                    return {"name": "A", "total_publications": 282,
+                            "total_publications_with_citations": 237,
+                            "total_publications_with_citations_percentile": 0.682,
+                            "pip_auc_score": 0.4272, "pip_auc_score_percentile": 0.771,
+                            "year_of_first_pub": 1990}
+                return None  # publication list unavailable
+
+            cache_instance.get.side_effect = cache_get
+            cache_instance.get_timestamp.return_value = None
+
+            app = create_app(config={"TESTING": True, "SECRET_KEY": "test"})
+            html = app.test_client().get("/results?author_id=123").get_data(as_text=True)
+            normalized = " ".join(html.split())
+            assert "counts the 237 of 282 profile records" in normalized
+            assert "counts the 0 of" not in normalized
+            assert 'id="paperChart"' not in html
+
     def test_results_pending_pip_score_renders_without_headline_share(self):
         from frontend.app import create_app
 

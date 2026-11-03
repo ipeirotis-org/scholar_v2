@@ -752,6 +752,18 @@ footer p {
     margin-top: 0.15rem;
 }
 
+/* Focus lands on the panel or the work's title after re-renders. */
+.paper-panel:focus,
+.paper-panel-title:focus {
+    outline: none;
+}
+
+.paper-panel:focus-visible,
+.paper-panel-title:focus-visible {
+    outline: 2px solid var(--nyu-violet-50);
+    outline-offset: 2px;
+}
+
 /* Sortable list of works below the chart */
 .paper-list-wrap {
     margin-top: 1.5rem;

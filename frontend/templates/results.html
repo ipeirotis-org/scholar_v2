@@ -84,8 +84,8 @@
             {% else %}
             Active authors have an h-index of at least 3 and at least 3 publications.
             {% endif %}
-            {% if standing.num_records and standing.num_records > standing.num_scored %}
-            Cited publications counts the {{ "{:,}".format(standing.num_scored) }} of
+            {% if standing.num_cited and standing.num_records > standing.num_cited %}
+            Cited publications counts the {{ "{:,}".format(standing.num_cited) }} of
             {{ "{:,}".format(standing.num_records) }} profile records with at least one citation;
             only these are scored.
             {% endif %}

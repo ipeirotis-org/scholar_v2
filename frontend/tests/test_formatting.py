@@ -57,7 +57,7 @@ MILANFAR = {
 
 
 def test_build_standing_gs_wording_and_metric_order():
-    s = build_standing(MILANFAR, 237, "gs")
+    s = build_standing(MILANFAR, "gs")
     assert s["phrase"] == "in the top 23%"
     assert s["group"] == "tracked active authors"
     assert s["cohort"] == "whose first cited publication was in 1990"
@@ -67,11 +67,11 @@ def test_build_standing_gs_wording_and_metric_order():
         "h-index", "Total citations", "i10-index", "Cited publications"]
     assert s["metrics"][0]["ordinal"] == "86th"
     assert s["metrics"][3]["value"] == 237
-    assert (s["num_scored"], s["num_records"]) == (237, 282)
+    assert (s["num_cited"], s["num_records"]) == (237, 282)
 
 
 def test_build_standing_s2_wording():
-    s = build_standing(MILANFAR, 237, "s2")
+    s = build_standing(MILANFAR, "s2")
     assert s["group"] == "active Semantic Scholar authors"
     assert s["cohort"] == "whose first publication was in 1990"
 
@@ -79,7 +79,7 @@ def test_build_standing_s2_wording():
 def test_build_standing_treats_nan_as_missing():
     stats = dict(MILANFAR, pip_auc_score=float("nan"), hindex_percentile=float("nan"),
                  year_of_first_pub=None)
-    s = build_standing(stats, 0, "gs")
+    s = build_standing(stats, "gs")
     assert s["has_pip"] is False
     assert s["phrase"] is None and s["pip_score"] is None
     assert s["cohort"] is None

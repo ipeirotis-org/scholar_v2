@@ -57,12 +57,14 @@ def standing_phrase(fraction):
     return f"ahead of {_trim(100 * float(fraction))}%"
 
 
-def build_standing(stats, num_scored, data_source):
+def build_standing(stats, data_source):
     """Collect what the results page headline and metric scale need.
+
+    Everything comes from the author stats document, so the page stays
+    consistent even when the publication list failed to load.
 
     Args:
         stats: cached author stats (percentiles as 0-1 fractions).
-        num_scored: number of publications that enter the PiP score.
         data_source: "gs" or "s2"; picks the wording of the comparison group.
     """
     first_year = _number(stats.get("year_of_first_pub"))
@@ -109,6 +111,6 @@ def build_standing(stats, num_scored, data_source):
         "pip_position": round(100 * float(pip_pct), 1) if has_pip else None,
         "pip_ordinal": ordinal_percentile(pip_pct) if has_pip else None,
         "metrics": metrics,
-        "num_scored": num_scored,
+        "num_cited": int(_number(stats.get("total_publications_with_citations")) or 0),
         "num_records": int(_number(stats.get("total_publications")) or 0),
     }

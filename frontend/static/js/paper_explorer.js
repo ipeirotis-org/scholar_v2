@@ -86,6 +86,20 @@
         return node;
     }
 
+    // Focus the element in container whose attr equals value, else the fallback
+    // selector's match, else the container itself (which has tabindex=-1).
+    function focusWithin(container, attr, value, fallbackSelector) {
+        var target = null;
+        if (value) {
+            var nodes = container.querySelectorAll('[' + attr + ']');
+            for (var i = 0; i < nodes.length && !target; i++) {
+                if (nodes[i].getAttribute(attr) === value) target = nodes[i];
+            }
+        }
+        if (!target && fallbackSelector) target = container.querySelector(fallbackSelector);
+        (target || container).focus({ preventScroll: true });
+    }
+
     // ------------------------------------------------------------------
     // Explorer
     // ------------------------------------------------------------------
@@ -127,6 +141,7 @@
 
     PaperExplorer.prototype.init = function () {
         var self = this;
+        this.panel.setAttribute('tabindex', '-1');
         this._bindControls();
         this.renderChart();
         this.renderPanel();
@@ -565,7 +580,15 @@
     // Side panel
     // ------------------------------------------------------------------
 
+    // Re-rendering replaces the panel's buttons. When focus was inside the panel,
+    // move it to the matching control in the new content (same data-focus-key),
+    // else to the work's title, else to the panel, so keyboard users keep their place.
     PaperExplorer.prototype.renderPanel = function () {
+        var active = document.activeElement;
+        var hadFocus = active && active !== this.panel && this.panel.contains(active);
+        var key = this._focusKeyOverride || (hadFocus ? active.getAttribute('data-focus-key') : null);
+        this._focusKeyOverride = null;
+
         this.panel.textContent = '';
         if (this.state.selectedId && this.byId[this.state.selectedId]) {
             this._panelPaper(this.byId[this.state.selectedId]);
@@ -574,6 +597,7 @@
         } else {
             this._panelEmpty();
         }
+        if (hadFocus) focusWithin(this.panel, 'data-focus-key', key, '[data-focus-fallback]');
     };
 
     PaperExplorer.prototype._panelHeader = function (label) {
@@ -583,6 +607,7 @@
         var close = el('button', 'paper-panel-close', '×');
         close.type = 'button';
         close.setAttribute('aria-label', 'Clear selection');
+        close.setAttribute('data-focus-key', 'close');
         close.addEventListener('click', function () { self.clearSelection(); });
         head.appendChild(close);
         this.panel.appendChild(head);
@@ -607,6 +632,7 @@
             btn.appendChild(el('span', 'paper-pick-title', shortTitle(p.title, 80)));
             btn.appendChild(el('span', 'paper-pick-meta',
                 p.year + ' · ' + plural(p.citations, 'citation', 'citations') + ' · ' + ordinal(p.pct) + ' percentile'));
+            btn.setAttribute('data-focus-key', 'pick-' + p.id);
             btn.addEventListener('click', function () { self.select(p.id); });
             picks.appendChild(btn);
         };
@@ -622,7 +648,10 @@
         if (this.state.group && this.state.group.length > 1) {
             var back = el('button', 'paper-panel-back', '← ' + this.state.group.length + ' works at this spot');
             back.type = 'button';
+            back.setAttribute('data-focus-key', 'back');
             back.addEventListener('click', function () {
+                // Land back on the work that was open.
+                self._focusKeyOverride = 'pick-' + self.state.selectedId;
                 self.state.selectedId = null;
                 self.renderChart();
                 self.renderPanel();
@@ -631,7 +660,10 @@
             this.panel.appendChild(back);
         }
 
-        this.panel.appendChild(el('h4', 'paper-panel-title', p.title));
+        var title = el('h4', 'paper-panel-title', p.title);
+        title.setAttribute('tabindex', '-1');
+        title.setAttribute('data-focus-fallback', '');
+        this.panel.appendChild(title);
         if (p.venue) this.panel.appendChild(el('p', 'paper-panel-venue', p.venue));
 
         var stat = el('p', 'paper-panel-stat');
@@ -654,6 +686,7 @@
         var swap = el('button', 'btn btn-sm btn-outline-violet',
             other === 'pip' ? 'Show it on the PiP curve' : 'Show it by publication year');
         swap.type = 'button';
+        swap.setAttribute('data-focus-key', 'swap');
         swap.addEventListener('click', function () { self.setView(other); });
         actions.appendChild(swap);
 
@@ -696,6 +729,7 @@
             btn.appendChild(el('span', 'paper-pick-title', shortTitle(p.title, 90)));
             btn.appendChild(el('span', 'paper-pick-meta',
                 p.year + ' · ' + plural(p.citations, 'citation', 'citations') + ' · ' + ordinal(p.pct)));
+            btn.setAttribute('data-focus-key', 'pick-' + p.id);
             btn.addEventListener('click', function () { self.select(p.id, true); });
             li.appendChild(btn);
             ul.appendChild(li);
@@ -745,12 +779,16 @@
         if (this.state.selectedId) highlight[this.state.selectedId] = true;
         (this.state.group || []).forEach(function (id) { highlight[id] = true; });
 
+        var active = document.activeElement;
+        var focusId = active && this.list.contains(active) ? active.getAttribute('data-paper-id') : null;
+
         this.list.textContent = '';
         shown.forEach(function (p) {
             var li = el('li');
             var btn = el('button', 'paper-row' + (highlight[p.id] ? ' is-selected' : ''));
             btn.type = 'button';
             btn.setAttribute('aria-pressed', p.id === self.state.selectedId ? 'true' : 'false');
+            btn.setAttribute('data-paper-id', p.id);
 
             var pct = el('span', 'paper-row-pct');
             pct.appendChild(el('span', 'paper-row-pct-value', p.pct.toFixed(1)));
@@ -787,6 +825,7 @@
                 : 'Show all ' + fmtInt(sorted.length) + ' works';
         }
         this._renderListNote();
+        if (focusId) focusWithin(this.list, 'data-paper-id', focusId, null);
     };
 
     window.initPaperExplorer = function (papers, opts) {
