@@ -15,7 +15,7 @@
                 <label for="author_name" class="sr-only">Author Name</label>
                 <div class="search-input-wrapper">
                     <input type="text" id="author_name" name="author_name"
-                           class="form-control"
+                           class="form-control" value="{{ prefill_name }}"
                            placeholder="{% if data_source == 'gs' %}Search by name, or paste a Google Scholar profile URL...{% else %}Search by author name...{% endif %}"
                            autocomplete="off" required
                            aria-describedby="searchHelp"
@@ -345,5 +345,10 @@
         var url = "/results?author_id=" + encodeURIComponent(author.scholar_id);
         window.location.href = url;
     }
+
+    {% if prefill_name %}
+    // Arrived with ?author_name= (e.g. from an old Semantic Scholar link): run the search.
+    findAuthor();
+    {% endif %}
 </script>
 {% endblock %}

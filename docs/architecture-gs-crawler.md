@@ -123,5 +123,10 @@ secret. GS mode uses separate Firestore collections (`v3_gs_author_name_index`, 
 `v3_recent_authors/recent_gs`); the name index bootstraps itself on first use, or call
 `POST /api/refresh_author_index`.
 
+The author caches (`v3_author_*`) are shared, and still hold the S2-era entries keyed by numeric S2 IDs.
+GS mode does not serve them: author pages and `/api/author/<id>/data` answer numeric IDs with 410 Gone (the
+page links to a name search using the cached name), rebuild requests skip them, and they are dropped from
+the recent-authors list (`is_legacy_s2_id` in `frontend/cache.py`).
+
 **Roll back:** set the repository variable `DATA_SOURCE=s2` and re-run *Deploy Frontend & Cache Layer*.
 The S2 views, tables and Firestore caches are untouched (S2 data is frozen; no new fetches).

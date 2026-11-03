@@ -6,6 +6,7 @@ import pytest
 from google.api_core.exceptions import ServiceUnavailable
 
 from frontend.cache import FirestoreCache, MAX_RECENT_AUTHORS
+from frontend.config import Config
 
 
 def _make_cache():
@@ -139,6 +140,35 @@ class TestRecordRecentAuthor:
 
         # Should not raise
         cache.record_recent_author(_author("a1"))
+
+    def test_skips_s2_id_in_gs_mode(self, monkeypatch):
+        monkeypatch.setattr(Config, "DATA_SOURCE", "gs")
+        cache, client = _make_cache()
+        self._setup_transaction(client, existing=None)
+
+        cache.record_recent_author(_author("1688882", "Yann LeCun"))
+
+        client.transaction.assert_not_called()
+
+    def test_drops_stored_s2_entries_in_gs_mode(self, monkeypatch):
+        monkeypatch.setattr(Config, "DATA_SOURCE", "gs")
+        cache, client = _make_cache()
+        existing = [_author("1688882", "Yann LeCun"), _author("-Km63D4AAAAJ", "Foster Provost")]
+        transaction, _ = self._setup_transaction(client, existing=existing)
+
+        cache.record_recent_author(_author("WLN3QrAAAAAJ", "Yann LeCun"))
+
+        written = transaction.set.call_args[0][1]
+        assert [a["scholar_id"] for a in written["data"]] == ["WLN3QrAAAAAJ", "-Km63D4AAAAJ"]
+
+    def test_keeps_s2_ids_in_s2_mode(self):
+        cache, client = _make_cache()
+        transaction, _ = self._setup_transaction(client, existing=[_author("2942126")])
+
+        cache.record_recent_author(_author("1688882", "Yann LeCun"))
+
+        written = transaction.set.call_args[0][1]
+        assert [a["scholar_id"] for a in written["data"]] == ["1688882", "2942126"]
 
     def test_opens_a_new_transaction_per_call(self):
         cache, client = _make_cache()

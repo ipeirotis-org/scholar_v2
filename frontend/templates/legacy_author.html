@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+
+{% block title %}Old author link -- PiP Score{% endblock %}
+
+{% block content %}
+<div class="container mt-4 text-center">
+    <h2>This link is from the old version of PiP Score</h2>
+    <p>
+        Author ID <strong>{{ author_id }}</strong> is a Semantic Scholar ID.
+        PiP Score now computes scores from Google Scholar profiles, so this page is no longer available.
+    </p>
+    <p class="mt-4">
+        {% if name %}
+        <a href="{{ url_for('index', author_name=name) }}" class="btn btn-primary">Search for {{ name }}</a>
+        {% else %}
+        <a href="{{ url_for('index') }}" class="btn btn-primary">Search for an author</a>
+        {% endif %}
+    </p>
+    <p class="text-muted small">
+        If the search doesn't find them, paste their Google Scholar profile URL into the search box.
+    </p>
+</div>
+{% endblock %}
