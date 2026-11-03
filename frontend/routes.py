@@ -28,7 +28,12 @@ from flask import (
 
 from google.cloud import firestore
 
-from frontend.cache import RECENT_AUTHORS_COLLECTION, RECENT_AUTHORS_DOC_ID, FirestoreCache
+from frontend.cache import (
+    RECENT_AUTHORS_COLLECTION,
+    RECENT_AUTHORS_DOC_ID,
+    FirestoreCache,
+    is_legacy_s2_id,
+)
 from frontend.config import Config
 from frontend.formatting import build_standing
 from frontend.queue_client import enqueue_cache_populate
@@ -36,7 +41,8 @@ from frontend.queue_client import enqueue_cache_populate
 logger = logging.getLogger(__name__)
 
 # Validate author_id: alphanumeric, hyphens, underscores, 1-20 chars.
-# Accepts both S2 numeric IDs (e.g., "2942126") and legacy GS IDs.
+# Accepts both S2 numeric IDs (e.g., "2942126") and GS IDs; in GS mode, routes
+# answer S2 IDs with the old-link page (see is_legacy_s2_id).
 SCHOLAR_ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,20}$")
 
 # Validate author_pub_id: scholar_id:base64-like, up to 60 chars
@@ -181,11 +187,30 @@ def register_routes(app):
         """Read from Firestore cache. Returns data or None."""
         return cache.get(collection, doc_id)
 
+    def _legacy_author_page(author_id):
+        """Page for an old S2 link in GS mode: offer a name search instead.
+
+        410 Gone, so search engines drop the S2-era URLs they still crawl.
+        """
+        stats = _read_cache(Config.CACHE_AUTHOR_STATS, author_id)
+        name = stats.get("name") if isinstance(stats, dict) else None
+        return render_template("legacy_author.html", author_id=author_id, name=name), 410
+
     @app.route("/")
     @app.route("/index")
     def index():
         recent_authors = _read_cache(RECENT_AUTHORS_COLLECTION, RECENT_AUTHORS_DOC_ID)
-        return render_template("index.html", recent_authors=recent_authors or [])
+        if not isinstance(recent_authors, list):
+            recent_authors = []
+        recent_authors = [
+            a for a in recent_authors
+            if isinstance(a, dict) and not is_legacy_s2_id(a.get("scholar_id"))
+        ]
+        # ?author_name= pre-fills the search box and runs the search (old S2 links point here).
+        prefill_name = request.args.get("author_name", "").strip()[:100]
+        return render_template(
+            "index.html", recent_authors=recent_authors, prefill_name=prefill_name,
+        )
 
     def _get_author_freshness(author_id):
         """Read cached freshness for an author.
@@ -203,6 +228,8 @@ def register_routes(app):
         if not author_id:
             flash("A valid author ID is required.")
             return redirect(url_for("index"))
+        if is_legacy_s2_id(author_id):
+            return _legacy_author_page(author_id)
 
         # Check cached freshness
         exists, last_updated = _get_author_freshness(author_id)
@@ -289,6 +316,8 @@ def register_routes(app):
         if not author_id:
             flash("A valid author ID is required.")
             return redirect(url_for("index"))
+        if is_legacy_s2_id(author_id):
+            return _legacy_author_page(author_id)
 
         exists, last_updated = _get_author_freshness(author_id)
         if not exists:
@@ -320,6 +349,8 @@ def register_routes(app):
         pub_id = _validate_author_pub_id(pub_id)
         if not author_id or not pub_id:
             return render_template("error.html", error_message="Invalid parameters.")
+        if is_legacy_s2_id(author_id):
+            return _legacy_author_page(author_id)
 
         if not _has_publication_history():
             # Nothing would ever fill this page: send readers to the paper's
@@ -351,6 +382,8 @@ def register_routes(app):
         if not author_id:
             flash("Invalid author ID.")
             return redirect(url_for("index"))
+        if is_legacy_s2_id(author_id):
+            return _legacy_author_page(author_id)
 
         # Read pub_stats from cache
         pub_stats = _read_cache(Config.CACHE_AUTHOR_PUB_STATS, author_id)
@@ -390,6 +423,11 @@ def register_routes(app):
         author_id = _validate_scholar_id(author_id)
         if not author_id:
             return jsonify({"error": "Invalid author ID"}), 400
+        if is_legacy_s2_id(author_id):
+            return jsonify({
+                "error": "Semantic Scholar author IDs are no longer served; use a Google Scholar user ID",
+                "status": "legacy_id",
+            }), 410
 
         # Check freshness first (same as /results) to avoid queue churn
         exists, _ = _get_author_freshness(author_id)
@@ -454,7 +492,7 @@ def register_routes(app):
         """Enqueue cache rebuild from BigQuery for the given author IDs."""
         scholar_ids_arg = request.form.get("scholar_ids", "") or request.args.get("scholar_ids", "")
         scholar_ids = [s.strip() for s in scholar_ids_arg.split(",")
-                       if _validate_scholar_id(s.strip())]
+                       if _validate_scholar_id(s.strip()) and not is_legacy_s2_id(s.strip())]
         if not scholar_ids:
             return jsonify({"error": "No valid author IDs provided"}), 400
 

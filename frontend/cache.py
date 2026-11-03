@@ -7,6 +7,7 @@ is maintained by the frontend and written back for reuse.
 
 import logging
 import queue
+import re
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 
@@ -21,6 +22,19 @@ RECENT_AUTHORS_COLLECTION = "v3_recent_authors"
 # Separate history per data source so GS mode never lists S2 authors (and vice versa).
 RECENT_AUTHORS_DOC_ID = "recent_gs" if Config.DATA_SOURCE == "gs" else "recent"
 MAX_RECENT_AUTHORS = 20
+
+# S2 author IDs are purely numeric; GS user IDs are 12 characters with letters.
+_S2_AUTHOR_ID_RE = re.compile(r"^\d+$")
+
+
+def is_legacy_s2_id(author_id):
+    """Whether author_id is a Semantic Scholar ID while the app serves GS data.
+
+    The Firestore cache still holds the S2-era entries, keyed by numeric S2 IDs.
+    They are never refreshed and their percentiles compare against the S2
+    population, so GS mode must not serve or list them. S2 mode is unchanged.
+    """
+    return Config.DATA_SOURCE == "gs" and bool(_S2_AUTHOR_ID_RE.match(author_id or ""))
 
 # Background thread pool for fire-and-forget writes (query logging).
 # Bounded work queue: drop log entries when backlogged rather than OOM.
@@ -155,7 +169,7 @@ class FirestoreCache:
             "pip_auc_percentile": author_stats.get("pip_auc_score_percentile"),
         }
 
-        if not entry["scholar_id"]:
+        if not entry["scholar_id"] or is_legacy_s2_id(entry["scholar_id"]):
             return
 
         doc_ref = (
@@ -173,8 +187,13 @@ class FirestoreCache:
                 if isinstance(existing, list):
                     current = existing
 
-            # Remove existing entry for this author (if any) to move to front
-            current = [a for a in current if a.get("scholar_id") != entry["scholar_id"]]
+            # Remove existing entry for this author (if any) to move to front,
+            # and drop S2 entries recorded in GS mode before they were blocked.
+            current = [
+                a for a in current
+                if a.get("scholar_id") != entry["scholar_id"]
+                and not is_legacy_s2_id(a.get("scholar_id"))
+            ]
 
             # Prepend and truncate
             current = [entry] + current
