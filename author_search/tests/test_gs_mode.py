@@ -112,6 +112,13 @@ class TestWikidataIndex:
         assert [r["scholar_id"] for r in results] == ["P0", "W1", "C5", "C1"]
         assert results[2]["source"] == "coauthor"
 
+    def test_wikidata_without_sitelinks_still_ranks_before_coauthors(self, gs_mode, monkeypatch):
+        monkeypatch.setattr(ss, "_author_index", [
+            {"scholar_id": "C9", "name": "Ann Lee", "name_lower": "ann lee", "source": "coauthor", "coauthor_of": 9},
+            {"scholar_id": "W0", "name": "Ann Lee", "name_lower": "ann lee", "source": "wikidata", "sitelinks": None},
+        ])
+        assert [r["scholar_id"] for r in ss._search_in_memory("ann lee")] == ["W0", "C9"]
+
     def test_no_index_from_wikidata_alone(self, gs_mode):
         client = self._client([], [{"scholar_id": "x", "name": "Only Wikidata"}])
         assert client.get_all_author_names() == []

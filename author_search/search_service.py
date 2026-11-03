@@ -36,8 +36,9 @@ _INDEX_COLLECTION = Config.INDEX_COLLECTION
 # even with long affiliations or Wikidata descriptions.
 _CHUNK_SIZE = 2000
 
-# Index entries for people we have not crawled yet (the results page crawls them).
-_UNPROFILED_SOURCES = ("wikidata", "coauthor")
+# Ranking tier by index source: profiled authors (any other source) 2, then people
+# we have not crawled yet (the results page crawls them): Wikidata 1, co-authors 0.
+_SOURCE_TIER = {"wikidata": 1, "coauthor": 0}
 
 # Result limits
 _TYPEAHEAD_LIMIT = 10
@@ -316,7 +317,7 @@ def _search_in_memory(query, limit=_TYPEAHEAD_LIMIT):
     # Profiled authors first (by citations, even when they have none), then the
     # unprofiled ones: better-known on Wikidata (more Wikipedia editions) first,
     # then by how many profiled authors list them as a co-author.
-    matches.sort(key=lambda a: (a.get("source") not in _UNPROFILED_SOURCES, a.get("citedby") or 0,
+    matches.sort(key=lambda a: (_SOURCE_TIER.get(a.get("source"), 2), a.get("citedby") or 0,
                                 a.get("sitelinks") or 0, a.get("coauthor_of") or 0), reverse=True)
 
     results = []
