@@ -1,0 +1,15 @@
+{# Author name, affiliation, career start and GS link: shared by the results and field pages. #}
+<header class="author-header" aria-label="Author information">
+    <h1 class="author-name">{{ stats.get('name') or 'N/A' }}</h1>
+    <p class="author-meta">
+        {% if stats.get('affiliation') %}<span>{{ stats.get('affiliation') }}</span>{% endif %}
+        {% if stats.year_of_first_pub %}
+        <span>Career start {{ stats.year_of_first_pub }}
+            ({{ current_year - stats.year_of_first_pub + 1 }} years)</span>
+        {% endif %}
+        {% if data_source == "gs" %}
+        <span><a href="https://scholar.google.com/citations?user={{ author_id }}" target="_blank"
+                 rel="noopener">Google Scholar profile &#8599;</a></span>
+        {% endif %}
+    </p>
+</header>

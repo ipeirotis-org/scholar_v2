@@ -95,10 +95,12 @@ via a managed scraping API instead of `scholarly`. Vendor evaluation: [docs/goog
     co-authors (≥2 with a group, top group holds a majority): 93% in all. A random sample of 80 had 3 errors, all
     fixed by rule changes
     - [ ] Venues for the remaining 7% (1,175 profiles; their median overall PiP percentile is 0.33)
-  - [x] Display (2026-11-03): the results page adds "Within [field ▾]: in the top X% of N tracked active authors
-    whose career started A–B" under the overall score. Peers: active authors in the group whose career started
-    within ±2 years, widened (3, 4, 5, 7, 10) until ≥100 (`dist_pip_auc_scores_field`); fields with under 30
-    peers are disabled. Every group's median active author lands at the field 50th percentile
+  - [x] Display (2026-11-03): an author field page, `/field?author_id=...&field=...`, ranks the PiP-AUC score and
+    the four conventional metrics among active authors in one field group whose career started within ±2 years,
+    widened (3, 4, 5, 7, 10) until ≥100 (`dist_pip_auc_scores_field`); fields with under 30 peers are disabled.
+    The results page keeps one comparison group and links there ("How X compares within Computer Science →");
+    old `/results?...&field=` links redirect. Every group's median active author lands at the field 50th
+    percentile, for PiP-AUC and for each metric (0.49–0.52)
     - [x] Field picker: starts on the author's own field (or asks, for the 7% without one); any of the 11 can be
       chosen, and `?field=` keeps the choice in the link. Prompted by business-school faculty whose GS interests
       read as CS (e.g. `PA9La6oAAAAJ`: 65th among CS peers, 95th among Economics & Business peers).
@@ -106,12 +108,17 @@ via a managed scraping API instead of `scholarly`. Vendor evaluation: [docs/goog
       per cache-layer lookup); the cache layer stores them as `field_percentiles`
     - [ ] Institution-type comparison ("among business-school faculty"): affiliation/email matching finds ~690
       such profiles but needs checking first
-    - [ ] Existing Firestore `v3_author_stats` entries only get the field columns when the author is re-cached
-      (re-crawl or cache flush)
-    - [ ] Field percentiles for the four conventional metrics too (h-index, citations, i10, cited publications)
+    - [x] Re-cache existing Firestore `v3_author_stats` entries (2026-11-03): after the deploy, all 28 cached
+      authors were re-populated through the `cache-batch` queue (overwritten in place, no loading pages); all 28
+      now carry `field_percentiles`. Leftover view `gs_statistics.ranked_author_field_current` dropped
+    - [x] Field percentiles for the four conventional metrics (2026-11-03), on the field page: same peers as the
+      field PiP-AUC percentile; `ranked_author_current.field_metric_percentiles_json` (share of peers at or below,
+      so ties count as below, as in the overall percentiles), folded into `field_percentiles` by the cache layer
   - [ ] Then scoring: paper citation percentiles by field and year, publication counts by field and cohort
 - [x] **Featured authors on the homepage** (2026-11-03): a pinned section above "Recently Analyzed Authors" with the ten profiled authors whose English Wikipedia articles were read most over the last 60 days, and `/featured` (nav link "Featured") with the top 100. Built by `gs_crawler/featured.py` after the weekly materialize and the monthly Wikidata reload (`CRAWL_MODE=featured` alone); leaves out deceased people and h-index < 10. The recent list shows 5 authors with an in-place "See more" for the rest (up to 20). Both lists share `templates/_author_table.html`: one line per row (long names and affiliations end in "…" and expand on click), right-aligned numbers, PiP-AUC and its percentile in separate columns; narrow screens drop affiliation (<992px), h-index (<768px) and citations (<576px). Footer source line moved under the contact line
 - [x] **Author results page leads with standing** (2026-11-03): headline names the comparison group ("top 23% of tracked active authors whose career started in 1990"), PiP-AUC below it, the four conventional metrics on one percentile scale; one chart with a by-year view (dots shaded by top 10% / 25% / 50% tier with a line at each; axis starts at the career-start year, earlier works noted and kept in the list) and a PiP-curve view (shaded area, curve end, median-peer example) sharing a pinned-work panel; sortable list of works below; author line reads "Career start YYYY" (the robust `year_of_first_pub`)
+  - [x] The works explorer opens on the PiP curve (2026-11-03); "By publication year" is the second view
+  - [x] One scale (2026-11-03): whole-number percentiles everywhere ("ranks at the 75th percentile of ...", the field line, metric rows, paper explorer tiers and list, homepage table) instead of mixing "top 25%" / "ahead of 21.1%" with "75.3rd percentile". Floored and clamped to 1st–99th (`formatting.percentile_rank`, `percentileRank` in `paper_explorer.js`); the score line no longer repeats the percentile. PiP-curve coordinates (x, y) keep one decimal
   - [x] GS mode: publication detail links go to the paper's Google Scholar record; `/publication/...` redirects there (no cache task, no loading page) until Phase B adds per-paper histories (re-enable via `_has_publication_history()` in `frontend/routes.py`)
   - [ ] Authors in the pinned-work panel: `author_pub_stats` docs for the largest profiles are already ~790 KB of Firestore's 1 MiB, so author lists need a per-paper store or a size cap first (the panel links to the GS record meanwhile)
 

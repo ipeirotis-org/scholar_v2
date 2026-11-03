@@ -110,7 +110,8 @@ class TestResultsRoute:
             assert response.status_code == 200
             html = response.data.decode()
             # Headline leads with the comparison group, then the raw score
-            assert "ranks <span class=\"standing-share\">in the top 10%</span>" in html
+            assert "ranks <span class=\"standing-share\">at the 90th percentile</span>" in html
+            assert "percentile in this cohort" not in html  # one scale: no second percentile line
             assert "whose career started in 2010" in html
             assert "Career start 2010" in html
             assert "PiP-AUC 0.7500" in html
@@ -120,6 +121,11 @@ class TestResultsRoute:
             assert 'id="paperPanel"' in html
             assert 'id="paperList"' in html
             assert "initPaperExplorer" in html
+            # The explorer opens on the PiP curve, listed first
+            normalized = " ".join(html.split())
+            assert ('data-explorer-view="pip" aria-pressed="true">PiP curve</button> '
+                    '<button type="button" class="btn btn-outline-violet" data-explorer-view="year" '
+                    'aria-pressed="false">By publication year') in normalized
             # The by-year view starts at the career-start year
             assert "startYear: 2010," in html
             assert "hIndexPlot" in html
@@ -156,11 +162,14 @@ class TestResultsRoute:
             assert 'id="paperChart"' not in html
 
     @staticmethod
-    def _render_with_stats(stats, query=""):
+    def _get(stats, url, data_source="s2"):
+        """GET url with stats as the cached author; returns (status, location, normalized html)."""
         from frontend.app import create_app
+        from frontend.config import Config
 
         with mock.patch("frontend.routes.FirestoreCache") as cache_cls, \
-             mock.patch("frontend.routes.enqueue_cache_populate"):
+             mock.patch("frontend.routes.enqueue_cache_populate"), \
+             mock.patch.object(Config, "DATA_SOURCE", data_source):
             cache_instance = cache_cls.return_value
 
             def cache_get(collection, doc_id):
@@ -173,53 +182,81 @@ class TestResultsRoute:
             cache_instance.get.side_effect = cache_get
             cache_instance.get_timestamp.return_value = None
             app = create_app(config={"TESTING": True, "SECRET_KEY": "test"})
-            html = app.test_client().get("/results?author_id=123" + query).get_data(as_text=True)
-        return " ".join(html.split())
+            response = app.test_client().get(url)
+        return response.status_code, response.headers.get("Location"), " ".join(response.get_data(as_text=True).split())
+
+    @classmethod
+    def _render_with_stats(cls, stats, query=""):
+        return cls._get(stats, "/results?author_id=123" + query)[2]
 
     PARKER = {
         "name": "Jonathan A. Parker", "pip_auc_score": 0.0692, "pip_auc_score_percentile": 0.211,
         "year_of_first_pub": 1994, "field_group": "Economics & Business", "field_source": "interests",
+        "hindex": 40, "hindex_percentile": 0.31, "citedby": 12000, "citedby_percentile": 0.33,
         "field_percentiles": [
             {"field_group": "Computer Science", "cohort_start": 1992, "cohort_end": 1996,
-             "peer_count": 380, "percentile": 0.12},
+             "peer_count": 380, "percentile": 0.12, "hindex_percentile": 0.2, "citedby_percentile": 0.25},
             {"field_group": "Economics & Business", "cohort_start": 1992, "cohort_end": 1996,
-             "peer_count": 151, "percentile": 0.34},
+             "peer_count": 151, "percentile": 0.34, "hindex_percentile": 0.48, "citedby_percentile": 0.6},
             {"field_group": "Physics & Astronomy", "cohort_start": 1986, "cohort_end": 2004,
              "peer_count": 20, "percentile": None},
         ],
     }
 
-    def test_results_show_field_picker_on_own_field(self):
+    def test_results_link_to_the_field_page(self):
         html = self._render_with_stats(self.PARKER)
-        assert "ahead of 21.1%" in html  # overall headline unchanged
-        assert '<option value="Economics &amp; Business" selected' in html
-        assert "Economics &amp; Business (from profile)</option>" in html
-        assert ('<span class="standing-share" data-field-phrase>ahead of 34%</span> '
-                "of <span data-field-peers>151</span> tracked active authors "
-                "<span data-field-cohort>whose career started 1992–1996</span>.") in html
-        assert 'data-phrase="ahead of 12%"' in html  # other fields ready for the picker
-        assert "Physics &amp; Astronomy (too few authors)</option>" in html
-        assert '<option value="Physics &amp; Astronomy" disabled' in html
-        assert "this author's Google Scholar interests" in html
+        assert "at the 21st percentile" in html  # overall headline
+        assert ('<a href="/field?author_id=123">How Jonathan A. Parker compares within '
+                "Economics &amp; Business &rarr;</a>") in html
+        assert "<select" not in html  # the picker lives on the field page
+        no_own = self._render_with_stats(dict(self.PARKER, field_group=float("nan")))
+        assert "compares within a field &rarr;</a>" in no_own
 
-    def test_results_field_parameter_picks_the_comparison(self):
-        html = self._render_with_stats(self.PARKER, query="&field=Computer+Science")
-        assert '<option value="Computer Science" selected' in html
-        assert "data-field-phrase>ahead of 12%</span>" in html
-
-    def test_results_without_own_field_ask_for_a_choice(self):
-        html = self._render_with_stats(dict(self.PARKER, field_group=float("nan"),
-                                            field_source=float("nan")))
-        assert '<option value="" selected>choose a field</option>' in html
-        assert "data-field-result aria-live=\"polite\" hidden>" in html
-        assert "names no field we recognize" in html
-
-    def test_results_without_field_percentiles_skip_the_picker(self):
+    def test_results_without_field_percentiles_have_no_field_link(self):
         # Cache entries from before field percentiles, and S2 mode
         html = self._render_with_stats({"name": "A", "pip_auc_score": 0.4272,
                                         "pip_auc_score_percentile": 0.771, "year_of_first_pub": 1990})
-        assert "in the top 23%" in html
-        assert "data-field-compare" not in html
+        assert "at the 77th percentile" in html
+        assert "/field?" not in html
+
+    def test_results_field_parameter_redirects_to_the_field_page(self):
+        status, location, _ = self._get(self.PARKER, "/results?author_id=123&field=Computer+Science")
+        assert status == 302
+        assert location.endswith("/field?author_id=123&field=Computer+Science")
+
+    def test_field_page_on_own_field(self):
+        status, _, html = self._get(self.PARKER, "/field?author_id=uXulDDsAAAAJ", "gs")
+        assert status == 200
+        assert ("Jonathan A. Parker ranks <span class=\"standing-share\">at the 34th percentile</span> "
+                "of the 151 tracked active authors in Economics &amp; Business whose career started 1992–1996.") in html
+        assert '<option value="Economics &amp; Business" selected>Economics &amp; Business (from profile)</option>' in html
+        assert '<option value="Physics &amp; Astronomy" disabled>Physics &amp; Astronomy (too few authors)</option>' in html
+        # Metric rows among the same peers, with the PiP-AUC line at the field percentile
+        assert '<span class="metric-pct" role="cell">48th</span>' in html
+        assert '<span class="metric-pct" role="cell">60th</span>' in html
+        assert 'class="metric-ref-label" style="left: 34.0%"' in html
+        assert ('<a href="/results?author_id=uXulDDsAAAAJ">Across all fields: 21st percentile '
+                '(career start 1994)</a>') in html
+        assert "their Google Scholar interests" in html
+
+    def test_field_page_honours_the_field_parameter(self):
+        _, _, html = self._get(self.PARKER, "/field?author_id=uXulDDsAAAAJ&field=Computer+Science", "gs")
+        assert '<option value="Computer Science" selected>' in html
+        assert "at the 12th percentile</span> of the 380 tracked active authors in Computer Science" in html
+
+    def test_field_page_without_own_field_asks_for_a_choice(self):
+        stats = dict(self.PARKER, field_group=float("nan"), field_source=float("nan"))
+        _, _, html = self._get(stats, "/field?author_id=uXulDDsAAAAJ", "gs")
+        assert '<option value="" selected disabled>choose a field</option>' in html
+        assert "names no field we recognize" in html
+        assert "standing-share" not in html
+
+    def test_field_page_falls_back_to_results(self):
+        for stats, mode in [(None, "gs"),                                   # not cached yet
+                            ({"name": "A", "pip_auc_score": 0.4, "pip_auc_score_percentile": 0.7}, "gs"),
+                            (self.PARKER, "s2")]:                           # S2 mode
+            status, location, _ = self._get(stats, "/field?author_id=uXulDDsAAAAJ", mode)
+            assert status == 302 and location.endswith("/results?author_id=uXulDDsAAAAJ"), (stats, mode)
 
     def test_results_pending_pip_score_renders_without_headline_share(self):
         from frontend.app import create_app

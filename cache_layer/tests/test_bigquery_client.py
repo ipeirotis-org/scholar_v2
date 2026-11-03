@@ -84,6 +84,35 @@ class TestGetAuthorStats:
              "peer_count": 12, "percentile": None},
         ]
 
+    def test_field_metric_percentiles_fold_into_each_field(self):
+        import pandas as pd
+        df = pd.DataFrame([{
+            "scholar_id": "abc123",
+            "field_metric_percentiles_json": '[{"field_group":"Computer Science","hindex_percentile":0.73,'
+                                             '"citedby_percentile":0.82,"i10index_percentile":0.62,'
+                                             '"total_publications_with_citations_percentile":0.65}]',
+            "field_percentiles_json": '[{"field_group":"Computer Science","cohort_start":1998,'
+                                      '"cohort_end":2002,"peer_count":450,"percentile":0.655},'
+                                      '{"field_group":"Engineering","cohort_start":1997,'
+                                      '"cohort_end":2003,"peer_count":136,"percentile":0.756}]',
+        }])
+        client, _ = _make_client(df)
+        result = client.get_author_stats("abc123")
+        assert "field_metric_percentiles_json" not in result
+        cs, eng = result["field_percentiles"]
+        assert cs == {"field_group": "Computer Science", "cohort_start": 1998, "cohort_end": 2002,
+                      "peer_count": 450, "percentile": 0.655, "hindex_percentile": 0.73,
+                      "citedby_percentile": 0.82, "i10index_percentile": 0.62,
+                      "total_publications_with_citations_percentile": 0.65}
+        assert "hindex_percentile" not in eng  # no metric entry for that field: PiP only
+
+    def test_json_null_reads_as_empty(self):
+        import pandas as pd
+        df = pd.DataFrame([{"scholar_id": "a", "field_percentiles_json": "null",
+                            "field_metric_percentiles_json": "null"}])
+        client, _ = _make_client(df)
+        assert client.get_author_stats("a")["field_percentiles"] == []
+
     def test_missing_field_percentiles(self):
         import pandas as pd
         # NULL JSON (no PiP score) reads back as NaN or None

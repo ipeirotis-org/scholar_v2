@@ -47,7 +47,7 @@ gs-monthly-wikidata ──► gs-crawler job (CRAWL_MODE=wikidata): Wikidata GS 
 | `gs_crawler/featured.py` | Homepage featured authors: profiled authors with the most-read Wikipedia articles → Firestore `v3_featured_authors/featured_gs` |
 | `gs_crawler/main.py` | Job entry point: `CRAWL_MODE=refresh \| authors \| materialize \| deploy \| wikidata \| featured` |
 | `bigquery/gs_data/` | Snapshot tables, latest views, one-off legacy seed |
-| `bigquery/gs_statistics/` | GS versions of the non-temporal analytics views (same output columns as `statistics`), plus field groups (`author_*fields`) and field-relative PiP-AUC percentiles (`dist_pip_auc_scores_field`, extra `field_*` columns on `ranked_author_pip_scores_current`) |
+| `bigquery/gs_statistics/` | GS versions of the non-temporal analytics views (same output columns as `statistics`), plus field groups (`author_*fields`) and field-relative percentiles for the author field page (`dist_pip_auc_scores_field`; `field_*` columns on `ranked_author_pip_scores_current` and `ranked_author_current`) |
 
 ## Finding authors we have not crawled (Wikidata)
 

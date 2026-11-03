@@ -15,11 +15,12 @@ PiP-AUC combines citation quality with publication productivity into a single 0-
 
 All author metrics (h-index, citations, i10-index) are also percentile-ranked by cohort (year of first publication).
 
-In GS mode each author also gets one of 11 field groups (from their GS interests, else their co-authors'), and the
-results page adds the PiP-AUC percentile among active authors in a field with a similar career start, starting on
-the author's own field with a picker for the other 10 (`?field=` in the URL)
-(`gs_statistics.author_fields`, `dist_pip_auc_scores_field`; `field_group`, `field_source` and
-`field_percentiles_json` on `ranked_author_pip_scores_current`).
+In GS mode each author also gets one of 11 field groups (from their GS interests, else their co-authors'), and an
+author field page (`/field?author_id=...&field=...`, linked from the results page) ranks the PiP-AUC score and the
+four conventional metrics among active authors in one field with a similar career start, starting on the author's
+own field with a picker for the other 10 (`gs_statistics.author_fields`, `dist_pip_auc_scores_field`;
+`field_group`, `field_source` and `field_percentiles_json` on `ranked_author_pip_scores_current`,
+`field_metric_percentiles_json` on `ranked_author_current`).
 The scores themselves are not field-normalized yet (see TASKS.md "Field-specific normalization").
 
 See the [blog post](https://www.behind-the-enemy-lines.com/2024/01/the-pip-auc-score-for-research.html) for the full methodology.
@@ -42,7 +43,7 @@ scholar_v2/
 ├── frontend/                     # Flask web application (Cloud Run) — reads Firestore only
 │   ├── main.py                   # App entry point
 │   ├── app.py                    # Flask app factory with security headers
-│   ├── routes.py                 # Routes: /, /results, /featured, /publication, /download, /data, /help, /api/*
+│   ├── routes.py                 # Routes: /, /results, /field, /featured, /publication, /download, /data, /help, /api/*
 │   ├── cache.py                  # Read-only Firestore cache client
 │   ├── queue_client.py           # Enqueue cache-miss tasks to priority queue
 │   ├── formatting.py             # Plain-language percentile wording for the results page

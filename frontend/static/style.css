@@ -458,19 +458,28 @@ footer .footer-source {
     color: var(--nyu-violet-50);
 }
 
-/* Field-relative standing, right under the score line */
-.standing-score:has(+ .standing-field) {
+/* Results page: link to the field page, right under the score line */
+.standing-score:has(+ .standing-field-link) {
     margin-bottom: 0.6rem;
 }
 
-.standing-field {
-    color: var(--ink);
+.standing-field-link {
     max-width: 46rem;
     margin-bottom: 1.5rem;
 }
 
-.standing-field-line {
-    margin-bottom: 0;
+/* Field page: "Compare with authors in [field]" */
+.field-picker {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem 0.6rem;
+    margin-bottom: 1rem;
+}
+
+.field-picker label {
+    margin: 0;
+    color: var(--ink-muted);
 }
 
 .field-select {
@@ -480,23 +489,13 @@ footer .footer-source {
     background-color: #fff;
     border: 1px solid var(--nyu-violet-50);
     border-radius: 4px;
-    padding: 0.05rem 0.35rem;
+    padding: 0.15rem 0.4rem;
     max-width: 100%;
 }
 
 .field-select:focus {
     outline: 2px solid var(--nyu-violet);
     outline-offset: 1px;
-}
-
-.field-result[hidden] {
-    display: none;
-}
-
-.standing-field-note {
-    font-size: 0.82rem;
-    color: var(--ink-muted);
-    margin: 0.2rem 0 0;
 }
 
 /* One percentile scale for the conventional metrics */
