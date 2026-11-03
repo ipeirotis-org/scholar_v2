@@ -68,7 +68,10 @@ PAGEVIEW_URL = ("https://wikimedia.org/api/rest_v1/metrics/pageviews/per-article
                 "en.wikipedia.org/all-access/user/{title}/daily/{start}/{end}")
 PAGEVIEW_DAYS = 60
 PAGEVIEW_WORKERS = 8
-PAGEVIEW_MAX_SECONDS = 1500  # keep the job well inside its 1 h task timeout
+# Wikimedia throttles this endpoint to ~3.5 articles/s for us (2026-11), so one run
+# covers ~8K of the ~22K articles. Views are carried forward between runs and the
+# titles without any go first, so coverage is complete after about three runs.
+PAGEVIEW_MAX_SECONDS = 2400  # leaves ~20 min of the job's 1 h task timeout
 
 
 _PREFIXES = """PREFIX wdt: <http://www.wikidata.org/prop/direct/>
@@ -267,8 +270,27 @@ def fetch_pageviews(titles, session=None, workers=PAGEVIEW_WORKERS,
     return views
 
 
-def fetch_all(session=None):
+def previous_views(client=None):
+    """{enwiki_title: views} from the current table; {} if it is missing or unreadable."""
+    client = client or bigquery.Client(project=Config.PROJECT_ID)
+    sql = f"""
+        SELECT enwiki_title, ANY_VALUE(enwiki_views_60d) AS views
+        FROM {Config.bq_table_ref(Config.WIKIDATA_AUTHORS_TABLE)}
+        WHERE enwiki_title IS NOT NULL AND enwiki_views_60d IS NOT NULL
+        GROUP BY enwiki_title
+    """
+    try:
+        return {row["enwiki_title"]: row["views"] for row in client.query(sql).result()}
+    except Exception:
+        logger.warning("Could not read previous pageviews; fetching from scratch")
+        return {}
+
+
+def fetch_all(session=None, previous=None):
+    """Rows for gs_data.wikidata_authors. `previous` ({title: views}) is carried
+    forward for articles this run does not reach."""
     session = session or requests.Session()
+    previous = previous or {}
     fetched_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
     raw = _fetch_qlever(session)
     if raw is None:
@@ -276,12 +298,17 @@ def fetch_all(session=None):
         for c in ID_CHARS:
             raw.extend(_fetch_partition(c, session))
     rows = normalize(raw, fetched_at)
-    # Best-known first, so a time limit leaves out the least known.
+    # Articles without views yet first, then the rest; best-known (sitelinks) first
+    # within each, so a time limit leaves out the least known.
     with_article = sorted((r for r in rows if r["enwiki_title"]),
-                          key=lambda r: r["sitelinks"] or 0, reverse=True)
+                          key=lambda r: (r["enwiki_title"] not in previous, r["sitelinks"] or 0),
+                          reverse=True)
     views = fetch_pageviews([r["enwiki_title"] for r in with_article])
     for r in rows:
-        r["enwiki_views_60d"] = views.get(r["enwiki_title"])
+        title = r["enwiki_title"]
+        r["enwiki_views_60d"] = views.get(title, previous.get(title))
+    logger.info("Pageviews known for %d of %d articles after this run",
+                sum(1 for r in with_article if r["enwiki_views_60d"] is not None), len(with_article))
     return rows
 
 
@@ -307,4 +334,5 @@ def load(rows, client=None):
 
 
 def run():
-    return load(fetch_all())
+    client = bigquery.Client(project=Config.PROJECT_ID)
+    return load(fetch_all(previous=previous_views(client)), client=client)

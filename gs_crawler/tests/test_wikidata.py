@@ -101,6 +101,34 @@ class TestSources:
         sleep.assert_called_once()
 
 
+class TestCarryForward:
+    def test_new_titles_first_and_old_views_kept(self, monkeypatch):
+        monkeypatch.setattr(wikidata, "MIN_FULL_ROWS", 1)
+        header = "p,g,label,desc,links,enwiki\n"
+        csv_text = header + (
+            "http://www.wikidata.org/entity/Q1,AAAAAAAAAAAJ,Known,,50,Known\n"
+            "http://www.wikidata.org/entity/Q2,BBBBBBBBBBBJ,New Famous,,40,New Famous\n"
+            "http://www.wikidata.org/entity/Q3,CCCCCCCCCCCJ,New Obscure,,2,New Obscure\n")
+        session = MagicMock()
+        session.get.return_value = _resp(200, csv_text)
+        seen = []
+
+        def fake_fetch(titles):
+            seen.extend(titles)
+            return {"New Famous": 900}  # the run reaches only one title
+
+        with patch.object(wikidata, "fetch_pageviews", side_effect=fake_fetch):
+            rows = wikidata.fetch_all(session, previous={"Known": 123})
+        assert seen == ["New Famous", "New Obscure", "Known"]
+        views = {r["name"]: r["enwiki_views_60d"] for r in rows}
+        assert views == {"Known": 123, "New Famous": 900, "New Obscure": None}
+
+    def test_previous_views_tolerates_missing_table(self):
+        client = MagicMock()
+        client.query.side_effect = RuntimeError("Not found: Table")
+        assert wikidata.previous_views(client) == {}
+
+
 class TestPageviews:
     WINDOW = ("20260904", "20261102")
 
