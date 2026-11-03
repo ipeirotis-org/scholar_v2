@@ -211,7 +211,7 @@
             var detailText = author.affiliation || "";
             if (author.citedby) {
                 detailText += (detailText ? " · " : "") + Number(author.citedby).toLocaleString() + " citations";
-            } else if (author.source === "wikidata" || (author.source === "gs_id" && author.citedby == null)) {
+            } else if (author.source === "wikidata" || author.source === "coauthor" || (author.source === "gs_id" && author.citedby == null)) {
                 // Not crawled yet: the results page fetches the profile (about a minute).
                 detailText += (detailText ? " · " : "") + "not analyzed yet";
             }

@@ -51,7 +51,8 @@ class BigQuerySearchClient:
             profiled = self._query(sql)
             if not profiled:
                 return []  # never publish an index of only unprofiled names
-            return profiled + self.get_wikidata_author_names()
+            return profiled + merge_unprofiled(self.get_wikidata_author_names(),
+                                               self.get_coauthor_names())
         sql = f"""
             SELECT scholar_id, name, affiliation, citedby, hindex
             FROM {Config.bq_view('ranked_author_current_table')}
@@ -77,3 +78,41 @@ class BigQuerySearchClient:
             ORDER BY w.name
         """
         return self._query(sql)
+
+    def get_coauthor_names(self):
+        """Unprofiled people listed as co-authors on profiled GS authors (~180K), GS mode only.
+
+        Each comes with the name and affiliation shown in the profile's co-author box,
+        plus how many profiled authors list them (`coauthor_of`, for ranking). Returns []
+        if the query fails, leaving the rest of the index intact.
+        """
+        sql = f"""
+            SELECT c.scholar_id, ANY_VALUE(c.name) AS name,
+                   ANY_VALUE(NULLIF(TRIM(c.affiliation), '')) AS affiliation,
+                   COUNT(DISTINCT a.scholar_id) AS coauthor_of, 'coauthor' AS source
+            FROM {Config.bq_gs_table(Config.AUTHORS_LATEST_VIEW)} a, UNNEST(a.coauthors) c
+            WHERE REGEXP_CONTAINS(c.scholar_id, r'^[A-Za-z0-9_-]{{12}}$')
+              AND TRIM(IFNULL(c.name, '')) != ''
+              AND c.scholar_id NOT IN (
+                SELECT scholar_id FROM {Config.bq_view('ranked_author_current')})
+            GROUP BY c.scholar_id
+        """
+        return self._query(sql)
+
+
+def merge_unprofiled(wikidata, coauthors):
+    """Wikidata entries plus the co-authors not on Wikidata, one entry per GS ID.
+
+    For people in both, the co-author box's affiliation ("Professor, NYU") replaces
+    the Wikidata description ("American computer scientist"), and coauthor_of is kept.
+    """
+    by_id = {c["scholar_id"]: c for c in coauthors}
+    merged = []
+    for w in wikidata:
+        c = by_id.pop(w["scholar_id"], None)
+        if c:
+            w = dict(w, affiliation=c.get("affiliation") or w.get("affiliation"),
+                     coauthor_of=c.get("coauthor_of"))
+        merged.append(w)
+    merged.extend(by_id.values())
+    return merged

@@ -66,7 +66,8 @@ via a managed scraping API instead of `scholarly`. Vendor evaluation: [docs/goog
   - [x] Paste a GS profile URL or ID into the search box (GS mode)
   - [x] Wikidata GS IDs (P1960, ~130K people) in the name index, reloaded monthly (`gs-monthly-wikidata`); empty results link to a web search for the profile (2026-11-03, prompted by "Peyman Milanfar" returning nothing)
   - [x] Ingest new Wikidata authors in order of English Wikipedia pageviews: up to 25% of each refresh run (`NEW_AUTHOR_SHARE`); permanent failures cool down 30 days
-  - [ ] Paper-title lookup; grow the index from crawled co-authors
+  - [x] Co-authors listed on profiled authors' pages (~180K) in the name index, ranked by how many profiled authors list them (2026-11-03)
+  - [ ] Paper-title lookup
 
 ---
 
