@@ -58,9 +58,13 @@ carry a Google Scholar author ID (property P1960). The monthly `wikidata` run:
    further, with back-off, on timeouts). WDQS alone proved fragile: the first production run
    failed after 26 min when it throttled small partitions.
 2. Adds 60-day English Wikipedia pageviews from the per-article REST endpoint (~22K articles,
-   8 workers, at most 25 min, best-known by sitelinks first). Best-effort: missing views stay NULL.
-   The Action API's `prop=pageviews` was tried first; it answers only ~5 titles per request
-   before asking for a continuation, so it covered 2.4K of 22K articles in the time allowed.
+   8 workers, at most 40 min). Wikimedia throttles it to ~3.5 articles/s, so a run covers ~8K:
+   views from earlier runs are carried forward with their fetch time (`views_fetched_at`), and
+   each run takes articles without views first, then the stalest (best-known by sitelinks first
+   within ties). Coverage is complete after about three monthly runs, and from then on every
+   article's views are at most about three months old. Missing views
+   stay NULL. Rejected alternatives: the Action API's `prop=pageviews` answers ~5 titles per
+   request before asking for a continuation; the monthly pageview dump is 5.7 GB.
 3. Replaces `gs_data.wikidata_authors`, refusing a load that would shrink it by more than half.
 4. Rebuilds the app's author name index (the weekly `materialize` run does this too).
 
@@ -71,6 +75,9 @@ to a web search for the profile.
 
 **Ingestion priority.** Each refresh run spends up to `NEW_AUTHOR_SHARE` (25%) of its budget on
 Wikidata authors we have never crawled, most-viewed Wikipedia article first, then by sitelinks.
+Only living people with a scholarly occupation are eligible (~116K): researcher, engineer, academic,
+university teacher or physician (or a subclass), and not a politician. Unfiltered, the most-viewed
+candidates were Einstein, Newton, Marx, Xi Jinping and Joe Biden. Search still lists everyone.
 Unused share goes back to refreshes. The share is enforced on actual searches: a new profile's crawl is
 capped at what is left of it, and one too large to fit is cooled down like a failure. Permanent failures (no profile behind the ID) go to
 `gs_data.crawl_failures`, and the scheduler skips those IDs for `FAILURE_COOLDOWN_DAYS` (30).

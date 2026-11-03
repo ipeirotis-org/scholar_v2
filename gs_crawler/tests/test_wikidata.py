@@ -37,6 +37,20 @@ class TestNormalize:
         assert second["description"] is None and second["sitelinks"] is None and second["enwiki_title"] is None
 
 
+class TestFlags:
+    def test_flags_parsed_from_query_booleans(self):
+        raw = [{"p": "http://www.wikidata.org/entity/Q937", "g": "qc6CJjYAAAAJ", "label": "Albert Einstein",
+                "dead": "true", "scholarly": "true", "politician": "false"},
+               {"p": "http://www.wikidata.org/entity/Q7", "g": "DDDDDDDDDDDJ", "label": "No Flags"}]
+        einstein, plain = wikidata.normalize(raw, "2026-11-03T00:00:00+00:00")
+        assert (einstein["died"], einstein["is_scholarly"], einstein["is_politician"]) == (True, True, False)
+        assert (plain["died"], plain["is_scholarly"], plain["is_politician"]) == (None, None, None)
+
+    def test_query_asks_for_flags(self):
+        q = wikidata._query()
+        assert "wdt:P570" in q and "wd:Q81096" in q and "wd:Q82955" in q and "PREFIX wd:" in q
+
+
 class TestPartitions:
     def test_timed_out_prefix_is_split(self):
         header = "p,g,label,desc,links,enwiki\n"
@@ -99,6 +113,50 @@ class TestSources:
             rows = wikidata._fetch_partition("l5k", session)
         assert [r["g"] for r in rows] == ["l5kAAAAAAAAJ"]
         sleep.assert_called_once()
+
+
+class TestCarryForward:
+    HEADER = "p,g,label,desc,links,enwiki\n"
+
+    def _run(self, monkeypatch, csv_rows, previous, reached):
+        monkeypatch.setattr(wikidata, "MIN_FULL_ROWS", 1)
+        session = MagicMock()
+        session.get.return_value = _resp(200, self.HEADER + csv_rows)
+        seen = []
+
+        def fake_fetch(titles):
+            seen.extend(titles)
+            return {t: v for t, v in reached.items()}
+
+        with patch.object(wikidata, "fetch_pageviews", side_effect=fake_fetch):
+            rows = wikidata.fetch_all(session, previous=previous)
+        return seen, {r["name"]: (r["enwiki_views_60d"], r["views_fetched_at"]) for r in rows}
+
+    def test_new_titles_first_and_old_views_kept(self, monkeypatch):
+        csv_rows = ("http://www.wikidata.org/entity/Q1,AAAAAAAAAAAJ,Known,,50,Known\n"
+                    "http://www.wikidata.org/entity/Q2,BBBBBBBBBBBJ,New Famous,,40,New Famous\n"
+                    "http://www.wikidata.org/entity/Q3,CCCCCCCCCCCJ,New Obscure,,2,New Obscure\n")
+        seen, views = self._run(monkeypatch, csv_rows, {"Known": (123, "2026-10-03T03:41:00+00:00")},
+                                {"New Famous": 900})
+        assert seen == ["New Famous", "New Obscure", "Known"]
+        assert views["Known"] == (123, "2026-10-03T03:41:00+00:00")
+        assert views["New Famous"][0] == 900 and views["New Famous"][1] is not None
+        assert views["New Obscure"] == (None, None)
+
+    def test_stalest_views_refreshed_first(self, monkeypatch):
+        csv_rows = ("http://www.wikidata.org/entity/Q1,AAAAAAAAAAAJ,Fresh Famous,,90,Fresh Famous\n"
+                    "http://www.wikidata.org/entity/Q2,BBBBBBBBBBBJ,Old Obscure,,1,Old Obscure\n"
+                    "http://www.wikidata.org/entity/Q3,CCCCCCCCCCCJ,Unknown Age,,5,Unknown Age\n")
+        previous = {"Fresh Famous": (10, "2026-10-03T03:41:00+00:00"),
+                    "Old Obscure": (20, "2026-08-03T03:41:00+00:00"),
+                    "Unknown Age": (30, None)}
+        seen, _ = self._run(monkeypatch, csv_rows, previous, {})
+        assert seen == ["Unknown Age", "Old Obscure", "Fresh Famous"]
+
+    def test_previous_views_tolerates_missing_table(self):
+        client = MagicMock()
+        client.query.side_effect = RuntimeError("Not found: Table")
+        assert wikidata.previous_views(client) == {}
 
 
 class TestPageviews:
@@ -183,10 +241,15 @@ class _Client:
     def __init__(self, rows):
         self.rows = rows
         self.params = None
+        self.sqls = []
 
     def query(self, sql, job_config=None):
-        self.params = {p.name: p.value for p in job_config.query_parameters}
-        rows = self.rows
+        self.sqls.append(sql)
+        if job_config is None:  # the flag migration
+            rows = []
+        else:
+            self.params = {p.name: p.value for p in job_config.query_parameters}
+            rows = self.rows
 
         class _Job:
             def result(self):
@@ -215,6 +278,29 @@ class TestNewAuthorShare:
     def test_zero_share_skips_new_authors(self):
         batch = scheduler.select_batch(20, client=_Client(self.ROWS), new_author_share=0)
         assert [sid for sid, _, _ in batch] == ["queued", "stale1", "stale2"]
+
+    def test_flag_migration_runs_before_candidates_query(self):
+        client = _Client(self.ROWS)
+        scheduler.select_batch(20, client=client)
+        assert "ADD COLUMN IF NOT EXISTS is_scholarly BOOL" in client.sqls[0]
+        assert "new_authors AS" in client.sqls[1]
+
+    def test_failed_migration_does_not_stop_selection(self):
+        client = _Client(self.ROWS)
+        real_query = client.query
+
+        def query(sql, job_config=None):
+            if job_config is None:
+                raise RuntimeError("ALTER failed")
+            return real_query(sql, job_config)
+
+        client.query = query
+        assert scheduler.select_batch(20, client=client)
+
+    def test_query_limits_new_authors_to_living_scholars(self):
+        sql = scheduler.candidates_query()
+        assert "w.is_scholarly IS TRUE" in sql
+        assert "w.died IS NOT TRUE" in sql and "w.is_politician IS NOT TRUE" in sql
 
     def test_query_orders_new_authors_by_pageviews_and_skips_failures(self):
         sql = scheduler.candidates_query()

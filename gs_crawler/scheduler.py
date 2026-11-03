@@ -25,6 +25,19 @@ def estimate_searches(num_publications):
     return max(1, math.ceil(num_publications * GROWTH_PAD / Config.PAGE_SIZE))
 
 
+def wikidata_migration_sql():
+    """Adds the eligibility flags (and views_fetched_at) to a wikidata_authors table created before them.
+    Idempotent and free; run before candidates_query, which reads the flags."""
+    table = Config.bq_table_ref(Config.WIKIDATA_AUTHORS_TABLE)
+    return f"""
+        ALTER TABLE {table}
+          ADD COLUMN IF NOT EXISTS died BOOL,
+          ADD COLUMN IF NOT EXISTS is_scholarly BOOL,
+          ADD COLUMN IF NOT EXISTS is_politician BOOL,
+          ADD COLUMN IF NOT EXISTS views_fetched_at TIMESTAMP
+    """
+
+
 def candidates_query():
     """Candidates in crawl order: on-demand requests (oldest first), then authors
     never crawled from Wikidata (most Wikipedia pageviews first), then the
@@ -50,6 +63,8 @@ def candidates_query():
           FROM {wikidata} w
           LEFT JOIN {latest} a USING (scholar_id)
           WHERE a.scholar_id IS NULL
+            -- Living scholars only (see gs_crawler/wikidata.py); NULL flags never qualify.
+            AND w.is_scholarly IS TRUE AND w.died IS NOT TRUE AND w.is_politician IS NOT TRUE
             AND w.scholar_id NOT IN (SELECT scholar_id FROM pending)
             AND w.scholar_id NOT IN (SELECT scholar_id FROM failed)
           ORDER BY w.enwiki_views_60d DESC NULLS LAST, w.sitelinks DESC NULLS LAST, w.scholar_id
@@ -91,6 +106,11 @@ def select_batch(budget, client=None, new_author_share=None):
         return []
     new_budget = new_author_budget(budget, new_author_share)
     client = client or bigquery.Client(project=Config.PROJECT_ID)
+    try:
+        client.query(wikidata_migration_sql()).result()
+    except Exception:
+        # The candidates query below then fails loudly if the columns are missing.
+        logger.exception("wikidata_authors flag migration failed")
     job_config = bigquery.QueryJobConfig(
         query_parameters=[
             bigquery.ScalarQueryParameter("limit", "INT64", max(budget, 1) * 2),

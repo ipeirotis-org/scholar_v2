@@ -50,6 +50,10 @@ SCHEMA = [
     bigquery.SchemaField("enwiki_title", "STRING"),
     bigquery.SchemaField("enwiki_views_60d", "INTEGER"),
     bigquery.SchemaField("fetched_at", "TIMESTAMP", mode="REQUIRED"),
+    bigquery.SchemaField("died", "BOOLEAN"),
+    bigquery.SchemaField("is_scholarly", "BOOLEAN"),
+    bigquery.SchemaField("is_politician", "BOOLEAN"),
+    bigquery.SchemaField("views_fetched_at", "TIMESTAMP"),
 ]
 
 
@@ -68,27 +72,43 @@ PAGEVIEW_URL = ("https://wikimedia.org/api/rest_v1/metrics/pageviews/per-article
                 "en.wikipedia.org/all-access/user/{title}/daily/{start}/{end}")
 PAGEVIEW_DAYS = 60
 PAGEVIEW_WORKERS = 8
-PAGEVIEW_MAX_SECONDS = 1500  # keep the job well inside its 1 h task timeout
+# Wikimedia throttles this endpoint to ~3.5 articles/s for us (2026-11), so one run
+# covers ~8K of the ~22K articles. Views are carried forward between runs and the
+# titles without any go first, so coverage is complete after about three runs.
+PAGEVIEW_MAX_SECONDS = 2400  # leaves ~20 min of the job's 1 h task timeout
 
 
-_PREFIXES = """PREFIX wdt: <http://www.wikidata.org/prop/direct/>
+_PREFIXES = """PREFIX wd: <http://www.wikidata.org/entity/>
+PREFIX wdt: <http://www.wikidata.org/prop/direct/>
 PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
 PREFIX schema: <http://schema.org/>
 PREFIX wikibase: <http://wikiba.se/ontology#>
 """
 
 
+# Ingestion is limited to living people with a scholarly occupation (or a subclass):
+# researcher, engineer, academic, university teacher, physician. Without this the
+# most-viewed candidates were Einstein, Newton, Marx, Xi Jinping and Joe Biden, who
+# would waste the budget and distort the percentile reference population.
+# Politicians (Q82955) are left out even when they also hold an academic occupation.
+SCHOLARLY_OCCUPATIONS = "wd:Q1650915 wd:Q81096 wd:Q3400985 wd:Q1622272 wd:Q39631"
+
+
 def _query(prefix=None):
     """The P1960 query; with `prefix`, only GS IDs starting with it (case-sensitive)."""
     gs_filter = f'FILTER(STRSTARTS(?g, "{prefix}"))' if prefix else ""
     return _PREFIXES + f"""
-SELECT ?p ?g ?label ?desc ?links ?enwiki WHERE {{
+SELECT ?p ?g ?label ?desc ?links ?enwiki ?dead ?scholarly ?politician WHERE {{
   ?p wdt:P1960 ?g .
   {gs_filter}
   ?p rdfs:label ?label . FILTER(LANG(?label) = "en")
   OPTIONAL {{ ?p wikibase:sitelinks ?links }}
   OPTIONAL {{ ?p schema:description ?desc . FILTER(LANG(?desc) = "en") }}
   OPTIONAL {{ ?art schema:about ?p ; schema:isPartOf <https://en.wikipedia.org/> ; schema:name ?enwiki }}
+  OPTIONAL {{ ?p wdt:P570 ?death }}
+  BIND(BOUND(?death) AS ?dead)
+  BIND(EXISTS {{ VALUES ?occ {{ {SCHOLARLY_OCCUPATIONS} }} ?p wdt:P106/wdt:P279* ?occ }} AS ?scholarly)
+  BIND(EXISTS {{ ?p wdt:P106/wdt:P279* wd:Q82955 }} AS ?politician)
 }}"""
 
 
@@ -155,6 +175,11 @@ def _fetch_partition(prefix, session, pause=THROTTLE_PAUSE):
     return out
 
 
+def _bool(value):
+    value = (value or "").strip().lower()
+    return True if value in ("true", "1") else False if value in ("false", "0") else None
+
+
 def _int(value):
     try:
         return int(value)
@@ -179,7 +204,11 @@ def normalize(raw_rows, fetched_at):
             "sitelinks": _int(r.get("links")),
             "enwiki_title": (r.get("enwiki") or "").strip() or None,
             "enwiki_views_60d": None,
+            "views_fetched_at": None,
             "fetched_at": fetched_at,
+            "died": _bool(r.get("dead")),
+            "is_scholarly": _bool(r.get("scholarly")),
+            "is_politician": _bool(r.get("politician")),
         })
     return out
 
@@ -267,8 +296,33 @@ def fetch_pageviews(titles, session=None, workers=PAGEVIEW_WORKERS,
     return views
 
 
-def fetch_all(session=None):
+def previous_views(client=None):
+    """{enwiki_title: (views, views_fetched_at)} from the current table; {} if it is
+    missing or unreadable. views_fetched_at is an ISO string, or None if unknown."""
+    client = client or bigquery.Client(project=Config.PROJECT_ID)
+    sql = f"""
+        SELECT enwiki_title, ANY_VALUE(enwiki_views_60d) AS views,
+               MAX(views_fetched_at) AS views_fetched_at
+        FROM {Config.bq_table_ref(Config.WIKIDATA_AUTHORS_TABLE)}
+        WHERE enwiki_title IS NOT NULL AND enwiki_views_60d IS NOT NULL
+        GROUP BY enwiki_title
+    """
+    try:
+        out = {}
+        for row in client.query(sql).result():
+            at = row["views_fetched_at"]
+            out[row["enwiki_title"]] = (row["views"], at.isoformat(timespec="seconds") if at else None)
+        return out
+    except Exception:
+        logger.warning("Could not read previous pageviews; fetching from scratch")
+        return {}
+
+
+def fetch_all(session=None, previous=None):
+    """Rows for gs_data.wikidata_authors. `previous` ({title: (views, fetched_at)})
+    is carried forward for articles this run does not reach."""
     session = session or requests.Session()
+    previous = previous or {}
     fetched_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
     raw = _fetch_qlever(session)
     if raw is None:
@@ -276,12 +330,25 @@ def fetch_all(session=None):
         for c in ID_CHARS:
             raw.extend(_fetch_partition(c, session))
     rows = normalize(raw, fetched_at)
-    # Best-known first, so a time limit leaves out the least known.
-    with_article = sorted((r for r in rows if r["enwiki_title"]),
-                          key=lambda r: r["sitelinks"] or 0, reverse=True)
+    # Articles without views first, then the stalest views (unknown age counts as
+    # oldest), so every article is refreshed in turn; best-known first within ties,
+    # so a time limit leaves out the least known.
+    def order(r):
+        prev = previous.get(r["enwiki_title"])
+        if prev is None:
+            return (0, "", -(r["sitelinks"] or 0))
+        return (1, prev[1] or "", -(r["sitelinks"] or 0))
+
+    with_article = sorted((r for r in rows if r["enwiki_title"]), key=order)
     views = fetch_pageviews([r["enwiki_title"] for r in with_article])
     for r in rows:
-        r["enwiki_views_60d"] = views.get(r["enwiki_title"])
+        title = r["enwiki_title"]
+        if title in views:
+            r["enwiki_views_60d"], r["views_fetched_at"] = views[title], fetched_at
+        elif title in previous:
+            r["enwiki_views_60d"], r["views_fetched_at"] = previous[title]
+    logger.info("Pageviews known for %d of %d articles after this run",
+                sum(1 for r in with_article if r["enwiki_views_60d"] is not None), len(with_article))
     return rows
 
 
@@ -307,4 +374,10 @@ def load(rows, client=None):
 
 
 def run():
-    return load(fetch_all())
+    from gs_crawler.scheduler import wikidata_migration_sql
+    client = bigquery.Client(project=Config.PROJECT_ID)
+    try:
+        client.query(wikidata_migration_sql()).result()  # previous_views reads views_fetched_at
+    except Exception:
+        logger.exception("wikidata_authors migration failed")
+    return load(fetch_all(previous=previous_views(client)), client=client)

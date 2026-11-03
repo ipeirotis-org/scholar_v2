@@ -56,8 +56,18 @@ CREATE TABLE IF NOT EXISTS `scholar-version2.gs_data.wikidata_authors` (
   sitelinks INT64,      -- number of Wikimedia sites with an article about the person
   enwiki_title STRING,
   enwiki_views_60d INT64,  -- English Wikipedia pageviews, last 60 days (ingestion priority)
-  fetched_at TIMESTAMP NOT NULL
+  fetched_at TIMESTAMP NOT NULL,
+  died BOOL,            -- has a date of death (P570): never ingested
+  is_scholarly BOOL,    -- researcher/engineer/academic/university teacher/physician occupation
+  is_politician BOOL,   -- politician occupation: never ingested
+  views_fetched_at TIMESTAMP  -- when enwiki_views_60d was fetched (stalest refreshed first)
 );
+-- Migration for tables created before the flags existed (gs_crawler/scheduler.py runs it too).
+ALTER TABLE `scholar-version2.gs_data.wikidata_authors`
+  ADD COLUMN IF NOT EXISTS died BOOL,
+  ADD COLUMN IF NOT EXISTS is_scholarly BOOL,
+  ADD COLUMN IF NOT EXISTS is_politician BOOL,
+  ADD COLUMN IF NOT EXISTS views_fetched_at TIMESTAMP;
 
 -- Permanent crawl failures (no profile behind the ID). The refresh scheduler skips
 -- an ID for FAILURE_COOLDOWN_DAYS after its last failure. Written by gs_crawler.
