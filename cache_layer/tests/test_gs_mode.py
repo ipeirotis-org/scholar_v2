@@ -111,3 +111,60 @@ class TestGsPurgeDisabled:
         result = svc.dispatch("purge_legacy_cache", {})
         assert result["status"] == "error"
         writer.db.collection.assert_not_called()
+
+
+
+class _FakeLock:
+    def __init__(self, token="tok", error=None):
+        self.token, self.error = token, error
+        self.released = []
+
+    def acquire(self, scholar_id):
+        if self.error:
+            raise self.error
+        return self.token
+
+    def release(self, scholar_id, token):
+        self.released.append((scholar_id, token))
+        return True
+
+
+class TestGsCrawlLockUse:
+    def _service(self, lock):
+        bq, writer = mock.MagicMock(), mock.MagicMock()
+        bq.get_author_freshness.side_effect = [(False, None), (True, datetime.now(timezone.utc))]
+        bq.get_author_stats.return_value = {"name": "A"}
+        bq.get_author_pub_stats.return_value = []
+        bq.get_author_temporal_stats.return_value = []
+        writer.write_batch.return_value = 1
+        crawl = mock.MagicMock(return_value=True)
+        return CacheService(bq=bq, writer=writer, gs_crawl=crawl, crawl_lock=lock), crawl
+
+    def test_owner_crawls_and_releases_its_token(self, gs_mode):
+        lock = _FakeLock("t1")
+        svc, crawl = self._service(lock)
+        assert svc.dispatch("populate_author_profile", {"scholar_id": GS_ID})["status"] == "ok"
+        crawl.assert_called_once_with(GS_ID)
+        assert lock.released == [(GS_ID, "t1")]
+
+    def test_held_lock_skips_crawl(self, gs_mode):
+        lock = _FakeLock(token=None)
+        svc, crawl = self._service(lock)
+        assert svc.dispatch("populate_author_profile", {"scholar_id": GS_ID})["status"] == "in_progress"
+        crawl.assert_not_called()
+        assert lock.released == []
+
+    def test_released_when_crawl_raises(self, gs_mode):
+        lock = _FakeLock("t2")
+        svc, crawl = self._service(lock)
+        crawl.side_effect = RuntimeError("SerpApi down")
+        svc.bq.get_author_freshness.side_effect = [(False, None)]
+        assert svc.dispatch("populate_author_profile", {"scholar_id": GS_ID})["status"] == "not_found"
+        assert lock.released == [(GS_ID, "t2")]
+
+    def test_firestore_failure_crawls_but_releases_nothing(self, gs_mode):
+        lock = _FakeLock(error=RuntimeError("firestore down"))
+        svc, crawl = self._service(lock)
+        assert svc.dispatch("populate_author_profile", {"scholar_id": GS_ID})["status"] == "ok"
+        crawl.assert_called_once()
+        assert lock.released == []

@@ -22,6 +22,10 @@ class Config:
     # GS mode: crawl unknown authors on demand via SerpApi (gs_crawler), but stop
     # once the account is down to this many searches.
     GS_ON_DEMAND_MIN_SEARCHES = int(os.environ.get("GS_ON_DEMAND_MIN_SEARCHES", "25"))
+    # One on-demand crawl per author at a time: the loading page re-enqueues a
+    # populate task on every reload, so concurrent tasks would crawl (and pay) twice.
+    GS_CRAWL_LOCKS = "v3_gs_crawl_locks"
+    GS_CRAWL_LOCK_MINUTES = int(os.environ.get("GS_CRAWL_LOCK_MINUTES", "10"))
 
     # Cloud Tasks
     QUEUE_LOCATION = os.environ.get("QUEUE_LOCATION", "northamerica-northeast1")

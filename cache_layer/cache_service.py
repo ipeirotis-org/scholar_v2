@@ -9,6 +9,7 @@ import re
 from cache_layer.bigquery_client import BigQueryClient
 from cache_layer.cache_writer import CacheWriter
 from cache_layer.config import Config
+from cache_layer.crawl_lock import CrawlLock
 
 logger = logging.getLogger(__name__)
 
@@ -35,10 +36,11 @@ def _default_gs_crawl(scholar_id):
 
 
 class CacheService:
-    def __init__(self, bq=None, writer=None, gs_crawl=None):
+    def __init__(self, bq=None, writer=None, gs_crawl=None, crawl_lock=None):
         self.bq = bq or BigQueryClient()
         self.writer = writer or CacheWriter()
         self.gs_crawl = gs_crawl or _default_gs_crawl
+        self._crawl_lock = crawl_lock
 
     def dispatch(self, request_type, payload):
         """Dispatch a cache population request by type.
@@ -71,12 +73,19 @@ class CacheService:
 
         exists, last_updated = self.bq.get_author_freshness(scholar_id)
         if not exists and Config.IS_GS and _GS_ID_RE.match(scholar_id):
-            # Unknown GS author: crawl the profile now (~3 SerpApi searches).
+            # Unknown GS author: crawl the profile now (~3 SerpApi searches),
+            # unless another task is already crawling it.
+            acquired, token = self._acquire_crawl_lock(scholar_id)
+            if not acquired:
+                return {"status": "in_progress", "scholar_id": scholar_id}
             try:
                 crawled = self.gs_crawl(scholar_id)
             except Exception:
                 logger.exception("On-demand GS crawl failed for %s", scholar_id)
                 crawled = False
+            finally:
+                if token:
+                    self._release_crawl_lock(scholar_id, token)
             if crawled:
                 exists, last_updated = self.bq.get_author_freshness(scholar_id)
         if not exists:
@@ -126,6 +135,36 @@ class CacheService:
             },
             "writes": written,
         }
+
+    @property
+    def crawl_lock(self):
+        if self._crawl_lock is None:
+            self._crawl_lock = CrawlLock(self.writer.db, Config.GS_CRAWL_LOCKS, Config.GS_CRAWL_LOCK_MINUTES)
+        return self._crawl_lock
+
+    def _acquire_crawl_lock(self, scholar_id):
+        """Return (may_crawl, token).
+
+        (True, token): this task owns the lock. (False, None): another live
+        crawl owns it. (True, None): Firestore failed, so crawl unlocked (a rare
+        duplicate costs a few searches; a missing profile costs the user) and
+        release nothing.
+        """
+        try:
+            token = self.crawl_lock.acquire(scholar_id)
+        except Exception:
+            logger.exception("Crawl lock unavailable for %s; crawling without it", scholar_id)
+            return True, None
+        if token is None:
+            logger.info("GS crawl of %s already in progress; skipping", scholar_id)
+            return False, None
+        return True, token
+
+    def _release_crawl_lock(self, scholar_id, token):
+        try:
+            self.crawl_lock.release(scholar_id, token)
+        except Exception:
+            logger.exception("Failed to release crawl lock for %s", scholar_id)
 
     def _populate_publication_detail(self, payload):
         """Query BQ for publication temporal data and write to cache."""

@@ -49,7 +49,7 @@ gs-weekly-materialize ──► gs-crawler job (CRAWL_MODE=materialize): rebuild
   below `SERPAPI_SEARCH_RESERVE=1000`, which is kept for on-demand lookups.
 - **Cost per author:** an average profile costs ~3 searches, so ~1,300 authors are refreshed a month and the
   16.2K reference set turns over in roughly a year.
-- **On-demand:** a new author costs ~3 searches. These crawls stop when the account is down to
+- **On-demand:** a new author costs ~3 searches. A Firestore lock (`v3_gs_crawl_locks/{id}`, 10 min) ensures one crawl per author even though the loading page re-enqueues a populate task on every reload. These crawls stop when the account is down to
   `GS_ON_DEMAND_MIN_SEARCHES=25`. There is deliberately no daily cap (decided 2026-11-02).
 - **Free calls:** account checks (`account.json`) and failed searches are not counted by SerpApi.
 
