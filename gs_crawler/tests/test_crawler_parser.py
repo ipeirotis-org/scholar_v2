@@ -104,7 +104,7 @@ class TestSelectBatch:
             {"scholar_id": "small", "num_publications": 40},
         ]
         batch = scheduler.select_batch(5, client=self._Client(rows))
-        assert batch == [("queued", 3), ("small", 1)]
+        assert batch == [("queued", 3, False), ("small", 1, False)]
 
     def test_zero_budget(self):
         assert scheduler.select_batch(0, client=self._Client([])) == []

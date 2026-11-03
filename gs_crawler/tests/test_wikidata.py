@@ -99,7 +99,7 @@ class TestLoad:
         client.get_table.return_value.num_rows = 1000
         assert wikidata.load([{"scholar_id": "x"}] * 900, client=client) == 900
         job_config = client.load_table_from_json.call_args.kwargs["job_config"]
-        assert job_config.write_disposition == "WRITE_TRUNCATE"
+        assert job_config.write_disposition == wikidata.bigquery.WriteDisposition.WRITE_TRUNCATE
 
 
 class _Client:
@@ -130,14 +130,14 @@ class TestNewAuthorShare:
     def test_new_authors_capped_by_share(self):
         client = _Client(self.ROWS)
         batch = scheduler.select_batch(20, client=client, new_author_share=0.3)
-        ids = [sid for sid, _ in batch]
+        ids = [sid for sid, _, _ in batch]
         # 0.3 * 20 = 6 searches for new authors: two unknown profiles at 3 each.
         assert ids == ["queued", "new1", "new2", "stale1", "stale2"]
         assert client.params["new_limit"] == 6 // scheduler.UNKNOWN_AUTHOR_SEARCHES + 1
 
     def test_zero_share_skips_new_authors(self):
         batch = scheduler.select_batch(20, client=_Client(self.ROWS), new_author_share=0)
-        assert [sid for sid, _ in batch] == ["queued", "stale1", "stale2"]
+        assert [sid for sid, _, _ in batch] == ["queued", "stale1", "stale2"]
 
     def test_query_orders_new_authors_by_pageviews_and_skips_failures(self):
         sql = scheduler.candidates_query()
@@ -172,3 +172,40 @@ class TestFailures:
         assert summary["failed"] == 2
         recorded = rec.call_args[0][0]
         assert [f["scholar_id"] for f in recorded] == ["GONEAAAAAAAJ"]
+
+
+class TestNewAuthorBudgetEnforced:
+    def test_new_authors_cannot_exceed_their_share(self):
+        # Each new profile needs 8 searches; the share is 6 of a 20-search run.
+        calls = []
+
+        def fake_crawl(sid, max_searches):
+            calls.append((sid, max_searches))
+            if sid.startswith("NEW"):
+                used = min(8, max_searches)
+                if used < 8:
+                    return CrawlResult(sid, searches=used, error=f"search limit {used} reached at start=100")
+            return CrawlResult(sid, pages=[make_page(3, author_id=sid)], searches=1)
+
+        with patch.object(main, "crawl_author", side_effect=fake_crawl), \
+             patch.object(main.writer, "write_raw_pages"), \
+             patch.object(main.writer, "load_snapshots"), \
+             patch.object(main.writer, "record_failures") as rec, \
+             patch.object(main.cache_invalidate, "invalidate_authors"):
+            summary = main.crawl_and_store(["NEW1AAAAAAAJ", "NEW2AAAAAAAJ", "OLD1AAAAAAAJ"], budget=20,
+                                           new_ids=["NEW1AAAAAAAJ", "NEW2AAAAAAAJ"], new_budget=6)
+        assert calls == [("NEW1AAAAAAAJ", 6), ("OLD1AAAAAAAJ", 14)]  # NEW2 skipped: share used up
+        assert summary["new_searches"] == 6 and summary["searches"] == 7
+        # Too large for the share: cooled down instead of retried daily.
+        assert [f["scholar_id"] for f in rec.call_args[0][0]] == ["NEW1AAAAAAAJ"]
+
+    def test_run_refresh_passes_new_authors_and_share(self):
+        with patch.object(main, "searches_left", return_value=2000), \
+             patch.object(main.scheduler, "select_batch",
+                          return_value=[("Q", 3, False), ("N", 3, True), ("S", 1, False)]), \
+             patch.object(main, "crawl_and_store", return_value={}) as cas:
+            main.run_refresh()
+        args, kwargs = cas.call_args
+        assert args[0] == ["Q", "N", "S"]
+        assert kwargs["new_ids"] == ["N"]
+        assert kwargs["new_budget"] == main.scheduler.new_author_budget(args[1])

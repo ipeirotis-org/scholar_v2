@@ -74,16 +74,22 @@ def candidates_query():
     """
 
 
+def new_author_budget(budget, share=None):
+    """Searches a run of `budget` may spend on never-crawled (Wikidata) authors."""
+    share = Config.NEW_AUTHOR_SHARE if share is None else share
+    return int(max(budget, 0) * max(0.0, min(share, 1.0)))
+
+
 def select_batch(budget, client=None, new_author_share=None):
-    """Return [(scholar_id, estimated_searches)] whose estimates fit in `budget`.
+    """Return [(scholar_id, estimated_searches, is_new)] whose estimates fit in `budget`.
 
     New (never crawled) authors may use at most `new_author_share` of the budget;
-    whatever they leave goes to refreshing the stalest profiles.
+    whatever they leave goes to refreshing the stalest profiles. Estimates for new
+    authors are guesses, so crawl_and_store enforces the share on actual searches.
     """
     if budget <= 0:
         return []
-    share = Config.NEW_AUTHOR_SHARE if new_author_share is None else new_author_share
-    new_budget = int(budget * max(0.0, min(share, 1.0)))
+    new_budget = new_author_budget(budget, new_author_share)
     client = client or bigquery.Client(project=Config.PROJECT_ID)
     job_config = bigquery.QueryJobConfig(
         query_parameters=[
@@ -101,7 +107,7 @@ def select_batch(budget, client=None, new_author_share=None):
         is_new = row.get("priority") == 1
         if is_new and used_new + cost > new_budget:
             continue
-        batch.append((row["scholar_id"], cost))
+        batch.append((row["scholar_id"], cost, is_new))
         used += cost
         used_new += cost if is_new else 0
     logger.info("Selected %d authors, ~%d searches (%d on new authors; budget %d)",

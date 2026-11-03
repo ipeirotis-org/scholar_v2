@@ -67,7 +67,8 @@ to a web search for the profile.
 
 **Ingestion priority.** Each refresh run spends up to `NEW_AUTHOR_SHARE` (25%) of its budget on
 Wikidata authors we have never crawled, most-viewed Wikipedia article first, then by sitelinks.
-Unused share goes back to refreshes. Permanent failures (no profile behind the ID) go to
+Unused share goes back to refreshes. The share is enforced on actual searches: a new profile's crawl is
+capped at what is left of it, and one too large to fit is cooled down like a failure. Permanent failures (no profile behind the ID) go to
 `gs_data.crawl_failures`, and the scheduler skips those IDs for `FAILURE_COOLDOWN_DAYS` (30).
 
 ## Budget (SerpApi Developer plan, 5,000 searches/month)

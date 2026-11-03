@@ -93,6 +93,13 @@ class TestWikidataIndex:
         assert [r["scholar_id"] for r in results] == ["P1", "W2", "W1"]
         assert [r["source"] for r in results] == ["index", "wikidata", "wikidata"]
 
+    def test_profiled_author_without_citations_still_ranks_first(self, gs_mode, monkeypatch):
+        monkeypatch.setattr(ss, "_author_index", [
+            {"scholar_id": "W1", "name": "Ann Lee", "name_lower": "ann lee", "source": "wikidata", "sitelinks": 30},
+            {"scholar_id": "P0", "name": "Ann Lee", "name_lower": "ann lee", "citedby": 0},
+        ])
+        assert [r["scholar_id"] for r in ss._search_in_memory("ann lee")] == ["P0", "W1"]
+
     def test_pasted_url_of_wikidata_author_shows_name(self, gs_mode, monkeypatch):
         monkeypatch.setattr(ss, "_author_index", [
             {"scholar_id": "iGzDl8IAAAAJ", "name": "Peyman Milanfar", "name_lower": "peyman milanfar",

@@ -310,9 +310,10 @@ def _search_in_memory(query, limit=_TYPEAHEAD_LIMIT):
                     continue
         matches.append(author)
 
-    # Profiled authors by citations; unprofiled (Wikidata) ones after them, the
-    # better-known (more Wikipedia language editions) first.
-    matches.sort(key=lambda a: (a.get("citedby") or 0, a.get("sitelinks") or 0), reverse=True)
+    # Profiled authors first (by citations, even when they have none), then the
+    # unprofiled Wikidata ones, better-known (more Wikipedia editions) first.
+    matches.sort(key=lambda a: (a.get("source") != "wikidata", a.get("citedby") or 0,
+                                a.get("sitelinks") or 0), reverse=True)
 
     results = []
     for a in matches[:limit]:

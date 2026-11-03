@@ -36,20 +36,33 @@ def searches_left():
     return int(serpapi_client.get_account().get("total_searches_left") or 0)
 
 
-def crawl_and_store(author_ids, budget):
-    """Crawl authors in order until `budget` searches are used. Returns a summary dict."""
+def crawl_and_store(author_ids, budget, new_ids=(), new_budget=None):
+    """Crawl authors in order until `budget` searches are used. Returns a summary dict.
+
+    Authors in `new_ids` (never crawled, from Wikidata) share `new_budget` searches:
+    each is capped at what is left of it, so a large profile cannot eat into the
+    refreshes. One that does not fit is recorded as a failure and waits out the
+    cooldown rather than being retried (and paid for) every day.
+    """
+    new_ids = set(new_ids)
     author_rows, pub_rows, crawled_ids, failures = [], [], [], []
-    summary = {"crawled": 0, "failed": 0, "searches": 0, "skipped": 0}
+    summary = {"crawled": 0, "failed": 0, "searches": 0, "skipped": 0, "new_searches": 0}
     for scholar_id in author_ids:
-        remaining = budget - summary["searches"]
-        if remaining <= 0:
+        is_new = scholar_id in new_ids
+        cap = budget - summary["searches"]
+        if is_new and new_budget is not None:
+            cap = min(cap, new_budget - summary["new_searches"])
+        if cap <= 0:
             summary["skipped"] += 1
             continue
-        result = crawl_author(scholar_id, max_searches=remaining)
+        result = crawl_author(scholar_id, max_searches=cap)
         summary["searches"] += result.searches
+        if is_new:
+            summary["new_searches"] += result.searches
         if not result.ok:
             summary["failed"] += 1
-            if result.permanent:
+            too_large = is_new and (result.error or "").startswith("search limit")
+            if result.permanent or too_large:
                 failures.append({"scholar_id": scholar_id, "error": (result.error or "")[:500],
                                  "failed_at": datetime.now(timezone.utc).isoformat(timespec="seconds")})
             continue
@@ -92,7 +105,9 @@ def run_refresh():
     budget = min(Config.MAX_SEARCHES_PER_RUN, left - Config.SEARCH_RESERVE)
     logger.info("SerpApi searches left: %d; refresh budget: %d", left, budget)
     batch = scheduler.select_batch(budget)
-    return crawl_and_store([sid for sid, _ in batch], budget)
+    return crawl_and_store([sid for sid, _, _ in batch], budget,
+                           new_ids=[sid for sid, _, is_new in batch if is_new],
+                           new_budget=scheduler.new_author_budget(budget))
 
 
 def run_authors(author_ids):
