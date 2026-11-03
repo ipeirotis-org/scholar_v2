@@ -52,7 +52,8 @@ Google Scholar's author search needs a signed-in browser, and SerpApi's Scholar 
 link author names to profiles, so the app cannot turn a name into a GS ID. Wikidata can: ~130K people
 carry a Google Scholar author ID (property P1960). The monthly `wikidata` run:
 
-1. Pulls every P1960 holder with an English label (~125K), plus the English description, the
+1. Pulls every P1960 holder with an English label (~125K) (QLever 429s and 5xx are retried after
+   1, 3 and 7 minutes; the pageview window shrinks by the time this takes), plus the English description, the
    sitelinks count and the English Wikipedia article title. One query on QLever (`qlever.dev`,
    ~20 s); if that fails, the Wikidata Query Service, one query per leading ID character (split
    further, with back-off, on timeouts). WDQS alone proved fragile: the first production run
@@ -105,8 +106,11 @@ capped at what is left of it, and one too large to fit is cooled down like a fai
   ~0.58 the 90th percentile (pooled across cohorts, 2026-11). Kept by decision on 2026-11-02.
 - **Metrics source.** h-index, i10 and citations come straight from the GS profile. The `*5y` columns hold
   the profile's "since YYYY" values.
-- **Cohort year.** `year_of_first_pub` is the earliest *cited* paper with a plausible year, because GS
-  profiles often contain stray, misdated uncited items.
+- **Cohort year.** `year_of_first_pub` ignores uncited items, and also a small cluster of cited ones
+  (at most 2, or 5% of the cited papers) that sits before a gap of more than 5 years: GS profiles carry
+  misdated entries and namesakes' papers decades before the real career (Pietro Perona: one 1963 item,
+  then 1988 onward). This moves 1,689 of 16,207 profiles (2026-11-03). Wrong cases can be fixed by hand
+  in `gs_data.start_year_overrides` (latest `set_at` wins; effective at the next dist rebuild).
 - **No minimum.** There is no ≥6-publication filter, since the population is already curated.
 - **Benchmark.** The `active_authors` benchmark is unchanged: hindex ≥ 3 and ≥ 3 publications.
 
