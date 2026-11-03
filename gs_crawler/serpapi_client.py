@@ -56,6 +56,8 @@ def validate_author_page(data, start):
         if start > 0 and "hasn't returned any results" in msg:
             return
         transient = not any(s in msg.lower() for s in ("invalid", "not found", "doesn't exist"))
+        if start == 0 and "hasn't returned any results" in msg:
+            transient = False  # no profile behind this ID (deleted, or a stale Wikidata ID)
         raise SerpApiError(f"SerpApi error: {msg}", transient=transient)
     status = (data.get("search_metadata") or {}).get("status")
     if status != "Success":

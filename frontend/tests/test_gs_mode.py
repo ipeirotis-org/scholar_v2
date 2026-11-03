@@ -32,3 +32,14 @@ def test_s2_wording_by_default(client):
 def test_search_beyond_option_hidden_without_s2_fallback(client):
     html = client.get("/").get_data(as_text=True)
     assert "return;  // no external name search" in html
+
+
+def test_empty_search_offers_paste_hint_in_gs_mode(gs_client):
+    html = gs_client.get("/").get_data(as_text=True)
+    assert "appendPasteHint();" in html
+    assert "not analyzed yet" in html
+
+
+def test_no_paste_hint_in_s2_mode(client):
+    html = client.get("/").get_data(as_text=True)
+    assert "appendPasteHint();" not in html

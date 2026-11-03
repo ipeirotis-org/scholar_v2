@@ -109,6 +109,15 @@ class SearchCache:
         except Exception:
             logger.exception("Index chunk write failed: %s/%s", collection, doc_id)
 
+    def delete_index_chunk(self, collection, doc_id):
+        """Delete one index chunk. Returns True on success."""
+        try:
+            self.db.collection(collection).document(doc_id).delete()
+            return True
+        except Exception:
+            logger.exception("Index chunk delete failed: %s/%s", collection, doc_id)
+            return False
+
     @staticmethod
     def _safe_doc_id(query_string):
         """Convert a query string to a safe Firestore document ID."""

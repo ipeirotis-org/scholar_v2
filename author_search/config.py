@@ -13,6 +13,9 @@ class Config:
     DATA_SOURCE = os.environ.get("DATA_SOURCE", "s2").lower()
     IS_GS = DATA_SOURCE == "gs"
     BQ_STATS_DATASET = os.environ.get("BQ_STATS_DATASET", "gs_statistics" if IS_GS else "statistics")
+    # GS mode also indexes unprofiled researchers whose GS ID is on Wikidata.
+    BQ_GS_DATASET = os.environ.get("BQ_GS_DATASET", "gs_data")
+    WIKIDATA_AUTHORS_TABLE = "wikidata_authors"
 
     # Firestore cache collection for search results
     # Separate collections per data source so switching DATA_SOURCE never
@@ -36,3 +39,7 @@ class Config:
     @classmethod
     def bq_view(cls, view_name):
         return _bq_view(cls.PROJECT_ID, cls.BQ_STATS_DATASET, view_name)
+
+    @classmethod
+    def bq_gs_table(cls, table_name):
+        return _bq_view(cls.PROJECT_ID, cls.BQ_GS_DATASET, table_name)

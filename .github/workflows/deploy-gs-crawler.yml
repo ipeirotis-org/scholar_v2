@@ -1,8 +1,9 @@
 name: Deploy Google Scholar Crawler
 
-# Cloud Run Job that refreshes Google Scholar profiles via SerpApi (profiles only)
-# and rebuilds the gs_statistics distribution tables. Independent of the live
-# app until DATA_SOURCE=gs is set for the frontend and cache layer.
+# Cloud Run Job that refreshes Google Scholar profiles via SerpApi (profiles only),
+# rebuilds the gs_statistics distribution tables, and loads GS IDs from Wikidata
+# (name search + ingestion priority). The materialize and wikidata modes also
+# rebuild the app's author search index when DATA_SOURCE=gs.
 
 on:
   push:
@@ -10,6 +11,8 @@ on:
     paths:
       - 'gs_crawler/**'
       - 'bigquery/gs_statistics/**'
+      - 'author_search/**'
+      - 'shared/**'
       - '.github/workflows/deploy-gs-crawler.yml'
 
   workflow_dispatch:
@@ -27,6 +30,8 @@ env:
   # (~3,900/month) leave >= 1,000 for on-demand lookups.
   MAX_SEARCHES_PER_RUN: '130'
   SERPAPI_SEARCH_RESERVE: '1000'
+  # Same switch as deploy-frontend.yml; selects the search index the job rebuilds.
+  DATA_SOURCE: ${{ vars.DATA_SOURCE || 'gs' }}
 
 jobs:
   test:
@@ -99,7 +104,7 @@ jobs:
           --cpu=1 \
           --task-timeout=3600 \
           --max-retries=0 \
-          --set-env-vars="GCP_PROJECT_ID=${{ env.GCP_PROJECT_ID }},CRAWL_MODE=refresh,MAX_SEARCHES_PER_RUN=${{ env.MAX_SEARCHES_PER_RUN }},SERPAPI_SEARCH_RESERVE=${{ env.SERPAPI_SEARCH_RESERVE }}"
+          --set-env-vars="GCP_PROJECT_ID=${{ env.GCP_PROJECT_ID }},CRAWL_MODE=refresh,MAX_SEARCHES_PER_RUN=${{ env.MAX_SEARCHES_PER_RUN }},SERPAPI_SEARCH_RESERVE=${{ env.SERPAPI_SEARCH_RESERVE }},DATA_SOURCE=${{ env.DATA_SOURCE }}"
 
     - name: Create or update schedulers
       run: |-
@@ -129,3 +134,6 @@ jobs:
         # Weekly rebuild of percentile distribution tables.
         upsert gs-weekly-materialize "47 5 * * 1" \
           '{"overrides":{"containerOverrides":[{"env":[{"name":"CRAWL_MODE","value":"materialize"}]}]}}'
+        # Monthly reload of GS IDs from Wikidata (+ Wikipedia pageviews), 3rd of the month.
+        upsert gs-monthly-wikidata "41 3 3 * *" \
+          '{"overrides":{"containerOverrides":[{"env":[{"name":"CRAWL_MODE","value":"wikidata"}]}]}}'

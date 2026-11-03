@@ -15,6 +15,8 @@ class CrawlResult:
     pages: list = field(default_factory=list)
     searches: int = 0
     error: str = None
+    # True when retrying cannot help (no such profile); starts the failure cooldown.
+    permanent: bool = False
 
     @property
     def ok(self):
@@ -42,6 +44,7 @@ def crawl_author(scholar_id, max_searches=None):
             # against this run's limit so a stuck author cannot loop.
             result.searches += 1
             result.error = str(exc)
+            result.permanent = not exc.transient
             break
         result.searches += 1
         articles = page.get("articles") or []

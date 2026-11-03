@@ -32,7 +32,9 @@ _INDEX_TTL_SECONDS = 6 * 3600  # Refresh from Firestore every 6 hours
 
 # Firestore collection for the persisted index (chunked)
 _INDEX_COLLECTION = Config.INDEX_COLLECTION
-_CHUNK_SIZE = 4000
+# Firestore documents are capped at 1 MiB; ~2,000 entries stay well below it
+# even with long affiliations or Wikidata descriptions.
+_CHUNK_SIZE = 2000
 
 # Result limits
 _TYPEAHEAD_LIMIT = 10
@@ -85,11 +87,21 @@ def _load_index_from_firestore(cache):
 
 
 def _save_index_to_firestore(cache, authors):
-    """Save the author name index to Firestore in chunks."""
+    """Save the author name index to Firestore in chunks.
+
+    Chunks left over from a larger earlier index are deleted, or the loader
+    (which reads chunk_0, chunk_1, ... until one is missing) would pick them up.
+    """
+    n_chunks = (len(authors) + _CHUNK_SIZE - 1) // _CHUNK_SIZE
     for i in range(0, len(authors), _CHUNK_SIZE):
         chunk = authors[i:i + _CHUNK_SIZE]
         doc_id = f"chunk_{i // _CHUNK_SIZE}"
         cache.set_index_chunk(_INDEX_COLLECTION, doc_id, chunk)
+    stale = n_chunks
+    while cache.get_index_chunk(_INDEX_COLLECTION, f"chunk_{stale}"):
+        if cache.delete_index_chunk(_INDEX_COLLECTION, f"chunk_{stale}") is not True:
+            break
+        stale += 1
     logger.info("Saved %d authors in %d chunks", len(authors),
                 (len(authors) + _CHUNK_SIZE - 1) // _CHUNK_SIZE)
 
@@ -298,7 +310,10 @@ def _search_in_memory(query, limit=_TYPEAHEAD_LIMIT):
                     continue
         matches.append(author)
 
-    matches.sort(key=lambda a: a.get("citedby") or 0, reverse=True)
+    # Profiled authors first (by citations, even when they have none), then the
+    # unprofiled Wikidata ones, better-known (more Wikipedia editions) first.
+    matches.sort(key=lambda a: (a.get("source") != "wikidata", a.get("citedby") or 0,
+                                a.get("sitelinks") or 0), reverse=True)
 
     results = []
     for a in matches[:limit]:
@@ -309,7 +324,7 @@ def _search_in_memory(query, limit=_TYPEAHEAD_LIMIT):
             "email_domain": "",
             "citedby": a.get("citedby", 0),
             "hindex": a.get("hindex", 0),
-            "source": "index",
+            "source": a.get("source") or "index",
         })
     return results
 

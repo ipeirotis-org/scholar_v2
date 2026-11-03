@@ -189,6 +189,7 @@
 
         if (authors.length === 0 && mode === "local") {
             dropdown.innerHTML = '<div class="author-option search-status text-muted">No authors found in our database.</div>';
+            {% if data_source == 'gs' %}appendPasteHint();{% endif %}
             // Still show the Scholar option
             appendScholarOption();
             showDropdown();
@@ -210,6 +211,9 @@
             var detailText = author.affiliation || "";
             if (author.citedby) {
                 detailText += (detailText ? " · " : "") + Number(author.citedby).toLocaleString() + " citations";
+            } else if (author.source === "wikidata" || (author.source === "gs_id" && author.citedby == null)) {
+                // Not crawled yet: the results page fetches the profile (about a minute).
+                detailText += (detailText ? " · " : "") + "not analyzed yet";
             }
             detailSpan.textContent = detailText;
 
@@ -247,6 +251,26 @@
         div.onkeydown = function(e) {
             if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onclick(); }
         };
+        dropdown.appendChild(div);
+    }
+
+    // GS author search needs a signed-in browser, so we cannot look names up
+    // ourselves: point to a web search for the profile and accept its URL.
+    function appendPasteHint() {
+        var name = authorInput.value.trim();
+        var div = document.createElement("div");
+        div.className = "author-option search-status text-muted";
+        var link = document.createElement("a");
+        link.href = "https://www.google.com/search?q=" + encodeURIComponent('site:scholar.google.com/citations "' + name + '"');
+        link.target = "_blank";
+        link.rel = "noopener";
+        link.textContent = "Find their profile";
+        // One span, since .search-status is a flex row.
+        var text = document.createElement("span");
+        text.appendChild(document.createTextNode("Paste their Google Scholar profile URL above to analyze it. "));
+        text.appendChild(link);
+        text.appendChild(document.createTextNode("."));
+        div.appendChild(text);
         dropdown.appendChild(div);
     }
 

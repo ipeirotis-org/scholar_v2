@@ -23,6 +23,11 @@ class Config:
     # for on-demand lookups so scheduled refreshes never starve user requests.
     SEARCH_RESERVE = int(os.environ.get("SERPAPI_SEARCH_RESERVE", "1000"))
     MAX_SEARCHES_PER_RUN = int(os.environ.get("MAX_SEARCHES_PER_RUN", "150"))
+    # Share of each refresh run spent on authors we have never crawled, taken from
+    # Wikidata in order of Wikipedia pageviews; unused share goes to refreshes.
+    NEW_AUTHOR_SHARE = float(os.environ.get("NEW_AUTHOR_SHARE", "0.25"))
+    # A failed crawl (deleted profile, stale Wikidata ID) is not retried for this long.
+    FAILURE_COOLDOWN_DAYS = int(os.environ.get("FAILURE_COOLDOWN_DAYS", "30"))
 
     # GCS paths for raw vendor responses (kept for reprocessing)
     RAW_PREFIX = os.environ.get("GS_RAW_PREFIX", "gs_raw/serpapi/author/")
@@ -33,6 +38,8 @@ class Config:
     PUBLICATION_SNAPSHOTS_TABLE = "publication_snapshots"
     AUTHORS_LATEST_VIEW = "authors_latest"
     REFRESH_QUEUE_TABLE = "refresh_queue"
+    CRAWL_FAILURES_TABLE = "crawl_failures"
+    WIKIDATA_AUTHORS_TABLE = "wikidata_authors"  # GS IDs from Wikidata P1960, for name search
 
     @classmethod
     def bq_table(cls, table_name):
