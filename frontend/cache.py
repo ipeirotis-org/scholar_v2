@@ -23,6 +23,11 @@ RECENT_AUTHORS_COLLECTION = "v3_recent_authors"
 RECENT_AUTHORS_DOC_ID = "recent_gs" if Config.DATA_SOURCE == "gs" else "recent"
 MAX_RECENT_AUTHORS = 20
 
+# Pinned list of profiled authors with the most-read Wikipedia articles (GS mode only).
+# Written by gs_crawler/featured.py after the weekly percentile rebuild.
+FEATURED_AUTHORS_COLLECTION = "v3_featured_authors"
+FEATURED_AUTHORS_DOC_ID = "featured_gs"
+
 # S2 author IDs are purely numeric; GS user IDs are 12 characters with letters.
 _S2_AUTHOR_ID_RE = re.compile(r"^\d+$")
 

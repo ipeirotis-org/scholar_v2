@@ -1,0 +1,42 @@
+{# Clickable author table, shared by the homepage lists and /featured.
+   Rows link to the results page; static/js/author_rows.js shows a loading
+   overlay on click. `ranked` adds a leading # column. Affiliation is hidden
+   on phones so the metrics fit without scrolling. #}
+{% macro author_table(authors, table_id, label, ranked=false) %}
+<div class="table-responsive">
+<table class="table table-hover table-sm author-table" id="{{ table_id }}" aria-label="{{ label }}">
+    <thead>
+        <tr>
+            {% if ranked %}<th scope="col">#</th>{% endif %}
+            <th scope="col">Name</th>
+            <th scope="col" class="d-none d-md-table-cell">Affiliation</th>
+            <th scope="col" class="text-nowrap">H-Index</th>
+            <th scope="col">Citations</th>
+            <th scope="col">PiP-AUC</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for author in authors %}
+        {% set href = url_for('results', author_id=author.scholar_id) %}
+        <tr data-href="{{ href }}">
+            {% if ranked %}<td class="text-muted">{{ loop.index }}</td>{% endif %}
+            <td><a href="{{ href }}">{{ author.name }}</a></td>
+            <td class="d-none d-md-table-cell">{{ author.affiliation or '' }}</td>
+            <td>{{ author.hindex if author.hindex is not none else '' }}</td>
+            <td>{{ '{:,}'.format(author.citedby|int) if author.citedby is not none else '' }}</td>
+            <td>
+                {% if author.pip_auc_score %}
+                    {{ author.pip_auc_score|round(4) }}
+                    {% if author.pip_auc_percentile is not none %}
+                        <small class="text-muted">({{ "%.1f"|format(100 * author.pip_auc_percentile) }}% percentile)</small>
+                    {% endif %}
+                {% else %}
+                    —
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+</div>
+{% endmacro %}

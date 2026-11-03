@@ -3,7 +3,8 @@ name: Deploy Google Scholar Crawler
 # Cloud Run Job that refreshes Google Scholar profiles via SerpApi (profiles only),
 # rebuilds the gs_statistics distribution tables, and loads GS IDs from Wikidata
 # (name search + ingestion priority). The materialize and wikidata modes also
-# rebuild the app's author search index when DATA_SOURCE=gs.
+# rebuild the app's author search index when DATA_SOURCE=gs, and the homepage's
+# featured authors.
 
 on:
   push:

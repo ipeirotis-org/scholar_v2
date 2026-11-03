@@ -1024,3 +1024,8 @@ footer p {
         font-size: 0.9rem;
     }
 }
+
+/* Author tables (homepage lists, /featured): the whole row is a link */
+.author-table tbody tr[data-href] {
+    cursor: pointer;
+}

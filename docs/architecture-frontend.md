@@ -10,7 +10,9 @@
 
 ## What it does
 
-1. **Home page:** Recently analyzed authors (from Firestore cache) and search bar
+1. **Home page:** search bar, featured authors (GS mode: the ten profiled authors with the most-read
+   Wikipedia articles, written by `gs_crawler/featured.py`; `/featured` lists 100) and recently
+   analyzed authors (from Firestore cache)
 2. **Author search:** User enters an author name → calls Author Search library (in-process) → display matching profiles
 3. **Author profile:** User selects an author → read metrics from Firestore → render interactive charts with Plotly.js
 4. **Publication detail:** User clicks a publication → read citation timeline data from Firestore → render chart

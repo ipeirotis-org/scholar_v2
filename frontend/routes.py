@@ -29,6 +29,8 @@ from flask import (
 from google.cloud import firestore
 
 from frontend.cache import (
+    FEATURED_AUTHORS_COLLECTION,
+    FEATURED_AUTHORS_DOC_ID,
     RECENT_AUTHORS_COLLECTION,
     RECENT_AUTHORS_DOC_ID,
     FirestoreCache,
@@ -51,6 +53,9 @@ AUTHOR_PUB_ID_RE = re.compile(r"^[A-Za-z0-9_:/-]{4,80}$")
 # A Google Scholar paper on a profile: "<12-char user id>:<paper id>".
 GS_PUB_ID_RE = re.compile(r"^[A-Za-z0-9_-]{12}:[A-Za-z0-9_-]{1,40}$")
 GS_CITATION_URL = "https://scholar.google.com/citations?view_op=view_citation&hl=en&citation_for_view="
+
+# Featured authors shown on the homepage; /featured lists all of them.
+HOMEPAGE_FEATURED = 10
 
 
 def _validate_scholar_id(scholar_id):
@@ -196,21 +201,44 @@ def register_routes(app):
         name = stats.get("name") if isinstance(stats, dict) else None
         return render_template("legacy_author.html", author_id=author_id, name=name), 410
 
+    def _author_list(data):
+        """Author entries from a cached list, minus malformed and S2-era rows."""
+        if not isinstance(data, list):
+            return []
+        return [
+            a for a in data
+            if isinstance(a, dict) and a.get("scholar_id")
+            and not is_legacy_s2_id(a.get("scholar_id"))
+        ]
+
+    def _featured_reads():
+        # Featured authors are built from GS data only.
+        if Config.DATA_SOURCE != "gs":
+            return []
+        return [(FEATURED_AUTHORS_COLLECTION, FEATURED_AUTHORS_DOC_ID)]
+
     @app.route("/")
     @app.route("/index")
     def index():
-        recent_authors = _read_cache(RECENT_AUTHORS_COLLECTION, RECENT_AUTHORS_DOC_ID)
-        if not isinstance(recent_authors, list):
-            recent_authors = []
-        recent_authors = [
-            a for a in recent_authors
-            if isinstance(a, dict) and not is_legacy_s2_id(a.get("scholar_id"))
-        ]
+        recent_doc, *featured_doc = _parallel_cache_reads(
+            _read_cache,
+            [(RECENT_AUTHORS_COLLECTION, RECENT_AUTHORS_DOC_ID)] + _featured_reads(),
+        )
+        recent_authors = _author_list(recent_doc)
+        featured_authors = _author_list(featured_doc[0] if featured_doc else None)
         # ?author_name= pre-fills the search box and runs the search (old S2 links point here).
         prefill_name = request.args.get("author_name", "").strip()[:100]
         return render_template(
             "index.html", recent_authors=recent_authors, prefill_name=prefill_name,
+            featured_authors=featured_authors[:HOMEPAGE_FEATURED],
+            more_featured=len(featured_authors) > HOMEPAGE_FEATURED,
         )
+
+    @app.route("/featured")
+    def featured():
+        reads = _featured_reads()
+        featured_authors = _author_list(_read_cache(*reads[0])) if reads else []
+        return render_template("featured.html", featured_authors=featured_authors)
 
     def _get_author_freshness(author_id):
         """Read cached freshness for an author.

@@ -240,7 +240,9 @@ def _index_with_recent(monkeypatch, data_source, query=""):
         {"scholar_id": "WLN3QrAAAAAJ", "name": "Yann LeCun (GS)", "hindex": 145, "citedby": 341620},
     ]
     with mock.patch("frontend.routes.FirestoreCache") as cache_cls:
-        cache_cls.return_value.get.return_value = recent
+        cache_cls.return_value.get.side_effect = (
+            lambda collection, doc_id: recent if collection == "v3_recent_authors" else None
+        )
         app = create_app(config={"TESTING": True, "SECRET_KEY": "test"})
         return app.test_client().get("/" + query).get_data(as_text=True)
 
