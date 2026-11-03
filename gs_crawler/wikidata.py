@@ -53,6 +53,7 @@ SCHEMA = [
     bigquery.SchemaField("died", "BOOLEAN"),
     bigquery.SchemaField("is_scholarly", "BOOLEAN"),
     bigquery.SchemaField("is_politician", "BOOLEAN"),
+    bigquery.SchemaField("views_fetched_at", "TIMESTAMP"),
 ]
 
 
@@ -203,6 +204,7 @@ def normalize(raw_rows, fetched_at):
             "sitelinks": _int(r.get("links")),
             "enwiki_title": (r.get("enwiki") or "").strip() or None,
             "enwiki_views_60d": None,
+            "views_fetched_at": None,
             "fetched_at": fetched_at,
             "died": _bool(r.get("dead")),
             "is_scholarly": _bool(r.get("scholarly")),
@@ -295,24 +297,30 @@ def fetch_pageviews(titles, session=None, workers=PAGEVIEW_WORKERS,
 
 
 def previous_views(client=None):
-    """{enwiki_title: views} from the current table; {} if it is missing or unreadable."""
+    """{enwiki_title: (views, views_fetched_at)} from the current table; {} if it is
+    missing or unreadable. views_fetched_at is an ISO string, or None if unknown."""
     client = client or bigquery.Client(project=Config.PROJECT_ID)
     sql = f"""
-        SELECT enwiki_title, ANY_VALUE(enwiki_views_60d) AS views
+        SELECT enwiki_title, ANY_VALUE(enwiki_views_60d) AS views,
+               MAX(views_fetched_at) AS views_fetched_at
         FROM {Config.bq_table_ref(Config.WIKIDATA_AUTHORS_TABLE)}
         WHERE enwiki_title IS NOT NULL AND enwiki_views_60d IS NOT NULL
         GROUP BY enwiki_title
     """
     try:
-        return {row["enwiki_title"]: row["views"] for row in client.query(sql).result()}
+        out = {}
+        for row in client.query(sql).result():
+            at = row["views_fetched_at"]
+            out[row["enwiki_title"]] = (row["views"], at.isoformat(timespec="seconds") if at else None)
+        return out
     except Exception:
         logger.warning("Could not read previous pageviews; fetching from scratch")
         return {}
 
 
 def fetch_all(session=None, previous=None):
-    """Rows for gs_data.wikidata_authors. `previous` ({title: views}) is carried
-    forward for articles this run does not reach."""
+    """Rows for gs_data.wikidata_authors. `previous` ({title: (views, fetched_at)})
+    is carried forward for articles this run does not reach."""
     session = session or requests.Session()
     previous = previous or {}
     fetched_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
@@ -322,15 +330,23 @@ def fetch_all(session=None, previous=None):
         for c in ID_CHARS:
             raw.extend(_fetch_partition(c, session))
     rows = normalize(raw, fetched_at)
-    # Articles without views yet first, then the rest; best-known (sitelinks) first
-    # within each, so a time limit leaves out the least known.
-    with_article = sorted((r for r in rows if r["enwiki_title"]),
-                          key=lambda r: (r["enwiki_title"] not in previous, r["sitelinks"] or 0),
-                          reverse=True)
+    # Articles without views first, then the stalest views (unknown age counts as
+    # oldest), so every article is refreshed in turn; best-known first within ties,
+    # so a time limit leaves out the least known.
+    def order(r):
+        prev = previous.get(r["enwiki_title"])
+        if prev is None:
+            return (0, "", -(r["sitelinks"] or 0))
+        return (1, prev[1] or "", -(r["sitelinks"] or 0))
+
+    with_article = sorted((r for r in rows if r["enwiki_title"]), key=order)
     views = fetch_pageviews([r["enwiki_title"] for r in with_article])
     for r in rows:
         title = r["enwiki_title"]
-        r["enwiki_views_60d"] = views.get(title, previous.get(title))
+        if title in views:
+            r["enwiki_views_60d"], r["views_fetched_at"] = views[title], fetched_at
+        elif title in previous:
+            r["enwiki_views_60d"], r["views_fetched_at"] = previous[title]
     logger.info("Pageviews known for %d of %d articles after this run",
                 sum(1 for r in with_article if r["enwiki_views_60d"] is not None), len(with_article))
     return rows
@@ -358,5 +374,10 @@ def load(rows, client=None):
 
 
 def run():
+    from gs_crawler.scheduler import wikidata_migration_sql
     client = bigquery.Client(project=Config.PROJECT_ID)
+    try:
+        client.query(wikidata_migration_sql()).result()  # previous_views reads views_fetched_at
+    except Exception:
+        logger.exception("wikidata_authors migration failed")
     return load(fetch_all(previous=previous_views(client)), client=client)

@@ -116,26 +116,42 @@ class TestSources:
 
 
 class TestCarryForward:
-    def test_new_titles_first_and_old_views_kept(self, monkeypatch):
+    HEADER = "p,g,label,desc,links,enwiki\n"
+
+    def _run(self, monkeypatch, csv_rows, previous, reached):
         monkeypatch.setattr(wikidata, "MIN_FULL_ROWS", 1)
-        header = "p,g,label,desc,links,enwiki\n"
-        csv_text = header + (
-            "http://www.wikidata.org/entity/Q1,AAAAAAAAAAAJ,Known,,50,Known\n"
-            "http://www.wikidata.org/entity/Q2,BBBBBBBBBBBJ,New Famous,,40,New Famous\n"
-            "http://www.wikidata.org/entity/Q3,CCCCCCCCCCCJ,New Obscure,,2,New Obscure\n")
         session = MagicMock()
-        session.get.return_value = _resp(200, csv_text)
+        session.get.return_value = _resp(200, self.HEADER + csv_rows)
         seen = []
 
         def fake_fetch(titles):
             seen.extend(titles)
-            return {"New Famous": 900}  # the run reaches only one title
+            return {t: v for t, v in reached.items()}
 
         with patch.object(wikidata, "fetch_pageviews", side_effect=fake_fetch):
-            rows = wikidata.fetch_all(session, previous={"Known": 123})
+            rows = wikidata.fetch_all(session, previous=previous)
+        return seen, {r["name"]: (r["enwiki_views_60d"], r["views_fetched_at"]) for r in rows}
+
+    def test_new_titles_first_and_old_views_kept(self, monkeypatch):
+        csv_rows = ("http://www.wikidata.org/entity/Q1,AAAAAAAAAAAJ,Known,,50,Known\n"
+                    "http://www.wikidata.org/entity/Q2,BBBBBBBBBBBJ,New Famous,,40,New Famous\n"
+                    "http://www.wikidata.org/entity/Q3,CCCCCCCCCCCJ,New Obscure,,2,New Obscure\n")
+        seen, views = self._run(monkeypatch, csv_rows, {"Known": (123, "2026-10-03T03:41:00+00:00")},
+                                {"New Famous": 900})
         assert seen == ["New Famous", "New Obscure", "Known"]
-        views = {r["name"]: r["enwiki_views_60d"] for r in rows}
-        assert views == {"Known": 123, "New Famous": 900, "New Obscure": None}
+        assert views["Known"] == (123, "2026-10-03T03:41:00+00:00")
+        assert views["New Famous"][0] == 900 and views["New Famous"][1] is not None
+        assert views["New Obscure"] == (None, None)
+
+    def test_stalest_views_refreshed_first(self, monkeypatch):
+        csv_rows = ("http://www.wikidata.org/entity/Q1,AAAAAAAAAAAJ,Fresh Famous,,90,Fresh Famous\n"
+                    "http://www.wikidata.org/entity/Q2,BBBBBBBBBBBJ,Old Obscure,,1,Old Obscure\n"
+                    "http://www.wikidata.org/entity/Q3,CCCCCCCCCCCJ,Unknown Age,,5,Unknown Age\n")
+        previous = {"Fresh Famous": (10, "2026-10-03T03:41:00+00:00"),
+                    "Old Obscure": (20, "2026-08-03T03:41:00+00:00"),
+                    "Unknown Age": (30, None)}
+        seen, _ = self._run(monkeypatch, csv_rows, previous, {})
+        assert seen == ["Unknown Age", "Old Obscure", "Fresh Famous"]
 
     def test_previous_views_tolerates_missing_table(self):
         client = MagicMock()

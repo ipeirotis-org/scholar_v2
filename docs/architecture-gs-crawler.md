@@ -59,8 +59,10 @@ carry a Google Scholar author ID (property P1960). The monthly `wikidata` run:
    failed after 26 min when it throttled small partitions.
 2. Adds 60-day English Wikipedia pageviews from the per-article REST endpoint (~22K articles,
    8 workers, at most 40 min). Wikimedia throttles it to ~3.5 articles/s, so a run covers ~8K:
-   views from earlier runs are carried forward, and articles without any go first (best-known
-   by sitelinks first), so coverage is complete after about three monthly runs. Missing views
+   views from earlier runs are carried forward with their fetch time (`views_fetched_at`), and
+   each run takes articles without views first, then the stalest (best-known by sitelinks first
+   within ties). Coverage is complete after about three monthly runs, and from then on every
+   article's views are at most about three months old. Missing views
    stay NULL. Rejected alternatives: the Action API's `prop=pageviews` answers ~5 titles per
    request before asking for a continuation; the monthly pageview dump is 5.7 GB.
 3. Replaces `gs_data.wikidata_authors`, refusing a load that would shrink it by more than half.

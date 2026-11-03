@@ -26,14 +26,15 @@ def estimate_searches(num_publications):
 
 
 def wikidata_migration_sql():
-    """Adds the eligibility flags to a wikidata_authors table created before them.
+    """Adds the eligibility flags (and views_fetched_at) to a wikidata_authors table created before them.
     Idempotent and free; run before candidates_query, which reads the flags."""
     table = Config.bq_table_ref(Config.WIKIDATA_AUTHORS_TABLE)
     return f"""
         ALTER TABLE {table}
           ADD COLUMN IF NOT EXISTS died BOOL,
           ADD COLUMN IF NOT EXISTS is_scholarly BOOL,
-          ADD COLUMN IF NOT EXISTS is_politician BOOL
+          ADD COLUMN IF NOT EXISTS is_politician BOOL,
+          ADD COLUMN IF NOT EXISTS views_fetched_at TIMESTAMP
     """
 
 
