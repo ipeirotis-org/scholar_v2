@@ -66,13 +66,14 @@ gs-weekly-materialize ──► gs-crawler job (CRAWL_MODE=materialize): rebuild
 - **No minimum.** There is no ≥6-publication filter, since the population is already curated.
 - **Benchmark.** The `active_authors` benchmark is unchanged: hindex ≥ 3 and ≥ 3 publications.
 
-## Switching the app to GS
+## Switching the app to GS (done 2026-11-03)
 
-1. ~~**Grant secret access.**~~ Done 2026-11-02: the cache layer's runtime account
-   (`875626982900-compute@developer.gserviceaccount.com`) has `roles/secretmanager.secretAccessor` on `serpapi-key`.
-2. **Check write access.** Make sure that account can append to `gs_data` and write `gs://scholar_data_share/gs_raw/`.
-3. **Flip the setting.** Set the repository variable `DATA_SOURCE=gs` and re-run *Deploy Frontend & Cache Layer*.
-4. **Rebuild the search index.** Call `POST /api/refresh_author_index`. GS mode uses separate Firestore
-   collections (`v3_gs_author_name_index`, `v3_gs_author_search`).
+`deploy-frontend.yml` deploys the frontend and cache layer with `DATA_SOURCE=gs` by default, which
+mounts `serpapi-key` into the cache layer. The cache layer's runtime account
+(`875626982900-compute@developer.gserviceaccount.com`) has `roles/secretmanager.secretAccessor` on that
+secret. GS mode uses separate Firestore collections (`v3_gs_author_name_index`, `v3_gs_author_search`,
+`v3_recent_authors/recent_gs`); the name index bootstraps itself on first use, or call
+`POST /api/refresh_author_index`.
 
-To roll back, set `DATA_SOURCE=s2` and redeploy. The S2 views and caches are untouched.
+**Roll back:** set the repository variable `DATA_SOURCE=s2` and re-run *Deploy Frontend & Cache Layer*.
+The S2 views, tables and Firestore caches are untouched (S2 data is frozen; no new fetches).
