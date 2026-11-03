@@ -61,6 +61,11 @@ CREATE TABLE IF NOT EXISTS `scholar-version2.gs_data.wikidata_authors` (
   is_scholarly BOOL,    -- researcher/engineer/academic/university teacher/physician occupation
   is_politician BOOL    -- politician occupation: never ingested
 );
+-- Migration for tables created before the flags existed (gs_crawler/scheduler.py runs it too).
+ALTER TABLE `scholar-version2.gs_data.wikidata_authors`
+  ADD COLUMN IF NOT EXISTS died BOOL,
+  ADD COLUMN IF NOT EXISTS is_scholarly BOOL,
+  ADD COLUMN IF NOT EXISTS is_politician BOOL;
 
 -- Permanent crawl failures (no profile behind the ID). The refresh scheduler skips
 -- an ID for FAILURE_COOLDOWN_DAYS after its last failure. Written by gs_crawler.
