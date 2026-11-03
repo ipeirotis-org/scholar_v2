@@ -13,6 +13,7 @@ import os
 import re
 import time
 from concurrent.futures import ThreadPoolExecutor, wait as futures_wait
+from urllib.parse import quote
 
 import pandas as pd
 from flask import (
@@ -29,6 +30,7 @@ from google.cloud import firestore
 
 from frontend.cache import RECENT_AUTHORS_COLLECTION, RECENT_AUTHORS_DOC_ID, FirestoreCache
 from frontend.config import Config
+from frontend.formatting import build_standing
 from frontend.queue_client import enqueue_cache_populate
 
 logger = logging.getLogger(__name__)
@@ -39,6 +41,10 @@ SCHOLAR_ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,20}$")
 
 # Validate author_pub_id: scholar_id:base64-like, up to 60 chars
 AUTHOR_PUB_ID_RE = re.compile(r"^[A-Za-z0-9_:/-]{4,80}$")
+
+# A Google Scholar paper on a profile: "<12-char user id>:<paper id>".
+GS_PUB_ID_RE = re.compile(r"^[A-Za-z0-9_-]{12}:[A-Za-z0-9_-]{1,40}$")
+GS_CITATION_URL = "https://scholar.google.com/citations?view_op=view_citation&hl=en&citation_for_view="
 
 
 def _validate_scholar_id(scholar_id):
@@ -51,6 +57,23 @@ def _validate_author_pub_id(pub_id):
     if not pub_id or not AUTHOR_PUB_ID_RE.match(pub_id):
         return None
     return pub_id
+
+
+def _gs_record_url(author_pub_id):
+    """Google Scholar's page for one paper on a profile, or None for other IDs."""
+    if not author_pub_id or not GS_PUB_ID_RE.match(author_pub_id):
+        return None
+    return GS_CITATION_URL + quote(author_pub_id, safe=":")
+
+
+def _has_publication_history():
+    """Whether the cache layer can fill per-paper citation histories.
+
+    GS profiles carry no per-paper citation-by-year data yet (Phase B in
+    TASKS.md), so in GS mode the cache layer never writes these pages and
+    the frontend must not wait for them.
+    """
+    return Config.DATA_SOURCE != "gs"
 
 
 def _prepare_pub_chart_data(pub_stats, author_stats):
@@ -68,7 +91,15 @@ def _prepare_pub_chart_data(pub_stats, author_stats):
             pub_year = int(pub_year)
         except (TypeError, ValueError):
             continue
+        # The cached "citation" string is the venue (GS: the profile's
+        # publication line; S2: "venue, year"), or just the year when unknown.
+        # A trailing ", <year>" is dropped since the year is shown separately.
+        citation = p.get("citation")
+        citation = citation.strip() if isinstance(citation, str) else ""
+        venue = re.sub(rf"[,\s]*\b{pub_year}\s*$", "", citation)
         result.append({
+            "author_pub_id": p.get("author_pub_id"),
+            "venue": venue,
             "publication_rank": p.get("publication_rank"),
             "num_citations_percentile": round(100 * (p.get("num_citations_percentile") or 0), 2),
             "num_papers_percentile": round(100 * (p.get("num_papers_percentile") or 0), 2),
@@ -144,6 +175,7 @@ def _parallel_cache_reads(read_cache_fn, reads):
 
 def register_routes(app):
     cache = FirestoreCache()
+    app.jinja_env.globals["gs_record_url"] = _gs_record_url
 
     def _read_cache(collection, doc_id):
         """Read from Firestore cache. Returns data or None."""
@@ -244,6 +276,7 @@ def register_routes(app):
             "results.html",
             author_id=author_id,
             stats=author_stats,
+            standing=build_standing(author_stats, Config.DATA_SOURCE),
             pub_chart_data=pub_chart_data,
             temporal_chart_data=temporal_chart_data,
             last_updated=last_updated,
@@ -287,6 +320,17 @@ def register_routes(app):
         pub_id = _validate_author_pub_id(pub_id)
         if not author_id or not pub_id:
             return render_template("error.html", error_message="Invalid parameters.")
+
+        if not _has_publication_history():
+            # Nothing would ever fill this page: send readers to the paper's
+            # Google Scholar record instead of a loading page that re-enqueues.
+            record = _gs_record_url(pub_id)
+            if record:
+                return redirect(record)
+            return render_template(
+                "error.html",
+                error_message="Citation history by year is not available for Google Scholar profiles yet.",
+            ), 404
 
         pub_stats = _read_cache(Config.CACHE_PUB_STATS, pub_id)
 
@@ -379,6 +423,13 @@ def register_routes(app):
         pub_id = _validate_author_pub_id(pub_id)
         if not pub_id:
             return jsonify({"error": "Invalid publication ID"}), 400
+
+        if not _has_publication_history():
+            return jsonify({
+                "error": "Citation history by year is not available for Google Scholar profiles yet",
+                "status": "unavailable",
+                "google_scholar_url": _gs_record_url(pub_id),
+            }), 404
 
         pub_stats = _read_cache(Config.CACHE_PUB_STATS, pub_id)
         if not pub_stats:
