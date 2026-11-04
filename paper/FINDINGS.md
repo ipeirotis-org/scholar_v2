@@ -195,3 +195,32 @@ quality factor that explains about a quarter of its log variance. It sits close 
 mean quality. This bears directly on the round 3 objection that "combining quality and quantity … has not been done
 successfully". The paper should report the decomposition openly. A further option is to vary the balance, for
 example F(n)^α · W^(1−α), and test which α predicts later outcomes best.
+
+## 6. Variant: age-matched paper percentiles (`sql/10_age_matched_paper_percentiles.sql`)
+
+In this variant a paper's percentile is computed only against papers from the same year by same-cohort active peers,
+so papers are compared with others written at the same career stage. Population: active authors at career age 10,
+start years 1975–2010, 3.43M authors.
+
+| | Same-year articles (main) | Same-cohort peers' papers |
+|---|---|---|
+| Average paper percentile of these authors | 0.61 | 0.48 |
+| Weighted-mean factor W, 10th / 50th / 90th | 0.31 / 0.60 / 0.84 | 0.16 / 0.42 / 0.74 |
+| Share of log-PiP variance: productivity | 0.65 | 0.46 |
+| Share of log-PiP variance: quality | 0.24 | 0.36 |
+| PiP rank vs article-count rank | 0.896 | 0.838 |
+| PiP rank vs mean-quality rank | 0.131 | 0.311 |
+| Correlation of the two PiP rankings | — | 0.988 |
+
+The variant spreads the quality factor and moves weight toward quality. The overall ranking hardly changes.
+
+Two caveats:
+
+- A paper's percentile would depend on its author's career stage, so co-authors at different stages would see
+  different percentiles for the same paper.
+- Part of the effect may come from the stronger reference set rather than from matching career age, since active
+  authors' papers average the 61st percentile of all articles. That still needs testing against all active authors'
+  papers from the same year.
+
+**Decision (2026-11-04):** the app keeps same-year percentiles. The paper reports this as a variant, next to the
+F(n)^α · W^(1−α) weighting.
