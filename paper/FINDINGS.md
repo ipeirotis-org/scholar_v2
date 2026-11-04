@@ -422,3 +422,7 @@ unusable.
 
 τ = 0.5 is a natural default with a one-line explanation: only papers in the top half of their year earn credit.
 Moving to τ = 0.25 halves the shift for live GS authors, which matters if the app switches.
+
+**Decision (2026-11-04):** τ = 0.5 is the paper's default, so only papers in the top half of their year earn credit.
+The paper presents τ as a dial: lower τ puts more weight on quantity, higher τ more weight on impact. Figure:
+`figures/tau_sweep.pdf`, from `figures/make_tau_sweep.py` with data in `figures/data/`.
