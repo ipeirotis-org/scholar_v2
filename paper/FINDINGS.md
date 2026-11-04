@@ -426,3 +426,105 @@ Moving to τ = 0.25 halves the shift for live GS authors, which matters if the a
 **Decision (2026-11-04):** τ = 0.5 is the paper's default, so only papers in the top half of their year earn credit.
 The paper presents τ as a dial: lower τ puts more weight on quantity, higher τ more weight on impact. Figure:
 `figures/tau_sweep.pdf`, from `figures/make_tau_sweep.py` with data in `figures/data/`.
+
+## 10. The main indicator (symmetric PiP, τ = 0.5) through the scholar-level tests (`sql/15`, `sql/16`)
+
+`sym_by_age` holds the symmetric scores for every active author at every career age, 111.6M rows. They match `pip_variants`
+exactly wherever both exist (17.0M rows, maximum difference 0).
+
+### Stability across a career
+
+Correlation of within-cohort percentiles between two career ages, start years 1975–1995, compared with §5:
+
+| Indicator | 5 vs 10 | 5 vs 15 | 5 vs 30 | 10 vs 30 | 20 vs 30 |
+|---|---|---|---|---|---|
+| Article count | 0.847 | 0.754 | 0.642 | 0.800 | 0.946 |
+| Symmetric τ = 0 | 0.778 | 0.682 | 0.569 | 0.742 | 0.921 |
+| **Symmetric τ = 0.5** | 0.781 | 0.687 | 0.563 | 0.726 | 0.911 |
+| Current PiP | 0.772 | 0.674 | 0.565 | 0.742 | 0.923 |
+| Citations | 0.798 | 0.659 | 0.451 | 0.620 | 0.886 |
+| h-index | 0.604 | 0.496 | 0.370 | 0.599 | 0.877 |
+
+The new indicator is as stable as the current PiP and more stable than citations or the h-index over long horizons.
+
+### Survivorship
+
+ROC AUC of the age-5 percentile for still publishing at career ages 11–15 / 16–20, pooled:
+
+| Indicator | 11–15 | 16–20 |
+|---|---|---|
+| Articles | 0.683 | 0.663 |
+| Current PiP | 0.647 | 0.630 |
+| Symmetric τ = 0 | 0.647 | 0.631 |
+| **Symmetric τ = 0.5** | 0.616 | 0.603 |
+| h-index | 0.575 | 0.565 |
+| Citations | 0.540 | 0.537 |
+
+Continuing to publish is a productivity outcome, so it is predicted best by the indicators that weigh productivity
+most.
+
+### Factorization on S2
+
+sym_τ50 = F(n) × Q, for active authors with a positive score, start years 1975–2005. The shares are of the variance
+of log sym_τ50.
+
+| Age | Productivity log F(n) | Quality log Q | Covariance | Q > 1 | Q 10th / 50th / 90th | Score = 0 |
+|---|---|---|---|---|---|---|
+| 5 | 0.30 | 0.82 | −0.11 | 30% | 0.17 / 0.76 / 1.46 | 0.1% |
+| 10 | 0.29 | 0.79 | −0.09 | 35% | 0.16 / 0.83 / 1.53 | 0.5% |
+| 20 | 0.30 | 0.74 | −0.04 | 36% | 0.18 / 0.88 / 1.51 | 1.2% |
+
+The current PiP is the reverse: productivity accounts for 0.59–0.77 of its log variance (§5). The within-cohort
+Spearman view in §9 is more balanced (0.64 with article count, 0.47 with mean quality), because the log variance
+gives extra weight to the low scores.
+
+### Theory checks (`checks/sym_properties.py`, simulated cohort of 2,000 peers)
+
+- **Range, monotonicity and τ-invariance:** no violations in 1,500 random authors. The score stayed in [0, 1], never
+  fell when a paper was added or a percentile raised, and never changed when a paper below τ was added.
+- **Q > 1:** 24% of the simulated authors.
+- **Consistency in the sense of Waltman & van Eck:** adding the same paper to two authors reversed their order in 0.7%
+  of 3,000 pairs, against 1.3% for the current PiP.
+- **v3's synthetic careers:**
+
+  | Career | sym_τ50 | Current PiP |
+  |---|---|---|
+  | One top paper (99th percentile) | 0.45 | 0 |
+  | One average paper | 0 | 0 |
+  | 40 weak papers | 0 | 0.10 |
+
+The draft theory section is `manuscript/theory.tex`. It is not yet included in `ms.tex`.
+
+## 11. Self-citations (`sql/00_noself_citations.sql`, `sql/run_noself.sh`; dataset `paper_rp_noself`)
+
+A citation counts as a self-citation when the citing and the cited paper share at least one S2 author. Self-citations
+are 8.1% of all S2 citations. The self-free table totals 2,737,478,329 citations, the same total as
+`s2_data.paper_citations_by_year`, so the construction matches the loader. The whole pipeline (steps 01–07 and 11–13)
+was rerun on self-free citations: percentiles, peers (h-index ≥ 3 now without self-citations), scores and outcomes.
+
+Prediction benchmarks, with self-citations / without:
+
+| Setting | Indicator | Future top-10% count | Future top-1% (AUC) | Future quality |
+|---|---|---|---|---|
+| Age 5 | sym_τ50 | .378 / .378 | .715 / .712 | .264 / .234 |
+| | current PiP | .354 / .355 | .683 / .681 | .108 / .093 |
+| | h-index | .268 / .257 | .646 / .640 | .155 / .148 |
+| Age 10 | sym_τ50 | .427 / .427 | .772 / .771 | .321 / .298 |
+| | current PiP | .434 / .435 | .756 / .755 | .190 / .171 |
+| | h-index | .352 / .340 | .719 / .714 | .230 / .221 |
+| Age 15 | sym_τ50 | .436 / .437 | .799 / .799 | .343 / .325 |
+| | current PiP | .453 / .454 | .792 / .790 | .236 / .219 |
+| | h-index | .384 / .374 | .758 / .754 | .270 / .261 |
+| 2005 | sym_τ50 | .407 / .407 | .776 / .777 | .310 / .291 |
+| | current PiP | .434 / .437 | .770 / .771 | .201 / .188 |
+| | h-index | .284 / .277 | .691 / .689 | .174 / .169 |
+
+### What it shows
+
+- **The ordering of the indicators, and PiP's lead over the h-index, do not depend on self-citations.** The count and
+  top-1% results move by at most 0.003 for the PiP variants.
+- **The h-index loses slightly more without self-citations** (top-10% count at age 10: 0.352 → 0.340).
+- **Predicting future quality drops by about 0.02 for every indicator.** Part of the persistence of quality runs
+  through authors citing their own work.
+- **This rules out the most mechanical Matthew-effect channel, but not reputation in general.** Other people also
+  cite well-known names, and separating that needs an external design (see `REVISION_PLAN.md`).
