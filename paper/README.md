@@ -7,6 +7,11 @@ data, and targets *Quantitative Science Studies*.
 
 ## Layout
 
+- **`manuscript_qss/`** holds the new manuscript for *Quantitative Science Studies* (`main.tex`, `references.bib`,
+  compiled `main.pdf`). Build with `latexmk -pdf main.tex`. Every number in it comes from `FINDINGS.md`; open
+  decisions for the authors are marked `TODO(authors)`.
+- **`figures/`** holds the figure scripts (`make_figures.py`, `make_tau_sweep.py`), the export of their data from
+  BigQuery (`export_figure_data.sh`, output in `figures/data/`) and the rendered PDF/PNG files.
 - **`manuscript/`** holds the arXiv v3 LaTeX source (`ms.tex` includes `introduction`, `results`, `discussion` and
   `supplemental`), with its figures from the original Google Scholar dataset.
 - **`sql/`** holds the analysis queries, numbered in run order. They write to the BigQuery dataset

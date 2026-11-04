@@ -3,7 +3,7 @@
   fig_standing_curves  the definition: standing curves of three real authors (1995 cohort, career age 10)
   fig_paper_stability  paper percentiles settle early: by age, and by field
   fig_cohorts          a PiP score means the same thing across cohorts; the raw h-index drifts
-  fig_prediction       predicting future work: PiP (tau = 0.5) vs PiP (tau = 0) vs h-index (raw and percentile)
+  fig_prediction       predicting future work: PiP (tau = 0.5) vs the original PiP-AUC vs h-index (raw and percentile)
   fig_fields           share of each field in its cohort's top 10%: pooled vs field-normalized score
 
 Run: python3 paper/figures/make_figures.py   (matplotlib; Inter if installed)
@@ -151,7 +151,7 @@ def fig_prediction():
     rows = read("fig5_prediction.csv")
     settings = [("same_age", "5", "age 5"), ("same_age", "10", "age 10"), ("same_age", "15", "age 15"),
                 ("same_year", "2000", "2000"), ("same_year", "2005", "2005")]
-    predictors = [("sym_tau50", "PiP (τ = 0.5)", BLUE, "o"), ("pip", "PiP (τ = 0, current app)", ORANGE, "D"),
+    predictors = [("sym_tau50", "PiP (τ = 0.5)", BLUE, "o"), ("pip", "original PiP-AUC", ORANGE, "D"),
                   ("h_pct", "h-index percentile", AQUA, "s"), ("h_raw", "h-index (raw)", INK3, "^")]
     value = {(r["scenario"], r["setting"], r["predictor"]): r for r in rows}
     outcomes = [("spearman_top10", "(a) Future top-10% papers", "Spearman correlation"),
