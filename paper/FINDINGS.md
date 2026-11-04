@@ -528,3 +528,109 @@ Prediction benchmarks, with self-citations / without:
   through authors citing their own work.
 - **This rules out the most mechanical Matthew-effect channel, but not reputation in general.** Other people also
   cite well-known names, and separating that needs an external design (see `REVISION_PLAN.md`).
+
+## 12. Fields (`sql/17_fields.sql`, `sql/18_field_normalized.sql`)
+
+An author's main field is the most frequent S2 field of study among their articles by career age 10 (whole
+counting).
+
+### Pooled scores favor high-citation fields
+
+Share of each field's authors in their cohort's top 10% on sym_τ50, career age 10, start years 1975–2010. A
+field-neutral score would put 10% of every field there.
+
+| Field | Authors | sym_τ50 median / 90th | In the cohort top 10% |
+|---|---|---|---|
+| Physics | 76,009 | 0.46 / 0.90 | 14.7% |
+| Psychology | 29,885 | 0.42 / 0.87 | 12.1% |
+| Medicine | 1,905,585 | 0.41 / 0.87 | 11.7% |
+| Biology | 536,964 | 0.43 / 0.84 | 9.3% |
+| Computer Science | 303,231 | 0.26 / 0.82 | 8.3% |
+| Chemistry | 184,019 | 0.32 / 0.77 | 5.8% |
+| Mathematics | 8,210 | 0.23 / 0.70 | 3.7% |
+| Engineering | 129,387 | 0.16 / 0.64 | 2.9% |
+| Economics | 13,928 | 0.26 / 0.66 | 2.1% |
+| Education | 14,791 | 0.18 / 0.58 | 1.4% |
+
+### The prediction advantage holds inside every field
+
+Career age 10, start years 1975–2000; 15 fields with at least 3,000 authors.
+
+- **sym_τ50 against the h-index:** sym_τ50 is better on all three outcomes in every field.
+- **sym_τ50 against the current PiP:** sym_τ50 is better on top-1% AUC and on future quality in every field. The
+  current PiP is better on the future top-10% count in about half the fields, as it is overall.
+
+Examples (top-10% count / top-1% AUC / quality):
+
+| Field | sym_τ50 | Current PiP | h-index |
+|---|---|---|---|
+| Medicine | .437/.777/.317 | .443/.762/.207 | .355/.723/.235 |
+| Computer Science | .485/.807/.358 | .513/.804/.264 | .415/.761/.267 |
+| Physics | .371/.695/.168 | .335/.669/.086 | .277/.642/.116 |
+| Economics | .393/.741/.274 | .369/.695/.167 | .311/.665/.166 |
+| Mathematics | .383/.749/.283 | .344/.697/.168 | .294/.682/.190 |
+
+### Field-normalized variant (`fn_sym50`)
+
+Paper percentiles are computed within (the author's main field, publication year) when the paper carries that field,
+and pooled otherwise. Peers are authors with the same main field and start year. Outcomes are scored both pooled and
+field-normalized. Population: 1.45M authors.
+
+| Outcome | Score | Top-10% count | Top-1% (AUC) | Quality |
+|---|---|---|---|---|
+| Pooled | pooled score | **.427** | **.772** | **.321** |
+| Pooled | field-normalized score | .414 | .770 | .298 |
+| Field-normalized | pooled score | .405 | .769 | .300 |
+| Field-normalized | field-normalized score | **.407** | **.772** | **.316** |
+| Field-normalized | h-index | .333 | .717 | .209 |
+
+- **Each version predicts its own kind of outcome best**, by 0.01–0.02. Both versions are far ahead of the h-index.
+- **The field-normalized score removes the field bias.** Each field's share of the cohort top 10% is 6.9–11.6%,
+  against 1.4–14.7% for the pooled score.
+- **Within a field, the ranking barely changes.** The correlation with the pooled score is 0.91–0.99, so
+  normalization moves fields relative to each other rather than reordering authors inside a field.
+- **The remaining spread**, for example Agricultural and Food Sciences at 6.9%, comes from papers that do not carry
+  the author's main field, which keep their pooled percentile.
+
+## 13. S2 against Google Scholar for the same people (`sql/19_s2_gs_match.sql`)
+
+### Matching
+
+A GS work matches an S2 paper on normalized title (at least 25 characters) and year ±1. The S2 counterpart of a
+profile is the same-surname S2 author holding the most matched works.
+
+- **Confident matches:** 14,511 of 16,218 GS profiles (89%), meaning at least 5 matched works and at least 30% of the
+  profile's eligible titles.
+
+### S2 author disambiguation (the reviewers' question)
+
+- **Coverage:** for the median profile, 76% of the GS works are found in S2.
+- **Concentration:** 90% of the found works sit under the main S2 ID; the other 10% are scattered across other IDs.
+- **Splitting:** 64% of people have at least 2 of their works under at least 2 S2 IDs with the same surname and first
+  initial, and 42% under at least 3. Median 2 IDs, upper quartile 4, maximum 84.
+- **Smaller records in S2:** S2 holds a median 67% as many articles as the GS profile lists cited works, and its
+  h-index is a median 78% of GS's.
+- **Career start:** S2's start year (first article in S2) is within one year of GS's for 48% of people, and later for
+  47%, because early work is missing or sits under split IDs.
+
+### Agreement of rankings across the two sources
+
+9,796 people with scores in both sources (S2 start year ≥ 1995, evaluation year 2025). Each source uses its own
+reference population: GS faculty profiles against all S2 active authors.
+
+| Indicator | Spearman between sources |
+|---|---|
+| h-index | 0.824 |
+| Current PiP | 0.782 |
+| sym_τ50 | 0.778 |
+| sym_τ50, people with at most one S2 ID | 0.757 |
+| sym_τ50, people split across 3+ S2 IDs | 0.733 |
+
+### What it means
+
+The rankings agree well across two independent data sources with different reference populations, but S2's
+fragmentation is a real limitation. The paper should:
+
+- report both sources;
+- note that S2 shortens careers and splits profiles;
+- treat GS (author-curated profiles) as the check on S2.
