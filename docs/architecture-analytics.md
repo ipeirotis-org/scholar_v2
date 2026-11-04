@@ -12,7 +12,7 @@
 
 1. **Publication metrics:** Citation counts and citation percentiles per publication, partitioned by publication year
 2. **Author metrics:** h-index, citations, i10-index (and 5-year variants), total publications — with percentiles by career-stage cohort (year of first publication)
-3. **PiP-AUC scores:** Paper-in-Percentile Area Under Curve via trapezoidal integration, with percentile ranking
+3. **PiP-AUC scores:** Paper-in-Percentile Area Under Curve (area under the PiP step curve), with percentile ranking
 4. **Temporal metrics:** Historical evolution of author h-index, citations, i10-index over time
 5. **Coauthor network:** Coauthor graph extracted from author data
 

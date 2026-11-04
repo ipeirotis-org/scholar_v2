@@ -233,19 +233,19 @@ AS SELECT * FROM (
         scholar_id,
         num_citations_percentile,
         num_papers_percentile,
-        COALESCE(LAG(num_citations_percentile) OVER(PARTITION BY scholar_id ORDER BY num_papers_percentile), num_citations_percentile) AS prev_num_citations_percentile,
-        COALESCE(LAG(num_papers_percentile)    OVER(PARTITION BY scholar_id ORDER BY num_papers_percentile), 0)                       AS prev_num_papers_percentile
+        -- Width of work k's step: x_k - x_(k-1), x_0 = 0, in rank order (ties in x get width 0)
+        COALESCE(LAG(num_papers_percentile) OVER(PARTITION BY scholar_id ORDER BY publication_rank), 0) AS prev_num_papers_percentile
       FROM `scholar-version2.statistics.stats_author_publication_pip_inputs_current`
     ),
-    TrapezoidAreas AS (
+    StepAreas AS (
       SELECT
         scholar_id,
-        (num_papers_percentile - prev_num_papers_percentile) * (num_citations_percentile + prev_num_citations_percentile) / 2 AS area
+        (num_papers_percentile - prev_num_papers_percentile) * num_citations_percentile AS area
       FROM RankedPublications
     ),
     AUC AS (
       SELECT scholar_id, ROUND(SUM(area), 4) AS pip_auc_score
-      FROM TrapezoidAreas
+      FROM StepAreas
       GROUP BY scholar_id
     ),
     AllScores AS (
