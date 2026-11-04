@@ -83,7 +83,10 @@ WITH
       pp.state_year,
       pp.author_pub_id,
       pp.citation_percentile,
-      ROW_NUMBER() OVER(PARTITION BY pp.scholar_id, pp.state_year ORDER BY pp.citation_percentile DESC) AS publication_rank,
+      -- Ties (equal percentiles) break by citations, then paper id, so the order is deterministic.
+      ROW_NUMBER() OVER(PARTITION BY pp.scholar_id, pp.state_year
+                        ORDER BY pp.citation_percentile DESC, pp.cumulative_citations_at_state_year DESC,
+                                 pp.author_pub_id) AS publication_rank,
       a.year_of_first_pub,
       a.total_publications
     FROM PubPercentiles pp

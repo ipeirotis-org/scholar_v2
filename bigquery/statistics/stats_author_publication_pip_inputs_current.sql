@@ -15,7 +15,9 @@ WITH
       p.author_pub_id,
       p.num_citations,
       p.num_citations_percentile,
-      ROW_NUMBER() OVER(PARTITION BY bap.scholar_id ORDER BY p.num_citations_percentile DESC) AS publication_rank,
+      -- Ties (equal percentiles) break by citations, then paper id, so the order is deterministic.
+      ROW_NUMBER() OVER(PARTITION BY bap.scholar_id
+                        ORDER BY p.num_citations_percentile DESC, p.num_citations DESC, p.author_pub_id) AS publication_rank,
       a.year_of_first_pub,
       a.total_publications_with_citations
     FROM `scholar-version2.statistics.ranked_publication_current` p
