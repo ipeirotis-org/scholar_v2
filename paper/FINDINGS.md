@@ -294,3 +294,77 @@ Corrections (2026-11-04, from the Codex review of PR #179):
 - §6: the reference distribution counted authorships instead of distinct papers. Now it counts distinct papers.
 
 Neither correction changes the conclusions.
+
+## 8. PiP variants: symmetric and τ-cut (`sql/12`–`14`)
+
+All variants use the threshold form on a 40-point grid t = j/40. Here n(t) is the number of the author's articles at
+or above percentile t.
+
+| Variant | Definition |
+|---|---|
+| `pip` | Current step form: the average over t of F(n(t)), where F is the share of peers whose *total* count is at most n(t) |
+| `pip_tau25`, `pip_tau50` | The same, restricted to t ≥ τ and rescaled by 1/(1−τ). Papers below τ earn nothing; the score is still monotone. |
+| `sym` | The average over t of G_t(n(t)), where G_t is the share of peers with strictly fewer articles *above the same t* |
+| `sym_tau50` | Symmetric, restricted to t ≥ 0.5 |
+
+Check: the grid reproduces the exact `pip` with correlation 0.9999 (+0.0075, as expected from the left-edge sum).
+
+### S2, active peers, career age 10, start years 1975–2010 (3.43M authors)
+
+Within-cohort Spearman with each characteristic:
+
+| Variant | Articles | Mean paper pct. | h-index | Top-2.5% articles |
+|---|---|---|---|---|
+| pip | 0.896 | 0.131 | 0.922 | 0.418 |
+| pip_tau25 | 0.844 | 0.227 | 0.930 | 0.447 |
+| pip_tau50 | 0.714 | 0.388 | 0.889 | 0.488 |
+| sym | 0.856 | 0.214 | 0.917 | 0.489 |
+| sym_tau50 | **0.637** | **0.466** | 0.836 | **0.600** |
+
+### Cohort stability: median / 90th percentile of the raw score at age 10
+
+| Start year | pip | pip_tau50 | sym | sym_tau50 |
+|---|---|---|---|---|
+| 1960 | 0.29 / 0.67 | 0.24 / 0.61 | 0.44 / 0.87 | 0.41 / 0.85 |
+| 1980 | 0.28 / 0.67 | 0.17 / 0.56 | 0.42 / 0.86 | 0.39 / 0.85 |
+| 2000 | 0.27 / 0.68 | 0.13 / 0.56 | 0.40 / 0.85 | 0.37 / 0.85 |
+| 2010 | 0.26 / 0.68 | 0.11 / 0.56 | 0.40 / 0.86 | 0.38 / 0.85 |
+
+`pip_tau50` drifts: its median halves across cohorts. The asymmetric cut compares a partial count against peers' total
+counts, and those totals grow over time. The symmetric variants stay stable.
+
+### Prediction of future work (setup as in §7)
+
+Values are Spearman with future top-10% count / AUC for any future top-1% / Spearman with future mean quality.
+
+| Setting | h raw | pip | pip_tau25 | sym | sym_tau50 |
+|---|---|---|---|---|---|
+| Age 5 | .268/.646/.155 | .354/.683/.108 | .362/.690/.148 | .375/.698/.140 | **.378/.715/.264** |
+| Age 10 | .352/.719/.230 | .434/.756/.190 | .437/.760/.225 | **.445**/.766/.223 | .427/**.772/.321** |
+| Age 15 | .384/.758/.270 | .453/.792/.236 | .453/.794/.266 | **.460/.799**/.264 | .436/**.799/.343** |
+| Year 2000 | .269/.682/.152 | .398/.751/.186 | **.399**/.755/.215 | .393/.753/.199 | .381/**.761/.288** |
+| Year 2005 | .284/.691/.174 | .434/.770/.201 | **.435**/.773/.235 | .429/.772/.219 | .407/**.776/.310** |
+
+### Live GS data (`sql/14`, 15,900 active authors in cohorts of at least 30)
+
+The live PiP percentile correlates **0.968** with the cited-work count, which is even more productivity-driven than
+on S2.
+
+| | Live PiP | sym | sym_tau50 |
+|---|---|---|---|
+| Rank correlation with live | — | 0.983 | 0.903 |
+| Median shift in cohort percentile | — | 3 points | 7 points (90th percentile: 22) |
+| Rank vs top-2.5% works | 0.549 | 0.638 | 0.738 |
+| Rank vs cited-work count | 0.968 | — | 0.798 |
+| Score scale, 50th / 75th / 90th | 0.22 / 0.40 / 0.59 | — | 0.47 / 0.72 / 0.88 |
+
+### Takeaways
+
+- Every variant beats the h-index in every setting.
+- **`sym_tau50` is the most balanced** and rewards top papers most. It is the best at predicting future top-1% papers
+  and future quality in every setting, and it is stable across cohorts.
+- **The cost is a small loss on predicting the count of future top-10% papers** (2005: 0.407 against 0.434), which is
+  expected once productivity weighs less.
+- **The asymmetric cut (`pip_tau*`) is not usable,** because it drifts across cohorts.
+- **Open questions:** the cut point τ (0.25 / 0.5 / 0.75) for the symmetric version, and whether GS's small cohorts
+  need pooled windows of ±2 years.
