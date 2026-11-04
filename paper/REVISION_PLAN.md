@@ -101,5 +101,27 @@ Scholar profiles and against S2 authors with an ORCID.
 
 | Step | Table | Status |
 |---|---|---|
-| 01 | `paper_rp.paper_citations_by_age` | building |
-| 02 | `paper_rp.citation_percentile_lookup` | pending |
+| 01 | `paper_rp.paper_citations_by_age` | built 2026-11-04: 226.0M papers 1950–2025 (71.5M articles, 146M with a field, 105M cited by 2025); validated (see below) |
+| 02 | `paper_rp.citation_percentile_lookup` | built 2026-11-04: 25.1M rows, 94,550 partitions; validated (see below) |
+| 03 | `paper_rp.paper_percentile_stability` | built 2026-11-04: results in `FINDINGS.md` §1 |
+
+### What the validation checked
+
+**Table 01:**
+
+- Cumulative counts never decrease with age.
+- Ages that can't be observed yet are NULL.
+- Citations through 2025 sum to 97.5% of S2's own `citationcount` (2000–2005 papers), with a correlation of 0.999.
+  The remainder is 2026 citations and citing papers that have no year.
+
+**Table 02:**
+
+- Each partition's count equals the number of observable papers in table 01.
+- The paper-weighted mean Hazen percentile is exactly 0.5 in every partition.
+
+### Example: the 2000 cohort at age 5
+
+| Reference set | Uncited by age 5 | Citations at the 67th–71st percentile | Citations at the ~95th percentile |
+|---|---|---|---|
+| `all` | 63% | 1 citation is the 67th | 50 citations is the 98.6th |
+| `article` | 30% | 10 citations is the 71st | 50 citations is the 95th |
