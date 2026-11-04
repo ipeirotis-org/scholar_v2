@@ -38,9 +38,9 @@
     // counts on the reference lines are cumulative (the 75th-percentile line counts
     // works at the 90th and above too).
     var TIERS = [
-        { min: 90, label: '90th percentile and up', color: COLOR.accent, barClass: 'is-top10' },
-        { min: 75, label: '75th\u201389th percentile', color: COLOR.top25, barClass: 'is-top25' },
-        { min: 50, label: '50th\u201374th percentile', color: COLOR.top50, barClass: 'is-top50' }
+        { min: 90, label: '90.0th percentile and up', color: COLOR.accent, barClass: 'is-top10' },
+        { min: 75, label: '75.0th\u201389.9th percentile', color: COLOR.top25, barClass: 'is-top25' },
+        { min: 50, label: '50.0th\u201374.9th percentile', color: COLOR.top50, barClass: 'is-top50' }
     ];
     var LIST_PREVIEW = 12;
     var OVERLAP_PX = 7;
@@ -58,16 +58,16 @@
         return t.slice(-2) === '.0' ? t.slice(0, -2) : t;
     }
 
-    // Whole-number percentile (0-100 in), floored and clamped to 1..99, as in
-    // formatting.percentile_rank: 89.95 -> 89, 100 -> 99.
-    function percentileRank(v) {
-        return Math.min(99, Math.max(1, Math.floor(Number(v) + 1e-9)));
+    // Percentile with one decimal (0-100 in), clamped to 0.1..99.9, as in
+    // formatting.percentile_value: 89.94 -> 89.9, 100 -> 99.9.
+    function percentileValue(v) {
+        return Math.min(99.9, Math.max(0.1, Math.round(Number(v) * 10) / 10));
     }
 
+    // '77.1st', '86.0th': always one decimal, as formatting.ordinal_percentile.
     function ordinal(v) {
-        var n = percentileRank(v);
-        var suffix = (n % 100 >= 10 && n % 100 <= 20) ? 'th' : ({ 1: 'st', 2: 'nd', 3: 'rd' }[n % 10] || 'th');
-        return n + suffix;
+        var t = percentileValue(v).toFixed(1);
+        return t + ({ '1': 'st', '2': 'nd', '3': 'rd' }[t.charAt(t.length - 1)] || 'th');
     }
 
     function standingForYear(pct, year) {
@@ -312,7 +312,7 @@
             var t = tierIndex(p.pct);
             (t < 0 ? rest : groups[t]).push(p);
         });
-        var traces = [this._dotTrace(rest, COLOR.muted, 'Below the 50th percentile for its year')];
+        var traces = [this._dotTrace(rest, COLOR.muted, 'Below the 50.0th percentile for its year')];
         for (var i = TIERS.length - 1; i >= 0; i--) {
             traces.push(this._dotTrace(groups[i], TIERS[i].color, TIERS[i].label + ' for its year'));
         }
@@ -563,11 +563,11 @@
         this.finding.textContent = '';
         if (this.state.view === 'year') {
             var lead = el('strong', null, countAtLeast(papers, TIERS[0].min) + ' of ' + n +
-                ' scored works reached the 90th percentile for their publication year.');
+                ' scored works reached the ' + ordinal(TIERS[0].min) + ' percentile for their publication year.');
             this.finding.appendChild(lead);
             this.finding.appendChild(document.createTextNode(
-                ' ' + countAtLeast(papers, TIERS[1].min) + ' reached the 75th and ' +
-                countAtLeast(papers, TIERS[2].min) + ' the 50th.' +
+                ' ' + countAtLeast(papers, TIERS[1].min) + ' reached the ' + ordinal(TIERS[1].min) + ' and ' +
+                countAtLeast(papers, TIERS[2].min) + ' the ' + ordinal(TIERS[2].min) + '.' +
                 ' Each dot is one work, placed by when it appeared and by how its citations compare' +
                 ' with other cited works from that year; darker dots rank higher.'));
             if (this.earlierCount) {
@@ -863,7 +863,7 @@
             btn.setAttribute('data-paper-id', p.id);
 
             var pct = el('span', 'paper-row-pct');
-            pct.appendChild(el('span', 'paper-row-pct-value', String(percentileRank(p.pct))));
+            pct.appendChild(el('span', 'paper-row-pct-value', percentileValue(p.pct).toFixed(1)));
             var bar = el('span', 'paper-row-bar');
             var tier = tierIndex(p.pct);
             var fill = el('span', 'paper-row-bar-fill' + (tier >= 0 ? ' ' + TIERS[tier].barClass : ''));

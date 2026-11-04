@@ -99,6 +99,16 @@ via a managed scraping API instead of `scholarly`. Vendor evaluation: [docs/goog
   - [x] Ingest new Wikidata authors in order of English Wikipedia pageviews: up to 25% of each refresh run (`NEW_AUTHOR_SHARE`); permanent failures cool down 30 days
   - [x] Co-authors listed on profiled authors' pages (~180K) in the name index, ranked by how many profiled authors list them (2026-11-03)
   - [ ] Paper-title lookup
+- [ ] **Untitled works from the legacy seed** (found 2026-11-04 on Kaiming He's page, `DhtAFkwAAAAJ`: all 95 works
+  "Untitled"). 16,158 of 16,218 profiles are still legacy snapshots (2024-02 to 2026-03); the seed has no titles
+  or venues for 122 of them and for at least 10% of works in 260 more (1,878 more miss under 10%). Scores are
+  unaffected; only labels are missing
+  - [x] Refresh order (2026-11-04): legacy profiles with at least 10% untitled works (`UNTITLED_MIN_SHARE`) are
+    re-crawled after on-demand requests and new Wikidata authors but before merely stale profiles, largest
+    untitled share first, then most cited (Kaiming He, Todd Golub, Kenji Watanabe, Tomas Mikolov, ...). 382
+    profiles, ~1,560 searches: about 16 days of the daily refresh budget, or ~5 days for the 122 with no titles
+  - [ ] Optional: crawl the 122 profiles with no titles at once (`CRAWL_MODE=authors`, ~460 searches from the
+    reserve) instead of waiting for the daily runs
 - [x] **Robust career-start year** (2026-11-03): skip stray cited items before a >10-year gap (at most 2 or 5% of cited papers; >5 years dropped real early careers); manual `gs_data.start_year_overrides` (5 rows from the checked sample)
 - [ ] **Field-specific normalization** (display shipped 2026-11-03; scoring still open). GS percentiles compare
   every author with all ~16K profiled authors, so both PiP axes favour high-volume fields. Example: Jonathan A.
@@ -145,10 +155,33 @@ via a managed scraping API instead of `scholarly`. Vendor evaluation: [docs/goog
       field PiP-AUC percentile; `ranked_author_current.field_metric_percentiles_json` (share of peers at or below,
       so ties count as below, as in the overall percentiles), folded into `field_percentiles` by the cache layer
   - [ ] Then scoring: paper citation percentiles by field and year, publication counts by field and cohort
+    - Paper count, not citations per paper, drives most of the field gap (2026-11-04; active authors,
+      cited papers only). PiP-AUC = curve length (paper-count percentile reached) × average curve height
+      (mean within-year citation percentile of the author's papers), so log PiP splits exactly into the two.
+      (`scripts/field_pip_decomposition.sql`) Per field: cited papers per career year; median citations per paper; median length; median height;
+      median PiP; mean log-PiP gap to all fields = from length + from height:
+      - Chemistry & Materials: 4.0; 29; 0.64; 0.53; 0.32; +0.35 = +0.23 + 0.12
+      - Computer Science: 4.5; 21; 0.66; 0.49; 0.31; +0.28 = +0.23 + 0.05
+      - Medicine & Health: 4.9; 21; 0.64; 0.49; 0.31; +0.27 = +0.23 + 0.05
+      - Physics & Astronomy: 4.1; 26; 0.61; 0.51; 0.29; +0.27 = +0.20 + 0.06
+      - Psychology & Cognitive Science: 3.4; 31; 0.49; 0.51; 0.25; +0.09 = +0.02 + 0.07
+      - Engineering: 4.1; 17; 0.62; 0.42; 0.25; +0.08 = +0.16 − 0.08
+      - Earth & Environmental Sciences: 3.5; 25; 0.51; 0.46; 0.23; +0.05 = +0.06 − 0.01
+      - Biology & Neuroscience: 2.7; 33; 0.43; 0.51; 0.21; −0.05 = −0.14 + 0.09
+      - Mathematics & Statistics: 3.2; 17; 0.52; 0.41; 0.20; −0.08 = +0.02 − 0.10
+      - Economics & Business: 2.0; 26; 0.30; 0.44; 0.13; −0.53 = −0.45 − 0.08
+      - Social Sciences & Humanities: 2.2; 16; 0.33; 0.35; 0.11; −0.74 = −0.46 − 0.29
+      Length spans 0.30–0.66 across fields, height only 0.35–0.53; length is the larger part for 9 of 11 fields.
+      Economics papers are cited as much as physics papers (median 26) but economists publish half as many.
+      So ranking publication counts by field and cohort (the x-axis) closes most of the gap; field-and-year
+      citation percentiles (the y-axis) matter mainly for Social Sciences & Humanities, Mathematics and
+      Engineering (low) and Chemistry and Biology (high). Height compares papers with all fields' papers of the
+      same year; citation medians are not age-adjusted (median career 24–28 years in every field)
 - [x] **Featured authors on the homepage** (2026-11-03): a pinned section above "Recently Analyzed Authors" with the ten profiled authors whose English Wikipedia articles were read most over the last 60 days, and `/featured` (nav link "Featured") with the top 100. Built by `gs_crawler/featured.py` after the weekly materialize and the monthly Wikidata reload (`CRAWL_MODE=featured` alone); leaves out deceased people and h-index < 10. The recent list shows 5 authors with an in-place "See more" for the rest (up to 20). Both lists share `templates/_author_table.html`: one line per row (long names and affiliations end in "…" and expand on click), right-aligned numbers, PiP-AUC and its percentile in separate columns; narrow screens drop affiliation (<992px), h-index (<768px) and citations (<576px). Footer source line moved under the contact line
 - [x] **Author results page leads with standing** (2026-11-03): headline names the comparison group ("top 23% of tracked active authors whose career started in 1990"), PiP-AUC below it, the four conventional metrics on one percentile scale; one chart with a by-year view (dots shaded by top 10% / 25% / 50% tier with a line at each; axis starts at the career-start year, earlier works noted and kept in the list) and a PiP-curve view (shaded area, curve end, median-peer example) sharing a pinned-work panel; sortable list of works below; author line reads "Career start YYYY" (the robust `year_of_first_pub`)
   - [x] The works explorer opens on the PiP curve (2026-11-03); "By publication year" is the second view
-  - [x] One scale (2026-11-03): whole-number percentiles everywhere ("ranks at the 75th percentile of ...", the field line, metric rows, paper explorer tiers and list, homepage table) instead of mixing "top 25%" / "ahead of 21.1%" with "75.3rd percentile". Floored and clamped to 1st–99th (`formatting.percentile_rank`, `percentileRank` in `paper_explorer.js`); the score line no longer repeats the percentile. PiP-curve coordinates (x, y) keep one decimal
+  - [x] One scale (2026-11-03): percentiles everywhere ("ranks at the 75.3rd percentile of ...", the field page, metric rows, paper explorer tiers and list, homepage table) instead of mixing "top 25%" / "ahead of 21.1%" with "75.3rd percentile"; the score line no longer repeats the percentile
+    - [x] Always one decimal (2026-11-04), also for round values ("86.0th", "90.0th percentile", "86.0" in tables): rounded and clamped to 0.1–99.9 (`formatting.percentile_value`, `percentileValue` in `paper_explorer.js`). A day of whole numbers (floored, 1st–99th) lost the detail people wanted
   - [x] GS mode: publication detail links go to the paper's Google Scholar record; `/publication/...` redirects there (no cache task, no loading page) until Phase B adds per-paper histories (re-enable via `_has_publication_history()` in `frontend/routes.py`)
   - [ ] Authors in the pinned-work panel: `author_pub_stats` docs for the largest profiles are already ~790 KB of Firestore's 1 MiB, so author lists need a per-paper store or a size cap first (the panel links to the GS record meanwhile)
 
