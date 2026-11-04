@@ -32,10 +32,15 @@
     percentile 0.013, the maximum 0.082, and the correlation 0.99989.
   - [ ] S2 distribution tables (`statistics.dist_publication_citations`, `_temporal`) still use 1000 approximate
     quantiles; switch them to exact counts if `DATA_SOURCE=s2` returns. The tie-breakers already cover the ordering.
-  - [ ] Merge to main (deploys the views via `bigquery-views.yml` and the chart via `deploy-frontend.yml`)
-  - [ ] Rebuild GS distribution tables (`gs-crawler` job with `CRAWL_MODE=materialize`)
-  - [ ] Re-cache Firestore `v3_author_stats` entries through the `cache-batch` queue (scores change without new
-    profile data, so the timestamp check won't refresh them)
+  - [x] Merge to main (2026-11-04, PR #179); `bigquery-views.yml`, `deploy-frontend.yml` and
+    `deploy-gs-crawler.yml` all succeeded. The live views use the step form and the new tie-breaker, and the chart
+    draws steps.
+  - [x] Rebuild GS distribution tables: `bigquery-views.yml` rebuilt all of them at deploy (23:28 UTC);
+    `dist_publication_citations` now has 75,111 exact rows, so no separate materialize run was needed
+  - [x] Re-cache Firestore `v3_author_stats` (2026-11-04): all 111 cached authors re-populated through the
+    `cache-batch` queue in 8 minutes. PiP-AUC fell for 102, rose for 8 (exact percentiles or newer profile data),
+    median change −0.0015, range −0.021 to +0.011; cohort percentile median change 0. Spot checks match
+    `gs_statistics.ranked_author_pip_scores_current` exactly.
   - [ ] S2 tables (frozen) pick up the change only if `DATA_SOURCE=s2` returns and they are re-materialized
 
 ## Collaboration
