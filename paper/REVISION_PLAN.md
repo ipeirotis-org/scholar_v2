@@ -104,6 +104,12 @@ Scholar profiles and against S2 authors with an ORCID.
 | 01 | `paper_rp.paper_citations_by_age` | built 2026-11-04: 226.0M papers 1950–2025 (71.5M articles, 146M with a field, 105M cited by 2025); validated (see below) |
 | 02 | `paper_rp.citation_percentile_lookup` | built 2026-11-04: 25.1M rows, 94,550 partitions; validated (see below) |
 | 03 | `paper_rp.paper_percentile_stability` | built 2026-11-04: results in `FINDINGS.md` §1 |
+| 04 | `paper_rp.article_percentiles` | built 2026-11-04: 71.5M articles; per-age arrays of citations, `below` (share with fewer citations) and Hazen percentiles |
+| 05 | `paper_rp.author_articles` | built 2026-11-04: 277.8M author–article links; career start = first article |
+| 06 | `paper_rp.author_pip_by_age` (`sql/run_06.sh`) | built 2026-11-04: per author and career age 1–30, counts, h-index, productivity percentile, step-form PiP-AUC; two peer rules (`active` 111.6M rows, `min3` 192.7M rows) |
+| 07 | `paper_rp.author_percentiles_by_age` | built 2026-11-04: within-cohort percentiles of PiP, h-index, citations, v3 sum, mean paper percentile, article count |
+| 08 | `paper_rp.author_stability` | built 2026-11-04: `FINDINGS.md` §5 |
+| 09 | `paper_rp.survivorship_base` / `_auc` / `_deciles` | built 2026-11-04: `FINDINGS.md` §5 |
 
 ### What the validation checked
 

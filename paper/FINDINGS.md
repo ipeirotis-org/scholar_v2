@@ -77,3 +77,121 @@ These are random-simulation checks on 2,000–5,000 cases, with cohort count dis
   the decomposition as approximate.
 - **Reviewers' example (round 2).** A has 50 papers at the 1st percentile; B has one paper at the 25th. A scores 0.009
   and B scores 0, because F(1) = 0 among active authors. Both land at the bottom instead of A outranking B.
+
+## 3. Author-level setup (`sql/04`–`07`)
+
+Each author's career start is the year of their first article. At evaluation year Y = start + age, an author's peers
+are authors with the same start year who meet the peer rule using only information up to Y.
+
+### Peer rules
+
+- **`active`** (main): at least 3 articles and an h-index of at least 3 at Y. This is the as-of-year version of the
+  app's `active_authors`, which uses current values instead.
+- **`min3`**: at least 3 articles at Y.
+
+Article counts and the h-index never decrease, so once an author is a peer, they remain one at every later age.
+
+### What the tables hold
+
+- **Paper percentile y:** the share of articles from the same publication year with strictly fewer citations at Y,
+  so uncited papers score 0.
+- **PiP-AUC:** step form, Σ_k y_(k) p(k), where p(k) is the share of peers with exactly k articles.
+
+### Size and validation
+
+- `author_pip_by_age`: 111.6M author-age rows for 11.1M authors under `active`; 192.7M rows for 19.2M authors under
+  `min3`.
+- The bounds y_min·F(n) ≤ PiP ≤ y_max·F(n) never fail.
+- Within-cohort percentiles average exactly 0.5 in all 1,665 peer groups.
+
+### Why `active` is the main rule
+
+`min3` puts a large mass at PiP = 0: 54M of 193M rows. When every peer has 3 or more papers, p(1) = p(2) = 0, so a
+3-article author scores y₍₃₎·p(3), which is zero whenever their third-best article is uncited. This is the threshold
+form at work: a paper above threshold t counts only if the author has more papers above t than some peers have in
+total. Under `active`, every third-ranked paper is cited, so every score is positive.
+
+## 4. A raw PiP score means the same thing across cohorts (answers round 3, R1, on Fig. 3)
+
+PiP-AUC quantiles at career age 10, `active` peers:
+
+| Start year | Peers | 25th | Median | 75th | 90th | Mean h-index |
+|---|---|---|---|---|---|---|
+| 1960 | 4,031 | 0.132 | 0.287 | 0.483 | 0.670 | 4.4 |
+| 1970 | 11,926 | 0.147 | 0.293 | 0.491 | 0.678 | 4.7 |
+| 1980 | 25,383 | 0.145 | 0.284 | 0.479 | 0.671 | 4.8 |
+| 1990 | 61,422 | 0.145 | 0.278 | 0.474 | 0.663 | 5.0 |
+| 2000 | 122,114 | 0.136 | 0.274 | 0.485 | 0.681 | 5.8 |
+| 2010 | 269,202 | 0.124 | 0.261 | 0.482 | 0.685 | 6.2 |
+| 2015 | 392,360 | 0.122 | 0.262 | 0.482 | 0.686 | 6.1 |
+
+The raw PiP distribution is nearly constant over 55 years of cohorts: medians 0.26–0.29, 90th percentiles 0.66–0.69.
+Over the same cohorts the raw h-index at age 10 drifts up by 40%.
+
+## 5. Scholar indicators: stability, survivorship, and what PiP measures
+
+### Stability (`author_stability`, v3 Fig. 7)
+
+Correlation of within-cohort percentiles between career ages, `active` peers, start years 1975–1995. Pearson on
+percentiles equals Spearman on the raw metric.
+
+| Ages | Articles | v3 sum (S_P5) | PiP-AUC | Mean paper pct. | Citations | h-index |
+|---|---|---|---|---|---|---|
+| 5 vs 10 | 0.847 | 0.829 | 0.772 | 0.703 | 0.798 | 0.604 |
+| 5 vs 30 | 0.642 | 0.628 | 0.565 | 0.545 | 0.451 | 0.370 |
+| 10 vs 30 | 0.800 | 0.783 | 0.742 | 0.736 | 0.620 | 0.599 |
+| 20 vs 30 | 0.946 | 0.936 | 0.923 | 0.912 | 0.886 | 0.877 |
+
+The 5-vs-30 row covers 434K authors. PiP is more stable over long horizons than citations or the h-index, and less
+stable than the article count. Part of the h-index's low stability early on comes from heavy ties at h = 3–4.
+
+### Survivorship (`survivorship_*`, the limitation v3 promised to study)
+
+Population: `active` authors at age 5, start years 1980–2005, 1.13M authors. The table gives the ROC AUC for still
+publishing at ages 11–15 and 16–20.
+
+| Indicator at age 5 | Publishing at 11–15 | Publishing at 16–20 |
+|---|---|---|
+| Articles | 0.683 | 0.663 |
+| v3 sum | 0.675 | 0.655 |
+| PiP-AUC | 0.647 | 0.630 |
+| h-index | 0.575 | 0.565 |
+| Citations | 0.540 | 0.537 |
+| Mean paper percentile | 0.400 | 0.410 |
+
+By PiP decile at age 5, the share still publishing at 11–15 rises from 39% in the bottom decile to 79% in the top.
+
+The mean paper percentile is inversely related to continuing. Authors with a few well-cited papers are more likely to
+stop appearing; these include students and short-term contributors on strong teams. S2 splitting one person into
+several author profiles can also look like stopping.
+
+### What PiP measures
+
+Cross-sectional correlations at age 10 (`active`, start years 1975–2010, 3.43M authors), between within-cohort
+percentiles:
+
+| Pair | Correlation |
+|---|---|
+| PiP vs articles | 0.897 |
+| PiP vs h-index | 0.924 |
+| PiP vs citations | 0.717 |
+| PiP vs plain mean paper percentile | 0.131 |
+| v3 sum vs articles | 0.941 |
+| Plain mean paper percentile vs articles | −0.271 |
+
+Variance of log PiP = var(log F(n)) + var(log weighted-mean y) + 2·cov:
+
+| Age | Productivity share | Quality share | Covariance share |
+|---|---|---|---|
+| 5 | 0.77 | 0.30 | −0.07 |
+| 10 | 0.67 | 0.24 | +0.09 |
+| 20 | 0.59 | 0.21 | +0.20 |
+
+The weighted-mean factor is not flat: its 10th / 50th / 90th percentiles are 0.32 / 0.61 / 0.85. It correlates about
+0.8 with the plain mean.
+
+**Takeaway, and an open decision.** On S2, PiP-AUC behaves mostly like a productivity percentile, adjusted by a
+quality factor that explains about a quarter of its log variance. It sits close to the h-index (r = 0.92) and far from
+mean quality. This bears directly on the round 3 objection that "combining quality and quantity … has not been done
+successfully". The paper should report the decomposition openly. A further option is to vary the balance, for
+example F(n)^α · W^(1−α), and test which α predicts later outcomes best.
