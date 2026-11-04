@@ -32,7 +32,8 @@ WITH
   future AS (
     SELECT authorid, pub_year, below[OFFSET(5)] AS b5, hazen[OFFSET(5)] AS h5
     FROM `scholar-version2.paper_rp.author_articles`
-    WHERE pub_year BETWEEN 1981 AND 2020 AND start_year BETWEEN 1970 AND 2003
+    -- must cover every start year admitted by `base`: same_age reaches 2010 - 5 = 2005, same_year starts at 1970
+    WHERE pub_year BETWEEN 1981 AND 2020 AND start_year BETWEEN 1970 AND 2005
   ),
   outcomes AS (
     SELECT b.scenario, b.setting, b.authorid,

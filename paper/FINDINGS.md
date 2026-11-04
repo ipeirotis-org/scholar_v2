@@ -204,13 +204,13 @@ start years 1975–2010, 3.43M authors.
 
 | | Same-year articles (main) | Same-cohort peers' papers |
 |---|---|---|
-| Average paper percentile of these authors | 0.61 | 0.48 |
-| Weighted-mean factor W, 10th / 50th / 90th | 0.31 / 0.60 / 0.84 | 0.16 / 0.42 / 0.74 |
-| Share of log-PiP variance: productivity | 0.65 | 0.46 |
+| Average paper percentile of these authors | 0.61 | 0.49 |
+| Weighted-mean factor W, 10th / 50th / 90th | 0.32 / 0.60 / 0.84 | 0.17 / 0.43 / 0.75 |
+| Share of log-PiP variance: productivity | 0.65 | 0.47 |
 | Share of log-PiP variance: quality | 0.24 | 0.36 |
-| PiP rank vs article-count rank | 0.896 | 0.838 |
-| PiP rank vs mean-quality rank | 0.131 | 0.311 |
-| Correlation of the two PiP rankings | — | 0.988 |
+| PiP rank vs article-count rank | 0.896 | 0.839 |
+| PiP rank vs mean-quality rank | 0.131 | 0.304 |
+| Correlation of the two PiP rankings | — | 0.989 |
 
 The variant spreads the quality factor and moves weight toward quality. The overall ranking hardly changes.
 
@@ -242,23 +242,23 @@ settings:
 
 | Predictor | Same age: age 5 | age 10 | age 15 | Same year: 2000 | 2005 |
 |---|---|---|---|---|---|
-| PiP raw | **0.300** | **0.434** | 0.453 | **0.398** | **0.434** |
-| PiP percentile | 0.293 | 0.433 | 0.453 | 0.393 | 0.433 |
-| h-index raw | 0.197 | 0.352 | 0.384 | 0.269 | 0.284 |
-| h-index percentile | 0.231 | 0.352 | 0.385 | 0.328 | 0.363 |
-| Citations percentile | 0.203 | 0.297 | 0.331 | 0.291 | 0.312 |
-| Articles raw | 0.285 | 0.437 | **0.464** | 0.337 | 0.366 |
-| Articles percentile | 0.284 | 0.433 | 0.461 | **0.402** | **0.439** |
+| PiP raw | 0.354 | **0.434** | 0.453 | **0.398** | **0.434** |
+| PiP percentile | **0.356** | 0.433 | 0.453 | 0.393 | 0.433 |
+| h-index raw | 0.268 | 0.352 | 0.384 | 0.269 | 0.284 |
+| h-index percentile | 0.256 | 0.352 | 0.385 | 0.328 | 0.363 |
+| Citations percentile | 0.250 | 0.297 | 0.331 | 0.291 | 0.312 |
+| Articles raw | 0.348 | 0.437 | **0.464** | 0.337 | 0.366 |
+| Articles percentile | 0.343 | 0.433 | 0.461 | **0.402** | **0.439** |
 
 ### ROC AUC for at least one future top-1% article
 
 | Predictor | Same age: age 5 | age 10 | age 15 | Same year: 2000 | 2005 |
 |---|---|---|---|---|---|
-| PiP raw | **0.679** | **0.756** | **0.792** | **0.751** | **0.770** |
-| h-index percentile | 0.649 | 0.721 | 0.760 | 0.721 | 0.737 |
-| h-index raw | 0.632 | 0.719 | 0.758 | 0.682 | 0.691 |
-| Articles percentile | 0.654 | 0.739 | 0.781 | 0.737 | 0.757 |
-| Citations percentile | 0.665 | 0.716 | 0.750 | 0.723 | 0.733 |
+| PiP raw | **0.683** | **0.756** | **0.792** | **0.751** | **0.770** |
+| h-index percentile | 0.647 | 0.721 | 0.760 | 0.721 | 0.737 |
+| h-index raw | 0.646 | 0.719 | 0.758 | 0.682 | 0.691 |
+| Articles percentile | 0.661 | 0.739 | 0.781 | 0.737 | 0.757 |
+| Citations percentile | 0.671 | 0.716 | 0.750 | 0.723 | 0.733 |
 
 ### Spearman correlation with the mean percentile of future articles (pure quality)
 
@@ -277,7 +277,8 @@ settings:
 2. **Raw PiP needs no further normalization.** PiP raw and PiP percentile are equivalent, even across seniority
    (2005: 0.434 vs 0.433). PiP is built from a cohort-relative x-axis and year-relative paper percentiles, and its raw
    distribution is already stable across cohorts (§4).
-3. **The h-index has to be converted to a cohort percentile to compare people of different seniority.** In 2005 the
+3. **The h-index has to be converted to a cohort percentile to compare people of different seniority.** At the same
+   career age the conversion makes no difference (age 5: raw 0.268 vs percentile 0.256). In 2005 the
    percentile reaches 0.363 against 0.284 for raw h, and the AUC 0.737 against 0.691. Even converted, it stays behind
    PiP.
 4. **Article count is a strong baseline for future counts,** as expected from PiP's productivity weight (§5). It ties
@@ -285,3 +286,11 @@ settings:
    at predicting future article quality (0.19 vs 0).
 5. **Future quality alone is best predicted by the citations percentile.** PiP is not the best pure-quality
    predictor.
+
+Corrections (2026-11-04, from the Codex review of PR #179):
+
+- §7, age-5 column: the future-article lookup missed authors who started in 2004–2005. Fixed, and the column was
+  rerun.
+- §6: the reference distribution counted authorships instead of distinct papers. Now it counts distinct papers.
+
+Neither correction changes the conclusions.

@@ -21,12 +21,22 @@ WITH
       ON a.authorid = p.authorid AND a.start_year = p.start_year
     WHERE a.start_year BETWEEN 1975 AND 2010 AND a.pub_year <= p.start_year + 10
   ),
-  peer_pct AS (
-    SELECT *,
+  -- The reference set is distinct papers, so a paper with several same-cohort co-authors counts once
+  -- (c is the same for every co-author: same publication year, same evaluation year).
+  ref_papers AS (
+    SELECT DISTINCT start_year, pub_year, corpusid, c FROM papers
+  ),
+  ref_pct AS (
+    SELECT start_year, pub_year, corpusid,
       -- share of same-cohort peers' papers from the same year with strictly fewer citations
       (RANK() OVER (PARTITION BY start_year, pub_year ORDER BY c) - 1)
         / COUNT(*) OVER (PARTITION BY start_year, pub_year) AS y_peer
-    FROM papers
+    FROM ref_papers
+  ),
+  peer_pct AS (
+    SELECT p.*, r.y_peer
+    FROM papers AS p
+    JOIN ref_pct AS r USING (start_year, pub_year, corpusid)
   ),
   ranked AS (
     SELECT *, ROW_NUMBER() OVER (PARTITION BY authorid ORDER BY y_peer DESC, c DESC, corpusid) AS k
