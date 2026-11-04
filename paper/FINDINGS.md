@@ -224,3 +224,64 @@ Two caveats:
 
 **Decision (2026-11-04):** the app keeps same-year percentiles. The paper reports this as a variant, next to the
 F(n)^α · W^(1−α) weighting.
+
+## 7. Predicting future work: PiP vs h-index, raw vs percentile (`sql/11_prediction.sql`)
+
+The predictors are the indicators at evaluation year Y. The outcomes come from the author's articles published in
+Y+1 .. Y+10, each scored at its own age 5 within its publication year, so no article counts toward both. Population:
+`active` peers.
+
+Within one cohort, a raw value and its percentile rank people identically. So the comparison pools cohorts in two
+settings:
+
+- **Same career age:** everyone at career age 5, 10 or 15, start years 1975 .. 2010 − age (the tenure-committee case).
+- **Same calendar year:** everyone active in 2000 or 2005, at career ages 2–30 (comparing people of different
+  seniority).
+
+### Spearman correlation with the number of future top-10% articles
+
+| Predictor | Same age: age 5 | age 10 | age 15 | Same year: 2000 | 2005 |
+|---|---|---|---|---|---|
+| PiP raw | **0.300** | **0.434** | 0.453 | **0.398** | **0.434** |
+| PiP percentile | 0.293 | 0.433 | 0.453 | 0.393 | 0.433 |
+| h-index raw | 0.197 | 0.352 | 0.384 | 0.269 | 0.284 |
+| h-index percentile | 0.231 | 0.352 | 0.385 | 0.328 | 0.363 |
+| Citations percentile | 0.203 | 0.297 | 0.331 | 0.291 | 0.312 |
+| Articles raw | 0.285 | 0.437 | **0.464** | 0.337 | 0.366 |
+| Articles percentile | 0.284 | 0.433 | 0.461 | **0.402** | **0.439** |
+
+### ROC AUC for at least one future top-1% article
+
+| Predictor | Same age: age 5 | age 10 | age 15 | Same year: 2000 | 2005 |
+|---|---|---|---|---|---|
+| PiP raw | **0.679** | **0.756** | **0.792** | **0.751** | **0.770** |
+| h-index percentile | 0.649 | 0.721 | 0.760 | 0.721 | 0.737 |
+| h-index raw | 0.632 | 0.719 | 0.758 | 0.682 | 0.691 |
+| Articles percentile | 0.654 | 0.739 | 0.781 | 0.737 | 0.757 |
+| Citations percentile | 0.665 | 0.716 | 0.750 | 0.723 | 0.733 |
+
+### Spearman correlation with the mean percentile of future articles (pure quality)
+
+| Indicator | Range across settings |
+|---|---|
+| Citations percentile | 0.28–0.32 (best) |
+| h-index | 0.15–0.27 |
+| PiP | 0.10–0.24 |
+| Articles | about 0 |
+
+### What this shows
+
+1. **PiP beats the h-index, raw or percentile, in every setting and on both impact outcomes.** At age 10, PiP's
+   Spearman correlation is 0.43 against 0.35 for the h-index. In 2005, PiP's AUC is 0.77 against 0.74 for the
+   h-index percentile.
+2. **Raw PiP needs no further normalization.** PiP raw and PiP percentile are equivalent, even across seniority
+   (2005: 0.434 vs 0.433). PiP is built from a cohort-relative x-axis and year-relative paper percentiles, and its raw
+   distribution is already stable across cohorts (§4).
+3. **The h-index has to be converted to a cohort percentile to compare people of different seniority.** In 2005 the
+   percentile reaches 0.363 against 0.284 for raw h, and the AUC 0.737 against 0.691. Even converted, it stays behind
+   PiP.
+4. **Article count is a strong baseline for future counts,** as expected from PiP's productivity weight (§5). It ties
+   PiP on the number of future top-10% articles. PiP is better at identifying who will produce a top-1% article, and
+   at predicting future article quality (0.19 vs 0).
+5. **Future quality alone is best predicted by the citations percentile.** PiP is not the best pure-quality
+   predictor.
