@@ -6,7 +6,7 @@
 --      (via dist_publication_citations_temporal, L2)
 --   3. Counting how many papers the author had → num_papers_percentile
 --      (via dist_author_metrics_temporal, L4, using RANGE_BUCKET array lookup)
---   4. Running the same trapezoidal integration → pip_auc_score
+--   4. Running the same step-form integration → pip_auc_score
 --
 -- Depends on: intermediate_author_publication_state_temporal (L2),
 --   dist_publication_citations_temporal (L2), stats_author_metrics_temporal_view (L3),
@@ -83,7 +83,10 @@ WITH
       pp.state_year,
       pp.author_pub_id,
       pp.citation_percentile,
-      ROW_NUMBER() OVER(PARTITION BY pp.scholar_id, pp.state_year ORDER BY pp.citation_percentile DESC) AS publication_rank,
+      -- Ties (equal percentiles) break by citations, then paper id, so the order is deterministic.
+      ROW_NUMBER() OVER(PARTITION BY pp.scholar_id, pp.state_year
+                        ORDER BY pp.citation_percentile DESC, pp.cumulative_citations_at_state_year DESC,
+                                 pp.author_pub_id) AS publication_rank,
       a.year_of_first_pub,
       a.total_publications
     FROM PubPercentiles pp
@@ -134,25 +137,25 @@ WITH
      AND rp.state_year = da.state_year
   ),
 
-  -- Trapezoidal integration (same pattern as stats_author_pip_scores_current)
-  TrapezoidInputs AS (
+  -- Step-form integration (same pattern as stats_author_pip_scores_current)
+  StepInputs AS (
     SELECT
       scholar_id,
       state_year,
       year_of_first_pub,
       num_citations_percentile,
       num_papers_percentile,
-      COALESCE(LAG(num_citations_percentile) OVER(PARTITION BY scholar_id, state_year ORDER BY num_papers_percentile), num_citations_percentile) AS prev_num_citations_percentile,
-      COALESCE(LAG(num_papers_percentile)    OVER(PARTITION BY scholar_id, state_year ORDER BY num_papers_percentile), 0) AS prev_num_papers_percentile
+      -- Width of work k's step: x_k - x_(k-1), x_0 = 0, in rank order (ties in x get width 0)
+      COALESCE(LAG(num_papers_percentile) OVER(PARTITION BY scholar_id, state_year ORDER BY publication_rank), 0) AS prev_num_papers_percentile
     FROM InterpolatedPubs
   ),
-  TrapezoidAreas AS (
+  StepAreas AS (
     SELECT
       scholar_id,
       state_year,
       year_of_first_pub,
-      (num_papers_percentile - prev_num_papers_percentile) * (num_citations_percentile + prev_num_citations_percentile) / 2 AS area
-    FROM TrapezoidInputs
+      (num_papers_percentile - prev_num_papers_percentile) * num_citations_percentile AS area
+    FROM StepInputs
   )
 
 SELECT
@@ -160,5 +163,5 @@ SELECT
   state_year,
   year_of_first_pub,
   ROUND(SUM(area), 4) AS pip_auc_score
-FROM TrapezoidAreas
+FROM StepAreas
 GROUP BY scholar_id, state_year, year_of_first_pub;

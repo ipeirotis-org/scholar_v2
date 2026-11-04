@@ -227,7 +227,7 @@ Joins `stats_publication_citations_temporal` + `dist_publication_citations_tempo
 ### Level 4: PiP Scores + Higher Distributions
 
 #### stats_author_pip_scores_current
-PiP-AUC score via trapezoidal integration of PiP inputs. No percentile.
+PiP-AUC score: area under the PiP step curve, Σ y_k (x_k − x_(k−1)) in publication-rank order (trapezoidal before 2026-11-04). No percentile.
 
 #### dist_pip_auc_scores
 Maps `(year_of_first_pub, pip_auc_score)` → percentile.

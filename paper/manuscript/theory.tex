@@ -1,0 +1,100 @@
+%!TEX root = ms.tex
+% Draft (2026-11-04): theory section for the symmetric PiP score. Not yet \input in ms.tex.
+% Numerical checks: paper/checks/sym_properties.py; empirical results: paper/FINDINGS.md sections 8-9.
+\section*{The PiP score}
+
+\subsection*{Paper percentiles}
+Consider an evaluation year $Y$. For an article $j$ published in year $p_j \le Y$, let $c_j(Y)$ be the citations it has
+received through $Y$. Its \emph{percentile} is the share of articles published in the same year with strictly fewer
+citations at $Y$,
+\begin{equation}
+y_j(Y) = \frac{\left|\{\,i : p_i = p_j,\ c_i(Y) < c_j(Y)\,\}\right|}{\left|\{\,i : p_i = p_j\,\}\right|} \in [0, 1).
+\end{equation}
+Uncited articles have $y_j = 0$. Because every article is compared only with articles of the same publication year,
+evaluated at the same time, $y_j$ needs no correction for the age of the paper or for citation inflation.
+
+\subsection*{Peers and standing curves}
+An author $a$ starts their career with their first article, in year $s_a$. At evaluation year $Y = s_a + A$ (career
+age $A$), the author's \emph{peers} $\mathcal{P}$ are the authors with the same start year who are active at $Y$ (at least
+three articles and an $h$-index of at least three, both computed from information available at $Y$). For a quality
+threshold $\theta \in [0,1]$, let
+\begin{equation}
+n_a(\theta) = \left|\{\, j \in a : p_j \le Y,\ y_j(Y) \ge \theta \,\}\right|
+\end{equation}
+be the number of the author's articles at or above percentile $\theta$; $n_a(0)$ is the author's article count. Within
+the peer group, the author's standing at threshold $\theta$ is the share of peers with strictly fewer articles at or above
+$\theta$,
+\begin{equation}
+g_a(\theta) = G_\theta\!\left(n_a(\theta)\right), \qquad
+G_\theta(m) = \frac{\left|\{\, b \in \mathcal{P} : n_b(\theta) < m \,\}\right|}{|\mathcal{P}|}.
+\end{equation}
+The \emph{standing curve} $\theta \mapsto g_a(\theta)$ starts at the author's productivity percentile ($\theta = 0$:
+standing on the number of articles) and ends at the author's standing on the number of top articles ($\theta \to 1$).
+
+\subsection*{Definition}
+The PiP score with cutoff $\tau \in [0, 1)$ is the average standing over the thresholds at or above $\tau$,
+\begin{equation}
+\mathrm{PiP}_\tau(a) = \frac{1}{1-\tau} \int_\tau^1 g_a(\theta)\, d\theta .
+\end{equation}
+It is the area under the standing curve to the right of $\tau$, rescaled to $[0,1]$. We use $\tau = 1/2$ throughout:
+only articles in the top half of their publication year earn credit. Lowering $\tau$ shifts weight towards the number of
+articles; raising it shifts weight towards the number of highly cited articles (Fig.~\ref{fig:tau_sweep}).
+
+\subsection*{Properties}
+The following hold for a fixed peer group $\mathcal{P}$ (the score is relative to that reference set).
+
+\paragraph{Range.} $0 \le \mathrm{PiP}_\tau(a) < 1$, with $\mathrm{PiP}_\tau(a) = 0$ exactly when, at almost every threshold
+$\theta \ge \tau$, no peer has fewer articles at or above $\theta$ than $a$.
+
+\paragraph{Monotonicity.} Adding an article, or raising the percentile of an existing article, never lowers
+$\mathrm{PiP}_\tau$. An article whose percentile stays below $\tau$ leaves the score unchanged. \emph{Proof:} each change
+weakly increases $n_a(\theta)$ for every $\theta$, and leaves it unchanged for $\theta > y_j$; $G_\theta$ is
+non-decreasing.
+
+\paragraph{No reward for volume alone.} An author with many articles below the 50th percentile of their year scores zero
+at $\tau = 1/2$, however many such articles they publish. The earlier, asymmetric score rewarded such records (below).
+
+\paragraph{Credit for the best work.} A single article in the top $1\%$ raises $n_a(\theta)$ by one at every threshold,
+including the highest, where most peers have none. In a simulated cohort (checks/sym\_properties.py), one article at the
+99th percentile scores $0.45$, while one article at the 50th percentile scores $0$. The $h$-index cannot distinguish
+these two records (both have $h = 1$), and neither can the asymmetric score (both score $0$).
+
+\paragraph{Factorization.} For an author in the peer group, let $F(m) = |\{b \in \mathcal{P}: n_b(0) \le m\}|/|\mathcal{P}|$
+be the productivity percentile, which is positive because the author counts among their own peers. Then
+\begin{equation}
+\mathrm{PiP}_\tau(a) = F\!\left(n_a(0)\right) \cdot Q_\tau(a), \qquad
+Q_\tau(a) = \frac{1}{1-\tau} \int_\tau^1 \frac{g_a(\theta)}{F\!\left(n_a(0)\right)}\, d\theta .
+\end{equation}
+The \emph{quality multiplier} $Q_\tau$ compares the author's standing on counts of good articles with their standing on
+the raw count. It exceeds one when the author ranks higher among peers on good articles than on volume: for 30--36\% of active
+authors in our data, depending on career age. Taking logarithms splits the variance of $\log \mathrm{PiP}_\tau$ into a
+productivity part, a quality part and their covariance. For $\tau = 1/2$, the quality multiplier accounts for about
+three quarters of the variance and productivity for about 30\% (the covariance is slightly negative). The asymmetric
+score is the reverse, with productivity at 59--77\%.
+
+\paragraph{Consistency.} $\mathrm{PiP}_\tau$ is not consistent in the sense of \cite{waltman2012inconsistency}: adding
+the same article to two authors can reverse their order, because $G_\theta$ is not linear. Reversals are rare (0.7\% of
+random pairs in the simulation, against 1.3\% for the asymmetric score); the $h$-index has the same property.
+
+\subsection*{Relation to other indicators}
+Writing indicators in terms of the count curve $\theta \mapsto n_a(\theta)$ places PiP among existing ones.
+\begin{itemize}
+  \item \textbf{Top-$x\%$ counts} (e.g., the number of articles in the top 10\%) read the count curve at a single
+  threshold, $n_a(1-x)$, without comparing it with peers.
+  \item \textbf{I3} \cite{leydesdorff2011integrated} sums the article percentiles,
+  $\sum_j y_j = \int_0^1 n_a(\theta)\, d\theta$: the same integral without peer normalization, so it grows without bound
+  with the number of articles.
+  \item \textbf{The $h$-index} reads one point of the analogous curve in citation space: the largest $k$ such that $k$
+  articles have at least $k$ citations, the corner where the count curve meets the diagonal. PiP integrates the whole
+  peer-normalized curve.
+  \item \textbf{The asymmetric PiP} used in earlier versions of this work compares the author's count at or above
+  $\theta$ with peers' \emph{total} counts, $\int_0^1 F(n_a(\theta))\, d\theta = \sum_k y_{(k)}\,[F(k)-F(k-1)]$, where
+  $y_{(1)} \ge y_{(2)} \ge \dots$ are the author's percentiles in decreasing order. It factors as $F(n_a(0))$ times a
+  weighted mean of the author's own percentiles, but it gives an author's best articles little or no weight whenever
+  peers have more articles than the rank of those articles (for the median Google Scholar author, the top four articles
+  receive zero weight), and a cutoff $\tau$ applied to it drifts across cohorts.
+\end{itemize}
+
+\subsection*{Computation}
+We evaluate the integral on the grid $\theta_k = k/40$, $k = 0, \dots, 39$. On the asymmetric score, where the exact
+value is available, the grid sum and the exact score correlate at $0.9999$ (mean difference $+0.0075$).

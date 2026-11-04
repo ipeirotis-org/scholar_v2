@@ -331,7 +331,7 @@ def check_benchmark_pip_scores(client):
 
 
 def check_cross_view_consistency(client):
-    """Check 7: pip_scores matches manual trapezoidal computation from pip_inputs."""
+    """Check 7: pip_scores matches a manual step-form computation from pip_inputs."""
     print("\n=== Check 7: Cross-view consistency (manual AUC vs view) ===")
     rows = run_query(client, f"""
         WITH inputs AS (
@@ -340,11 +340,7 @@ def check_cross_view_consistency(client):
                 num_citations_percentile,
                 num_papers_percentile,
                 COALESCE(
-                    LAG(num_citations_percentile) OVER(PARTITION BY scholar_id ORDER BY num_papers_percentile),
-                    num_citations_percentile
-                ) AS prev_cit_pct,
-                COALESCE(
-                    LAG(num_papers_percentile) OVER(PARTITION BY scholar_id ORDER BY num_papers_percentile),
+                    LAG(num_papers_percentile) OVER(PARTITION BY scholar_id ORDER BY publication_rank),
                     0
                 ) AS prev_pap_pct
             FROM `scholar-version2.statistics.stats_author_publication_pip_inputs_current`
@@ -353,7 +349,7 @@ def check_cross_view_consistency(client):
         manual_auc AS (
             SELECT
                 scholar_id,
-                ROUND(SUM((num_papers_percentile - prev_pap_pct) * (num_citations_percentile + prev_cit_pct) / 2), 4) AS manual_pip_auc
+                ROUND(SUM((num_papers_percentile - prev_pap_pct) * num_citations_percentile), 4) AS manual_pip_auc
             FROM inputs
             GROUP BY scholar_id
         )

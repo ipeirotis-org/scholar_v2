@@ -417,21 +417,19 @@
         };
     };
 
-    // The PiP curve exactly as stats_author_pip_scores_current integrates it:
-    // works in percentile order, starting at (0, first work's percentile).
+    // The PiP curve exactly as stats_author_pip_scores_current integrates it (step form):
+    // works in percentile order, work k held at its percentile from the previous work's x to its own,
+    // starting at (0, first work's percentile). Drawn with line shape 'vh'.
     PaperExplorer.prototype._curve = function () {
         var xs = [0], ys = [this.papers.length ? this.papers[0].pct : 0];
         this.papers.forEach(function (p) { xs.push(p.x); ys.push(p.pct); });
         return { x: xs, y: ys };
     };
 
+    // Height of the step curve at x: the first work whose x is at or past it.
     PaperExplorer.prototype._curveYAt = function (curve, x) {
         for (var i = 1; i < curve.x.length; i++) {
-            if (curve.x[i] >= x) {
-                var x0 = curve.x[i - 1], x1 = curve.x[i];
-                if (x1 === x0) return curve.y[i];
-                return curve.y[i - 1] + (curve.y[i] - curve.y[i - 1]) * (x - x0) / (x1 - x0);
-            }
+            if (curve.x[i] >= x) return curve.y[i];
         }
         return curve.y[curve.y.length - 1];
     };
@@ -471,7 +469,7 @@
         var area = {
             type: 'scatter', mode: 'lines', x: curve.x, y: curve.y,
             fill: 'tozeroy', fillcolor: COLOR.areaFill,
-            line: { color: COLOR.accent, width: 2, shape: 'linear' },
+            line: { color: COLOR.accent, width: 2, shape: 'vh' },
             hoverinfo: 'skip', showlegend: false
         };
 

@@ -8,6 +8,36 @@
 
 ---
 
+## Paper (rank percentiles + PiP-AUC, target QSS)
+
+- [ ] **Revise Tian & Ipeirotis (arXiv:2103.16025) on S2 data**: workspace in [`paper/`](paper/README.md), plan in
+  [`paper/REVISION_PLAN.md`](paper/REVISION_PLAN.md), results in [`paper/FINDINGS.md`](paper/FINDINGS.md)
+- [ ] **PiP-AUC switched to step form** (code 2026-11-04, branch `claude/kind-thompson-jmhjpf`): Σ y_k (x_k − x_(k−1))
+  in publication-rank order instead of trapezoids, so the paper's decomposition (productivity percentile × weighted
+  mean paper percentile) and threshold identity hold exactly. On live GS data (16,212 authors) the step score never
+  exceeds the old one: median drop 0.0018, max 0.081, correlation 0.9999; median / 75th / 90th go from
+  0.222 / 0.402 / 0.582 to 0.218 / 0.399 / 0.580. The PiP chart now draws steps (`shape: 'vh'`).
+  - [x] **Paper ranking fix** (same branch, 2026-11-04): works were ranked by
+    `ROW_NUMBER() OVER (ORDER BY num_citations_percentile DESC)` with no tie-breaker, and GS paper percentiles came
+    from 1000 approximate quantiles, so they were rounded to 0.001 steps. Same-year works with different citation
+    counts could tie and land in either order: 3,336 such pairs, 1,682 of them inverted, across 732 of 16,212 authors.
+    The score was unaffected (swapping equal percentiles leaves the sum unchanged), but the rank numbers, the
+    "Work #k" labels and the works list were wrong, and could change between refreshes. Fixes:
+    - `gs_statistics.dist_publication_citations` is now exact, one row per (pub_year, citation count): about 75K
+      rows, against 76K quantile rows before.
+    - All three ranking sites break ties by citations, then paper id.
+
+    A simulation of the full new chain on live data found 0 inversions and 0 ties between different counts.
+    Against the live scores, which also include the step form, the median difference is 0.002, the 99th
+    percentile 0.013, the maximum 0.082, and the correlation 0.99989.
+  - [ ] S2 distribution tables (`statistics.dist_publication_citations`, `_temporal`) still use 1000 approximate
+    quantiles; switch them to exact counts if `DATA_SOURCE=s2` returns. The tie-breakers already cover the ordering.
+  - [ ] Merge to main (deploys the views via `bigquery-views.yml` and the chart via `deploy-frontend.yml`)
+  - [ ] Rebuild GS distribution tables (`gs-crawler` job with `CRAWL_MODE=materialize`)
+  - [ ] Re-cache Firestore `v3_author_stats` entries through the `cache-batch` queue (scores change without new
+    profile data, so the timestamp check won't refresh them)
+  - [ ] S2 tables (frozen) pick up the change only if `DATA_SOURCE=s2` returns and they are re-materialized
+
 ## Collaboration
 
 - [ ] **Reply to Florian Ederer re Shapley value citation attribution**
@@ -649,7 +679,7 @@ Each level depends on the previous. Steps within a level can run in parallel.
 
 | Table | Clustering | Est. Size | Source |
 |-------|-----------|-----------|--------|
-| `stats_author_pip_scores_current_table` | `scholar_id, year_of_first_pub` | ~1 GB | Trapezoidal AUC from PiP inputs |
+| `stats_author_pip_scores_current_table` | `scholar_id, year_of_first_pub` | ~1 GB | Step-form AUC from PiP inputs (trapezoidal before 2026-11-04) |
 | `dist_pip_auc_scores` | `benchmark, year_of_first_pub` | ~10 MB | APPROX_QUANTILES from `ranked_author_pip_scores_current_table` |
 | `dist_author_metrics_temporal` | `benchmark, year_of_first_pub, state_year, metric_name` | ~50–200 MB | APPROX_QUANTILES from `stats_author_metrics_temporal_table` |
 
