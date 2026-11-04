@@ -208,7 +208,7 @@ start years 1975–2010, 3.43M authors.
 | Weighted-mean factor W, 10th / 50th / 90th | 0.32 / 0.60 / 0.84 | 0.17 / 0.43 / 0.75 |
 | Share of log-PiP variance: productivity | 0.65 | 0.47 |
 | Share of log-PiP variance: quality | 0.24 | 0.36 |
-| PiP rank vs article-count rank | 0.896 | 0.839 |
+| PiP rank vs article-count rank | 0.897 | 0.840 |
 | PiP rank vs mean-quality rank | 0.131 | 0.304 |
 | Correlation of the two PiP rankings | — | 0.989 |
 
@@ -315,11 +315,11 @@ Within-cohort Spearman with each characteristic:
 
 | Variant | Articles | Mean paper pct. | h-index | Top-2.5% articles |
 |---|---|---|---|---|
-| pip | 0.896 | 0.131 | 0.922 | 0.418 |
-| pip_tau25 | 0.844 | 0.227 | 0.930 | 0.447 |
-| pip_tau50 | 0.714 | 0.388 | 0.889 | 0.488 |
-| sym | 0.856 | 0.214 | 0.917 | 0.489 |
-| sym_tau50 | **0.637** | **0.466** | 0.836 | **0.600** |
+| pip | 0.897 | 0.131 | 0.924 | 0.421 |
+| pip_tau25 | 0.844 | 0.228 | 0.932 | 0.450 |
+| pip_tau50 | 0.722 | 0.382 | 0.898 | 0.498 |
+| sym | 0.856 | 0.214 | 0.919 | 0.491 |
+| sym_tau50 | **0.637** | **0.466** | 0.838 | **0.602** |
 
 ### Cohort stability: median / 90th percentile of the raw score at age 10
 
@@ -354,8 +354,8 @@ on S2.
 |---|---|---|---|
 | Rank correlation with live | — | 0.983 | 0.903 |
 | Median shift in cohort percentile | — | 3 points | 7 points (90th percentile: 22) |
-| Rank vs top-2.5% works | 0.549 | 0.638 | 0.738 |
-| Rank vs cited-work count | 0.968 | — | 0.798 |
+| Rank vs top-2.5% works | 0.568 | 0.659 | 0.761 |
+| Rank vs cited-work count | 0.968 | 0.923 | 0.799 |
 | Score scale, 50th / 75th / 90th | 0.22 / 0.40 / 0.59 | — | 0.47 / 0.72 / 0.88 |
 
 ### Takeaways
@@ -368,3 +368,7 @@ on S2.
 - **The asymmetric cut (`pip_tau*`) is not usable,** because it drifts across cohorts.
 - **Open questions:** the cut point τ (0.25 / 0.5 / 0.75) for the symmetric version, and whether GS's small cohorts
   need pooled windows of ±2 years.
+- §6 and §8 (Codex review): the within-cohort Spearman correlations now use Hazen percentiles, (N + rank ascending −
+  rank descending) / 2N, which gives average ranks for ties and normalizes for cohort size so that cohorts pool
+  correctly. Before, `PERCENT_RANK` gave tied values their minimum rank. The numbers moved by 0.01 or less, apart from
+  the GS top-work row, where each entry rose by about 0.02.

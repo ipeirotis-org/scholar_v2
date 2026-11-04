@@ -56,3 +56,34 @@ WITH
 SELECT s.*, l.pip_auc_score AS pip_live, (SELECT COUNT(*) FROM authors a WHERE a.cohort = s.cohort) AS cohort_size
 FROM scores AS s
 JOIN `scholar-version2.gs_statistics.stats_author_pip_scores_current` AS l USING (scholar_id);
+
+-- Comparison with the live score, within cohorts of at least 30 active authors. All ranks are within-cohort Hazen
+-- percentiles, (N + rank ascending - rank descending) / 2N: average ranks for ties, normalized so cohorts pool correctly.
+-- The rank shift is the absolute change in that percentile.
+CREATE OR REPLACE TABLE `scholar-version2.paper_rp.gs_variant_comparison`
+OPTIONS (description = 'Live GS PiP vs symmetric variants. Built by paper/sql/14_gs_variant_impact.sql')
+AS
+WITH
+  ranked AS (
+    SELECT scholar_id, pip_live, sym_tau50, COUNT(*) OVER w AS n,
+      (COUNT(*) OVER w + RANK() OVER (w ORDER BY pip_live) - RANK() OVER (w ORDER BY pip_live DESC)) / (2 * COUNT(*) OVER w) AS r_live,
+      (COUNT(*) OVER w + RANK() OVER (w ORDER BY sym) - RANK() OVER (w ORDER BY sym DESC)) / (2 * COUNT(*) OVER w) AS r_sym,
+      (COUNT(*) OVER w + RANK() OVER (w ORDER BY sym_tau50) - RANK() OVER (w ORDER BY sym_tau50 DESC)) / (2 * COUNT(*) OVER w) AS r_st,
+      (COUNT(*) OVER w + RANK() OVER (w ORDER BY n_top) - RANK() OVER (w ORDER BY n_top DESC)) / (2 * COUNT(*) OVER w) AS r_top,
+      (COUNT(*) OVER w + RANK() OVER (w ORDER BY n_cited) - RANK() OVER (w ORDER BY n_cited DESC)) / (2 * COUNT(*) OVER w) AS r_n
+    FROM `scholar-version2.paper_rp.gs_variant_scores`
+    WHERE cohort_size >= 30
+    WINDOW w AS (PARTITION BY cohort)
+  )
+SELECT
+  COUNT(*) AS authors,
+  CORR(r_sym, r_live) AS sym_vs_live,
+  CORR(r_st, r_live) AS sym_tau50_vs_live,
+  APPROX_QUANTILES(ABS(r_sym - r_live), 100)[OFFSET(50)] AS median_shift_sym,
+  APPROX_QUANTILES(ABS(r_st - r_live), 100)[OFFSET(50)] AS median_shift_sym_tau50,
+  APPROX_QUANTILES(ABS(r_st - r_live), 100)[OFFSET(90)] AS p90_shift_sym_tau50,
+  CORR(r_live, r_top) AS live_vs_top, CORR(r_sym, r_top) AS sym_vs_top, CORR(r_st, r_top) AS sym_tau50_vs_top,
+  CORR(r_live, r_n) AS live_vs_count, CORR(r_sym, r_n) AS sym_vs_count, CORR(r_st, r_n) AS sym_tau50_vs_count,
+  APPROX_QUANTILES(pip_live, 100) AS live_quantiles,
+  APPROX_QUANTILES(sym_tau50, 100) AS sym_tau50_quantiles
+FROM ranked;

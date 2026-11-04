@@ -1,7 +1,8 @@
 -- 13: Benchmarks for the PiP variants of 12 (raw scores; all variants are bounded and cohort-relative).
 --   variant_prediction  the 11_prediction outcomes (future top-10% count, any future top-1%, future mean quality) per
 --                       setting, for each variant; same Spearman / AUC definitions as 11
---   variant_profile     at career age 10, start years 1975-2010: within-cohort Spearman of each variant with article
+--   variant_profile     at career age 10, start years 1975-2010: within-cohort Spearman (Hazen percentiles within cohort, so ties get average ranks and cohorts of
+--                       different size pool correctly) of each variant with article
 --                       count, mean paper percentile, h-index, and the number of top-2.5% articles (n_top)
 CREATE OR REPLACE TABLE `scholar-version2.paper_rp.variant_prediction`
 OPTIONS (description = 'Prediction benchmarks for PiP variants. Built by paper/sql/13_variant_benchmarks.sql')
@@ -61,11 +62,11 @@ WITH
   ),
   ranked AS (
     SELECT variant,
-      PERCENT_RANK() OVER (w ORDER BY x) AS rx,
-      PERCENT_RANK() OVER (w ORDER BY n_articles) AS r_articles,
-      PERCENT_RANK() OVER (w ORDER BY mean_below) AS r_mean,
-      PERCENT_RANK() OVER (w ORDER BY h) AS r_h,
-      PERCENT_RANK() OVER (w ORDER BY n_top) AS r_top
+      (COUNT(*) OVER w + RANK() OVER (w ORDER BY x) - RANK() OVER (w ORDER BY x DESC)) / (2 * COUNT(*) OVER w) AS rx,
+      (COUNT(*) OVER w + RANK() OVER (w ORDER BY n_articles) - RANK() OVER (w ORDER BY n_articles DESC)) / (2 * COUNT(*) OVER w) AS r_articles,
+      (COUNT(*) OVER w + RANK() OVER (w ORDER BY mean_below) - RANK() OVER (w ORDER BY mean_below DESC)) / (2 * COUNT(*) OVER w) AS r_mean,
+      (COUNT(*) OVER w + RANK() OVER (w ORDER BY h) - RANK() OVER (w ORDER BY h DESC)) / (2 * COUNT(*) OVER w) AS r_h,
+      (COUNT(*) OVER w + RANK() OVER (w ORDER BY n_top) - RANK() OVER (w ORDER BY n_top DESC)) / (2 * COUNT(*) OVER w) AS r_top
     FROM base
     WINDOW w AS (PARTITION BY start_year, variant)
   )

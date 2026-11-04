@@ -56,11 +56,11 @@ WITH
   ),
   pct AS (
     SELECT *,
-      PERCENT_RANK() OVER (PARTITION BY start_year ORDER BY pip) AS r_pip,
-      PERCENT_RANK() OVER (PARTITION BY start_year ORDER BY pip_peer) AS r_pip_peer,
-      PERCENT_RANK() OVER (PARTITION BY start_year ORDER BY n_articles) AS r_n,
-      PERCENT_RANK() OVER (PARTITION BY start_year ORDER BY mean_peer) AS r_mean_peer,
-      PERCENT_RANK() OVER (PARTITION BY start_year ORDER BY mean_global) AS r_mean_global
+      (COUNT(*) OVER (PARTITION BY start_year) + RANK() OVER (PARTITION BY start_year ORDER BY pip) - RANK() OVER (PARTITION BY start_year ORDER BY pip DESC)) / (2 * COUNT(*) OVER (PARTITION BY start_year)) AS r_pip,
+      (COUNT(*) OVER (PARTITION BY start_year) + RANK() OVER (PARTITION BY start_year ORDER BY pip_peer) - RANK() OVER (PARTITION BY start_year ORDER BY pip_peer DESC)) / (2 * COUNT(*) OVER (PARTITION BY start_year)) AS r_pip_peer,
+      (COUNT(*) OVER (PARTITION BY start_year) + RANK() OVER (PARTITION BY start_year ORDER BY n_articles) - RANK() OVER (PARTITION BY start_year ORDER BY n_articles DESC)) / (2 * COUNT(*) OVER (PARTITION BY start_year)) AS r_n,
+      (COUNT(*) OVER (PARTITION BY start_year) + RANK() OVER (PARTITION BY start_year ORDER BY mean_peer) - RANK() OVER (PARTITION BY start_year ORDER BY mean_peer DESC)) / (2 * COUNT(*) OVER (PARTITION BY start_year)) AS r_mean_peer,
+      (COUNT(*) OVER (PARTITION BY start_year) + RANK() OVER (PARTITION BY start_year ORDER BY mean_global) - RANK() OVER (PARTITION BY start_year ORDER BY mean_global DESC)) / (2 * COUNT(*) OVER (PARTITION BY start_year)) AS r_mean_global
     FROM j
   )
 SELECT
