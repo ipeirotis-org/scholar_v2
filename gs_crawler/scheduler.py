@@ -40,10 +40,18 @@ def wikidata_migration_sql():
 
 def candidates_query():
     """Candidates in crawl order: on-demand requests (oldest first), then authors
-    never crawled from Wikidata (most Wikipedia pageviews first), then the
-    stalest profiles. Authors whose crawl failed recently are left out."""
+    never crawled from Wikidata (most Wikipedia pageviews first), then legacy-seeded
+    profiles with untitled works (largest untitled share first, then most cited), then the stalest
+    profiles. Authors whose crawl failed recently are left out.
+
+    The untitled tier exists because the legacy seed lacked titles for some
+    profiles (2026-11-04: 122 with none, 260 more with at least 10% missing,
+    among them Kaiming He and Todd Golub); their pages listed every work as
+    "Untitled". Only legacy snapshots qualify, so a SerpApi profile that itself
+    lacks a title is not re-crawled every day."""
     queue = Config.bq_table_ref(Config.REFRESH_QUEUE_TABLE)
     latest = Config.bq_table_ref(Config.AUTHORS_LATEST_VIEW)
+    publications = Config.bq_table_ref(Config.PUBLICATIONS_LATEST_VIEW)
     wikidata = Config.bq_table_ref(Config.WIKIDATA_AUTHORS_TABLE)
     failures = Config.bq_table_ref(Config.CRAWL_FAILURES_TABLE)
     return f"""
@@ -69,6 +77,15 @@ def candidates_query():
             AND w.scholar_id NOT IN (SELECT scholar_id FROM failed)
           ORDER BY w.enwiki_views_60d DESC NULLS LAST, w.sitelinks DESC NULLS LAST, w.scholar_id
           LIMIT @new_limit
+        ),
+        untitled AS (
+          SELECT p.scholar_id,
+                 COUNTIF(p.title IS NULL OR TRIM(p.title) = '') / COUNT(*) AS untitled_share
+          FROM {publications} p
+          JOIN {latest} a USING (scholar_id)
+          WHERE a.source = 'legacy_scholarly'
+          GROUP BY p.scholar_id
+          HAVING untitled_share >= @untitled_min_share
         )
         SELECT scholar_id, num_publications, 0 AS priority,
                ROW_NUMBER() OVER (ORDER BY requested_at, scholar_id) AS rank
@@ -79,11 +96,18 @@ def candidates_query():
                                            sitelinks DESC NULLS LAST, scholar_id) AS rank
         FROM new_authors
         UNION ALL
-        SELECT scholar_id, num_publications, 2 AS priority,
+        SELECT a.scholar_id, a.num_publications, 2 AS priority,
+               ROW_NUMBER() OVER (ORDER BY u.untitled_share DESC, a.citedby DESC, a.scholar_id) AS rank
+        FROM {latest} a JOIN untitled u USING (scholar_id)
+        WHERE a.scholar_id NOT IN (SELECT scholar_id FROM pending)
+          AND a.scholar_id NOT IN (SELECT scholar_id FROM failed)
+        UNION ALL
+        SELECT scholar_id, num_publications, 3 AS priority,
                ROW_NUMBER() OVER (ORDER BY fetched_at, scholar_id) AS rank
         FROM {latest}
         WHERE scholar_id NOT IN (SELECT scholar_id FROM pending)
           AND scholar_id NOT IN (SELECT scholar_id FROM failed)
+          AND scholar_id NOT IN (SELECT scholar_id FROM untitled)
         ORDER BY priority, rank
         LIMIT @limit
     """
@@ -116,6 +140,7 @@ def select_batch(budget, client=None, new_author_share=None):
             bigquery.ScalarQueryParameter("limit", "INT64", max(budget, 1) * 2),
             bigquery.ScalarQueryParameter("new_limit", "INT64", new_budget // UNKNOWN_AUTHOR_SEARCHES + 1),
             bigquery.ScalarQueryParameter("cooldown_days", "INT64", Config.FAILURE_COOLDOWN_DAYS),
+            bigquery.ScalarQueryParameter("untitled_min_share", "FLOAT64", Config.UNTITLED_MIN_SHARE),
         ]
     )
     rows = client.query(candidates_query(), job_config=job_config).result()

@@ -69,6 +69,16 @@ via a managed scraping API instead of `scholarly`. Vendor evaluation: [docs/goog
   - [x] Ingest new Wikidata authors in order of English Wikipedia pageviews: up to 25% of each refresh run (`NEW_AUTHOR_SHARE`); permanent failures cool down 30 days
   - [x] Co-authors listed on profiled authors' pages (~180K) in the name index, ranked by how many profiled authors list them (2026-11-03)
   - [ ] Paper-title lookup
+- [ ] **Untitled works from the legacy seed** (found 2026-11-04 on Kaiming He's page, `DhtAFkwAAAAJ`: all 95 works
+  "Untitled"). 16,158 of 16,218 profiles are still legacy snapshots (2024-02 to 2026-03); the seed has no titles
+  or venues for 122 of them and for at least 10% of works in 260 more (1,878 more miss under 10%). Scores are
+  unaffected; only labels are missing
+  - [x] Refresh order (2026-11-04): legacy profiles with at least 10% untitled works (`UNTITLED_MIN_SHARE`) are
+    re-crawled after on-demand requests and new Wikidata authors but before merely stale profiles, largest
+    untitled share first, then most cited (Kaiming He, Todd Golub, Kenji Watanabe, Tomas Mikolov, ...). 382
+    profiles, ~1,560 searches: about 16 days of the daily refresh budget, or ~5 days for the 122 with no titles
+  - [ ] Optional: crawl the 122 profiles with no titles at once (`CRAWL_MODE=authors`, ~460 searches from the
+    reserve) instead of waiting for the daily runs
 - [x] **Robust career-start year** (2026-11-03): skip stray cited items before a >10-year gap (at most 2 or 5% of cited papers; >5 years dropped real early careers); manual `gs_data.start_year_overrides` (5 rows from the checked sample)
 - [ ] **Field-specific normalization** (display shipped 2026-11-03; scoring still open). GS percentiles compare
   every author with all ~16K profiled authors, so both PiP axes favour high-volume fields. Example: Jonathan A.
