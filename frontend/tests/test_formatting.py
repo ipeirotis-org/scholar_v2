@@ -6,56 +6,56 @@ from frontend.formatting import (
     build_standing,
     field_comparison,
     ordinal_percentile,
-    percentile_rank,
     percentile_text,
+    percentile_value,
     standing_phrase,
 )
 
 
 @pytest.mark.parametrize("fraction, expected", [
-    (0.771, "77th"),
-    (0.86, "86th"),
-    (0.682, "68th"),
-    (0.453, "45th"),
-    (0.799, "79th"),  # floored, never rounded up
-    (0.11, "11th"),
-    (0.12, "12th"),
-    (0.13, "13th"),
-    (0.21, "21st"),
-    (0.913, "91st"),
-    (0.022, "2nd"),
-    (0.033, "3rd"),
+    (0.771, "77.1st"),
+    (0.86, "86.0th"),    # always one decimal
+    (0.682, "68.2nd"),
+    (0.453, "45.3rd"),
+    (0.7994, "79.9th"),
+    (0.11, "11.0th"),
+    (0.12, "12.0th"),
+    (0.13, "13.0th"),
+    (0.112, "11.2nd"),
+    (0.21, "21.0th"),
+    (0.211, "21.1st"),
+    (0.913, "91.3rd"),
+    (0.022, "2.2nd"),
 ])
 def test_ordinal_percentile(fraction, expected):
     assert ordinal_percentile(fraction) == expected
 
 
 @pytest.mark.parametrize("fraction, expected", [
-    (0.753, 75),
-    (0.29, 29),    # 100 * 0.29 is 28.999... in floating point
-    (0.57, 57),
-    (0.999, 99),
-    (1.0, 99),     # the top of a cohort reads 99th, not 100th
-    (0.0, 1),      # and the bottom 1st, not 0th
-    (0.004, 1),
+    (0.7534, 75.3),
+    (0.29, 29.0),        # 100 * 0.29 is 28.999... in floating point
+    (0.9996, 99.9),      # the top of a cohort reads 99.9th, not 100th
+    (1.0, 99.9),
+    (0.0, 0.1),          # and the bottom 0.1st, not 0th
     (None, None),
     (float("nan"), None),  # cached for authors without a PiP score
     (float("inf"), None),
 ])
-def test_percentile_rank_floors_and_clamps(fraction, expected):
-    assert percentile_rank(fraction) == expected
+def test_percentile_value_rounds_to_one_decimal_and_clamps(fraction, expected):
+    assert percentile_value(fraction) == expected
 
 
-def test_missing_percentiles_format_as_empty():
-    assert ordinal_percentile(float("nan")) == ""
+def test_percentile_text_keeps_one_decimal_for_table_columns():
+    assert percentile_text(0.753) == "75.3"
+    assert percentile_text(0.86) == "86.0"
     assert percentile_text(float("nan")) == "" and percentile_text(None) == ""
-    assert percentile_text(0.753) == "75"
+    assert ordinal_percentile(float("nan")) == ""
 
 
 def test_standing_phrase_is_a_percentile_on_both_sides_of_the_median():
-    assert standing_phrase(0.771) == "at the 77th percentile"
-    assert standing_phrase(0.5) == "at the 50th percentile"
-    assert standing_phrase(0.312) == "at the 31st percentile"
+    assert standing_phrase(0.771) == "at the 77.1st percentile"
+    assert standing_phrase(0.5) == "at the 50.0th percentile"
+    assert standing_phrase(0.312) == "at the 31.2nd percentile"
     assert standing_phrase(None) is None
     assert ordinal_percentile(None) == ""
 
@@ -75,14 +75,14 @@ MILANFAR = {
 
 def test_build_standing_gs_wording_and_metric_order():
     s = build_standing(MILANFAR, "gs")
-    assert s["phrase"] == "at the 77th percentile"
+    assert s["phrase"] == "at the 77.1st percentile"
     assert s["group"] == "tracked active authors"
     assert s["cohort"] == "whose career started in 1990"
-    assert s["pip_ordinal"] == "77th"
+    assert s["pip_ordinal"] == "77.1st"
     assert s["pip_score"] == 0.4272
     assert [m["label"] for m in s["metrics"]] == [
         "h-index", "Total citations", "i10-index", "Cited publications"]
-    assert s["metrics"][0]["ordinal"] == "86th"
+    assert s["metrics"][0]["ordinal"] == "86.0th"
     assert s["metrics"][3]["value"] == 237
     assert (s["num_cited"], s["num_records"]) == (237, 282)
 
@@ -113,20 +113,20 @@ def test_field_comparison_starts_on_the_authors_field():
     assert fc["own"] == "Computer Science" and fc["selected"] == "Computer Science"
     assert fc["own_from_coauthors"] is False
     assert fc["current"] == {
-        "name": "Computer Science", "rankable": True, "phrase": "at the 65th percentile",
-        "position": 65.5, "ordinal": "65th", "peers": 412,
+        "name": "Computer Science", "rankable": True, "phrase": "at the 65.5th percentile",
+        "position": 65.5, "ordinal": "65.5th", "peers": 412,
         "cohort": "whose career started 1988\u20131992",
         "metrics": [  # h-index and citations among the same peers; others not in this entry
             {"label": "h-index", "help": "Largest h such that h publications have at least h citations.",
-             "value": 90, "position": 73.0, "ordinal": "73rd"},
+             "value": 90, "position": 73.0, "ordinal": "73.0th"},
             {"label": "Total citations", "help": "Citations across all publications on the profile.",
-             "value": 38080, "position": 82.0, "ordinal": "82nd"},
+             "value": 38080, "position": 82.0, "ordinal": "82.0th"},
         ],
     }
     assert [c["name"] for c in fc["choices"]] == [
         "Computer Science", "Economics & Business", "Physics & Astronomy"]
     econ, physics = fc["choices"][1], fc["choices"][2]
-    assert econ["phrase"] == "at the 95th percentile" and econ["cohort"] == "whose career started in 1990"
+    assert econ["phrase"] == "at the 95.0th percentile" and econ["cohort"] == "whose career started in 1990"
     assert econ["metrics"] == []  # PiP only for that field
     assert physics["rankable"] is False and physics["phrase"] is None and physics["metrics"] == []
 

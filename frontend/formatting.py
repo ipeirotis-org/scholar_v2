@@ -1,7 +1,8 @@
 """Plain-language formatting of percentiles for the author results page.
 
 Percentiles arrive from the cache as fractions (0.771) and are shown in one
-form everywhere: whole-number ordinals ("77th percentile"). The paper explorer
+form everywhere: percentiles with one decimal, always ("77.1st percentile",
+"86.0th percentile", "86.0" in table columns). The paper explorer
 (static/js/paper_explorer.js) follows the same rule.
 """
 
@@ -27,38 +28,36 @@ def _text(value):
     return text or None
 
 
-def percentile_rank(fraction):
-    """Whole-number percentile for display: 0.771 -> 77, clamped to 1..99; None when missing.
+def percentile_value(fraction):
+    """Percentile for display, one decimal: 0.7713 -> 77.1, clamped to 0.1..99.9; None when missing.
 
-    Floored, so the number is a share the author is at least ahead of (0.779 shows
-    as 77), and clamped the way test-score percentile ranks are, so the top author
-    of a cohort reads "99th" rather than "100th". Decimals would be false
-    precision: a cohort holds a few hundred authors. Missing and non-finite values
-    (cached NaN for authors without a PiP score) give None instead of raising.
+    Clamped so the top author of a cohort reads "99.9th" rather than "100th" and
+    the bottom one "0.1st" rather than "0th". Missing and non-finite values (cached
+    NaN for authors without a PiP score) give None instead of raising.
     """
     value = _number(fraction)
     if value is None or math.isinf(value):
         return None
-    return min(99, max(1, math.floor(100 * value + 1e-9)))
+    return min(99.9, max(0.1, round(100 * value, 1)))
 
 
 def percentile_text(fraction):
-    """Template filter: '77' for 0.771, '' when missing (homepage author tables)."""
-    n = percentile_rank(fraction)
-    return "" if n is None else str(n)
+    """Template filter for table columns: '77.1' for 0.771, '86.0' for 0.86, '' when missing."""
+    value = percentile_value(fraction)
+    return "" if value is None else f"{value:.1f}"
 
 
 def ordinal_percentile(fraction):
-    """0.771 -> '77th', 0.913 -> '91st', 0.112 -> '11th'; '' when missing."""
-    n = percentile_rank(fraction)
-    if n is None:
+    """0.771 -> '77.1st', 0.86 -> '86.0th', 0.682 -> '68.2nd'; '' when missing."""
+    value = percentile_value(fraction)
+    if value is None:
         return ""
-    suffix = "th" if 10 <= n % 100 <= 20 else {1: "st", 2: "nd", 3: "rd"}.get(n % 10, "th")
-    return f"{n}{suffix}"
+    text = f"{value:.1f}"
+    return text + {"1": "st", "2": "nd", "3": "rd"}.get(text[-1], "th")
 
 
 def standing_phrase(fraction):
-    """'at the 77th percentile', or None when missing."""
+    """'at the 77.1st percentile', or None when missing."""
     if fraction is None:
         return None
     return f"at the {ordinal_percentile(fraction)} percentile"

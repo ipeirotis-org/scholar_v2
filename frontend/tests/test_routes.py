@@ -110,7 +110,7 @@ class TestResultsRoute:
             assert response.status_code == 200
             html = response.data.decode()
             # Headline leads with the comparison group, then the raw score
-            assert "ranks <span class=\"standing-share\">at the 90th percentile</span>" in html
+            assert "ranks <span class=\"standing-share\">at the 90.0th percentile</span>" in html
             assert "percentile in this cohort" not in html  # one scale: no second percentile line
             assert "whose career started in 2010" in html
             assert "Career start 2010" in html
@@ -205,7 +205,7 @@ class TestResultsRoute:
 
     def test_results_link_to_the_field_page(self):
         html = self._render_with_stats(self.PARKER)
-        assert "at the 21st percentile" in html  # overall headline
+        assert "at the 21.1st percentile" in html  # overall headline
         assert ('<a href="/field?author_id=123">How Jonathan A. Parker compares within '
                 "Economics &amp; Business &rarr;</a>") in html
         assert "<select" not in html  # the picker lives on the field page
@@ -216,7 +216,7 @@ class TestResultsRoute:
         # Cache entries from before field percentiles, and S2 mode
         html = self._render_with_stats({"name": "A", "pip_auc_score": 0.4272,
                                         "pip_auc_score_percentile": 0.771, "year_of_first_pub": 1990})
-        assert "at the 77th percentile" in html
+        assert "at the 77.1st percentile" in html
         assert "/field?" not in html
 
     def test_results_field_parameter_redirects_to_the_field_page(self):
@@ -227,22 +227,22 @@ class TestResultsRoute:
     def test_field_page_on_own_field(self):
         status, _, html = self._get(self.PARKER, "/field?author_id=uXulDDsAAAAJ", "gs")
         assert status == 200
-        assert ("Jonathan A. Parker ranks <span class=\"standing-share\">at the 34th percentile</span> "
+        assert ("Jonathan A. Parker ranks <span class=\"standing-share\">at the 34.0th percentile</span> "
                 "of the 151 tracked active authors in Economics &amp; Business whose career started 1992–1996.") in html
         assert '<option value="Economics &amp; Business" selected>Economics &amp; Business (from profile)</option>' in html
         assert '<option value="Physics &amp; Astronomy" disabled>Physics &amp; Astronomy (too few authors)</option>' in html
         # Metric rows among the same peers, with the PiP-AUC line at the field percentile
-        assert '<span class="metric-pct" role="cell">48th</span>' in html
-        assert '<span class="metric-pct" role="cell">60th</span>' in html
+        assert '<span class="metric-pct" role="cell">48.0th</span>' in html
+        assert '<span class="metric-pct" role="cell">60.0th</span>' in html
         assert 'class="metric-ref-label" style="left: 34.0%"' in html
-        assert ('<a href="/results?author_id=uXulDDsAAAAJ">Across all fields: 21st percentile '
+        assert ('<a href="/results?author_id=uXulDDsAAAAJ">Across all fields: 21.1st percentile '
                 '(career start 1994)</a>') in html
         assert "their Google Scholar interests" in html
 
     def test_field_page_honours_the_field_parameter(self):
         _, _, html = self._get(self.PARKER, "/field?author_id=uXulDDsAAAAJ&field=Computer+Science", "gs")
         assert '<option value="Computer Science" selected>' in html
-        assert "at the 12th percentile</span> of the 380 tracked active authors in Computer Science" in html
+        assert "at the 12.0th percentile</span> of the 380 tracked active authors in Computer Science" in html
 
     def test_field_page_without_own_field_asks_for_a_choice(self):
         stats = dict(self.PARKER, field_group=float("nan"), field_source=float("nan"))

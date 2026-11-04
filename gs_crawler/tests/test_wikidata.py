@@ -342,6 +342,20 @@ class TestNewAuthorShare:
         assert "crawl_failures" in sql and "@cooldown_days" in sql
 
 
+    def test_untitled_legacy_profiles_come_before_stale_ones(self):
+        sql = scheduler.candidates_query()
+        assert "untitled AS (" in sql and "publications_latest" in sql
+        assert "a.source = 'legacy_scholarly'" in sql  # SerpApi profiles never qualify
+        assert "HAVING untitled_share >= @untitled_min_share" in sql
+        tier, stale = sql.index("2 AS priority"), sql.index("3 AS priority")
+        assert "ORDER BY u.untitled_share DESC, a.citedby DESC" in sql[tier:stale]
+        assert "NOT IN (SELECT scholar_id FROM untitled)" in sql[stale:]
+
+    def test_untitled_share_is_a_query_parameter(self):
+        client = _Client(self.ROWS)
+        scheduler.select_batch(20, client=client)
+        assert client.params["untitled_min_share"] == scheduler.Config.UNTITLED_MIN_SHARE == 0.1
+
 class TestFailures:
     def test_missing_profile_is_permanent(self):
         with pytest.raises(SerpApiError) as exc:
