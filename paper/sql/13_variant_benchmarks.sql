@@ -10,7 +10,7 @@ AS
 WITH
   joined AS (
     SELECT b.scenario, b.setting, b.fut_top10, b.fut_any_top1, b.fut_mean_pct, b.fut_articles,
-      v.pip, v.pip_tau25, v.pip_tau50, v.sym, v.sym_tau50, CAST(v.h_index AS FLOAT64) AS h
+      v.pip, v.pip_tau25, v.pip_tau50, v.sym, v.sym_tau25, v.sym_tau50, v.sym_tau60, v.sym_tau75, v.sym_tau90, CAST(v.h_index AS FLOAT64) AS h
     FROM `scholar-version2.paper_rp.prediction_base` AS b
     JOIN `scholar-version2.paper_rp.pip_variants` AS v
       ON v.authorid = b.authorid AND v.start_year = b.start_year AND v.age = b.age
@@ -19,7 +19,7 @@ WITH
     SELECT scenario, setting, variant, x, fut_top10, fut_any_top1, fut_mean_pct, fut_articles
     FROM joined,
       UNNEST([STRUCT('pip' AS variant, pip AS x), ('pip_tau25', pip_tau25), ('pip_tau50', pip_tau50),
-              ('sym', sym), ('sym_tau50', sym_tau50), ('h_raw', h)])
+              ('sym', sym), ('sym_tau25', sym_tau25), ('sym_tau50', sym_tau50), ('sym_tau60', sym_tau60), ('sym_tau75', sym_tau75), ('sym_tau90', sym_tau90), ('h_raw', h)])
   ),
   ranked AS (
     SELECT scenario, setting, variant, fut_any_top1,
@@ -57,7 +57,7 @@ WITH
       CAST(h_index AS FLOAT64) AS h, CAST(n_top AS FLOAT64) AS n_top
     FROM `scholar-version2.paper_rp.pip_variants`,
       UNNEST([STRUCT('pip' AS variant, pip AS x), ('pip_tau25', pip_tau25), ('pip_tau50', pip_tau50),
-              ('sym', sym), ('sym_tau50', sym_tau50)])
+              ('sym', sym), ('sym_tau25', sym_tau25), ('sym_tau50', sym_tau50), ('sym_tau60', sym_tau60), ('sym_tau75', sym_tau75), ('sym_tau90', sym_tau90)])
     WHERE age = 10 AND start_year BETWEEN 1975 AND 2010
   ),
   ranked AS (

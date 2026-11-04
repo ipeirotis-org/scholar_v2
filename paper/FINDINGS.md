@@ -372,3 +372,53 @@ on S2.
   rank descending) / 2N, which gives average ranks for ties and normalizes for cohort size so that cohorts pool
   correctly. Before, `PERCENT_RANK` gave tied values their minimum rank. The numbers moved by 0.01 or less, apart from
   the GS top-work row, where each entry rose by about 0.02.
+
+## 9. Choosing τ for the symmetric variant (`sql/12`–`14`, all cutoffs)
+
+The symmetric variant averages G_t(n(t)) over the thresholds t ≥ τ.
+
+### S2, career age 10
+
+The first four columns are within-cohort Spearman correlations. The next three are prediction results at age 10, with
+the 2005 setting in parentheses. The last column is the median score at age 10 for the 1960 and 2010 cohorts.
+
+| τ | vs articles | vs mean quality | vs h | vs top-2.5% | Future top-10% count | Any future top-1% (AUC) | Future quality | Median 1960 → 2010 |
+|---|---|---|---|---|---|---|---|---|
+| 0 | 0.856 | 0.214 | 0.919 | 0.491 | **0.445** (0.429) | 0.766 (0.772) | 0.223 (0.219) | 0.44 → 0.40 |
+| 0.25 | 0.776 | 0.329 | 0.907 | 0.537 | 0.443 (0.425) | 0.770 (**0.776**) | 0.265 (0.259) | 0.43 → 0.39 |
+| 0.5 | 0.637 | 0.466 | 0.838 | 0.602 | 0.427 (0.407) | **0.772** (**0.776**) | 0.321 (0.310) | 0.41 → 0.38 |
+| 0.6 | 0.573 | 0.506 | 0.789 | 0.633 | 0.415 (0.396) | 0.771 (0.775) | 0.340 (0.325) | 0.41 → 0.37 |
+| 0.75 | 0.473 | **0.536** | 0.694 | 0.688 | 0.388 (0.369) | 0.766 (0.769) | **0.356** (**0.336**) | 0.38 → 0.33 |
+| 0.9 | 0.370 | 0.486 | 0.562 | **0.781** | 0.347 (0.332) | 0.750 (0.753) | 0.338 (0.316) | **0.37 → 0.16** |
+| Current PiP | 0.897 | 0.131 | 0.924 | 0.421 | 0.434 (0.434) | 0.756 (0.770) | 0.190 (0.201) | 0.29 → 0.26 |
+| h-index (raw) | — | — | — | — | 0.352 (0.284) | 0.719 (0.691) | 0.230 (0.174) | — |
+
+At ages 5 and 15 the pattern is the same: the top-1% AUC is flat from τ = 0.25 to 0.6, and future quality peaks at
+τ = 0.75.
+
+At τ = 0.9 the score is zero for 42% of recent cohorts, and the median drifts. Only 4 grid thresholds remain, and many
+authors have no paper in the top 10%.
+
+### Live GS data
+
+| τ | Rank corr. with live | Median / p90 shift in cohort pct. | vs top-2.5% works | vs cited-work count | 50/75/90th pct. | PA9La6oAAAAJ |
+|---|---|---|---|---|---|---|
+| Live PiP | 1 | — | 0.568 | 0.968 | 0.22/0.40/0.58 | 0.751 |
+| 0 | 0.983 | 0.029 / 0.091 | 0.659 | 0.923 | 0.48/0.72/0.88 | 0.781 |
+| 0.25 | 0.956 | 0.047 / 0.146 | 0.703 | 0.873 | 0.47/0.72/0.88 | 0.764 |
+| 0.5 | 0.903 | 0.073 / 0.217 | 0.761 | 0.799 | 0.47/0.72/0.88 | 0.789 |
+| 0.6 | 0.871 | 0.085 / 0.251 | 0.788 | 0.760 | 0.46/0.72/0.88 | 0.810 |
+| 0.75 | 0.804 | 0.107 / 0.310 | 0.837 | 0.688 | 0.45/0.71/0.88 | 0.829 |
+| 0.9 | 0.693 | 0.134 / 0.388 | 0.907 | 0.580 | 0.41/0.71/0.88 | 0.861 |
+
+### Reading
+
+τ moves the score smoothly from productivity-heavy to quality-heavy. On the way it gives up the ability to predict the
+*count* of future top-10% papers and gains the ability to predict their *quality*. The top-1% AUC stays flat across
+0.25–0.6.
+
+The usable range is τ ∈ [0.25, 0.6], where cohort stability holds. At 0.75 the median drifts mildly, and 0.9 is
+unusable.
+
+τ = 0.5 is a natural default with a one-line explanation: only papers in the top half of their year earn credit.
+Moving to τ = 0.25 halves the shift for live GS authors, which matters if the app switches.

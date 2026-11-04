@@ -9,7 +9,7 @@
 --   pip_tau50  tau = 0.5
 --   sym        (1/40) sum_j G_j(n_j), G_j(m) = share of peers with strictly fewer than m articles above t_j: your
 --              count above each threshold compared with peers' counts above the same threshold (symmetric).
---   sym_tau50  symmetric, restricted to t >= 0.5
+--   sym_tauXX  symmetric, restricted to t >= tau, for tau in {0.25, 0.5, 0.6, 0.75, 0.9}
 --   n_top      articles with y >= 0.975 (top 2.5% of their year), to see which variants reward top papers
 -- Peers: all 'active' authors at the same (start_year, age), so every targeted peer group is complete.
 CREATE OR REPLACE TABLE `scholar-version2.paper_rp.pip_variants`
@@ -70,13 +70,17 @@ WITH
       SUM(IF(n.j >= 10, f.f, 0)) / 30 AS pip_tau25,
       SUM(IF(n.j >= 20, f.f, 0)) / 20 AS pip_tau50,
       AVG(g.g_below) AS sym,
+      SUM(IF(n.j >= 10, g.g_below, 0)) / 30 AS sym_tau25,
       SUM(IF(n.j >= 20, g.g_below, 0)) / 20 AS sym_tau50,
+      SUM(IF(n.j >= 24, g.g_below, 0)) / 16 AS sym_tau60,
+      SUM(IF(n.j >= 30, g.g_below, 0)) / 10 AS sym_tau75,
+      SUM(IF(n.j >= 36, g.g_below, 0)) / 4 AS sym_tau90,
       MAX(IF(n.j = 39, n.n_j, NULL)) AS n_top
     FROM nj AS n
     JOIN f_dense AS f ON f.start_year = n.start_year AND f.age = n.age AND f.m = n.n_j
     JOIN dist_j AS g ON g.start_year = n.start_year AND g.age = n.age AND g.j = n.j AND g.m = n.n_j
     GROUP BY n.authorid, n.start_year, n.age
   )
-SELECT t.*, s.pip_grid, s.pip_tau25, s.pip_tau50, s.sym, s.sym_tau50, s.n_top
+SELECT t.*, s.pip_grid, s.pip_tau25, s.pip_tau50, s.sym, s.sym_tau25, s.sym_tau50, s.sym_tau60, s.sym_tau75, s.sym_tau90, s.n_top
 FROM targets AS t
 JOIN scores AS s USING (authorid, start_year, age);

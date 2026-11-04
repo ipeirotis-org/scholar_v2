@@ -5,7 +5,7 @@
 -- from the same year with at most as many citations). Same 40-point threshold grid as 12:
 --   pip_grid   current PiP on the grid; F(m) = share of peers with at most m cited works (exact, not interpolated)
 --   sym        compare your count above each threshold with peers' counts above the same threshold
---   sym_tau50  symmetric, thresholds >= 0.5 only
+--   sym_tauXX  symmetric, thresholds >= tau only, tau in {0.25, 0.5, 0.6, 0.75, 0.9}
 -- Output: one row per active author with the live score and the three variants.
 CREATE OR REPLACE TABLE `scholar-version2.paper_rp.gs_variant_scores`
 OPTIONS (description = 'PiP variants on live GS data, for impact comparison. Built by paper/sql/14_gs_variant_impact.sql')
@@ -45,7 +45,11 @@ WITH
     SELECT n.scholar_id, n.cohort,
       AVG(f.f) AS pip_grid,
       AVG(g.g_below) AS sym,
+      SUM(IF(n.j >= 10, g.g_below, 0)) / 30 AS sym_tau25,
       SUM(IF(n.j >= 20, g.g_below, 0)) / 20 AS sym_tau50,
+      SUM(IF(n.j >= 24, g.g_below, 0)) / 16 AS sym_tau60,
+      SUM(IF(n.j >= 30, g.g_below, 0)) / 10 AS sym_tau75,
+      SUM(IF(n.j >= 36, g.g_below, 0)) / 4 AS sym_tau90,
       MAX(IF(n.j = 39, n.n_j, NULL)) AS n_top,
       MAX(IF(n.j = 0, n.n_j, NULL)) AS n_cited
     FROM nj AS n
@@ -57,33 +61,37 @@ SELECT s.*, l.pip_auc_score AS pip_live, (SELECT COUNT(*) FROM authors a WHERE a
 FROM scores AS s
 JOIN `scholar-version2.gs_statistics.stats_author_pip_scores_current` AS l USING (scholar_id);
 
--- Comparison with the live score, within cohorts of at least 30 active authors. All ranks are within-cohort Hazen
--- percentiles, (N + rank ascending - rank descending) / 2N: average ranks for ties, normalized so cohorts pool correctly.
--- The rank shift is the absolute change in that percentile.
+-- Comparison with the live score, within cohorts of at least 30 active authors, one row per variant. All ranks are
+-- within-cohort Hazen percentiles, (N + rank ascending - rank descending) / 2N: average ranks for ties, normalized so
+-- cohorts pool correctly. The rank shift is the absolute change in that percentile.
 CREATE OR REPLACE TABLE `scholar-version2.paper_rp.gs_variant_comparison`
-OPTIONS (description = 'Live GS PiP vs symmetric variants. Built by paper/sql/14_gs_variant_impact.sql')
+OPTIONS (description = 'Live GS PiP vs symmetric variants, one row per variant. Built by paper/sql/14_gs_variant_impact.sql')
 AS
 WITH
+  long_form AS (
+    SELECT scholar_id, cohort, pip_live, n_top, n_cited, variant, x
+    FROM `scholar-version2.paper_rp.gs_variant_scores`,
+      UNNEST([STRUCT('pip_live' AS variant, pip_live AS x), ('sym', sym), ('sym_tau25', sym_tau25), ('sym_tau50', sym_tau50), ('sym_tau60', sym_tau60), ('sym_tau75', sym_tau75), ('sym_tau90', sym_tau90)])
+    WHERE cohort_size >= 30
+  ),
   ranked AS (
-    SELECT scholar_id, pip_live, sym_tau50, COUNT(*) OVER w AS n,
+    SELECT variant, scholar_id, x,
+      (COUNT(*) OVER w + RANK() OVER (w ORDER BY x) - RANK() OVER (w ORDER BY x DESC)) / (2 * COUNT(*) OVER w) AS r_x,
       (COUNT(*) OVER w + RANK() OVER (w ORDER BY pip_live) - RANK() OVER (w ORDER BY pip_live DESC)) / (2 * COUNT(*) OVER w) AS r_live,
-      (COUNT(*) OVER w + RANK() OVER (w ORDER BY sym) - RANK() OVER (w ORDER BY sym DESC)) / (2 * COUNT(*) OVER w) AS r_sym,
-      (COUNT(*) OVER w + RANK() OVER (w ORDER BY sym_tau50) - RANK() OVER (w ORDER BY sym_tau50 DESC)) / (2 * COUNT(*) OVER w) AS r_st,
       (COUNT(*) OVER w + RANK() OVER (w ORDER BY n_top) - RANK() OVER (w ORDER BY n_top DESC)) / (2 * COUNT(*) OVER w) AS r_top,
       (COUNT(*) OVER w + RANK() OVER (w ORDER BY n_cited) - RANK() OVER (w ORDER BY n_cited DESC)) / (2 * COUNT(*) OVER w) AS r_n
-    FROM `scholar-version2.paper_rp.gs_variant_scores`
-    WHERE cohort_size >= 30
-    WINDOW w AS (PARTITION BY cohort)
+    FROM long_form
+    WINDOW w AS (PARTITION BY variant, cohort)
   )
 SELECT
+  variant,
   COUNT(*) AS authors,
-  CORR(r_sym, r_live) AS sym_vs_live,
-  CORR(r_st, r_live) AS sym_tau50_vs_live,
-  APPROX_QUANTILES(ABS(r_sym - r_live), 100)[OFFSET(50)] AS median_shift_sym,
-  APPROX_QUANTILES(ABS(r_st - r_live), 100)[OFFSET(50)] AS median_shift_sym_tau50,
-  APPROX_QUANTILES(ABS(r_st - r_live), 100)[OFFSET(90)] AS p90_shift_sym_tau50,
-  CORR(r_live, r_top) AS live_vs_top, CORR(r_sym, r_top) AS sym_vs_top, CORR(r_st, r_top) AS sym_tau50_vs_top,
-  CORR(r_live, r_n) AS live_vs_count, CORR(r_sym, r_n) AS sym_vs_count, CORR(r_st, r_n) AS sym_tau50_vs_count,
-  APPROX_QUANTILES(pip_live, 100) AS live_quantiles,
-  APPROX_QUANTILES(sym_tau50, 100) AS sym_tau50_quantiles
-FROM ranked;
+  CORR(r_x, r_live) AS vs_live,
+  APPROX_QUANTILES(ABS(r_x - r_live), 100)[OFFSET(50)] AS median_shift,
+  APPROX_QUANTILES(ABS(r_x - r_live), 100)[OFFSET(90)] AS p90_shift,
+  CORR(r_x, r_top) AS vs_top,
+  CORR(r_x, r_n) AS vs_count,
+  APPROX_QUANTILES(x, 100) AS quantiles,
+  MAX(IF(scholar_id = 'PA9La6oAAAAJ', r_x, NULL)) AS example_pct_PA9La6oAAAAJ
+FROM ranked
+GROUP BY variant;
