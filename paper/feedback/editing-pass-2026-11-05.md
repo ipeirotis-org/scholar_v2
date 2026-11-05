@@ -60,6 +60,11 @@ CC BY 4.0, reserved DOI 10.5281/zenodo.23987119, cited as `ipeirotis2026replicat
 from the final commit with `paper/make_zenodo_package.sh` and replace the file, so the archived manuscript carries the
 CRediT statement. Funding confirmed: "No specific funding was received for this work."
 
+**Exposition review (5 November 2026):** applied in `dc9ff2b` after checking each item against the data (worked example
+in Section 4.2, sawtooth explanation, cohort quantiles of PiP, indicator table, appendix table by column with the
+three-article rule, Figures 1, 3a, 5 and 6). The Zenodo draft now holds `pip-replication-package-dc9ff2b.zip`
+(md5 33de642531272581fdbbb66401b11e7f).
+
 **Pre-submission review (5 November 2026):** the verified edits are applied (commit `29efa8a`); abstract B (197 words,
 with the eligibility-rule and notable-group qualifiers) and v3_code A (left out of the Zenodo archive) are applied
 in `05c00d3`. The Zenodo draft now holds `pip-replication-package-05c00d3.zip` (md5 c49e8ec09bd7c53e4bd4eac11c2b4e96).
