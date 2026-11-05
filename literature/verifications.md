@@ -2644,3 +2644,16 @@ updates: none
 verdict: supported
 evidence: "All structured data (i.e. the main, Property, Lexeme, and EntitySchema namespaces) is released into the public domain under Creative Commons Zero." (Wikidata:Licensing, Official policy)
 notes: New source added on 2026-11-05 for the Wikidata honors and Wikipedia links of Section 4.7; the query date is the fetch date recorded in paper/honors/fetch_wikidata_honors.py. What items record (honors, dates, identifiers) is the manuscript's own description of the query, not attributed to these pages.
+
+## [2026-11-05T19:05Z] cite:ipeirotis2026replication — paper/manuscript_qss/main.tex:1204
+claim: "The result tables and a snapshot of the replication package are archived on Zenodo \citep{ipeirotis2026replication}."
+claim-hash: e5950df8c0b7
+source: doi:10.5281/zenodo.23987119
+version-read: unpublished Zenodo draft (deposition 23987119), read through the deposit API on 2026-11-05
+archived: not copied; the deposited file is pip-replication-package-cc071a3.zip (md5:98fa984979c62214e96fc2579208ebf4, sha256:033f1d8c4784099827d198bd7d9a6113f0a6c80e05d0716760a2429dd3078c19), built by paper/make_zenodo_package.sh from commit cc071a3
+license: CC BY 4.0 (record metadata)
+accessed: 2026-11-05
+updates: none
+verdict: supported
+evidence: The draft holds one file, the archive of paper/ at cc071a3, which contains results/ (28 result tables) and the SQL, figure data, checks and honors scripts; the record description names the result tables and the BigQuery datasets.
+notes: The authors' own deposit. The DOI is reserved and resolves only after the authors publish the record; re-check then, and replace the file if the manuscript changes before publication.

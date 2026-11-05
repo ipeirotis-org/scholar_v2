@@ -54,6 +54,23 @@ no author or paper identifiers). `paper/make_zenodo_package.sh` builds the Zenod
 `paper/feedback/` and the compiled PDF. Data and code availability names the two datasets and the Zenodo archive; the
 DOI is a `% TODO` until the record is published.
 
+**Zenodo (Z1 B, Z2 A) and funding.** Draft deposition 23987119 (https://zenodo.org/deposit/23987119), unpublished,
+CC BY 4.0, reserved DOI 10.5281/zenodo.23987119, cited as `ipeirotis2026replication`. It holds
+`pip-replication-package-cc071a3.zip` (md5 98fa984979c62214e96fc2579208ebf4). Before publishing, rebuild the archive
+from the final commit with `paper/make_zenodo_package.sh` and replace the file, so the archived manuscript carries the
+CRediT statement. Funding confirmed: "No specific funding was received for this work."
+
+**D14. CRediT roles** (the last `% TODO`). The 14 roles: Conceptualization, Data curation, Formal analysis, Funding
+acquisition, Investigation, Methodology, Project administration, Resources, Software, Supervision, Validation,
+Visualization, Writing - original draft, Writing - review & editing. The repository shows only that Sen Tian
+first-authored the 2021 version this paper builds on and that the current pipeline and manuscript were committed from
+Panos Ipeirotis's account; the roles must reflect what each of you did.
+- **A.** "Panos Ipeirotis: Conceptualization, Methodology, Software, Formal analysis, Data curation, Visualization,
+  Writing - original draft, Writing - review & editing. Sen Tian: Conceptualization, Methodology, Formal analysis,
+  Writing - review & editing."
+- **B.** As A, and Sen Tian also Software and Data curation (if code or data of the 2021 version carried over).
+- **C.** Your own list.
+
 **D5, earlier note.** The export at \url{https://www.pip-score.org/data} (`scholar_data_share/all_authors_stats.csv`, last
 modified 14 March 2026) holds 16,953 Google Scholar profiles with author-level statistics (h-index, citations,
 i10-index, publication counts, start year, their percentiles and the asymmetric PiP-AUC), with profile dates from
