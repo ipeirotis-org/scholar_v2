@@ -2,10 +2,10 @@
 
   fig_standing_curves  the definition: standing curves of three real authors (1995 cohort, career age 10)
   fig_paper_stability  paper percentiles settle early: by age, and by field
-  fig_cohorts          a PiP score means the same thing across cohorts; the raw h-index drifts
-  fig_prediction       predicting future work: PiP (tau = 0.5) vs the original PiP-AUC vs h-index (raw and percentile)
+  fig_cohorts          the distribution of PiP is stable across cohorts; the raw h-index drifts
+  fig_prediction       predicting future work: PiP (tau = 0.5) vs the h-index (raw and percentile)
   fig_fields           share of each field in its cohort's top 10%: pooled vs field-normalized score
-  fig_frontier         PiP at every cutoff against percentile-based indicators: future quantity vs future quality
+  fig_frontier         PiP at every cutoff against percentile-based indicators: future quantity vs future impact
   fig_early            early detection: accuracy by the career age at which each indicator is measured
 
 Run: python3 paper/figures/make_figures.py   (matplotlib; Inter if installed)
@@ -153,14 +153,14 @@ def fig_prediction():
     rows = read("fig5_prediction.csv")
     settings = [("same_age", "5", "age 5"), ("same_age", "10", "age 10"), ("same_age", "15", "age 15"),
                 ("same_year", "2000", "2000"), ("same_year", "2005", "2005")]
-    predictors = [("sym_tau50", "PiP (τ = 0.5)", BLUE, "o"), ("pip", "original PiP-AUC", ORANGE, "D"),
-                  ("h_pct", "h-index percentile", AQUA, "s"), ("h_raw", "h-index (raw)", INK3, "^")]
+    predictors = [("sym_tau50", "PiP (τ = 0.5)", BLUE, "o"), ("h_pct", "h-index percentile", ORANGE, "s"),
+                  ("h_raw", "h-index (raw)", INK3, "^")]
     value = {(r["scenario"], r["setting"], r["predictor"]): r for r in rows}
     outcomes = [("spearman_top10", "(a) Future top-10% papers", "Spearman correlation"),
                 ("auc_any_top1", "(b) Any future top-1% paper", "ROC AUC"),
                 ("spearman_mean_pct", "(c) Mean future percentile", "Spearman correlation")]
     fig, axes = plt.subplots(1, 3, figsize=(7.2, 3.1), facecolor=SURFACE)
-    offsets = [-0.24, -0.08, 0.08, 0.24]
+    offsets = [-0.18, 0.0, 0.18]
     for ax, (col, title, ylabel) in zip(axes, outcomes):
         clean(ax, title)
         ax.title.set_fontsize(7.6)
@@ -183,7 +183,7 @@ def fig_prediction():
         ax.text(3.5, -0.16, "same year", transform=ax.get_xaxis_transform(), ha="center", va="top",
                 color=INK2, fontsize=6.6)
     handles, labels = axes[0].get_legend_handles_labels()
-    fig.legend(handles, labels, loc="lower center", ncol=4, fontsize=7, bbox_to_anchor=(0.5, -0.01))
+    fig.legend(handles, labels, loc="lower center", ncol=3, fontsize=7, bbox_to_anchor=(0.5, -0.01))
     fig.tight_layout(rect=(0, 0.08, 1, 1), w_pad=1.0)
     save(fig, "fig_prediction")
 
@@ -212,9 +212,9 @@ def fig_fields():
 def fig_frontier():
     rows = read("fig7_frontier.csv")
     panels = [("same_age", "10", "_raw", "(a) Career age 10"),
-              ("same_year", "2005", "_pct", "(b) All active authors in 2005, cohort percentiles")]
-    baselines = [("h", "h-index"), ("pip_original", "original PiP-AUC"), ("i3", "I3 (sum of percentiles)"),
-                 ("top10", "top-10% count"), ("top10_age", "top-10% per year"), ("top1", "top-1% count")]
+              ("same_year", "2005", "_pct", "(b) All eligible authors in 2005, cohort percentiles")]
+    baselines = [("h", "h-index"), ("i3", "I3 (sum of percentiles)"), ("top10", "top-10% count"),
+                 ("top10_age", "top-10% per year"), ("top1", "top-1% count")]
     # label offsets in points (dx, dy); ha follows the sign of dx, 0 centers
     offsets = {
         "10": {"h": (6, 0), "pip_original": (-7, 6), "i3": (-7, -6), "top10": (0, -11), "top1": (6, 0)},
@@ -286,7 +286,7 @@ def fig_early():
     rows = [r for r in read("fig8_early.csv") if r["pop_age"] == "3"]
     preds = [("pip", "PiP", BLUE, 2.0), ("h", "h-index", ORANGE, 1.6), ("top10", "top-10% count", INK3, 1.0),
              ("i3", "I3", INK3, 1.0), ("articles", "articles", INK3, 1.0), ("citations", "citations", INK3, 1.0)]
-    panels = [("precision_top10", "(a) Finding future stars: precision of the top 10%", "Share of picks who become stars",
+    panels = [("precision_top10_frac", "(a) Finding future stars: precision of the top 10%", "Share of picks who become stars",
                0.10, 0.021),
               ("auc_any_top1", "(b) Any future top-1% paper", "ROC AUC", 0.5, 0.0175)]
     fig, axes = plt.subplots(1, 2, figsize=(7.2, 3.2), facecolor=SURFACE)

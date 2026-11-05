@@ -7,6 +7,13 @@
 --   top1         number of articles in the top 1% (y >= 0.99)
 --   i3           sum of the percentiles, sum of y                                    (I3, Leydesdorff & Bornmann 2011)
 --   mean_pct     mean of the percentiles
+--   t25 .. t90   cutoff-matched sums, T_tau = 1/(1-tau) * sum of (y' - tau)^+ = 1/(1-tau) * integral of n(t) from tau to
+--                1, with y' = (FLOOR(40 y) + 1) / 40 the percentile on PiP's 40 classes (see 25). T_tau uses the same
+--                percentiles and the same cutoff as PiP at tau and differs from it only in the peer comparison G_t
+--                inside the integral. The paper calls it PiP-simple.
+--   combo25 .. combo75  w * (cohort percentile of the article count) + (1 - w) * (cohort percentile of the mean
+--                percentile), w = 0.25, 0.5, 0.75: a direct mix of quantity and impact (cohort = scenario x setting x
+--                start year, Hazen percentiles); not in the paper, kept for the record (FINDINGS.md §19)
 -- plus, for reference, PiP at every cutoff of 12 (sym, sym_tau25 .. sym_tau90; pip_sym50 is the main score), the
 -- original PiP-AUC, the h-index and the article count. Each also enters as a
 -- within-cohort Hazen percentile, (N + rank ascending - rank descending) / 2N within (scenario, setting, start year);
@@ -35,17 +42,37 @@ WITH
   ),
   agg AS (
     SELECT authorid, start_year, eval_year,
-      COUNT(*) AS n_papers, COUNTIF(y >= 0.9) AS top10, COUNTIF(y >= 0.99) AS top1, SUM(y) AS i3, AVG(y) AS mean_pct
+      COUNT(*) AS n_papers, COUNTIF(y >= 0.9) AS top10, COUNTIF(y >= 0.99) AS top1, SUM(y) AS i3, AVG(y) AS mean_pct,
+      SUM(GREATEST(0, (FLOOR(y * 40) + 1) / 40 - 0.25)) / 0.75 AS t25,
+      SUM(GREATEST(0, (FLOOR(y * 40) + 1) / 40 - 0.5)) / 0.5 AS t50,
+      SUM(GREATEST(0, (FLOOR(y * 40) + 1) / 40 - 0.75)) / 0.25 AS t75,
+      SUM(GREATEST(0, (FLOOR(y * 40) + 1) / 40 - 0.9)) / 0.1 AS t90
     FROM papers
     GROUP BY authorid, start_year, eval_year
+  ),
+  joined AS (
+    SELECT
+      b.*, g.n_papers, g.top10, g.top10 / b.age AS top10_age, g.top1, g.i3, g.mean_pct, g.t25, g.t50, g.t75, g.t90,
+      v.sym, v.sym_tau25, v.sym_tau50, v.sym_tau60, v.sym_tau75, v.sym_tau90, v.pip
+    FROM base AS b
+    JOIN agg AS g USING (authorid, start_year, eval_year)
+    LEFT JOIN `scholar-version2.paper_rp.pip_variants` AS v
+      ON v.authorid = b.authorid AND v.start_year = b.start_year AND v.age = b.age
+  ),
+  cohort_pct AS (
+    SELECT *,
+      (COUNT(*) OVER w + RANK() OVER (w ORDER BY n_articles) - RANK() OVER (w ORDER BY n_articles DESC))
+        / (2 * COUNT(*) OVER w) AS pct_n,
+      (COUNT(*) OVER w + RANK() OVER (w ORDER BY mean_pct) - RANK() OVER (w ORDER BY mean_pct DESC))
+        / (2 * COUNT(*) OVER w) AS pct_mean
+    FROM joined
+    WINDOW w AS (PARTITION BY scenario, setting, start_year)
   )
-SELECT
-  b.*, g.n_papers, g.top10, g.top10 / b.age AS top10_age, g.top1, g.i3, g.mean_pct,
-  v.sym, v.sym_tau25, v.sym_tau50, v.sym_tau60, v.sym_tau75, v.sym_tau90, v.pip
-FROM base AS b
-JOIN agg AS g USING (authorid, start_year, eval_year)
-LEFT JOIN `scholar-version2.paper_rp.pip_variants` AS v
-  ON v.authorid = b.authorid AND v.start_year = b.start_year AND v.age = b.age;
+SELECT * EXCEPT (pct_n, pct_mean),
+  0.25 * pct_n + 0.75 * pct_mean AS combo25,
+  0.5 * pct_n + 0.5 * pct_mean AS combo50,
+  0.75 * pct_n + 0.25 * pct_mean AS combo75
+FROM cohort_pct;
 
 CREATE OR REPLACE TABLE `scholar-version2.paper_rp.baseline_prediction_long`
 OPTIONS (description = 'Long form of baseline_predictors with within-cohort percentiles. Built by paper/sql/20_percentile_baselines.sql')
@@ -58,7 +85,8 @@ WITH
               ('pip_sym60', sym_tau60), ('pip_sym75', sym_tau75), ('pip_sym90', sym_tau90), ('pip_original', pip),
               ('h', CAST(h_index AS FLOAT64)), ('articles', CAST(n_articles AS FLOAT64)),
               ('top10', CAST(top10 AS FLOAT64)), ('top10_age', top10_age), ('top1', CAST(top1 AS FLOAT64)),
-              ('i3', i3), ('mean_pct', mean_pct)])
+              ('i3', i3), ('mean_pct', mean_pct), ('t25', t25), ('t50', t50), ('t75', t75), ('t90', t90),
+              ('combo25', combo25), ('combo50', combo50), ('combo75', combo75)])
   )
 SELECT scenario, setting, start_year, authorid, CONCAT(predictor, '_raw') AS predictor, x,
   fut_top10, fut_any_top1, fut_mean_pct, fut_articles
