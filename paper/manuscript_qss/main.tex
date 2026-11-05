@@ -285,24 +285,24 @@ with no article at or above $\theta$ stands at zero there, however many peers sh
 
 Traced over all thresholds, the standings form the author's \emph{standing curve} $\theta \mapsto g_a(\theta)$. The
 curve starts at the author's standing on the number of articles and ends at their standing on the number of top
-articles. It need not be monotone: an author can rank higher among peers on the number of top-10\% articles than on
-the number of articles (Figure~\ref{fig:curves}). The curve rises and falls in a sawtooth. Between two of the
-author's own article percentiles, $n_a(\theta)$ stays constant as $\theta$ rises while peers' counts can only fall, so
-the standing climbs; each time $\theta$ passes one of the author's articles, $n_a(\theta)$ drops by one and the
-standing steps down.
+articles. It need not be monotone: an author can rank higher among peers on the number of top-10\% articles than on the
+number of articles (Figure~\ref{fig:curves}). The curve rises and falls in a sawtooth. Between two of the author's own
+article percentiles, $n_a(\theta)$ stays constant as $\theta$ rises while peers' counts can only fall, so the standing
+can only rise. It can fall only where $\theta$ passes one of the author's articles and $n_a(\theta)$ drops by one, and
+it does so unless peers' counts fall by enough at the same threshold.
 
 \begin{figure}[t]
   \centering
   \includegraphics[width=\textwidth]{fig_standing_curves.pdf}
   \caption{Standing curves of three authors who published their first article in 1995, evaluated in 2005 (career age
-  10). Each was chosen as the author whose PiP is closest to the 25th, 50th or 90th percentile of the cohort's
-  scores. Each curve gives, at every threshold $\theta$, the share of the 1995 cohort's eligible authors who have fewer
-  articles at or above percentile $\theta$ of their publication year. PiP is the shaded area to the right of
-  $\tau = 0.5$, rescaled by $1/(1-\tau)$, or equivalently the average height of the curve there (dashed line). The
-  ticks on the horizontal axis mark the author's articles, at their percentiles rounded up to the next multiple of
-  $1/40$ (Section~\ref{sec:computation}); the curve steps down at each one. The median author has seven articles, two
-  of them in the top 10\% of their year and one in the top 5\%. At thresholds
-  from 0.85 to 0.95 this author stands above 49\% to 63\% of the peers, who have fewer articles cited that highly.}
+  10). Each was chosen as the author whose PiP is closest to the 25th, 50th or 90th percentile of the cohort's scores.
+  Each curve gives, at every threshold $\theta$, the share of the 1995 cohort's eligible authors who have fewer articles
+  at or above percentile $\theta$ of their publication year. PiP is the shaded area to the right of $\tau = 0.5$,
+  rescaled by $1/(1-\tau)$, or equivalently the average height of the curve there (dashed line). The ticks on the
+  horizontal axis mark the author's articles, at their percentiles rounded up to the next multiple of $1/40$
+  (Section~\ref{sec:computation}); the curve can fall only at these ticks. The median author has seven articles, two of
+  them in the top 10\% of their year and one in the top 5\%. At thresholds from 0.85 to 0.95 this author stands above
+  49\% to 63\% of the peers, who have fewer articles cited that highly.}
   \label{fig:curves}
 \end{figure}
 
