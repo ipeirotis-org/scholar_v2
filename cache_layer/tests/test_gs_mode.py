@@ -48,6 +48,19 @@ class TestGsQueries:
         assert "gs_statistics.ranked_author_pip_scores_current`" in sql
         assert "P.* EXCEPT (scholar_id, year_of_first_pub)" in sql
 
+    def test_is_retired_reads_retired_profiles(self, gs_mode):
+        import pandas as pd
+        client, bq = _client(pd.DataFrame([{"f0_": 1}]))
+        assert client.is_retired(GS_ID) is True
+        assert "gs_data.retired_profiles" in bq.query.call_args[0][0]
+        client, _ = _client(pd.DataFrame())
+        assert client.is_retired(GS_ID) is False
+
+    def test_is_retired_falls_back_to_false_on_errors(self, gs_mode):
+        bq = mock.MagicMock()
+        bq.query.side_effect = RuntimeError("BigQuery down")
+        assert BigQueryClient(client=bq).is_retired(GS_ID) is False
+
     def test_freshness_reads_snapshot_view(self, gs_mode):
         import pandas as pd
         ts = datetime(2026, 11, 2, tzinfo=timezone.utc)
@@ -63,9 +76,10 @@ class TestGsQueries:
 
 
 class TestGsOnDemandCrawl:
-    def _service(self, freshness, crawl_result=True):
+    def _service(self, freshness, crawl_result=True, retired=False):
         bq, writer = mock.MagicMock(), mock.MagicMock()
         bq.get_author_freshness.side_effect = freshness
+        bq.is_retired.return_value = retired
         bq.get_author_stats.return_value = {"name": "A"}
         bq.get_author_pub_stats.return_value = [{"author_pub_id": "x"}]
         bq.get_author_temporal_stats.return_value = []
@@ -100,6 +114,19 @@ class TestGsOnDemandCrawl:
         svc, crawl = self._service([(False, None)])
         svc.dispatch("populate_author_profile", {"scholar_id": "2942126"})
         crawl.assert_not_called()
+
+    def test_retired_profile_is_not_crawled_and_recorded_as_gone(self, gs_mode):
+        svc, crawl = self._service([(False, None)], retired=True)
+        result = svc.dispatch("populate_author_profile", {"scholar_id": GS_ID})
+        crawl.assert_not_called()  # a crawl would only fail again, and cost a search
+        assert result == {"status": "not_found", "scholar_id": GS_ID, "retired": True}
+        svc.writer.write.assert_called_once_with(
+            "v3_author_freshness", GS_ID, {"exists": False, "retired": True, "last_updated": None})
+
+    def test_retired_check_only_for_unknown_authors(self, gs_mode):
+        svc, crawl = self._service([(True, datetime.now(timezone.utc))], retired=True)
+        assert svc.dispatch("populate_author_profile", {"scholar_id": GS_ID})["status"] == "ok"
+        svc.bq.is_retired.assert_not_called()
 
     def test_s2_mode_never_crawls(self):
         assert not Config.IS_GS
@@ -137,6 +164,7 @@ class TestGsCrawlLockUse:
     def _service(self, lock):
         bq, writer = mock.MagicMock(), mock.MagicMock()
         bq.get_author_freshness.side_effect = [(False, None), (True, datetime.now(timezone.utc))]
+        bq.is_retired.return_value = False
         bq.get_author_stats.return_value = {"name": "A"}
         bq.get_author_pub_stats.return_value = []
         bq.get_author_temporal_stats.return_value = []
