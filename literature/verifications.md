@@ -1957,3 +1957,400 @@ accessed: 2026-11-05
 verdict: supported
 evidence: "we have a nice new score that we have given the thoroughly boring name "Percentile in Percentile Area Under the Curve" score, or PiP-AUC for short" (post body); "we created a small app at https://scholar.ipeirotis.org/" (post body, second paragraph)
 notes: The post describes the first form of the score and links scholar.ipeirotis.org, which the revised sentence now names as the site's former address; on 2026-11-05 https://scholar.ipeirotis.org/ answered 301 to https://www.scholar-analytics.org/, which ends at https://www.pip-score.org/ (200), consistent with the author's statement that it redirects to pip-score.org. 'Asymmetric' is the manuscript's own characterization (Section sec:pip), not attributed to the post. Supersedes the 'partially supported' entry for the earlier wording.
+
+## [2026-11-05T17:31Z] cite:hirsch2005index — paper/manuscript_qss/main.tex:66
+claim: "The most common are citation counts and the $h$-index \citep{hirsch2005index}, and both are hard to read in this setting: their values depend on the field, grow with seniority and drift with the calendar."
+claim-hash: 879dc1a2c943
+source: doi:10.1073/pnas.0507655102
+version-read: preprint (arXiv:physics/0508025v5)
+archived: gs://scholar-version2-literature/sources/hirsch2005index--10.1073_pnas.0507655102-f28ddc65.pdf sha256:ad20b4b792bde68eba06d00b944b47532aa26adefdabbabf6a649fa984481b96
+license: unknown (treated as restricted; private store)
+updates: none
+verdict: supported
+evidence: "I propose the index h, defined as the number of papers with citation number higher or equal to h, as a useful index to characterize the scientific output of a researcher." (abstract)
+notes: Re-verified against the same archived passage after the blue-pencil revision of 2026-11-05: the wording changed, the attribution to this source did not.
+
+## [2026-11-05T17:31Z] cite:bornmann2013use — paper/manuscript_qss/main.tex:85
+claim: "Percentiles have become an established normalization, which the Leiden Manifesto calls the most robust \citep{bornmann2013use,waltman2016review,hicks2015bibliometrics}."
+claim-hash: 4871a1a5309d
+source: doi:10.1016/j.joi.2012.10.001
+version-read: preprint (arXiv:1211.0381v1)
+archived: gs://scholar-version2-literature/sources/bornmann2013use--10.1016_j.joi.2012.10.001-681945bb.pdf sha256:3638ced7af5747f7fcc1e34f278c7ebcee3bea58c100951823931a3eab77e27c
+license: unknown (treated as restricted; private store)
+updates: none
+verdict: supported
+evidence: "Percentiles and PR have been established in bibliometrics as an important alternative" (sec. 5 Discussion)
+notes: Re-verified against the same archived passage after the blue-pencil revision of 2026-11-05: the wording changed, the attribution to this source did not.
+
+## [2026-11-05T17:31Z] cite:waltman2016review — paper/manuscript_qss/main.tex:85
+claim: "Percentiles have become an established normalization, which the Leiden Manifesto calls the most robust \citep{bornmann2013use,waltman2016review,hicks2015bibliometrics}."
+claim-hash: 4871a1a5309d
+source: doi:10.1016/j.joi.2016.02.007
+version-read: preprint (arXiv:1507.02099v3)
+archived: gs://scholar-version2-literature/sources/waltman2016review--10.1016_j.joi.2016.02.007-f65cd1b4.pdf sha256:dbfc29bc5a786a45fd14c9a7ab47d7b40949adff0dce04f0a3c540631491f907
+license: unknown (treated as restricted; private store)
+updates: none
+verdict: supported
+evidence: "Nowadays, the idea of calculating the proportion of publications that belong to the top 10% most highly cited in their field plays an important role both in the CWTS Leiden Ranking and in the SCImago Institutions Rankings" (sec. 6.2, p. 25)
+notes: Re-verified against the same archived passage after the blue-pencil revision of 2026-11-05: the wording changed, the attribution to this source did not.
+
+## [2026-11-05T17:31Z] cite:hicks2015bibliometrics — paper/manuscript_qss/main.tex:85
+claim: "Percentiles have become an established normalization, which the Leiden Manifesto calls the most robust \citep{bornmann2013use,waltman2016review,hicks2015bibliometrics}."
+claim-hash: 4871a1a5309d
+source: doi:10.1038/520429a
+version-read: version of record (Nature 520:429-431 typeset PDF, deposited in DIGITAL.CSIC)
+archived: gs://scholar-version2-literature/sources/hicks2015bibliometrics--10.1038_520429a-a1c33bfa.pdf sha256:f141b19cb5d5f7db1aba13ad02decde290b83f059b52724126f8ae5ec563395d
+license: unknown (treated as restricted; private store)
+updates: none
+verdict: supported
+evidence: "the most robust normalization method is based on percentiles" (p. 431, principle 6)
+notes: Re-verified against the same archived passage after the blue-pencil revision of 2026-11-05: the wording changed, the attribution to this source did not.
+
+## [2026-11-05T17:31Z] cite:bornmann2013use — paper/manuscript_qss/main.tex:86
+claim: "They do not depend on the skewed tail of the citation distribution \citep{bornmann2013use}, they need no assumption about how citations grow with age, and their meaning does not change with the calendar."
+claim-hash: db3ed4a4fa1e
+source: doi:10.1016/j.joi.2012.10.001
+version-read: preprint (arXiv:1211.0381v1)
+archived: gs://scholar-version2-literature/sources/bornmann2013use--10.1016_j.joi.2012.10.001-681945bb.pdf sha256:3638ced7af5747f7fcc1e34f278c7ebcee3bea58c100951823931a3eab77e27c
+license: unknown (treated as restricted; private store)
+updates: none
+verdict: supported
+evidence: "(1) percentiles are not as strongly influenced by extreme values of the distribution as the mean value" (sec. 2, The calculation of percentiles); "(3) Percentiles can be calculated, even if the data are skewed, as it is usual for bibliometric data." (sec. 2)
+notes: Re-verified against the same archived passage after the blue-pencil revision of 2026-11-05: the wording changed, the attribution to this source did not.
+
+## [2026-11-05T17:31Z] cite:kinney2023semantic — paper/manuscript_qss/main.tex:108
+claim: "We compute PiP from the Semantic Scholar Academic Graph \citep{kinney2023semantic} for 11.1 million authors at every career age from 1 to 30, where career age is the number of years since an author's first paper."
+claim-hash: 12b8c1ccd770
+source: arXiv:2301.10140 (DataCite doi:10.48550/arXiv.2301.10140)
+version-read: preprint (arXiv:2301.10140v2)
+archived: gs://scholar-version2-literature/sources/kinney2023semantic--the_semantic_scholar_open_data_platform-95c53807.pdf sha256:6f4c9082252e8b420ff2cbb811379f989f087bf4e8b46ff9ec5f9565b2b43e6f
+license: unknown (treated as restricted; private store)
+accessed: 2026-11-05
+verdict: supported
+evidence: "form is to build and distribute the Semantic Scholar" (sec. 2, Platform Overview (continues 'Academic Graph, or S2AG')); "Download links to monthly snapshots of our knowl" (sec. 4.2, Datasets)
+notes: Re-verified against the same archived passage after the blue-pencil revision of 2026-11-05: the wording changed, the attribution to this source did not.
+
+## [2026-11-05T17:31Z] cite:egghe2006theory — paper/manuscript_qss/main.tex:154
+claim: "The $g$-index \citep{egghe2006theory} gives credit to the citations above the corner; the $m$-quotient \citep{hirsch2005index}, the contemporary $h$-index \citep{sidiropoulos2007generalized} and $hI_{a}$ \citep{harzing2014hia} correct for career length by dividing by academic age or discounting old papers; \citet{kaur2013universality} rescale the $h$-index by the field average."
+claim-hash: 71e92edb885f
+source: doi:10.1007/s11192-006-0144-7
+version-read: version of record (author-supplied copy, identity checked against the registrar record)
+archived: gs://scholar-version2-literature/sources/egghe2006theory--10.1007_s11192-006-0144-7-c5ffc342--author-supplied.pdf sha256:6cbee1f21ba0279b2b76d5d8692a0c7a29e6a9be859436fceaa88adbc747b72d
+license: restricted — author-supplied copy, private store
+updates: none
+verdict: supported
+evidence: "the g-index is the (unique) largest number such that the top g articles received (together) at least g2 citations" (abstract); "it is insensitive to one or several outstandingly highly cited papers" (sec. 1, on the h-index)
+notes: The g-index counts the citations of the top g articles together, so citations above h's threshold earn credit; Egghe notes the h-index is insensitive to outstandingly highly cited papers. Supersedes the earlier 'unverifiable' entry (full text supplied by the author on 2026-11-05).
+
+## [2026-11-05T17:31Z] cite:bornmann2011metaanalysis — paper/manuscript_qss/main.tex:158
+claim: "Most variants correlate highly with the original \citep{bornmann2011metaanalysis}."
+claim-hash: cb0ee89f8235
+source: doi:10.1016/j.joi.2011.01.006
+version-read: version of record (author-supplied copy, identity checked against the registrar record)
+archived: gs://scholar-version2-literature/sources/bornmann2011metaanalysis--10.1016_j.joi.2011.01.006-23b88c51--author-supplied.pdf sha256:3ca617ae04265d08b3b6d60dbdb3f652386370815ccc3e999b84141b3dd1e5ca
+license: restricted — author-supplied copy, private store
+updates: none
+verdict: supported
+evidence: "show a high correlation between the h index and its variants" (abstract); "This means that there is redundancy between most of the h index variants and the h index." (abstract)
+notes: Meta-analysis of 37 variants: most correlate highly with h. Supersedes the earlier 'unverifiable' entry (full text supplied by the author on 2026-11-05).
+
+## [2026-11-05T17:31Z] cite:schubert1986relative — paper/manuscript_qss/main.tex:165
+claim: "They are less sensitive to outliers \citep{bornmann2013use,bornmann2020evaluation} than normalization by mean citation rates \citep{schubert1986relative,Radicchi2008} and are recommended in the Leiden Manifesto \citep{hicks2015bibliometrics}."
+claim-hash: 6140009d112b
+source: doi:10.1007/bf02017249
+version-read: version of record (author-supplied copy, identity checked against the registrar record)
+archived: gs://scholar-version2-literature/sources/schubert1986relative--10.1007_bf02017249-0d8903d0--author-supplied.pdf sha256:608a7ca180944a650b810b6317e708c6785aab50bd6953918c1411afd98ca2f0
+license: restricted — author-supplied copy, private store
+updates: none
+verdict: supported
+evidence: "the average citation rate of the journal in which a paper was published is a valid standard to which its citation rate can be matched" (sec. 2); "corresponds precisely to the world average" (sec. 2, activity and attractivity indexes)
+notes: Relative indicators divide a citation rate by an average (journal or world) citation rate: normalization by mean citation rates, as the revised sentence cites it. Supersedes the earlier 'unverifiable' entry (full text supplied by the author on 2026-11-05).
+
+## [2026-11-05T17:31Z] cite:waltman2013percentile — paper/manuscript_qss/main.tex:167
+claim: "Ties and the definition of the percentile need care \citep{waltman2013percentile}."
+claim-hash: 3938bfb9c80f
+source: doi:10.1002/asi.22775
+version-read: preprint (arXiv:1205.0646v1)
+archived: gs://scholar-version2-literature/sources/waltman2013percentile--10.1002_asi.22775-039024e8.pdf sha256:89e4c0756f18084062345454a5ad2dc5649cf29dec145615f2f19e2844310ac7
+license: unknown (treated as restricted; private store)
+updates: none
+verdict: supported
+evidence: "A difficulty in the calculation of percentile-based indicators is caused by the discrete nature of citation distributions combined with the presence of many publications with the same number of citations." (abstract); "Usually, there are multiple publications in a field that have the same number of citations. The presence of such ‘ties’ may aggravate the above problem." (sec. 1, Introduction)
+notes: Re-verified against the same archived passage after the blue-pencil revision of 2026-11-05: the wording changed, the attribution to this source did not.
+
+## [2026-11-05T17:31Z] cite:hazen1914storage — paper/manuscript_qss/main.tex:169
+claim: "For scoring we use the share of the reference set with strictly fewer citations, so that uncited papers have percentile zero; for correlations we use Hazen's mid-rank \citep{hazen1914storage} (Section~\ref{sec:properties} discusses the choice)."
+claim-hash: 8ec2466bb162
+source: doi:10.1061/taceat.0002563
+version-read: version of record (scan of Trans. ASCE vol. 77, 1914; pages 1629-1740 of the archive.org volume scan, extracted)
+archived: gs://scholar-version2-literature/sources/hazen1914storage--10.1061_taceat.0002563-1fbb5981.pdf sha256:e80f3c2b37f161d8ac843c6c0e1a78db86343bb4e08fff8db8f9324db8dfc5de
+license: public domain (1914 US publication)
+updates: none
+verdict: supported
+evidence: "the figure for each term, arranged in its order of magnitude, is plotted at the percentage which corresponds to the middle of its strip" (printed p. 1549, 'Probability Paper'); "The first term will be plotted at the middle of the first 2% strip; that is, on the 1% line" (printed p. 1549)
+notes: Re-verified against the same archived passage after the blue-pencil revision of 2026-11-05: the wording changed, the attribution to this source did not.
+
+## [2026-11-05T17:31Z] cite:bornmann2014individual — paper/manuscript_qss/main.tex:171
+claim: "\citet{bornmann2014individual} propose counting a scholar's papers in the top 10\% and dividing by academic age, and I3 \citep{leydesdorff2011integrated,rousseau2012basic} sums percentiles over a set of papers."
+claim-hash: fbeedac9749c
+source: doi:10.1007/s11192-013-1161-y
+version-read: preprint (arXiv:1302.3697v2)
+archived: gs://scholar-version2-literature/sources/bornmann2014individual--10.1007_s11192-013-1161-y-22e3c955.pdf sha256:f53354eb37b3efb9676ae2f64101071c8aa1d7ffe88e12df5d581f88ea210334
+license: unknown (treated as restricted; private store)
+updates: none
+verdict: supported
+evidence: "we would like to propose using the number of years as an active researcher (Ptop 10% quotient) to normalise Ptop 10% for age" (sec. 3.2)
+notes: Re-verified against the same archived passage after the blue-pencil revision of 2026-11-05: the wording changed, the attribution to this source did not.
+
+## [2026-11-05T17:31Z] cite:leydesdorff2011integrated — paper/manuscript_qss/main.tex:171
+claim: "\citet{bornmann2014individual} propose counting a scholar's papers in the top 10\% and dividing by academic age, and I3 \citep{leydesdorff2011integrated,rousseau2012basic} sums percentiles over a set of papers."
+claim-hash: fbeedac9749c
+source: doi:10.1002/asi.21609
+version-read: preprint (arXiv:1103.5241v2)
+archived: gs://scholar-version2-literature/sources/leydesdorff2011integrated--10.1002_asi.21609-cbbd6e66.pdf sha256:b50d95eee11710072a36fbee7e64ebdb3ba5b3dcb4c2f1e3fee5e7d630892d9b
+license: unknown (treated as restricted; private store)
+updates: none
+verdict: supported
+evidence: "One can also consider hundred percentiles as a continuous random variable and sum these values" (pp. 5-6); "The citations are weighted in accordance with the percentile" (p. 7)
+notes: Re-verified against the same archived passage after the blue-pencil revision of 2026-11-05: the wording changed, the attribution to this source did not.
+
+## [2026-11-05T17:31Z] cite:rousseau2012basic — paper/manuscript_qss/main.tex:171
+claim: "\citet{bornmann2014individual} propose counting a scholar's papers in the top 10\% and dividing by academic age, and I3 \citep{leydesdorff2011integrated,rousseau2012basic} sums percentiles over a set of papers."
+claim-hash: fbeedac9749c
+source: doi:10.1002/asi.21684
+version-read: version of record (author-supplied copy, identity checked against the registrar record)
+archived: gs://scholar-version2-literature/sources/rousseau2012basic--10.1002_asi.21684-660d9303--author-supplied.pdf sha256:1a433fb4d0d616a7ddda5131a3f78980e18f46857eb154451f833f2941c2f8e3
+license: restricted — author-supplied copy, private store
+updates: none
+verdict: supported
+evidence: "The I3 score of a Set A is defined as" (Definition 4 (formula: sum over classes k = 1..K of x_k n_A(k))); "the Integrated Impact Indicator (I3), introduced by Leydesdorff and Bornmann (2011), is a strictly congruous indicator of absolute performance" (abstract)
+notes: I3 sums the percentile-class scores x_k of a set's papers (formula garbled by text extraction; read from the PDF). Supersedes the earlier 'unverifiable' entry (full text supplied by the author on 2026-11-05).
+
+## [2026-11-05T17:31Z] cite:rodriguez2018double — paper/manuscript_qss/main.tex:177
+claim: "For countries and institutions, double rank analysis gives each of a unit's papers a rank within the unit and a rank among all papers in the world, and reads the unit's output at very high percentiles from the relation between the two \citep{rodriguez2018double,brito2018percentile}."
+claim-hash: de03b22ec35b
+source: doi:10.1016/j.joi.2017.11.004
+version-read: version of record (author-supplied copy, identity checked against the registrar record)
+archived: gs://scholar-version2-literature/sources/rodriguez2018double--10.1016_j.joi.2017.11.004-a349ac75--author-supplied.pdf sha256:b6b046520aa6f09e3fc45ef69b73699277e103b12d7c4db425a716a7c06efcfe
+license: restricted — author-supplied copy, private store
+updates: none
+verdict: supported
+evidence: "the internal ranking number can be expressed as a function of the world ranking number" (abstract); "extrapolation allows estimating the likelihood of publishing the highest cited publication" (abstract); "which includes a low number of publications in most countries and institutions" (abstract)
+notes: Each paper's rank within the unit as a function of its world rank; extrapolation reads the very top of the distribution; applied to countries and institutions. Supersedes the earlier 'unverifiable' entry (full text supplied by the author on 2026-11-05).
+
+## [2026-11-05T17:31Z] cite:sinatra2016quantifying — paper/manuscript_qss/main.tex:184
+claim: "Later work modeled impact as a stable individual parameter applied to papers of random quality \citep{sinatra2016quantifying}, and \citet{clauset2017datadriven} review the area."
+claim-hash: 3d9649427947
+source: doi:10.1126/science.aaf5239
+version-read: version of record (author-supplied copy, identity checked against the registrar record)
+archived: gs://scholar-version2-literature/sources/sinatra2016quantifying--10.1126_science.aaf5239-d62f25d9--author-supplied.pdf sha256:9bff5e1e8523223f47f74fa00895ec376ae244d498f73e241bf668c517c8a9f9
+license: restricted — author-supplied copy, private store
+updates: none
+verdict: supported
+evidence: "The model assumes that each scientist selects a project with a random potential p and improves on it with a factor Qi, resulting in a publication of impact Qip." (research article summary); "Together, these measurements indicate that the Q parameter is generally stable throughout a career" (results)
+notes: Impact = Q_i x p with random p and a career-stable Q_i. Supersedes the earlier 'unverifiable' entry (full text supplied by the author on 2026-11-05).
+
+## [2026-11-05T17:31Z] cite:clauset2017datadriven — paper/manuscript_qss/main.tex:184
+claim: "Later work modeled impact as a stable individual parameter applied to papers of random quality \citep{sinatra2016quantifying}, and \citet{clauset2017datadriven} review the area."
+claim-hash: 3d9649427947
+source: doi:10.1126/science.aal4217
+version-read: version of record (author-supplied copy, identity checked against the registrar record)
+archived: gs://scholar-version2-literature/sources/clauset2017datadriven--10.1126_science.aal4217-d398d626--author-supplied.pdf sha256:cbdacc0c763f62aee73c1d82bc442cd0e2dec46690802cf883004ef8d374f430
+license: restricted — author-supplied copy, private store
+updates: none
+verdict: supported
+evidence: "we survey the emerging and interdisciplinary field of the" (abstract); "Four areas exemplify these achievements: citations of past discoveries, who gets hired into career researcher positions, and both the scientific productivity and the timing of major discoveries over a career." (introduction)
+notes: An Essay surveying prediction in the science of science, including citations, careers and productivity. Supersedes the earlier 'unverifiable' entry (full text supplied by the author on 2026-11-05).
+
+## [2026-11-05T17:31Z] cite:acuna2012future — paper/manuscript_qss/main.tex:186
+claim: "Other work predicted future $h$-index values from features of a career \citep{acuna2012future} and questioned how much of that predictability is mechanical, because the future $h$-index contains the current one \citep{penner2013predictability}."
+claim-hash: 0e658014568d
+source: doi:10.1038/489201a
+version-read: version of record (author-supplied copy, identity checked against the registrar record)
+archived: gs://scholar-version2-literature/sources/acuna2012future--10.1038_489201a-fecad52c--author-supplied.pdf sha256:6cee4984a49915129d5de245ffbee91a948378792120f2e1a329424a0bef4c6b
+license: restricted — author-supplied copy, private store
+updates: none
+verdict: supported
+evidence: "present a formula to estimate the future h-index of life scientists" (standfirst); "n, number of articles written; h, current h-index; y, years since publishing first article; j, number of distinct journals published in" (figure key)
+notes: The formula predicts the future h-index from career features (articles, current h, career length, distinct journals, articles in top journals). Supersedes the earlier 'unverifiable' entry (full text supplied by the author on 2026-11-05).
+
+## [2026-11-05T17:31Z] cite:penner2013predictability — paper/manuscript_qss/main.tex:186
+claim: "Other work predicted future $h$-index values from features of a career \citep{acuna2012future} and questioned how much of that predictability is mechanical, because the future $h$-index contains the current one \citep{penner2013predictability}."
+claim-hash: 0e658014568d
+source: doi:10.1038/srep03052
+version-read: version of record
+archived: gs://scholar-version2-literature/sources/penner2013predictability--10.1038_srep03052-5af70d94.xml sha256:0ec5949cf8c9968d00edb312c484c4008ff9fb57f89ce2fa9fb1a3d89800c0a4
+license: CC-BY-NC-SA-3.0 (Scientific Reports)
+updates: none
+verdict: supported
+evidence: "cumulative non-decreasing measures like the h -index contain intrinsic autocorrelation, resulting in significant overestimation of their “predictive power”" (Abstract); "linear regression models are not so much predicting future impact as they are picking up on a correlation intrinsic to cumulative measures" (Results, 'Modeling non-cumulative measures')
+notes: Re-verified against the same archived passage after the blue-pencil revision of 2026-11-05: the wording changed, the attribution to this source did not.
+
+## [2026-11-05T17:31Z] cite:merton1968matthew — paper/manuscript_qss/main.tex:192
+claim: "Citations also feed on themselves: well-known scholars receive more attention for the same work \citep{merton1968matthew,petersen2014reputation}."
+claim-hash: cfffe0ec91af
+source: doi:10.1126/science.159.3810.56
+version-read: version of record (scan of Science 159(3810):56-63, 1968; OCR text)
+archived: gs://scholar-version2-literature/sources/merton1968matthew--10.1126_science.159.3810.56-0577b48e.pdf sha256:95fc1cb4a84cf1c563b8085c0c8adca9f44c0162ae343368c688c1f5b64e5209
+license: unknown (treated as restricted; private store)
+updates: none
+verdict: supported
+evidence: "entist may have greater stimuius vaiue" (p. 61 (OCR of 'cognitive material presented by an outstanding scientist may have greater stimulus value')); "than roughly the same kind of mater" (p. 61, next line); "ial presented by an obscure one-a" (p. 61)
+notes: Re-verified against the same archived passage after the blue-pencil revision of 2026-11-05: the wording changed, the attribution to this source did not.
+
+## [2026-11-05T17:31Z] cite:petersen2014reputation — paper/manuscript_qss/main.tex:192
+claim: "Citations also feed on themselves: well-known scholars receive more attention for the same work \citep{merton1968matthew,petersen2014reputation}."
+claim-hash: cfffe0ec91af
+source: doi:10.1073/pnas.1323111111
+version-read: preprint (arXiv:1303.7274v4)
+archived: gs://scholar-version2-literature/sources/petersen2014reputation--10.1073_pnas.1323111111-aab695c0.pdf sha256:e9a2fedc3721a39f5ec0a686fb3d15f9ebaf99579c5bc1b844dce252f36e2205
+license: unknown (treated as restricted; private store)
+updates: none
+verdict: supported
+evidence: "a new publication may gain a significant early advantage corresponding to roughly a 66% increase in the citation rate for each tenfold increase in Ci" (Abstract)
+notes: Re-verified against the same archived passage after the blue-pencil revision of 2026-11-05: the wording changed, the attribution to this source did not.
+
+## [2026-11-05T17:31Z] cite:kinney2023semantic — paper/manuscript_qss/main.tex:200
+claim: "We use the 27 October 2026 release of the Semantic Scholar Academic Graph \citep{kinney2023semantic}, which is distributed under the ODC-BY license \citep{s2datasets2026}."
+claim-hash: a4bd383b1d63
+source: arXiv:2301.10140 (DataCite doi:10.48550/arXiv.2301.10140)
+version-read: preprint (arXiv:2301.10140v2)
+archived: gs://scholar-version2-literature/sources/kinney2023semantic--the_semantic_scholar_open_data_platform-95c53807.pdf sha256:6f4c9082252e8b420ff2cbb811379f989f087bf4e8b46ff9ec5f9565b2b43e6f
+license: unknown (treated as restricted; private store)
+accessed: 2026-11-05
+verdict: supported
+evidence: "S2AG is a disambiguated, high-quality, bibliographic" (abstract)
+notes: Re-verified against the same archived passage after the blue-pencil revision of 2026-11-05: the wording changed, the attribution to this source did not.
+
+## [2026-11-05T17:31Z] cite:s2datasets2026 — paper/manuscript_qss/main.tex:200
+claim: "We use the 27 October 2026 release of the Semantic Scholar Academic Graph \citep{kinney2023semantic}, which is distributed under the ODC-BY license \citep{s2datasets2026}."
+claim-hash: a4bd383b1d63
+source: https://api.semanticscholar.org/datasets/v1/release/2026-10-27
+version-read: release 2026-10-27 dataset READMEs (JSON), fetched 2026-11-05
+archived: gs://scholar-version2-literature/sources/s2datasets2026--api.semanticscholar.org_datasets_v1_release_2026-10-27-1ddd5a1e--2026-11-05-385e6b41.json sha256:385e6b41f1ccaa0199439dd8b7cf1a0c3cfb112ec2f1e784741d749ca5e869f0
+license: unknown (treated as restricted; private store)
+accessed: 2026-11-05
+verdict: supported
+evidence: "This collection is licensed under ODC-BY." (README of the papers, authors and citations datasets, release 2026-10-27)
+notes: Re-verified against the same archived passage after the blue-pencil revision of 2026-11-05: the wording changed, the attribution to this source did not.
+
+## [2026-11-05T17:31Z] cite:kinney2023semantic — paper/manuscript_qss/main.tex:232
+claim: "Semantic Scholar's author records are built by automatic disambiguation, although authors can claim and correct them \citep{kinney2023semantic}."
+claim-hash: 50abf8487eb6
+source: arXiv:2301.10140 (DataCite doi:10.48550/arXiv.2301.10140)
+version-read: preprint (arXiv:2301.10140v2)
+archived: gs://scholar-version2-literature/sources/kinney2023semantic--the_semantic_scholar_open_data_platform-95c53807.pdf sha256:6f4c9082252e8b420ff2cbb811379f989f087bf4e8b46ff9ec5f9565b2b43e6f
+license: unknown (treated as restricted; private store)
+accessed: 2026-11-05
+verdict: supported
+evidence: "In Author Disambiguation, we use a system named" (sec. 3 (column-split)); "S2AND, introduced in Subramanian et al. (2021)," (sec. 3, continuation)
+notes: Re-verified against the same archived passage after the blue-pencil revision of 2026-11-05: the wording changed, the attribution to this source did not.
+
+## [2026-11-05T17:31Z] cite:googlescholarprofiles — paper/manuscript_qss/main.tex:233
+claim: "Google Scholar profiles are created and curated by the scholars themselves \citep{googlescholarprofiles}, so they are a check on automatic disambiguation (Section~\ref{sec:robustness})."
+claim-hash: aa17b7390437
+source: https://scholar.google.com/intl/en/scholar/citations.html
+version-read: help page fetched 2026-11-05
+archived: gs://scholar-version2-literature/sources/google2026--scholar.google.com_intl_en_scholar_citations.html-5a1f02e3--2026-11-05-ee36f4c6.html sha256:ee36f4c64761878fab990a35b7ca3413ea762bd9d37e6685ebf1b6a7efe41615
+license: unknown (treated as restricted; private store)
+accessed: 2026-11-05
+verdict: supported
+evidence: "Google Scholar Profiles provide a simple way for authors to showcase their academic publications." (intro); "Add all articles that you have written" (Setting up your profile); "The best way to fix this is to look through the articles in your profile and remove the ones that were written by others." (FAQ)
+notes: Re-verified against the same archived passage after the blue-pencil revision of 2026-11-05: the wording changed, the attribution to this source did not.
+
+## [2026-11-05T17:31Z] cite:bornmann2013use — paper/manuscript_qss/main.tex:354
+claim: "They are a common choice for the percentile of a single paper \citep{bornmann2013use,waltman2013percentile}, but in the standing they would give credit to authors with nothing above a threshold: at high thresholds most peers have no article, and an author tied with them at zero would stand at half their share."
+claim-hash: 22f090d147a6
+source: doi:10.1016/j.joi.2012.10.001
+version-read: preprint (arXiv:1211.0381v1)
+archived: gs://scholar-version2-literature/sources/bornmann2013use--10.1016_j.joi.2012.10.001-681945bb.pdf sha256:3638ced7af5747f7fcc1e34f278c7ebcee3bea58c100951823931a3eab77e27c
+license: unknown (treated as restricted; private store)
+updates: none
+verdict: supported
+evidence: "The compromise ((i-0.5)/n*100) derived by (Hazen, 1914) is used very frequently" (sec. 2)
+notes: Re-verified against the same archived passage after the blue-pencil revision of 2026-11-05: the wording changed, the attribution to this source did not.
+
+## [2026-11-05T17:31Z] cite:waltman2013percentile — paper/manuscript_qss/main.tex:354
+claim: "They are a common choice for the percentile of a single paper \citep{bornmann2013use,waltman2013percentile}, but in the standing they would give credit to authors with nothing above a threshold: at high thresholds most peers have no article, and an author tied with them at zero would stand at half their share."
+claim-hash: 22f090d147a6
+source: doi:10.1002/asi.22775
+version-read: preprint (arXiv:1205.0646v1)
+archived: gs://scholar-version2-literature/sources/waltman2013percentile--10.1002_asi.22775-039024e8.pdf sha256:89e4c0756f18084062345454a5ad2dc5649cf29dec145615f2f19e2844310ac7
+license: unknown (treated as restricted; private store)
+updates: none
+verdict: partially supported
+evidence: "Pudovkin and Garfield put the tied publications in a random order and calculate their average percentile." (sec. 3)
+notes: Re-verified against the same archived passage after the blue-pencil revision of 2026-11-05: the wording changed, the attribution to this source did not.
+
+## [2026-11-05T17:31Z] cite:ipeirotis2024pip — paper/manuscript_qss/main.tex:392
+claim: "The first form of the score \citep{ipeirotis2024pip} is asymmetric; the website \url{https://www.pip-score.org} uses it."
+claim-hash: 6da5ed1d1e69
+source: https://www.behind-the-enemy-lines.com/2024/01/the-pip-auc-score-for-research.html
+version-read: version of record (blog post, snapshot 2026-11-05)
+archived: gs://scholar-version2-literature/sources/ipeirotis2024pip--the_pip-auc_score_for_research_productivity-05d4fa50--2026-11-05-63eaa116.html sha256:63eaa11614270464d18349834da6403392da00961e5077b08a6139e1f55e95f3
+license: CC-BY-NC-3.0 (site footer)
+accessed: 2026-11-05
+verdict: supported
+evidence: "we created a small app at https://scholar.ipeirotis.org/ that allows anyone to search for a Google Scholar profile" (post body, second paragraph)
+notes: The post describes the first form of the score; that the website pip-score.org uses it is the authors' statement about their own site, consistent with the author's confirmation and the 2026-11-05 redirect check (scholar.ipeirotis.org -> pip-score.org). 'Asymmetric' is the manuscript's own characterization.
+
+## [2026-11-05T17:31Z] cite:hazen1914storage — paper/manuscript_qss/main.tex:458
+claim: "These percentiles are not the strict shares used in the score but Hazen mid-ranks \citep{hazen1914storage}, which also count half of the tied papers."
+claim-hash: 34f33a9ec934
+source: doi:10.1061/taceat.0002563
+version-read: version of record (scan of Trans. ASCE vol. 77, 1914; pages 1629-1740 of the archive.org volume scan, extracted)
+archived: gs://scholar-version2-literature/sources/hazen1914storage--10.1061_taceat.0002563-1fbb5981.pdf sha256:e80f3c2b37f161d8ac843c6c0e1a78db86343bb4e08fff8db8f9324db8dfc5de
+license: public domain (1914 US publication)
+updates: none
+verdict: partially supported
+evidence: "if there are 50 terms in the series, each is taken to represent 2% of the whole space" (printed p. 1549); "the figure for each term, arranged in its order of magnitude, is plotted at the percentage which corresponds to the middle of its strip" (printed p. 1549)
+notes: Hazen supports the mid-rank (middle-of-strip) plotting position; the added clause 'which also count half of the tied papers' describes tie handling, which Hazen 1914 does not discuss (it is the mid-rank convention as the manuscript uses it in the Ties paragraph). Clause added in the blue-pencil revision; flagged to the author.
+
+## [2026-11-05T17:31Z] cite:aksnes2003macro — paper/manuscript_qss/main.tex:995
+claim: "These are 8.1\% of all citations; such rates depend strongly on the definition and the citation window \citep{aksnes2003macro}."
+claim-hash: 928cce965a4f
+source: doi:10.1023/a:1021919228368
+version-read: version of record (author-supplied copy, identity checked against the registrar record)
+archived: gs://scholar-version2-literature/sources/aksnes2003macro--10.1023_a_1021919228368-e0aafd03--author-supplied.pdf sha256:92570f9adaa3f4694f532bdfd9d5ab74268dd6ce73a01d4e6a95fd1cbb664756
+license: restricted — author-supplied copy, private store
+updates: none
+verdict: supported
+evidence: "Using a three-year citation window we find that 36% of all citations represent author self-citations." (abstract); "In contrast, the self-citation share would be 29% when using a 5-year window." (results); "Methodologically, self-citations can be counted in two different ways, diachronously or synchronously." (methods)
+notes: The share depends on the window (36% vs 29%) and on how self-citations are counted. Supersedes the earlier 'unverifiable' entry (full text supplied by the author on 2026-11-05).
+
+## [2026-11-05T17:31Z] cite:zitt2005relativity — paper/manuscript_qss/main.tex:1076
+claim: "Field normalization brings its own choices: the field scheme and the assignment of multi-field papers \citep{zitt2005relativity,waltman2015field,waltman2019field}, and, for a scholar, the assignment of a main field."
+claim-hash: 458b1cd21099
+source: doi:10.1007/s11192-005-0218-y
+version-read: version of record (author-supplied copy, identity checked against the registrar record)
+archived: gs://scholar-version2-literature/sources/zitt2005relativity--10.1007_s11192-005-0218-y-bf0707e5--author-supplied.pdf sha256:6e9640a55a90b60b373274f2171207e2633146e5c84f790cb75db0bf6b43becf
+license: restricted — author-supplied copy, private store
+updates: none
+verdict: supported
+evidence: "the contents of the" (abstract); "set is completely dependent on the level of observation" (abstract); "Overlapping classes result in several normalised impact measures for each multi-assigned journal" (sec. 2, data)
+notes: The field scheme (level of observation) changes which articles are top-cited; multi-assignment to overlapping classes is a choice the study sets aside. Supersedes the earlier 'unverifiable' entry (full text supplied by the author on 2026-11-05).
+
+## [2026-11-05T17:31Z] cite:waltman2015field — paper/manuscript_qss/main.tex:1092
+claim: "A fractional version would weight each paper's contribution to the author's count $n_a(\theta)$ at each threshold by the author's share \citep{waltman2015field}; we have not tested it."
+claim-hash: b10b31611133
+source: doi:10.1016/j.joi.2015.08.001
+version-read: preprint (arXiv:1501.04431v1)
+archived: gs://scholar-version2-literature/sources/waltman2015field--10.1016_j.joi.2015.08.001-8988ca16.pdf sha256:acc87a4b752fbf52994b18aa703b1561c84124c780e9de46a66ff8a0341fc2a6
+license: unknown (treated as restricted; private store)
+updates: none
+verdict: supported
+evidence: "In the fractional counting case, a publication is fractionally assigned to each co-author." (sec. 2.1, pp. 1-2); "publication is assigned to a co-author indicates the share of the publication allocated to that co-author." (sec. 2.1, pp. 1-2)
+notes: Re-verified against the same archived passage after the blue-pencil revision of 2026-11-05: the wording changed, the attribution to this source did not.
+
+## [2026-11-05T17:31Z] cite:waltman2012inconsistency — paper/manuscript_qss/main.tex:1106
+claim: "\emph{Consistency.} PiP is not consistent in the sense of \citet{waltman2012inconsistency}: adding the same article to two authors can reverse their order, although such reversals are rare in simulation."
+claim-hash: a4c7b76c8c0d
+source: doi:10.1002/asi.21678
+version-read: preprint (arXiv:1108.3901v1)
+archived: gs://scholar-version2-literature/sources/waltman2012inconsistency--10.1002_asi.21678-42823f3e.pdf sha256:8afcd8681c22f8267eb5442a4ca26783f88c7206b05a96133294a97a369198ca
+license: unknown (treated as restricted; private store)
+updates: none
+verdict: supported
+evidence: "If two scientists achieve the same absolute performance improvement, their ranking relative to each other should remain unchanged." (sec. 3.2, Example 2, p. 7); "the h-index fails to provide consistent rankings of individual scientists and research groups" (sec. 3.3, Example 3, p. 8)
+notes: Re-verified against the same archived passage after the blue-pencil revision of 2026-11-05: the wording changed, the attribution to this source did not.
+
