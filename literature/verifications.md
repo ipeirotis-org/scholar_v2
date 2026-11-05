@@ -1945,3 +1945,15 @@ updates: none
 verdict: confirmed
 evidence: registrar record: 'Field Normalization of Scientometric Indicators', Springer Handbooks None(None) 281-300, doi:10.1007/978-3-030-02511-3_11; title, volume, issue, pages and DOI match the entry
 
+
+## [2026-11-05T17:00Z] cite:ipeirotis2024pip — paper/manuscript_qss/main.tex:138
+claim: "A first, asymmetric form of the score was described by \citet{ipeirotis2024pip} and is used by the website \url{https://www.pip-score.org} (formerly \url{https://scholar.ipeirotis.org}); Section~\ref{sec:pip} explains why we replace it."
+claim-hash: 706bc54d8173
+source: https://www.behind-the-enemy-lines.com/2024/01/the-pip-auc-score-for-research.html
+version-read: version of record (blog post, snapshot 2026-11-05)
+archived: gs://scholar-version2-literature/sources/ipeirotis2024pip--the_pip-auc_score_for_research_productivity-05d4fa50--2026-11-05-63eaa116.html sha256:63eaa11614270464d18349834da6403392da00961e5077b08a6139e1f55e95f3
+license: CC-BY-NC-3.0 (site footer)
+accessed: 2026-11-05
+verdict: supported
+evidence: "we have a nice new score that we have given the thoroughly boring name "Percentile in Percentile Area Under the Curve" score, or PiP-AUC for short" (post body); "we created a small app at https://scholar.ipeirotis.org/" (post body, second paragraph)
+notes: The post describes the first form of the score and links scholar.ipeirotis.org, which the revised sentence now names as the site's former address; on 2026-11-05 https://scholar.ipeirotis.org/ answered 301 to https://www.scholar-analytics.org/, which ends at https://www.pip-score.org/ (200), consistent with the author's statement that it redirects to pip-score.org. 'Asymmetric' is the manuscript's own characterization (Section sec:pip), not attributed to the post. Supersedes the 'partially supported' entry for the earlier wording.
