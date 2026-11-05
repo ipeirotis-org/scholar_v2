@@ -2354,3 +2354,293 @@ verdict: supported
 evidence: "If two scientists achieve the same absolute performance improvement, their ranking relative to each other should remain unchanged." (sec. 3.2, Example 2, p. 7); "the h-index fails to provide consistent rankings of individual scientists and research groups" (sec. 3.3, Example 3, p. 8)
 notes: Re-verified against the same archived passage after the blue-pencil revision of 2026-11-05: the wording changed, the attribution to this source did not.
 
+
+## [2026-11-05T18:40Z] cite:bornmann2013use — paper/manuscript_qss/main.tex:88
+claim: "They are less influenced than means by the skewed tail of the citation distribution \citep{bornmann2013use}, they need no assumption about how citations grow with age, and their meaning does not change with the calendar."
+claim-hash: 8cbe48529cc8
+source: doi:10.1016/j.joi.2012.10.001
+version-read: preprint (arXiv:1211.0381v1)
+archived: gs://scholar-version2-literature/sources/bornmann2013use--10.1016_j.joi.2012.10.001-681945bb.pdf sha256:3638ced7af5747f7fcc1e34f278c7ebcee3bea58c100951823931a3eab77e27c
+license: unknown (treated as restricted; private store)
+updates: none
+verdict: supported
+evidence: "(1) percentiles are not as strongly influenced by extreme values of the distribution as the mean value" (sec. 2, The calculation of percentiles); "(3) Percentiles can be calculated, even if the data are skewed, as it is usual for bibliometric data." (sec. 2)
+notes: Intro sentence now says percentiles are 'less influenced than means' by the skewed tail, the source's own comparative claim (it replaced the absolute 'do not depend on'). In Related work the attribution is unchanged; the added gloss of mean normalization is attributed to the co-cited Schubert & Braun and Radicchi et al.
+
+## [2026-11-05T18:40Z] cite:ipeirotis2024pip — paper/manuscript_qss/main.tex:151
+claim: "An earlier, asymmetric form of the score was described by \citet{ipeirotis2024pip} and is used by the website \url{https://www.pip-score.org} (formerly \url{https://scholar.ipeirotis.org}); Section~\ref{sec:pip} explains why we replace it."
+claim-hash: b02cc949bcc4
+source: https://www.behind-the-enemy-lines.com/2024/01/the-pip-auc-score-for-research.html
+version-read: version of record (blog post, snapshot 2026-11-05)
+archived: gs://scholar-version2-literature/sources/ipeirotis2024pip--the_pip-auc_score_for_research_productivity-05d4fa50--2026-11-05-63eaa116.html sha256:63eaa11614270464d18349834da6403392da00961e5077b08a6139e1f55e95f3
+license: CC-BY-NC-3.0 (site footer)
+accessed: 2026-11-05
+verdict: supported
+evidence: "we have a nice new score that we have given the thoroughly boring name "Percentile in Percentile Area Under the Curve" score, or PiP-AUC for short" (post body); "we created a small app at https://scholar.ipeirotis.org/" (post body, second paragraph)
+notes: 'A first'/'The first' form became 'an earlier'/'the earlier' form; the post still describes it (PiP-AUC) and the website link is unchanged. Whether the post's area is a step or a trapezoid is not stated in the post; the manuscript now ties the step formula to the website ('as the website computes it'), not to the post.
+
+## [2026-11-05T18:40Z] cite:egghe2006theory — paper/manuscript_qss/main.tex:160
+claim: "The $g$-index \citep{egghe2006theory} gives credit to the citations above the corner; the $m$-quotient \citep{hirsch2005index}, the contemporary $h$-index \citep{sidiropoulos2007generalized} and $hI_{a}$ \citep{harzing2014hia} correct for career length by dividing by career age or discounting old papers; \citet{kaur2013universality} rescale the $h$-index by the field average."
+claim-hash: 01bad35a5c43
+source: doi:10.1007/s11192-006-0144-7
+version-read: version of record (author-supplied copy, identity checked against the registrar record)
+archived: gs://scholar-version2-literature/sources/egghe2006theory--10.1007_s11192-006-0144-7-c5ffc342--author-supplied.pdf sha256:6cbee1f21ba0279b2b76d5d8692a0c7a29e6a9be859436fceaa88adbc747b72d
+license: restricted — author-supplied copy, private store
+updates: none
+verdict: supported
+evidence: "the g-index is the (unique) largest number such that the top g articles received (together) at least g2 citations" (abstract); "it is insensitive to one or several outstandingly highly cited papers" (sec. 1, on the h-index)
+notes: Re-verified against the same archived passage after the fixes of 2026-11-05: the wording changed, the attribution to this source did not.
+
+## [2026-11-05T18:40Z] cite:hirsch2005index — paper/manuscript_qss/main.tex:160
+claim: "The $g$-index \citep{egghe2006theory} gives credit to the citations above the corner; the $m$-quotient \citep{hirsch2005index}, the contemporary $h$-index \citep{sidiropoulos2007generalized} and $hI_{a}$ \citep{harzing2014hia} correct for career length by dividing by career age or discounting old papers; \citet{kaur2013universality} rescale the $h$-index by the field average."
+claim-hash: 01bad35a5c43
+source: doi:10.1073/pnas.0507655102
+version-read: preprint (arXiv:physics/0508025v5)
+archived: gs://scholar-version2-literature/sources/hirsch2005index--10.1073_pnas.0507655102-f28ddc65.pdf sha256:ad20b4b792bde68eba06d00b944b47532aa26adefdabbabf6a649fa984481b96
+license: unknown (treated as restricted; private store)
+updates: none
+verdict: supported
+evidence: "of h versus n, the parameter m, should provide a useful yardstick to compare scientists of different seniority." (p. 3, after Eq. (6))
+notes: 'Academic age' became 'career age' (years since the first publication, as the manuscript defines it). Hirsch's m divides h by the years since the first paper. Re-verified against the same archived passage after the fixes of 2026-11-05: the wording changed, the attribution to this source did not.
+
+## [2026-11-05T18:40Z] cite:sidiropoulos2007generalized — paper/manuscript_qss/main.tex:160
+claim: "The $g$-index \citep{egghe2006theory} gives credit to the citations above the corner; the $m$-quotient \citep{hirsch2005index}, the contemporary $h$-index \citep{sidiropoulos2007generalized} and $hI_{a}$ \citep{harzing2014hia} correct for career length by dividing by career age or discounting old papers; \citet{kaur2013universality} rescale the $h$-index by the field average."
+claim-hash: 01bad35a5c43
+source: doi:10.1007/s11192-007-1722-z
+version-read: preprint (arXiv:cs/0607066v1)
+archived: gs://scholar-version2-literature/sources/sidiropoulos2007generalized--10.1007_s11192-007-1722-z-93dc68b1.pdf sha256:926776aa9e2f6d8a4f93cf91421b1c18070eba8be4192c44955d37ef2b6de9dc
+license: unknown (treated as restricted; private store)
+updates: none
+verdict: supported
+evidence: "This way, an old article gradually loses its “value”, even if it still gets citations." (p. 4, The contemporary h-index (after Eq. 2)); "If we set δ=1, then S c (i) is the number of citations that the article i has received, divided by the “age” of the article." (p. 4, The contemporary h-index (after Eq. 2))
+notes: Re-verified against the same archived passage after the fixes of 2026-11-05: the wording changed, the attribution to this source did not.
+
+## [2026-11-05T18:40Z] cite:harzing2014hia — paper/manuscript_qss/main.tex:160
+claim: "The $g$-index \citep{egghe2006theory} gives credit to the citations above the corner; the $m$-quotient \citep{hirsch2005index}, the contemporary $h$-index \citep{sidiropoulos2007generalized} and $hI_{a}$ \citep{harzing2014hia} correct for career length by dividing by career age or discounting old papers; \citet{kaur2013universality} rescale the $h$-index by the field average."
+claim-hash: 01bad35a5c43
+source: doi:10.1007/s11192-013-1208-0
+version-read: accepted manuscript (author version, December 2013)
+archived: gs://scholar-version2-literature/sources/harzing2014hia--10.1007_s11192-013-1208-0-17a20b4c.pdf sha256:c9490f3f542009fd086dc526c1de10836280b53afbf58252d29aafc5cdd44f1d
+license: unknown (treated as restricted; private store)
+updates: none
+verdict: supported
+evidence: "We therefore follow Hirsch’s original suggestion to correct for career length by dividing the h‐index by the number of years an academic has been publishing." (p. 5); "the hIa‐index is thus calculated by dividing Harzing’s Publish or Perish hI‐norm (Harzing, 2007) by the number of years that an academic has been publishing" (p. 5)
+notes: 'Academic age' became 'career age'; the source divides by 'the number of years that an academic has been publishing', which is career age as the manuscript defines it.
+
+## [2026-11-05T18:40Z] cite:kaur2013universality — paper/manuscript_qss/main.tex:160
+claim: "The $g$-index \citep{egghe2006theory} gives credit to the citations above the corner; the $m$-quotient \citep{hirsch2005index}, the contemporary $h$-index \citep{sidiropoulos2007generalized} and $hI_{a}$ \citep{harzing2014hia} correct for career length by dividing by career age or discounting old papers; \citet{kaur2013universality} rescale the $h$-index by the field average."
+claim-hash: 01bad35a5c43
+source: doi:10.1016/j.joi.2013.09.002
+version-read: preprint (arXiv:1305.6339v2)
+archived: gs://scholar-version2-literature/sources/kaur2013universality--10.1016_j.joi.2013.09.002-74fa8e45.pdf sha256:784a714cf7633ff9623c1b53b56491fb53fa5b7d0ab70b1592b7b50a29317267
+license: unknown (treated as restricted; private store)
+updates: none
+verdict: supported
+evidence: "hs index is proposed here as a normalization of the h index by the average h of the authors in the same discipline." (sec. 2, metric definitions (hs index))
+notes: Re-verified against the same archived passage after the fixes of 2026-11-05: the wording changed, the attribution to this source did not.
+
+## [2026-11-05T18:40Z] cite:bornmann2013use — paper/manuscript_qss/main.tex:170
+claim: "They are less sensitive to outliers \citep{bornmann2013use,bornmann2020evaluation} than normalization by mean citation rates, which compares a paper's citations with the average of comparable papers \citep{schubert1986relative,Radicchi2008}, and are recommended in the Leiden Manifesto \citep{hicks2015bibliometrics}."
+claim-hash: d7a782b7120e
+source: doi:10.1016/j.joi.2012.10.001
+version-read: preprint (arXiv:1211.0381v1)
+archived: gs://scholar-version2-literature/sources/bornmann2013use--10.1016_j.joi.2012.10.001-681945bb.pdf sha256:3638ced7af5747f7fcc1e34f278c7ebcee3bea58c100951823931a3eab77e27c
+license: unknown (treated as restricted; private store)
+updates: none
+verdict: supported
+evidence: "(1) percentiles are not as strongly influenced by extreme values of the distribution as the mean value" (sec. 2, The calculation of percentiles)
+notes: Intro sentence now says percentiles are 'less influenced than means' by the skewed tail, the source's own comparative claim (it replaced the absolute 'do not depend on'). In Related work the attribution is unchanged; the added gloss of mean normalization is attributed to the co-cited Schubert & Braun and Radicchi et al.
+
+## [2026-11-05T18:40Z] cite:bornmann2020evaluation — paper/manuscript_qss/main.tex:170
+claim: "They are less sensitive to outliers \citep{bornmann2013use,bornmann2020evaluation} than normalization by mean citation rates, which compares a paper's citations with the average of comparable papers \citep{schubert1986relative,Radicchi2008}, and are recommended in the Leiden Manifesto \citep{hicks2015bibliometrics}."
+claim-hash: d7a782b7120e
+source: doi:10.1007/s11192-020-03512-7
+version-read: version of record
+archived: gs://scholar-version2-literature/sources/bornmann2020evaluation--10.1007_s11192-020-03512-7-1f24fb42.pdf sha256:3ea8c359d01836ba0507727a744a394ae2b0778cfc91682e8bafe7b5676bc29e
+license: CC-BY-4.0 (Springer open access)
+updates: none
+verdict: supported
+evidence: "The advantage of PRs (and PPs) is that they are not strongly affected by outliers (highly cited papers)" (p. 1458, Introduction)
+notes: Re-verified against the same archived passage after the fixes of 2026-11-05: the wording changed, the attribution to this source did not.
+
+## [2026-11-05T18:40Z] cite:schubert1986relative — paper/manuscript_qss/main.tex:170
+claim: "They are less sensitive to outliers \citep{bornmann2013use,bornmann2020evaluation} than normalization by mean citation rates, which compares a paper's citations with the average of comparable papers \citep{schubert1986relative,Radicchi2008}, and are recommended in the Leiden Manifesto \citep{hicks2015bibliometrics}."
+claim-hash: d7a782b7120e
+source: doi:10.1007/bf02017249
+version-read: version of record (author-supplied copy, identity checked against the registrar record)
+archived: gs://scholar-version2-literature/sources/schubert1986relative--10.1007_bf02017249-0d8903d0--author-supplied.pdf sha256:608a7ca180944a650b810b6317e708c6785aab50bd6953918c1411afd98ca2f0
+license: restricted — author-supplied copy, private store
+updates: none
+verdict: supported
+evidence: "the average citation rate of the journal in which a paper was published is a valid standard to which its citation rate can be matched" (sec. 2); "corresponds precisely to the world average" (sec. 2, activity and attractivity indexes)
+notes: Sentence now glosses mean normalization as comparing 'a paper's citations with the average of comparable papers'; the source matches a paper's citation rate against the journal's average citation rate.
+
+## [2026-11-05T18:40Z] cite:Radicchi2008 — paper/manuscript_qss/main.tex:170
+claim: "They are less sensitive to outliers \citep{bornmann2013use,bornmann2020evaluation} than normalization by mean citation rates, which compares a paper's citations with the average of comparable papers \citep{schubert1986relative,Radicchi2008}, and are recommended in the Leiden Manifesto \citep{hicks2015bibliometrics}."
+claim-hash: d7a782b7120e
+source: doi:10.1073/pnas.0806977105
+version-read: preprint (arXiv:0806.0974v2)
+archived: gs://scholar-version2-literature/sources/radicchi2008--10.1073_pnas.0806977105-fa509e28.pdf sha256:6dde217e74a426a0d1f6d900d74f0fce3452ab8c500260979751d86d06d7c5a0
+license: unknown (treated as restricted; private store)
+updates: none
+verdict: supported
+evidence: "we have considered the average number c0 of citations" (p. 2); "as an unbiased relative indicator of scientific impact" (p. 1)
+notes: Sentence now glosses mean normalization as comparing 'a paper's citations with the average of comparable papers'; the source divides by the average number c0 of citations of comparable papers.
+
+## [2026-11-05T18:40Z] cite:hicks2015bibliometrics — paper/manuscript_qss/main.tex:170
+claim: "They are less sensitive to outliers \citep{bornmann2013use,bornmann2020evaluation} than normalization by mean citation rates, which compares a paper's citations with the average of comparable papers \citep{schubert1986relative,Radicchi2008}, and are recommended in the Leiden Manifesto \citep{hicks2015bibliometrics}."
+claim-hash: d7a782b7120e
+source: doi:10.1038/520429a
+version-read: version of record (Nature 520:429-431 typeset PDF, deposited in DIGITAL.CSIC)
+archived: gs://scholar-version2-literature/sources/hicks2015bibliometrics--10.1038_520429a-a1c33bfa.pdf sha256:f141b19cb5d5f7db1aba13ad02decde290b83f059b52724126f8ae5ec563395d
+license: unknown (treated as restricted; private store)
+updates: none
+verdict: supported
+evidence: "the most robust normalization method is based on percentiles" (p. 431, principle 6)
+notes: Re-verified against the same archived passage after the fixes of 2026-11-05: the wording changed, the attribution to this source did not.
+
+## [2026-11-05T18:40Z] cite:bornmann2014individual — paper/manuscript_qss/main.tex:177
+claim: "\citet{bornmann2014individual} propose counting a scholar's papers in the top 10\% and dividing by career age, and I3 \citep{leydesdorff2011integrated,rousseau2012basic} sums percentiles over a set of papers."
+claim-hash: 04323bd4b03c
+source: doi:10.1007/s11192-013-1161-y
+version-read: preprint (arXiv:1302.3697v2)
+archived: gs://scholar-version2-literature/sources/bornmann2014individual--10.1007_s11192-013-1161-y-22e3c955.pdf sha256:f53354eb37b3efb9676ae2f64101071c8aa1d7ffe88e12df5d581f88ea210334
+license: unknown (treated as restricted; private store)
+updates: none
+verdict: supported
+evidence: "we would like to propose using the number of years as an active researcher (Ptop 10% quotient) to normalise Ptop 10% for age" (sec. 3.2)
+notes: 'Academic age' became 'career age'; the source normalizes by 'the number of years as an active researcher', which is career age as the manuscript defines it.
+
+## [2026-11-05T18:40Z] cite:leydesdorff2011integrated — paper/manuscript_qss/main.tex:177
+claim: "\citet{bornmann2014individual} propose counting a scholar's papers in the top 10\% and dividing by career age, and I3 \citep{leydesdorff2011integrated,rousseau2012basic} sums percentiles over a set of papers."
+claim-hash: 04323bd4b03c
+source: doi:10.1002/asi.21609
+version-read: preprint (arXiv:1103.5241v2)
+archived: gs://scholar-version2-literature/sources/leydesdorff2011integrated--10.1002_asi.21609-cbbd6e66.pdf sha256:b50d95eee11710072a36fbee7e64ebdb3ba5b3dcb4c2f1e3fee5e7d630892d9b
+license: unknown (treated as restricted; private store)
+updates: none
+verdict: supported
+evidence: "One can also consider hundred percentiles as a continuous random variable and sum these values" (pp. 5-6); "The citations are weighted in accordance with the percentile" (p. 7)
+notes: Re-verified against the same archived passage after the fixes of 2026-11-05: the wording changed, the attribution to this source did not.
+
+## [2026-11-05T18:40Z] cite:rousseau2012basic — paper/manuscript_qss/main.tex:177
+claim: "\citet{bornmann2014individual} propose counting a scholar's papers in the top 10\% and dividing by career age, and I3 \citep{leydesdorff2011integrated,rousseau2012basic} sums percentiles over a set of papers."
+claim-hash: 04323bd4b03c
+source: doi:10.1002/asi.21684
+version-read: version of record (author-supplied copy, identity checked against the registrar record)
+archived: gs://scholar-version2-literature/sources/rousseau2012basic--10.1002_asi.21684-660d9303--author-supplied.pdf sha256:1a433fb4d0d616a7ddda5131a3f78980e18f46857eb154451f833f2941c2f8e3
+license: restricted — author-supplied copy, private store
+updates: none
+verdict: supported
+evidence: "The I3 score of a Set A is defined as" (Definition 4 (formula: sum over classes k = 1..K of x_k n_A(k))); "the Integrated Impact Indicator (I3), introduced by Leydesdorff and Bornmann (2011), is a strictly congruous indicator of absolute performance" (abstract)
+notes: Re-verified against the same archived passage after the fixes of 2026-11-05: the wording changed, the attribution to this source did not.
+
+## [2026-11-05T18:40Z] cite:ioannidis2019standardized — paper/manuscript_qss/main.tex:179
+claim: "Composite indicators such as the one of \citet{ioannidis2019standardized} combine several citation counts, and \citet{abramo2014productivity} relate field-normalized citations to the cost of labor."
+claim-hash: 3f30593cad52
+source: doi:10.1371/journal.pbio.3000384
+version-read: version of record
+archived: gs://scholar-version2-literature/sources/ioannidis2019standardized--10.1371_journal.pbio.3000384-89de78a2.xml sha256:68b36d5eddd9616ed488af0c2dd001e879b5a380d2d6059023cd6c338ff901a8
+license: CC-BY-4.0 (PLOS)
+updates: new_version doi:10.1371/journal.pbio.3000384 (2019-08-19, publisher)
+verdict: supported
+evidence: "composite indicator that considers six citation metrics (total citations; Hirsch h-index; coauthorship-adjusted Schreiber hm-index; number of citations to papers as single author; number of citations to papers as single or first author; and number of citations to papers as single, first, or last author)" (Main text, database construction paragraph)
+notes: Re-verified against the same archived passage after the fixes of 2026-11-05: the wording changed, the attribution to this source did not.
+
+## [2026-11-05T18:40Z] cite:abramo2014productivity — paper/manuscript_qss/main.tex:179
+claim: "Composite indicators such as the one of \citet{ioannidis2019standardized} combine several citation counts, and \citet{abramo2014productivity} relate field-normalized citations to the cost of labor."
+claim-hash: 3f30593cad52
+source: doi:10.1007/s11192-014-1269-8
+version-read: preprint (arXiv:1810.12830v1)
+archived: gs://scholar-version2-literature/sources/abramo2014productivity--10.1007_s11192-014-1269-8-95b9efa5.pdf sha256:04b35f0064c50e7c47e8a5d72e4caff628f477c4fc8658039293823fb32e5f37
+license: unknown (treated as restricted; private store)
+updates: none
+verdict: supported
+evidence: "we measure FSSR, a proxy of the average yearly productivity over a period of time, accounting for the cost of labor." (sec. Labor productivity at the individual level, p. 7); "To measure the cost efficiency or research units, one should normalize its output by the cost of labor." (sec. Labor productivity in research activity and the FSS, p. 5-6); "average of the distribution of citations received for all cited publications" (definition of c-bar in Eq. [1], p. 7)
+notes: 'Weight field-normalized citations by inputs' became 'relate field-normalized citations to the cost of labor', the source's own wording ('accounting for the cost of labor').
+
+## [2026-11-05T18:40Z] cite:rodriguez2018double — paper/manuscript_qss/main.tex:183
+claim: "For countries and institutions, double rank analysis expresses the rank of each of a unit's papers within the unit as a function of its rank among all papers in the world; a power law fits this relation and estimates how likely the unit is to produce a very highly cited paper \citep{rodriguez2018double,brito2018percentile}."
+claim-hash: 05a65e8d5a00
+source: doi:10.1016/j.joi.2017.11.004
+version-read: version of record (author-supplied copy, identity checked against the registrar record)
+archived: gs://scholar-version2-literature/sources/rodriguez2018double--10.1016_j.joi.2017.11.004-a349ac75--author-supplied.pdf sha256:b6b046520aa6f09e3fc45ef69b73699277e103b12d7c4db425a716a7c06efcfe
+license: restricted — author-supplied copy, private store
+updates: none
+verdict: supported
+evidence: "the internal ranking number can be expressed as a function of the world ranking number" (abstract); "extrapolation allows estimating the likelihood of publishing the highest cited publication" (abstract); "which includes a low number of publications in most countries and institutions" (abstract)
+notes: Double rank analysis is now described as expressing a paper's rank within the unit as a function of its world rank, fitted by a power law to estimate the chance of a very highly cited paper; the abstract says both.
+
+## [2026-11-05T18:40Z] cite:brito2018percentile — paper/manuscript_qss/main.tex:183
+claim: "For countries and institutions, double rank analysis expresses the rank of each of a unit's papers within the unit as a function of its rank among all papers in the world; a power law fits this relation and estimates how likely the unit is to produce a very highly cited paper \citep{rodriguez2018double,brito2018percentile}."
+claim-hash: 05a65e8d5a00
+source: doi:10.1016/j.joi.2018.01.011
+version-read: preprint (arXiv:1712.00399v2)
+archived: gs://scholar-version2-literature/sources/brito2018percentile--10.1016_j.joi.2018.01.011-2027d857.pdf sha256:7ebab94bcec8cf9f7d71333a6783dadd0107ff16314c4b89a211681f1d8508ba
+license: unknown (treated as restricted; private store)
+updates: none
+verdict: supported
+evidence: "In the double rank analysis of research publications, the local rank position of a country or institution publication is expressed as a function of the world rank position." (Abstract); "the ranking number of a publication in a country or institution is expressed as a function of its world ranking number. The resulting function can be well fitted by a power law, which allows estimating the likelihood of any country or institution producing a very highly cited paper" (Sec. 1, Introduction)
+notes: Double rank analysis is now described as expressing a paper's rank within the unit as a function of its world rank, fitted by a power law to estimate the chance of a very highly cited paper; the introduction says both.
+
+## [2026-11-05T18:40Z] cite:wikidata2026 — paper/manuscript_qss/main.tex:248
+claim: "For the test of later recognition (Section~\ref{sec:honors}) we use Wikidata \citep{wikidata2026}, a free, collaborative knowledge base whose structured data are released under CC0."
+claim-hash: eba2a68f3b55
+source: https://www.wikidata.org/wiki/Wikidata:Licensing; https://www.wikidata.org/wiki/Wikidata:Introduction
+version-read: web pages fetched 2026-11-05 (Licensing last edited 24 September 2026; Introduction last edited 21 October 2026)
+archived: gs://scholar-version2-literature/sources/wikidata2026--www.wikidata.org_wiki_wikidata_licensing-46a07189--2026-11-05-cf11c407.html sha256:cf11c4071d85b2fdcfd796c5dacb563a71e852e8e398e7d1dd876123ad893832; gs://scholar-version2-literature/sources/wikidata2026--www.wikidata.org_wiki_wikidata_introduction-4bc51fa4--2026-11-05-dcd25538.html sha256:dcd25538bdfe6fb04270fc41d884dd618f24e33fcaa74a52192fb66110b0dd0b
+license: CC BY-SA 4.0 page text (private store)
+accessed: 2026-11-05
+updates: none
+verdict: supported
+evidence: "All structured data (i.e. the main, Property, Lexeme, and EntitySchema namespaces) is released into the public domain under Creative Commons Zero." (Wikidata:Licensing, Official policy); "Wikidata is a free, collaborative, multilingual, secondary knowledge base, collecting structured data to provide support for Wikipedia, Wikimedia Commons, the other wikis of the Wikimedia movement, and to anyone in the world." (Wikidata:Introduction, first paragraph)
+notes: New source added on 2026-11-05 for the Wikidata honors and Wikipedia links of Section 4.7; the query date is the fetch date recorded in paper/honors/fetch_wikidata_honors.py. What items record (honors, dates, identifiers) is the manuscript's own description of the query, not attributed to these pages.
+
+## [2026-11-05T18:40Z] cite:ipeirotis2024pip — paper/manuscript_qss/main.tex:416
+claim: "The earlier form of the score \citep{ipeirotis2024pip} is asymmetric; the website \url{https://www.pip-score.org} uses it."
+claim-hash: 69c1e5fd3f33
+source: https://www.behind-the-enemy-lines.com/2024/01/the-pip-auc-score-for-research.html
+version-read: version of record (blog post, snapshot 2026-11-05)
+archived: gs://scholar-version2-literature/sources/ipeirotis2024pip--the_pip-auc_score_for_research_productivity-05d4fa50--2026-11-05-63eaa116.html sha256:63eaa11614270464d18349834da6403392da00961e5077b08a6139e1f55e95f3
+license: CC-BY-NC-3.0 (site footer)
+accessed: 2026-11-05
+verdict: supported
+evidence: "we created a small app at https://scholar.ipeirotis.org/ that allows anyone to search for a Google Scholar profile" (post body, second paragraph)
+notes: 'A first'/'The first' form became 'an earlier'/'the earlier' form; the post still describes it (PiP-AUC) and the website link is unchanged. Whether the post's area is a step or a trapezoid is not stated in the post; the manuscript now ties the step formula to the website ('as the website computes it'), not to the post.
+
+## [2026-11-05T18:40Z] cite:hazen1914storage — paper/manuscript_qss/main.tex:483
+claim: "These percentiles are not the strict shares used in the score but Hazen mid-ranks \citep{hazen1914storage}."
+claim-hash: 60f7c21e5d37
+source: doi:10.1061/taceat.0002563
+version-read: version of record (scan of Trans. ASCE vol. 77, 1914; pages 1629-1740 of the archive.org volume scan, extracted)
+archived: gs://scholar-version2-literature/sources/hazen1914storage--10.1061_taceat.0002563-1fbb5981.pdf sha256:e80f3c2b37f161d8ac843c6c0e1a78db86343bb4e08fff8db8f9324db8dfc5de
+license: public domain (1914 US publication)
+updates: none
+verdict: supported
+evidence: "if there are 50 terms in the series, each is taken to represent 2% of the whole space" (printed p. 1549); "the figure for each term, arranged in its order of magnitude, is plotted at the percentage which corresponds to the middle of its strip" (printed p. 1549)
+notes: The clause 'which also count half of the tied papers', which Hazen 1914 does not discuss, was removed at the author's request on 2026-11-05. The sentence now attributes only the mid-rank (middle-of-strip) plotting position to Hazen, which the source supports. Supersedes the 'partially supported' entry for the earlier wording.
+
+## [2026-11-05T18:40Z] cite:s2datasets2026 — paper/manuscript_qss/main.tex:1205
+claim: "Semantic Scholar data are available under the ODC-BY license from the Semantic Scholar Datasets API \citep{s2datasets2026}; Wikidata is available under CC0 \citep{wikidata2026}."
+claim-hash: fa66eaf992e3
+source: https://api.semanticscholar.org/datasets/v1/release/2026-10-27
+version-read: release 2026-10-27 dataset READMEs (JSON), fetched 2026-11-05
+archived: gs://scholar-version2-literature/sources/s2datasets2026--api.semanticscholar.org_datasets_v1_release_2026-10-27-1ddd5a1e--2026-11-05-385e6b41.json sha256:385e6b41f1ccaa0199439dd8b7cf1a0c3cfb112ec2f1e784741d749ca5e869f0
+license: unknown (treated as restricted; private store)
+accessed: 2026-11-05
+verdict: supported
+evidence: "This collection is licensed under ODC-BY." (README of the papers, authors and citations datasets, release 2026-10-27)
+notes: Re-verified against the same archived passage after the fixes of 2026-11-05: the wording changed, the attribution to this source did not.
+
+## [2026-11-05T18:40Z] cite:wikidata2026 — paper/manuscript_qss/main.tex:1205
+claim: "Semantic Scholar data are available under the ODC-BY license from the Semantic Scholar Datasets API \citep{s2datasets2026}; Wikidata is available under CC0 \citep{wikidata2026}."
+claim-hash: fa66eaf992e3
+source: https://www.wikidata.org/wiki/Wikidata:Licensing; https://www.wikidata.org/wiki/Wikidata:Introduction
+version-read: web pages fetched 2026-11-05 (Licensing last edited 24 September 2026; Introduction last edited 21 October 2026)
+archived: gs://scholar-version2-literature/sources/wikidata2026--www.wikidata.org_wiki_wikidata_licensing-46a07189--2026-11-05-cf11c407.html sha256:cf11c4071d85b2fdcfd796c5dacb563a71e852e8e398e7d1dd876123ad893832; gs://scholar-version2-literature/sources/wikidata2026--www.wikidata.org_wiki_wikidata_introduction-4bc51fa4--2026-11-05-dcd25538.html sha256:dcd25538bdfe6fb04270fc41d884dd618f24e33fcaa74a52192fb66110b0dd0b
+license: CC BY-SA 4.0 page text (private store)
+accessed: 2026-11-05
+updates: none
+verdict: supported
+evidence: "All structured data (i.e. the main, Property, Lexeme, and EntitySchema namespaces) is released into the public domain under Creative Commons Zero." (Wikidata:Licensing, Official policy)
+notes: New source added on 2026-11-05 for the Wikidata honors and Wikipedia links of Section 4.7; the query date is the fetch date recorded in paper/honors/fetch_wikidata_honors.py. What items record (honors, dates, identifiers) is the manuscript's own description of the query, not attributed to these pages.
