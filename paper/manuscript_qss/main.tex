@@ -874,25 +874,29 @@ the cutoff.
 The tests so far judge citation indicators by later citations. As a check against an outcome that is not a citation
 count, we ask whether the indicators anticipate later scientific honors. We take honors from Wikidata: 65 senior
 honors given for research, namely membership of national academies (such as the US National Academy of Sciences, the
-Royal Society and the Leopoldina), fellowships of learned societies (AAAS, ACM, IEEE, APS and others) and major prizes
-and fellowships (such as the Guggenheim, MacArthur and Gairdner awards). We leave out plain society memberships,
-state orders, student scholarships and the citation-based Clarivate Citation Laureates. Honors reach Semantic Scholar
-authors in two ways: through Wikidata items that carry a Semantic Scholar author ID (41,272 items), and through items
-that carry a Google Scholar ID (12,434 honorees), which we link to Semantic Scholar with the title matching of
-Section~\ref{sec:robustness}. We measure each indicator at career age 5 or 10, as a percentile within the
-start-year cohort (start years 1960--2000), and drop people whose first dated honor came at or before that age; most
-honors come decades later. This leaves 1,064 future honorees at age 5 and 1,555 at age 10.
+Royal Society and the Leopoldina); fellowships of learned societies (AAAS, ACM, IEEE, APS and others); and major
+prizes and fellowships (such as the Guggenheim, MacArthur and Gairdner awards). We leave out plain society
+memberships, state orders, student scholarships and the citation-based Clarivate Citation Laureates. We connect honors
+to Semantic Scholar authors in two ways: through Wikidata items that carry a Semantic Scholar author ID (41,272
+items), and through items that carry a Google Scholar ID (12,434 honorees), which we link to Semantic Scholar with the
+title matching of Section~\ref{sec:robustness}.
+
+We measure each indicator at career age 5 or 10, as a percentile within the start-year cohort (start years
+1960--2000), and drop people whose first dated honor came at or before that age; most honors come decades later. This
+leaves 1,064 future honorees at age 5 and 1,555 at age 10. We make this comparison among all eligible authors and
+within two groups that are already notable: people with a Wikidata item, and the scholars with Google Scholar
+profiles that we matched to Semantic Scholar (mostly faculty).
 
 \begin{table}[t]
   \centering
   \small
   \caption{ROC AUC for holding a senior honor. Columns 2--5: indicators measured at career age 5 or 10 in Semantic
-  Scholar, honors received later; all eligible authors (the comparison uses every honoree and a 10\% random sample of
-  the others), only people with a Wikidata item, and only our Google Scholar profiles matched to Semantic Scholar
-  (mostly faculty). Columns 6--7: current Google Scholar scores of 15,890 profiled scholars against holding an honor
-  and having an English Wikipedia article (agreement, not prediction). PiP's bootstrap intervals are about $\pm 0.015$
-  for all authors and $\pm 0.02$ within the smaller groups; differences between indicators are estimated more
-  precisely because they are paired.}
+  Scholar against honors received later, among all eligible authors (the comparison uses every honoree and a 10\%
+  random sample of the others), among people with a Wikidata item, and among our Google Scholar profiles matched to
+  Semantic Scholar (mostly faculty). Columns 6--7: current Google Scholar scores of 15,890 profiled scholars against
+  holding an honor and having an English Wikipedia article (agreement, not prediction). PiP's bootstrap intervals are
+  about $\pm 0.015$ for all authors and $\pm 0.02$ within the smaller groups; differences between indicators are
+  estimated more precisely because they are paired.}
   \label{tab:honors}
   \setlength{\tabcolsep}{4.5pt}
   \begin{tabular}{lcccccc}
@@ -921,44 +925,53 @@ $+0.035$ [0.030, 0.040]). PiP ties the top-10\% count ($+0.000$ [$-0.005$, 0.005
 the dial does better than the default: at $\tau = 0.75$ the AUC is 0.76 and 0.83. Recognition rewards highly cited work
 more than volume: the article count and I3, which lean towards volume, do worst apart from the mean percentile.
 
-Within groups that are already notable, every indicator separates future honorees only weakly (AUC 0.59--0.65). There,
-PiP is ahead of the $h$-index at career age 10 (by 0.018 [0.010, 0.025] among people with a Wikidata item and 0.008
-[0.003, 0.014] among the Google Scholar faculty) and level with it at age 5, while the top-10\% count and PiP at
-$\tau = 0.75$ or higher do best. Restricting to honors with a recorded date gives the same pattern. On the Google
-Scholar profiles, where scores and honors are measured at the same time, the indicators are close: PiP is slightly
-ahead of the $h$-index for holding an honor ($+0.004$ [0.001, 0.008]) and for having a Wikipedia article ($+0.012$
-[0.009, 0.015]), and total citations and the top-10\% count do as well or better.
+Within the two notable groups, every indicator separates future honorees only weakly (AUC 0.59--0.65). There, PiP is
+level with the $h$-index at age 5 and ahead of it at career age 10, by 0.018 [0.010, 0.025] among people with a
+Wikidata item and 0.008 [0.003, 0.014] among the Google Scholar faculty. The top-10\% count and PiP at $\tau = 0.75$
+or higher do best. Restricting to honors with a recorded date gives the same pattern.
+
+A last check measures agreement rather than prediction. On the Google Scholar profiles, where scores and honors are
+measured at the same time, the indicators are close: PiP is slightly ahead of the $h$-index for holding an honor
+($+0.004$ [0.001, 0.008]) and for having a Wikipedia article ($+0.012$ [0.009, 0.015]), and total citations and the
+top-10\% count do as well or better.
 
 The recognition test therefore supports PiP over the $h$-index with an outcome outside citation counts, most clearly
 for detecting future honorees among all scholars and early in their careers. Within the populations closer to faculty
-evaluation the gain over the $h$-index is small, and the top-10\% count does as well. The test also shows that the
+evaluation, the gain over the $h$-index is small, and the top-10\% count does as well. The test also shows that the
 default cutoff is not the best choice for every purpose: for anticipating recognition, an evaluator should move the
-dial towards impact. Several caveats apply. Wikidata covers honors unevenly across countries and fields, so an author
-without a recorded honor is not a confirmed non-recipient; older cohorts have had more time to receive senior honors;
-and honors depend on nominations, networks and opportunity as well as on the work. These processes can strengthen or
-weaken the association between an indicator and recorded honors, so the AUCs measure agreement with recorded
-recognition, not with merit.
+dial towards impact.
+
+Several caveats apply. Wikidata covers honors unevenly across countries and fields, so an author without a recorded
+honor is not a confirmed non-recipient; older cohorts have had more time to receive senior honors; and honors depend
+on nominations, networks and opportunity as well as on the work. These processes can strengthen or weaken the
+association between an indicator and recorded honors, so the AUCs measure agreement with recorded recognition, not
+with merit.
 
 \subsection{Fields}
 \label{sec:fields}
 
-We assign each author the most frequent field among their articles by career age 10 (whole counting) and repeat the
-analyses by field. Fifteen fields have at least 3,000 eligible authors with start years 1975--2000. In every one of
-them, PiP predicts better than the $h$-index on all three outcomes. For example, in economics PiP reaches 0.39 / 0.74 / 0.27 on
-the three outcomes against 0.31 / 0.67 / 0.17 for the $h$-index, and in mathematics 0.38 / 0.75 / 0.28 against
-0.29 / 0.68 / 0.19.
+The main analysis pools the fields: it ranks each paper against all articles from its year, whatever their field,
+although fields cite at different rates. Two questions follow: whether PiP's lead holds within each field, and whether
+pooling favors some fields. For the first question, we assign each author a main field, the most frequent field among
+their articles by career age 10 (whole counting), and repeat the analyses by field. Fifteen fields have at least 3,000
+eligible authors with start years 1975--2000. In every one of them, PiP predicts better than the $h$-index on all
+three outcomes. For example, in economics PiP reaches 0.39 / 0.74 / 0.27 on the three outcomes against
+0.31 / 0.67 / 0.17 for the $h$-index, and in mathematics 0.38 / 0.75 / 0.28 against 0.29 / 0.68 / 0.19.
 
 Pooling fields in the paper percentiles favors fields with high citation rates. A field-neutral score would put 10\%
 of each field's authors in the top 10\% of their cohort; with pooled percentiles the share ranges from 1.4\% in
 education and 2.1\% in economics to 14.7\% in physics (Figure~\ref{fig:fields}). We therefore also compute a
-field-normalized PiP, in which a paper's percentile is computed within its publication year and the author's main field
-(when the paper carries that field; otherwise the pooled percentile is kept), and peers are restricted to authors with
-the same main field and start year. For 1.45 million authors at career age 10, this brings every field's share of the
-cohort top 10\% to between 6.9\% and 11.6\%. Within a field the ranking largely holds: the correlation between the
-pooled and the field-normalized score is 0.91--0.99 per field. We have not separated the sources of the remaining
-spread. Papers outside the author's main field keep their pooled percentile, and fields differ in how often peers tie,
-which also shapes the distribution of the score. The rule also gives a coauthored paper different percentiles for
-coauthors with different main fields, a choice that a rule based on the paper's own fields would avoid.
+field-normalized PiP. In this version, each paper's percentile is computed within its publication year and the
+author's main field, and peers are restricted to authors with the same main field and start year. A paper that does
+not carry the author's main field keeps its pooled percentile. The rule also gives a coauthored paper different
+percentiles for coauthors with different main fields, a choice that a rule based on the paper's own fields would
+avoid.
+
+For 1.45 million authors at career age 10, the field-normalized score brings every field's share of the cohort top
+10\% to between 6.9\% and 11.6\%. We have not separated the sources of the remaining spread: papers outside the
+author's main field keep their pooled percentile, and fields differ in how often peers tie, which also shapes the
+distribution of the score. Within a field the ranking largely holds: the correlation between the pooled and the
+field-normalized score is 0.91--0.99 per field.
 
 \begin{figure}[t]
   \centering
@@ -977,53 +990,53 @@ version; within a field the two are nearly interchangeable.
 \subsection{Robustness}
 \label{sec:robustness}
 
-\paragraph{Self-citations.} A citation counts as a self-citation when the citing and the cited paper share at least
-one author. These are 8.1\% of all citations; such rates depend strongly on the definition and the citation window
-\citep{aksnes2003macro}. We removed them and reran the whole
-pipeline: percentiles, peer groups (the $h$-index condition for eligibility is then applied without self-citations),
-scores and outcomes (Table~\ref{tab:selfcites} in the appendix). The predictions of the number of future top-10\% papers
-and of a future top-1\% paper move by at most 0.003 for PiP. The $h$-index loses slightly more (0.352 to 0.340 at age
-10). The prediction of future citation impact drops more, and unevenly: by 0.018 to 0.030 for PiP and by 0.005 to
-0.009 for the $h$-index. Part of PiP's lead on this outcome therefore runs through
-authors citing their own work, but the lead remains (0.298 against 0.221 at career age 10), and the ordering of the
-indicators does not change.
+\paragraph{Self-citations.}
+A citation counts as a self-citation when the citing and the cited paper share at least one author. These are 8.1\% of
+all citations; such rates depend strongly on the definition and the citation window \citep{aksnes2003macro}. We
+removed them and reran the whole pipeline: percentiles, peer groups, scores and outcomes (Table~\ref{tab:selfcites} in
+the appendix). The $h$-index condition for eligibility is then also applied without self-citations. Removing
+self-citations moves PiP's predictions of the number of future top-10\% papers and of a future top-1\% paper by at
+most 0.003. The $h$-index loses slightly more (0.352 to 0.340 at age 10). The prediction of future citation impact
+drops more, and unevenly: by 0.018 to 0.030 for PiP and by 0.005 to 0.009 for the $h$-index. Part of PiP's lead on
+this outcome therefore runs through authors citing their own work, but the lead remains (0.298 against 0.221 at career
+age 10), and the ordering of the indicators does not change.
 
-\paragraph{Eligibility without the h-index condition.} The main rule requires an $h$-index of three, which conditions
-on citations and on one of the compared indicators, and which excludes far more authors in some fields than in others
-(Section~\ref{sec:data}). Under a rule that requires three articles and nothing else, the same-age settings grow to
-2.81, 2.54 and 2.00 million authors at career ages 5, 10 and 15 (from 1.17, 1.45 and 1.24 million). PiP still beats the
-$h$-index on all three outcomes at every age, by 0.03 to 0.06, half to two thirds of the margin under the main rule; at career
-age 10 it reaches 0.420, 0.805 and 0.493 against 0.376, 0.770 and 0.443. It again has the highest AUC for a future
-top-1\% paper, and no other indicator beats it on more than one outcome. Section~\ref{sec:early} reports early
-detection under the same rule.
+\paragraph{Eligibility without the h-index condition.} The main rule requires an $h$-index of three. That condition
+selects the population by citations and by one of the compared indicators, and it excludes far more authors in some
+fields than in others (Section~\ref{sec:data}). Under a rule that requires three articles and nothing else, the
+same-age settings grow to 2.81, 2.54 and 2.00 million authors at career ages 5, 10 and 15 (from 1.17, 1.45 and 1.24
+million). PiP still beats the $h$-index on all three outcomes at every age, by 0.03 to 0.06, half to two thirds of
+the margin under the main rule; at career age 10 it reaches 0.420, 0.805 and 0.493 against 0.376, 0.770 and 0.443. It
+again has the highest AUC for a future top-1\% paper, and no other indicator beats it on more than one outcome.
+Section~\ref{sec:early} reports early detection under the same rule.
 
 \paragraph{Author disambiguation.} Semantic Scholar's author records come from automatic disambiguation, which can
-split one person across several records or merge different people. We matched the 16,218 Google Scholar profiles to
-Semantic Scholar through their publications: a profile's work matches a Semantic Scholar paper on its normalized title
-(at least 25 characters) and a publication year within one year, and the profile's counterpart is the Semantic Scholar
-author with the same surname who holds the most matched works. We find a confident counterpart (at least five matched
-works and at least 30\% of the profile's titles) for 14,511 profiles (89\%). For the median person, 76\% of their
-Google Scholar works are found in Semantic Scholar, and 90\% of those found sit under the main author record. Splitting
-is common, though: 64\% of people have at least two of their works under a second record with the same surname and
-first initial, and 42\% under a third. The main record is smaller than the profile (a median 67\% of the profile's
-cited works, and 78\% of its $h$-index), and its start year is later than the profile's for 47\% of people, because
-early work is missing or sits under another record.
+split one person across several records or merge different people. We matched the 16,218 profiles to Semantic Scholar
+through their publications. A profile's work matches a Semantic Scholar paper on its normalized title (at least 25
+characters) and a publication year within one year. The profile's counterpart is the Semantic Scholar author with the
+same surname who holds the most matched works. We find a confident counterpart (at least five matched works and at
+least 30\% of the profile's titles) for 14,511 profiles (89\%). For the median person, 76\% of their Google Scholar
+works are found in Semantic Scholar, and 90\% of those found sit under the main author record. Splitting is common,
+though: 64\% of people have at least two of their works under a second record with the same surname and first
+initial, and 42\% under a third. The main record is smaller than the profile (a median 67\% of the profile's cited
+works, and 78\% of its $h$-index), and its start year is later than the profile's for 47\% of people, because early
+work is missing or sits under another record.
 
-Despite these differences, the two sources rank people similarly. For the 9,796 people who have scores in both
-sources (Semantic Scholar start year 1995 or later, evaluated in 2025), the Spearman correlation between sources is
-0.82 for the $h$-index and 0.78 for PiP; each source computes percentiles against its
-own population (all eligible Semantic Scholar authors, and Google Scholar profiles). The agreement is lower for people
-split across three or more records (0.73) than for people with one record (0.76), but not by much. We read this as
-evidence that the results above are not artifacts of one disambiguation algorithm, and as a warning that individual
-Semantic Scholar scores can be off when a person's work is split.
+Despite these differences, the two sources rank people similarly. For the 9,796 people who have scores in both sources
+(Semantic Scholar start year 1995 or later, evaluated in 2025), the Spearman correlation between sources is 0.82 for
+the $h$-index and 0.78 for PiP. Each source computes percentiles against its own population: all eligible Semantic
+Scholar authors, and the Google Scholar profiles. The agreement is lower for people split across three or more records
+(0.73) than for people with one record (0.76), but not by much. We read these comparisons as evidence that the results
+above are not artifacts of one disambiguation algorithm, and as a warning that individual Semantic Scholar scores can
+be off when a person's work is split.
 
-\paragraph{Survivorship.} The population includes every eligible author, not only those who stayed in research.
-Whether an author is still publishing at career ages 11--15 is predicted by their age-5 indicators with an AUC of 0.68
-for the article count, 0.62 for PiP, 0.58 for the $h$-index and 0.54 for citations.
-Continuing to publish is a matter of volume, so the indicators that weigh volume most predict it best. The prediction
-results of Section~\ref{sec:prediction} count authors who stop publishing as having no future top papers, which favors
-indicators that predict survival; PiP still leads the article count, which predicts survival best, on the top-1\%
-outcome and on future citation impact.
+\paragraph{Survivorship.} The population includes every eligible author, not only those who stayed in research, and
+the prediction results of Section~\ref{sec:prediction} count authors who stop publishing as having no future top
+papers. This choice favors indicators that predict survival, that is, whether an author continues to publish. Measured
+at career age 5, the indicators predict whether an author is still publishing at career ages 11--15 with an AUC of
+0.68 for the article count, 0.62 for PiP, 0.58 for the $h$-index and 0.54 for citations. Continuing to publish is a
+matter of volume, so the indicators that weigh volume most predict it best. PiP still leads the article count, the
+best predictor of survival, on the top-1\% outcome and on future citation impact.
 
 \section{Discussion}
 \label{sec:discussion}
