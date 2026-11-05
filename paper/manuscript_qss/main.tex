@@ -167,21 +167,22 @@ order \citep{waltman2012inconsistency}. PiP shares this property (Section~\ref{s
 
 \paragraph{Percentiles.} Percentile-based indicators compare each paper with a reference set of papers from the same
 year and field \citep{bornmann2013use,leydesdorff2011turning,waltman2013percentile,bornmann2020evaluation}. They are
-less sensitive to outliers \citep{bornmann2013use,bornmann2020evaluation} than normalization by mean citation rates
-\citep{schubert1986relative,Radicchi2008} and are recommended in the Leiden Manifesto \citep{hicks2015bibliometrics}.
-Ties and the definition of the percentile need care \citep{waltman2013percentile}. For scoring we use the share of the
-reference set with strictly fewer citations, so that uncited papers have percentile zero; for correlations we use
-Hazen's mid-rank \citep{hazen1914storage} (Section~\ref{sec:properties} discusses the choice).
+less sensitive to outliers \citep{bornmann2013use,bornmann2020evaluation} than normalization by mean citation rates,
+which compares a paper's citations with the average of comparable papers \citep{schubert1986relative,Radicchi2008}, and
+are recommended in the Leiden Manifesto \citep{hicks2015bibliometrics}. Ties and the definition of the percentile need
+care \citep{waltman2013percentile}. For scoring we use the share of the reference set with strictly fewer citations, so
+that uncited papers have percentile zero; for correlations we use Hazen's mid-rank \citep{hazen1914storage}
+(Section~\ref{sec:properties} discusses the choice).
 
-\paragraph{From papers to scholars.} \citet{bornmann2014individual} propose counting a scholar's papers in the top
-10\% and dividing by career age, and I3 \citep{leydesdorff2011integrated,rousseau2012basic} sums percentiles over a
-set of papers. Composite indicators such as the one of \citet{ioannidis2019standardized} combine several citation
-counts, and \citet{abramo2014productivity} weight field-normalized citations by inputs. For countries and
-institutions, double rank analysis gives each of a unit's papers a rank within the unit and a rank among all papers in
-the world, and reads the unit's output at very high percentiles from the relation between the two
-\citep{rodriguez2018double,brito2018percentile}. PiP differs from these in normalizing twice: papers by their
-publication year, and the scholar by their career cohort. The cohort comparison is made at every impact threshold:
-the count of a scholar's papers above each percentile is ranked among career peers, rather than read against the world
+\paragraph{From papers to scholars.} \citet{bornmann2014individual} propose counting a scholar's papers in the top 10\%
+and dividing by career age, and I3 \citep{leydesdorff2011integrated,rousseau2012basic} sums percentiles over a set of
+papers. Composite indicators such as the one of \citet{ioannidis2019standardized} combine several citation counts, and
+\citet{abramo2014productivity} relate field-normalized citations to the cost of labor. For countries and institutions,
+double rank analysis expresses the rank of each of a unit's papers within the unit as a function of its rank among all
+papers in the world; a power law fits this relation and estimates how likely the unit is to produce a very highly cited
+paper \citep{rodriguez2018double,brito2018percentile}. PiP differs from these in normalizing twice: papers by their
+publication year, and the scholar by their career cohort. The cohort comparison is made at every impact threshold: the
+count of a scholar's papers above each percentile is ranked among career peers, rather than read against the world
 distribution of papers.
 
 \paragraph{Prediction of scholarly impact.} \citet{hirsch2007does} found that the $h$-index predicts a scholar's
@@ -799,18 +800,18 @@ one that balances all three.
   \label{fig:frontier}
 \end{figure}
 
-Figure~\ref{fig:frontier} places the indicators by how well they predict the number of future top papers (quantity)
-and the citation impact of future papers, with PiP at every cutoff. The cutoffs trace a frontier: for these two
-outcomes, the PiP curve lies on or outside the other ways of combining paper percentiles, apart from two extremes, the
-mean percentile and the article count. With $\tau = 0$, PiP predicts at least as well as I3 on all three outcomes in
-every setting (with $\tau = 0.25$, in all but one); with $\tau = 0.75$ it does at least as well as the top-10\% count
-in every setting; and from $\tau = 0.25$ to $0.75$ it does better than the $h$-index on all three. Three indicators lie
-on or beyond the frontier. The mean percentile lies beyond it in the direction of pure citation impact, where it gives
-up any information about quantity. The article count lies just beyond it in two settings (at age 15 and in 2000), in
-the direction of pure quantity. The top-10\% count per year of career differs from the plain count only when
-seniorities are mixed, and it lies on the curve next to $\tau = 0.75$. Choosing the cutoff therefore selects a point on
-the frontier, and $\tau = 0.5$ sits near its knee: from $\tau = 0.25$ to $0.5$ the curve gains 0.056 in future citation
-impact for 0.016 in quantity, and beyond $0.5$ each gain in impact costs more in quantity.
+Figure~\ref{fig:frontier} places the indicators by how well they predict the number of future top papers (quantity) and
+the citation impact of future papers, with PiP at every cutoff. The cutoffs trace a frontier: for these two outcomes,
+the PiP curve lies on or outside the other ways of combining paper percentiles, apart from two extremes, the mean
+percentile and the article count. With $\tau = 0$, PiP predicts at least as well as I3 on all three outcomes in every
+setting (with $\tau = 0.25$, in all but one); with $\tau = 0.75$ it does at least as well as the top-10\% count on all
+three outcomes in every setting; and from $\tau = 0.25$ to $0.75$ it does better than the $h$-index on all three. Three
+indicators lie on or beyond the frontier. The mean percentile lies beyond it in the direction of pure citation impact,
+where it gives up any information about quantity. The article count lies just beyond it in two settings (at age 15 and
+in 2000), in the direction of pure quantity. The top-10\% count per year of career differs from the plain count only
+when seniorities are mixed, and it lies on the curve next to $\tau = 0.75$. Choosing the cutoff therefore selects a
+point on the frontier, and $\tau = 0.5$ sits near its knee: from $\tau = 0.25$ to $0.5$ the curve gains 0.056 in future
+citation impact for 0.016 in quantity, and beyond $0.5$ each gain in impact costs more in quantity.
 
 \paragraph{Replication across cohorts.} With more than a million authors per setting, sampling error is small: the
 standard error of a Spearman correlation of 0.4 would be below 0.001 for independent observations. Authors share
