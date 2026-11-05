@@ -30,6 +30,38 @@ If any of these goes against PiP (say T_τ predicts as well as PiP, or the lead 
 h ≥ 3 condition is gone), the abstract and conclusion follow the result. The wording fixes below can go in now; the
 ones whose numbers these runs could change are marked "after the runs".
 
+## Status (2026-11-05, first pass)
+
+Done; results in `FINDINGS.md` §18–21, manuscript and figures updated:
+
+- **The three required runs.** Grid convergence (§18), T_τ and the count + mean-percentile mix (§19), eligibility
+  without the h-index condition (§20).
+- **Section 1** (eligibility): all items.
+- **Section 2** (grid): all items. The 40 classes stay; the definition, claims and property checks now match the SQL.
+- **Section 3** (ties): the tie paragraph, B's identity and the factorization wording. Not done: the tie series by
+  cohort, beyond the share at zero at τ = 0.9, which settles the direction question.
+- **Section 4** (cohort claim): wording and the probability reading. Not done: calibration by PiP band.
+- **Section 5** (baselines): all items. Not done: field-normalized versions of the comparators.
+- **Section 6** (fields): wording only. Not done: paper-field rule and ablation.
+- **Section 7** (counting, document types): not started.
+- **Section 8** (validation claims): all wording items. Not done: upper-tail transitions; dated honors as the main
+  column.
+- **Section 9** (uncertainty, data, reproducibility): tie-aware precision, the reconstruction wording, the start-year
+  rule and the dependence caveat. Not done: bootstrap, S2–GS top-decile agreement, start-year sensitivity, archive.
+- **Section 10** (theory): all items.
+- **Section 11** (editorial): all items except the three marked "Authors" (title, CRediT, website deployment).
+- **Also noticed:** both fixed.
+
+What the runs changed in the paper's claims:
+
+- **PiP against the cutoff-matched sum.** The comparison with peers at every threshold adds to predicting future
+  citation impact (+0.02 to +0.04 in every cohort) and the top-1% outcome (+0.002 to +0.011). It adds nothing to the
+  count of future top papers and little to early detection, where T_0.5 is within 0.3 years of PiP.
+- **Without the h-index condition.** PiP still beats the h-index everywhere, by half to two thirds of the margin. In
+  early detection, I3, T_0.5 and the original PiP-AUC catch up with it from about career age 6–7.
+- **The grid.** It does not matter for any result (prediction changes at most 0.004). The τ = 0.9 drift is real: it
+  comes from ties at zero, which grow from 6% to 42% of authors across cohorts.
+
 ## What the checks found
 
 Checked against the code and data while triaging:

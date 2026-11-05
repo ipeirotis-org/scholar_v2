@@ -109,9 +109,9 @@ def main():
     # reference-label placement per panel, chosen so no label touches the curve
     panels = [(b, "(b) Predicts how many top-10% papers", "spearman_top10", "Spearman, age 10", (0.30, 0.48),
                dict(side="left", below=True), dict(side="left")),
-              (c, "(c) Predicts quality of future papers", "spearman_mean_pct", "Spearman, age 10", (0.15, 0.40),
+              (c, "(c) Predicts the impact of future papers", "spearman_mean_pct", "Spearman, age 10", (0.15, 0.40),
                dict(side="right", below=True), dict(side="right")),
-              (d, "(d) Identifies future top-1% authors", "auc_any_top1", "ROC AUC, age 10", (0.70, 0.79),
+              (d, "(d) Predicts any future top-1% paper", "auc_any_top1", "ROC AUC, age 10", (0.70, 0.79),
                dict(side="left", below=True), dict(side="right"))]
     for ax, title, col, ylabel, ylim, pip_pos, h_pos in panels:
         style(ax, title, ylabel, ylim)

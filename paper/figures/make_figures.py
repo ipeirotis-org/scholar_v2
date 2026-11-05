@@ -2,10 +2,11 @@
 
   fig_standing_curves  the definition: standing curves of three real authors (1995 cohort, career age 10)
   fig_paper_stability  paper percentiles settle early: by age, and by field
-  fig_cohorts          a PiP score means the same thing across cohorts; the raw h-index drifts
+  fig_cohorts          the distribution of PiP is stable across cohorts; the raw h-index drifts
   fig_prediction       predicting future work: PiP (tau = 0.5) vs the original PiP-AUC vs h-index (raw and percentile)
   fig_fields           share of each field in its cohort's top 10%: pooled vs field-normalized score
-  fig_frontier         PiP at every cutoff against percentile-based indicators: future quantity vs future quality
+  fig_frontier         PiP at every cutoff against percentile-based indicators, including the cutoff-matched
+                       sums T_tau and the count + mean-percentile mix: future quantity vs future quality
   fig_early            early detection: accuracy by the career age at which each indicator is measured
 
 Run: python3 paper/figures/make_figures.py   (matplotlib; Inter if installed)
@@ -212,15 +213,22 @@ def fig_fields():
 def fig_frontier():
     rows = read("fig7_frontier.csv")
     panels = [("same_age", "10", "_raw", "(a) Career age 10"),
-              ("same_year", "2005", "_pct", "(b) All active authors in 2005, cohort percentiles")]
+              ("same_year", "2005", "_pct", "(b) All eligible authors in 2005, cohort percentiles")]
     baselines = [("h", "h-index"), ("pip_original", "original PiP-AUC"), ("i3", "I3 (sum of percentiles)"),
-                 ("top10", "top-10% count"), ("top10_age", "top-10% per year"), ("top1", "top-1% count")]
+                 ("top10", "top-10% count"), ("top10_age", "top-10% per year"), ("top1", "top-1% count"),
+                 ("combo50", "articles + mean pct.")]
     # label offsets in points (dx, dy); ha follows the sign of dx, 0 centers
     offsets = {
-        "10": {"h": (6, 0), "pip_original": (-7, 6), "i3": (-7, -6), "top10": (0, -11), "top1": (6, 0)},
+        "10": {"h": (6, 0), "pip_original": (-7, 6), "i3": (-7, -6), "top10": (0, -14), "top1": (6, 0),
+               "combo50": (-7, 0)},
         "2005": {"h": (6, 0), "pip_original": (-7, 6), "i3": (-7, -6), "top10": (0, -11),
-                 "top10_age": (-6, 9), "top1": (6, 0)},
+                 "top10_age": (-6, 9), "top1": (6, 0), "combo50": (-7, 0)},
     }
+    # two-line labels where panel (a) is crowded between the curves and the squares
+    wrapped = {"10": {"top10": "top-10%\ncount", "combo50": "articles +\nmean pct."}}
+    # the cutoff-matched sums T_tau (20): same percentiles and cutoff as PiP, no peer comparison inside the integral;
+    # tau = 0 is I3
+    t_curve = ["i3", "t25", "t50", "t75", "t90"]
     tau_offsets = {
         "10": {"0": (6, 0), "25": (6, 0), "50": (7, 2), "60": (6, 4), "75": (0, 8), "90": (-6, 6)},
         "2005": {"0": (6, 0), "25": (6, 0), "50": (7, 2), "60": (6, 5), "75": (6, 7), "90": (-6, 4)},
@@ -234,7 +242,13 @@ def fig_frontier():
                for r in rows if r["scenario"] == sc and r["setting"] == st}
         xs = [val[f"pip_sym{t}{form}"][0] for t, _ in taus]
         ys = [val[f"pip_sym{t}{form}"][1] for t, _ in taus]
-        ax.plot(xs, ys, color=BLUE, linewidth=1.6, zorder=3)
+        tx = [val[f"{k}{form}"][0] for k in t_curve]
+        ty = [val[f"{k}{form}"][1] for k in t_curve]
+        ax.plot(tx, ty, color=AQUA, linewidth=1.3, zorder=2, label="sum above the cutoff, T$_\\tau$")
+        dots(ax, tx[1:], ty[1:], AQUA, ms=4.2)
+        ax.annotate("T$_{.5}$", (tx[2], ty[2]), xytext=(7, -1), textcoords="offset points", color=INK2,
+                    fontsize=6.6, ha="left", va="center")
+        ax.plot(xs, ys, color=BLUE, linewidth=1.6, zorder=3, label="PiP$_\\tau$")
         dots(ax, xs, ys, BLUE, ms=5)
         dots(ax, [val[f"pip_sym50{form}"][0]], [val[f"pip_sym50{form}"][1]], BLUE, ms=8.5)
         for (t, lab), x, y in zip(taus, xs, ys):
@@ -248,8 +262,8 @@ def fig_frontier():
             x, y = val[name]
             dots(ax, [x], [y], INK3, marker="s", ms=4.6)
             dx, dy = offsets[st][key]
-            ax.annotate(label, (x, y), xytext=(dx, dy), textcoords="offset points", color=INK2, fontsize=6.6,
-                        ha=ha(dx), va="center")
+            ax.annotate(wrapped.get(st, {}).get(key, label), (x, y), xytext=(dx, dy), textcoords="offset points",
+                        color=INK2, fontsize=6.6, ha=ha(dx), va="center", linespacing=1.0)
         mean_x, mean_y = (v + 0.0 if abs(v) >= 0.005 else 0.0 for v in val[f"mean_pct{form}"])
         art_x, art_y = (v + 0.0 if abs(v) >= 0.005 else 0.0 for v in val[f"articles{form}"])
         ax.text(0.02, 0.03, f"Off the chart: mean percentile ({mean_x:.2f}, {mean_y:.2f}),\n"
@@ -258,6 +272,7 @@ def fig_frontier():
         ax.set_xlabel("Predicts the number of future top-10% papers")
         ax.set_xlim(0.22, 0.48)
         ax.set_ylim(0.14, 0.38)
+        ax.legend(loc="upper left", handlelength=1.6, borderaxespad=0.3, labelcolor=INK2)
     axes[0].set_ylabel("Predicts the mean percentile of future papers")
     fig.tight_layout(w_pad=1.2)
     save(fig, "fig_frontier")
@@ -286,7 +301,7 @@ def fig_early():
     rows = [r for r in read("fig8_early.csv") if r["pop_age"] == "3"]
     preds = [("pip", "PiP", BLUE, 2.0), ("h", "h-index", ORANGE, 1.6), ("top10", "top-10% count", INK3, 1.0),
              ("i3", "I3", INK3, 1.0), ("articles", "articles", INK3, 1.0), ("citations", "citations", INK3, 1.0)]
-    panels = [("precision_top10", "(a) Finding future stars: precision of the top 10%", "Share of picks who become stars",
+    panels = [("precision_top10_frac", "(a) Finding future stars: precision of the top 10%", "Share of picks who become stars",
                0.10, 0.021),
               ("auc_any_top1", "(b) Any future top-1% paper", "ROC AUC", 0.5, 0.0175)]
     fig, axes = plt.subplots(1, 2, figsize=(7.2, 3.2), facecolor=SURFACE)
