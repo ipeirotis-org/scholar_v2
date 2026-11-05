@@ -20,8 +20,21 @@ Each item gives the exact text of each option. Reply with the item and the lette
 
 **Status after your reply of 5 November 2026 (D1 A, D2 B, D3 B, D6 A, D7 A, D8 A):** those six are applied as written
 (D6 sets *papers* in italics). Later replies: D12 A (applied: the earlier Conclusion sentence is deleted) and D4 C
-(no change: the rule stays unexplained). Still open: D5 (still a `% TODO`), D9 and D10 (text unchanged, so currently
-A) and D11 (inputs).
+(no change: the rule stays unexplained), D9 A and D10 A (no change). Still open: D5 (the website's export is not the
+data the paper uses; see D5 below) and D11 (inputs).
+
+**D5, update.** The export at \url{https://www.pip-score.org/data} (`scholar_data_share/all_authors_stats.csv`, last
+modified 14 March 2026) holds 16,953 Google Scholar profiles with author-level statistics (h-index, citations,
+i10-index, publication counts, start year, their percentiles and the asymmetric PiP-AUC), with profile dates from
+February 2024 to May 2025. The paper uses 16,218 profiles from the November 2026 crawl, with per-article citations, and
+the symmetric PiP. Options:
+- **A.** Refresh the export from the current crawl before submission, then write: "Author-level statistics for the
+  Google Scholar profiles can be downloaded from \url{https://www.pip-score.org/data}." (Writing the file changes the
+  live website's download; I would do it only on your go-ahead.)
+- **B.** Keep the export as it is and write: "Author-level statistics for an earlier snapshot of the website's Google
+  Scholar profiles can be downloaded from \url{https://www.pip-score.org/data}; the per-article profile data used here
+  are not redistributed."
+- **C.** Both A and B's second clause: refresh the export and say the per-article data are not redistributed.
 
 **D12. Conclusion overlap after D8.** The Conclusion now says twice that the comparison at every threshold improves
 the prediction of citation impact and exceptional papers.
