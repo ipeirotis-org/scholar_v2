@@ -23,7 +23,31 @@ Each item gives the exact text of each option. Reply with the item and the lette
 (no change: the rule stays unexplained), D9 A and D10 A (no change). Still open: D5 (the website's export is not the
 data the paper uses; see D5 below) and D11 (inputs).
 
-**D5, update.** The export at \url{https://www.pip-score.org/data} (`scholar_data_share/all_authors_stats.csv`, last
+**Later still:** D5 C applied. The website export was rebuilt from `gs_statistics.ranked_author_current` and
+`ranked_author_pip_scores_current` (16,215 profiles, the same 24 columns) and replaced on 5 November 2026; the
+March file is kept at `gs://scholar_data_share/archive/all_authors_stats.2026-03-14.csv`. The availability statement
+says author-level statistics can be downloaded from the website and the per-article data are not redistributed. D11:
+Sen Tian's affiliation is Ciphero, with no competing interests; still needed: funding confirmation, CRediT roles and
+the replication deposit (D13).
+
+**D13. Replication deposit.** The paper's derived BigQuery tables total 312 GB (`paper_rp`, 54 tables) plus 215 GB
+(`paper_rp_noself`, 12 tables). The three article-level tables (`author_articles` 86 GB, `paper_citations_by_age` 42 GB,
+`article_percentiles` 26 GB) can be rebuilt from the Semantic Scholar release with the SQL. Zenodo allows 50 GB and 100
+files per record (a one-time increase to 200 GB can be requested).
+- **A.** Zenodo record: a snapshot of the `paper/` directory plus the result tables and the per-author score tables
+  (`sym_by_age`, `prediction_base`, `early_detection_base`, `honors_base`, `field_normalized_scores` and the rest, about
+  38 GB in BigQuery, less as compressed Parquet), without the article-level tables. The DOI goes in Data and code
+  availability.
+- **B.** Make `paper_rp` and `paper_rp_noself` readable by `allAuthenticatedUsers`: every table at full scale, readers
+  pay for their own queries, but no DOI and no archival guarantee. It changes dataset access, which needs your explicit
+  approval and probably a role the service account lacks (BigQuery Data Owner on the two datasets); an organization
+  policy that restricts sharing domains would also block it.
+- **C.** Both: Zenodo as the citable archive, public BigQuery for the full tables.
+
+The Google Scholar tables in `paper_rp` hold per-profile scores and matches, not per-article data, so all three options
+agree with the availability statement.
+
+**D5, earlier note.** The export at \url{https://www.pip-score.org/data} (`scholar_data_share/all_authors_stats.csv`, last
 modified 14 March 2026) holds 16,953 Google Scholar profiles with author-level statistics (h-index, citations,
 i10-index, publication counts, start year, their percentiles and the asymmetric PiP-AUC), with profile dates from
 February 2024 to May 2025. The paper uses 16,218 profiles from the November 2026 crawl, with per-article citations, and
