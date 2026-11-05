@@ -859,3 +859,185 @@ The first run of the all-authors comparison used notable non-honorees, kept in f
 everyone else. That pulled its AUCs down. The all-authors comparison now uses every honoree against the random sample
 only.
 
+
+## 18. The 40-class grid against the exact integral (`sql/25_pip_exact.sql`, `sql/run_25.sh grid`, `sql/26_grid_convergence.sql`)
+
+Both pre-submission reviews (`feedback/`) noted that the paper defines PiP as an integral but computes it on the grid
+t_j = j/40, j = 0..39, and that the property checks used a 400-point midpoint grid instead.
+
+### What the grid computes
+
+On (j/40, (j+1)/40] an article counts at t exactly when y >= j/40. So the left Riemann sum equals the exact integral
+applied to percentiles rounded up to the next multiple of 1/40, (FLOOR(40 y) + 1) / 40. The reported score is PiP on 40
+percentile classes, and every property holds for it as stated. Visible effects: all articles in the top 2.5% are alike,
+and an article in the class just above the median earns a full class of credit.
+
+### Exact computation
+
+`25_pip_exact.sql` computes the integral from order statistics: on (y_(k+1), y_(k)] the author has k articles at or above
+t, and a peer has fewer exactly when its k-th best percentile is below t, so each piece is H_k(x1) - H_k(x0) with
+H_k(x) = mean over peers of (x - Y_k)^+, evaluated by an as-of running sum. The cost grows with the number of articles,
+not with the grid. With percentiles rounded to K classes it reproduces the K-point grid; K = 0 is exact.
+
+- **Validation:** K = 40 matches the production scores of 12 for all 5,279,295 eligible authors at career age 10 (start
+  years 1960-2015), at tau = 0.5, 0.75 and 0.9: largest difference 8e-15.
+- **Runtime:** about 1.5 minutes for four grids and three cutoffs at career age 10.
+
+### Grid against exact, career age 10, start years 1975-2010 (3.43M authors)
+
+| tau | Grid | Mean diff | Mean abs diff | Max abs diff | Rank corr. within cohort | Top-10% overlap |
+|---|---|---|---|---|---|---|
+| 0.5 | 40 | +0.0096 | 0.0113 | 0.055 | 0.9994 | 96.2% |
+| 0.5 | 200 | +0.0022 | 0.0025 | 0.012 | 0.99998 | 99.2% |
+| 0.5 | 1000 | +0.0004 | 0.0005 | 0.002 | 0.999999 | 99.9% |
+| 0.75 | 40 | +0.0187 | 0.0206 | 0.108 | 0.9985 | 93.1% |
+| 0.9 | 40 | +0.0395 | 0.0415 | 0.251 | 0.9960 | 84.7% |
+
+### Prediction at career age 10 (1.45M authors; Table 4 outcomes)
+
+| tau | Grid 40 | Exact |
+|---|---|---|
+| 0.5 | .427 / .772 / .321 | .426 / .773 / .325 |
+| 0.75 | .388 / .766 / .356 | .386 / .766 / .357 |
+| 0.9 | .347 / .750 / .338 | .343 / .749 / .337 |
+
+No metric moves by more than 0.004, so the paper keeps the 40 classes and states what they compute.
+
+### Cohort drift at high tau is not a grid effect
+
+Exact integral, career age 10:
+
+| tau | Start year | Mean | 25th | Median | 75th | 90th | Share at zero |
+|---|---|---|---|---|---|---|---|
+| 0.5 | 1960 | 0.433 | 0.193 | 0.407 | 0.658 | 0.837 | 0 |
+| 0.5 | 2010 | 0.407 | 0.153 | 0.368 | 0.640 | 0.836 | 1.2% |
+| 0.9 | 1960 | 0.367 | 0.117 | 0.324 | 0.584 | 0.804 | 5.6% |
+| 0.9 | 2010 | 0.266 | 0 | 0.116 | 0.511 | 0.769 | 41.7% |
+
+At tau = 0.9 the drift comes from authors with no article in the top 10% of its year: 6% of the 1960 cohort, 42% of the
+2000 and 2010 cohorts. This is the opposite of Review A's guess that zero ties become rarer in later cohorts.
+
+### Property checks (`checks/sym_properties.py`, both grids)
+
+| | Production grid | 400-point midpoint |
+|---|---|---|
+| Violations of range, monotonicity, below-tau invariance (1,500 authors) | 0 | 0 |
+| Q > 1 | 26% | 24% |
+| Order reversals after adding the same paper (3,000 pairs) | 22 | 22 |
+| One article at the 97.5th / 99th / 99.9th percentile | 0.449 / 0.449 / 0.449 | 0.422 / 0.452 / 0.472 |
+| One article at the 50th percentile | 0.004 | 0 |
+
+Over the 2,000 simulated peers the two grids agree to rank correlation 0.9995 (top-10% overlap 97%). With mid-ranks
+instead of the strict rule, an author with five articles at the 30th percentile would score 0.22 instead of 0.
+
+## 19. What the peer comparison adds (`sql/20_percentile_baselines.sql`, `sql/21_early_detection.sql`)
+
+Review B asked for baselines that use the same information as PiP without its threshold-by-threshold peer comparison.
+
+- **T_tau** = 1/(1-tau) sum of (y' - tau)^+, on PiP's 40 classes: the same percentiles and cutoff, no G_t inside the
+  integral. tau = 0 is I3.
+- **combo_w** = w * (cohort pct of article count) + (1 - w) * (cohort pct of mean percentile), w = 0.25, 0.5, 0.75.
+
+Adding them left every existing predictor's results unchanged (largest difference 8e-9 in 20, 6e-9 in 21).
+
+### Prediction (raw at the same career age, cohort percentiles in the same year)
+
+| Setting | PiP tau = 0.5 | T_0.5 | T_0.25 | T_0.75 | T_0.9 | combo50 | combo25 | combo75 |
+|---|---|---|---|---|---|---|---|---|
+| Age 5 | .378 / .715 / .264 | .370 / .705 / .255 | .373 / .697 / .170 | .340 / .707 / .322 | .304 / .700 / .320 | .289 / .669 / .253 | .083 / .584 / .355 | .368 / .684 / .035 |
+| Age 10 | .427 / .772 / .321 | .430 / .765 / .296 | .440 / .760 / .224 | .396 / .763 / .349 | .355 / .751 / .342 | .331 / .717 / .323 | .103 / .607 / .402 | .440 / .754 / .136 |
+| Age 15 | .436 / .799 / .343 | .443 / .794 / .317 | .455 / .792 / .255 | .410 / .791 / .361 | .371 / .779 / .352 | .335 / .738 / .352 | .106 / .617 / .412 | .455 / .788 / .196 |
+| 2000 | .387 / .765 / .298 | .388 / .759 / .274 | .396 / .754 / .208 | .363 / .762 / .327 | .330 / .755 / .327 | .286 / .706 / .299 | .070 / .596 / .367 | .398 / .746 / .137 |
+| 2005 | .416 / .781 / .318 | .422 / .778 / .296 | .435 / .774 / .229 | .384 / .773 / .338 | .346 / .762 / .325 | .325 / .726 / .333 | .104 / .613 / .411 | .436 / .766 / .155 |
+
+### PiP against T_0.5, cohort by cohort (same age, raw)
+
+| Age | Cohorts | PiP ahead on count | on top-1% AUC | on future impact | Count diff | Top-1% diff | Impact diff |
+|---|---|---|---|---|---|---|---|
+| 5 | 31 | 29 | 31 | 31 | -0.001 to +0.009 | +0.004 to +0.009 | +0.015 to +0.024 |
+| 10 | 26 | 16 | 26 | 26 | -0.007 to +0.008 | +0.004 to +0.011 | +0.023 to +0.036 |
+| 15 | 21 | 6 | 21 | 21 | -0.009 to +0.003 | +0.002 to +0.009 | +0.021 to +0.036 |
+
+### Early detection (population eligible at age 3)
+
+T_0.5 is below PiP at every age on all three measures, by at most 0.006. Lead of PiP in years (targets 5-10):
+T_0.5 0.1-0.2 / 0.0 / 0.1-0.3; combo50 1.9-4.5 / 1.7-4.0 / 1.7-4.1.
+
+### Reading
+
+- **The peer comparison adds to future citation impact and to the top-1% outcome**, in every cohort, by about 0.02-0.04
+  and 0.002-0.011.
+- **It adds nothing to predicting the count** of future top-10% papers: T_0.5 is as good, sometimes slightly better.
+- **It adds little to early detection:** most of PiP's lead over the h-index there comes from year-normalized
+  percentiles with a cutoff.
+- **"At most one of three outcomes" still holds** against every T_tau and combo in all five settings, and no new
+  baseline beats PiP's top-1% AUC.
+- **The plain quantity-impact mix is dominated:** combo50 matches PiP on future impact but trails by about 0.10 on the
+  count and 0.055 on the top-1% AUC at age 10.
+- **The tau check of §16 still holds** with the new baselines (23 rerun; existing rows unchanged to 1e-9): in the test
+  cohorts no T_tau or mix beats tau = 0.5 or 0.6 on more than one outcome, and none matches their top-1% AUC.
+
+## 20. Eligibility without the h-index condition (`sql/run_25.sh min3`, `sql/27_eligibility.sql`, `sql/run_21.sh min3`)
+
+Both reviews asked whether the h >= 3 condition, which uses one of the compared indicators to select the population,
+drives PiP's lead. `min3` requires three articles and nothing else; PiP is recomputed with min3 peers (production grid).
+
+### Share of min3 authors without an h-index of three (start years 1975-2000)
+
+| Main field (at age 10) | Age 3 | Age 5 | Age 10 |
+|---|---|---|---|
+| All fields | 79% (1,455,891 authors) | 63% | 43% (2,540,729) |
+| Biology | 62% | 41% | 22% |
+| Chemistry | 77% | 60% | 37% |
+| Medicine | 81% | 64% | 42% |
+| Physics | 79% | 66% | 43% |
+| Computer Science | 78% | 64% | 44% |
+| Mathematics | 88% | 77% | 56% |
+| Economics | 91% | 83% | 64% |
+| Engineering | 92% | 84% | 68% |
+| Education | 96% | 89% | 73% |
+| Law | 99% | 97% | 90% |
+| History | 99.9% | 99% | 97% |
+| Philosophy | 99.9% | 99% | 97% |
+
+The h >= 3 rule keeps a population tilted towards the life sciences, as Review A suspected.
+
+### Same-age prediction (raw, pooled over start years 1975 .. 2010 - age)
+
+| Age | Rule | Authors | PiP | h-index | T_0.5 | I3 | Mean pct. |
+|---|---|---|---|---|---|---|---|
+| 5 | active | 1.17M | .378 / .715 / .264 | .268 / .646 / .155 | .370 / .705 / .255 | .365 / .689 / .121 | -.038 / .523 / .361 |
+| 5 | min3 | 2.81M | .394 / .761 / .512 | .338 / .719 / .452 | .395 / .756 / .502 | .385 / .745 / .455 | .240 / .667 / .531 |
+| 10 | active | 1.45M | .427 / .772 / .321 | .352 / .719 / .230 | .430 / .765 / .296 | .438 / .755 / .182 | -.043 / .523 / .394 |
+| 10 | min3 | 2.54M | .420 / .805 / .493 | .376 / .770 / .443 | .424 / .801 / .481 | .424 / .794 / .429 | .194 / .656 / .519 |
+| 15 | active | 1.24M | .436 / .799 / .343 | .384 / .758 / .270 | .443 / .794 / .317 | .456 / .789 / .220 | -.047 / .522 / .397 |
+| 15 | min3 | 2.00M | .423 / .830 / .475 | .393 / .802 / .432 | .429 / .828 / .463 | .434 / .824 / .412 | .171 / .653 / .497 |
+
+The 'active' rows reproduce 20 exactly, which checks the query. Under min3, PiP beats the h-index on all three
+outcomes at every age by 0.028-0.060 (half to two thirds of the margin under 'active'), keeps the highest top-1% AUC,
+and no indicator beats it on more than one outcome.
+
+### Early detection under min3 (population with three articles at age 3: 1,455,891)
+
+| Measured at | PiP | T_0.5 | I3 | Original | h-index | Citations |
+|---|---|---|---|---|---|---|
+| Age 3 | .237 / .685 / .676 | .234 / .682 / .671 | .230 / .676 / .662 | .232 / .640 / .622 | .204 / .656 / .643 | .212 / .669 / .662 |
+| Age 5 | .310 / .750 / .733 | .308 / .750 / .730 | .302 / .749 / .726 | .307 / .741 / .719 | .269 / .719 / .700 | .256 / .719 / .707 |
+| Age 10 | .476 / .860 / .830 | .477 / .864 / .828 | .463 / .864 / .825 | .481 / .867 / .829 | .422 / .838 / .804 | .385 / .819 / .796 |
+
+Cells: precision of the cohort top 10% (expected under random tie-breaking) / AUC for stars / AUC for a future top-1%
+article.
+
+- **PiP leads the h-index at every age** and reaches its age-10 accuracy 1.7 / 1.2 / 1.6 years earlier (ranges over
+  targets 5-10: 1.1-1.7 / 1.0-1.2 / 1.2-1.6; under 'active': 1.2-1.8 / 1.1-1.6 / 1.3-1.9).
+- **Against the closest indicators the lead is early only:** I3, T_0.5 and the original PiP-AUC match or exceed PiP on
+  the star AUC from about age 6, and T_0.5 and the original on precision from about age 7. PiP keeps the highest top-1%
+  AUC at every age.
+
+## 21. Tie rule for top-decile precision (`sql/21_early_detection.sql`)
+
+Review B asked for an explicit tie rule at the top-decile boundary, which matters most for the h-index. `precision_top10`
+picks the top 10% with ties broken by a hash of the author id (one random draw); `precision_top10_frac` gives authors
+tied at the boundary the weight (slots left) / (number tied), the expected precision under random tie-breaking. The
+two differ by at most 0.0013 in any cell. The paper reports `precision_top10_frac`; the lead times are the same at one
+decimal.
