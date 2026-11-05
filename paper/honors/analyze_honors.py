@@ -1,8 +1,9 @@
 """External validation against later scientific honors (Wikidata), from paper/sql/22_honors.sql.
 
-Input: data/honors_sample.csv, exported from `paper_rp.honors_base`: every author with a Wikidata item linked to
-their Semantic Scholar ID or in our matched Google Scholar profiles, plus a 10% random sample of all other active authors (sampling negatives leaves the AUC
-unbiased). Two comparisons, at career ages 5 and 10:
+Input: data/honors_sample.csv, exported from `paper_rp.honors_base`: every honoree, every author in the two notable
+groups, and a 10% random sample of all active authors (`in_sample`). The `all` comparison uses every honoree against
+the non-honorees in the random sample only: sampling one class at random leaves the AUC unbiased, while the notable
+groups, kept in full, are not a random sample of non-honorees. Three comparisons, at career ages 5 and 10:
   notable     only authors with a Wikidata item (S2 route): among people notable enough to be on Wikidata, who
               gets honored?
   gs_faculty  only our Google Scholar profiles matched to S2 (mostly faculty)
@@ -42,7 +43,7 @@ def auc(x, y):
 def main():
     rows = list(csv.DictReader(open(os.path.join(HERE, "data", "honors_sample.csv"))))
     cols = {k: np.array([float(r[k]) for r in rows])
-            for k in ["age", "in_wikidata", "in_gs_faculty", "honored", "honored_dated"] + PREDICTORS}
+            for k in ["age", "in_wikidata", "in_gs_faculty", "in_sample", "honored", "honored_dated"] + PREDICTORS}
     rng = np.random.default_rng(20261105)
     out = []
     for age in (5, 10):
@@ -53,6 +54,8 @@ def main():
                     m &= cols["in_wikidata"] == 1
                 elif pop == "gs_faculty":
                     m &= cols["in_gs_faculty"] == 1
+                else:
+                    m &= (cols["honored"] == 1) | (cols["in_sample"] == 1)
                 if outcome == "honored_dated":
                     m &= ~((cols["honored"] == 1) & (cols["honored_dated"] == 0))
                 y = cols[outcome][m].astype(int)

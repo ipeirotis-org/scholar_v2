@@ -81,15 +81,14 @@ def main():
     print(f"{len(items)} linked items, {n} curated honor rows")
     gs_rows = set()
     for q in SENIOR:
-        txt = sparql(f"""SELECT ?p ?gs ?date WHERE {{
-          ?p wdt:P1960 ?gs .
-          {{ ?p p:P166 ?st . ?st ps:P166 wd:{q} . OPTIONAL {{ ?st pq:P585 ?date }} }}
-          UNION {{ ?p p:P463 ?st . ?st ps:P463 wd:{q} . OPTIONAL {{ ?st pq:P580 ?date }} }} }}""")
-        if "Exception" in txt:
-            raise RuntimeError(f"Wikidata query for {q} timed out; rerun")
-        for r in csv.DictReader(io.StringIO(txt)):
-            m = re.match(r"^(\d{4})-", r["date"] or "")
-            gs_rows.add((qid(r["p"]), r["gs"], q, m.group(1) if m else ""))
+        for prop, qualifier in (("P166", "P585"), ("P463", "P580")):  # separate queries: a UNION times out
+            txt = sparql(f"SELECT ?p ?gs ?date WHERE {{ ?p p:{prop} ?st . ?st ps:{prop} wd:{q} . "
+                         f"?p wdt:P1960 ?gs . OPTIONAL {{ ?st pq:{qualifier} ?date }} }}")
+            if "Exception" in txt:
+                raise RuntimeError(f"Wikidata query for {q} / {prop} timed out; rerun")
+            for r in csv.DictReader(io.StringIO(txt)):
+                m = re.match(r"^(\d{4})-", r["date"] or "")
+                gs_rows.add((qid(r["p"]), r["gs"], q, m.group(1) if m else ""))
     with open(os.path.join(DATA, "gs_honors_dated.csv"), "w", newline="") as f:
         w = csv.writer(f)
         w.writerow(["wikidata_id", "scholar_id", "honor_qid", "honor_year"])

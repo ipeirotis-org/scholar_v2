@@ -6,7 +6,7 @@
 -- sym_tau75 from 14), the live original PiP-AUC, h-index, citations, i10-index, cited works, top-10% works (live
 -- percentile >= 0.9), I3 (sum of the live work percentiles) and the mean work percentile.
 -- Outcomes, from Wikidata items carrying the profile's Google Scholar ID (P1960):
---   honored    holds a curated senior honor (`wikidata_gs_honored`, loaded by paper/honors/fetch_wikidata_honors.py)
+--   honored    holds a curated senior honor (`wikidata_gs_honors`, loaded by paper/honors/fetch_wikidata_honors.py)
 --   enwiki     has an English Wikipedia article (`gs_data.wikidata_authors.enwiki_title`)
 --   views      English Wikipedia pageviews over the last 60 days (0 without an article)
 -- Unlike 22, this is not a prediction: scores and honors are measured now, so it checks agreement, not foresight.
@@ -44,7 +44,7 @@ WITH
     FROM joined
     WINDOW w AS (PARTITION BY cohort)
   ),
-  honored AS (SELECT DISTINCT scholar_id FROM `scholar-version2.paper_rp.wikidata_gs_honored`),
+  honored AS (SELECT DISTINCT scholar_id FROM `scholar-version2.paper_rp.wikidata_gs_honors`),
   wiki AS (
     SELECT scholar_id, MAX(enwiki_title IS NOT NULL) AS enwiki, MAX(IFNULL(enwiki_views_60d, 0)) AS views
     FROM `scholar-version2.gs_data.wikidata_authors`
