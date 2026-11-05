@@ -277,8 +277,17 @@ from $[\tau, 1]$, then
 \begin{equation}
 \PiP_\tau(a) = \Pr\left[\, n_a(\Theta) > n_B(\Theta) \,\right]:
 \end{equation}
-PiP is the probability that the author has more articles than a random peer above a random impact threshold. Averaging
-over the peers gives the mean score of a peer group. Let $p_{\theta,m}$ be the share of peers with exactly $m$ articles
+PiP is the probability that the author has more articles than a random peer above a random impact threshold.
+
+In words, PiP is the chance of winning a simple game. Draw a threshold at random from $[\tau, 1]$ and a scholar at random
+from the same cohort; each counts their articles at or above the threshold, and the author wins with strictly more, so
+a tie is not a win. The cutoff decides where thresholds can be drawn. For the median author of
+Figure~\ref{fig:curves}, a threshold at the 90th percentile wins against 63\% of peers (the author has two articles
+there and most peers have fewer), the 75th percentile against 28\%, and the 97.5th percentile against none; averaged
+over the thresholds above the cutoff, the author wins 37\% of the time. A score of 0.6 therefore means winning 60\% of
+these matchups, which is not the same as being at the 60th percentile of scores.
+
+Averaging over the peers gives the mean score of a peer group. Let $p_{\theta,m}$ be the share of peers with exactly $m$ articles
 at or above $\theta$. Two random peers tie at $\theta$ with probability $\sum_m p_{\theta,m}^2$ and are otherwise
 equally likely to be ahead, so
 \begin{equation}
