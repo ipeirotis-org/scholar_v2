@@ -60,6 +60,10 @@ CC BY 4.0, reserved DOI 10.5281/zenodo.23987119, cited as `ipeirotis2026replicat
 from the final commit with `paper/make_zenodo_package.sh` and replace the file, so the archived manuscript carries the
 CRediT statement. Funding confirmed: "No specific funding was received for this work."
 
+**Pre-submission review (5 November 2026):** the verified edits are applied (commit `29efa8a`); abstract B (197 words,
+with the eligibility-rule and notable-group qualifiers) and v3_code A (left out of the Zenodo archive) are applied
+in `05c00d3`. The Zenodo draft now holds `pip-replication-package-05c00d3.zip` (md5 c49e8ec09bd7c53e4bd4eac11c2b4e96).
+
 **D14 A with Supervision for Panos Ipeirotis: applied** (commit `9b84e65`); the manuscript has no `TODO(authors)` left.
 The Zenodo draft now holds `pip-replication-package-9b84e65.zip` (md5 c788194f02aac0e1ba572f0fda9e39f7) in place of
 the cc071a3 archive; it is ready to publish when you are. If the manuscript changes before you publish, rebuild and
