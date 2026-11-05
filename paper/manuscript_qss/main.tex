@@ -444,14 +444,20 @@ of the three cutoffs, so we keep the 40 classes.
 \section{Results}
 \label{sec:results}
 
+We first examine PiP as a measurement: how soon a paper's percentile settles, what the cutoff changes, whether a given
+score is equally rare in every cohort and how much a scholar's score moves over a career. We then test whether PiP
+anticipates a scholar's future work and later honors, and check these findings by field and under other choices of
+data.
+
 \subsection{Paper percentiles settle within a few years}
 \label{sec:paperstability}
 
-A scholar's PiP uses percentiles of recent papers, measured after only a few years of citations. We first check how
+A scholar's PiP uses percentiles of recent papers, measured after only a few years of citations. We therefore check how
 well an early percentile anticipates the later one. For every article published from 1980 to 1995, we compute its
-percentile within its publication year at each age, using Hazen mid-ranks \citep{hazen1914storage}, and correlate
-the percentiles at two ages within each publication year. Because the percentiles are ranks, this is the Spearman
-correlation of the citation counts. We report the average over publication years.
+percentile within its publication year at each age and correlate the percentiles at two ages within each publication
+year. These percentiles are not the strict shares used in the score but Hazen mid-ranks \citep{hazen1914storage},
+which also count half of the tied papers. Because they are ranks, the correlation is the Spearman correlation of the
+citation counts. We report the average over publication years.
 
 \begin{figure}[t]
   \centering
@@ -468,15 +474,17 @@ the percentile at age 10 is 0.72 after one year, 0.91 after three and 0.96 after
 is 0.84 after three years and 0.89 after five. The ordinary least-squares slope of the later percentile on the earlier
 one is close to one (0.94 for ages 3 and 10), so early percentiles are not strongly biased towards the middle. High
 correlations still leave room for individual movement: between ages 3 and 10 a paper's percentile changes by 0.086 on
-average (Table~\ref{tab:paperstability}). Early percentiles have become more informative over time: the correlation between ages 1 and 10 was 0.72 for
-publication years before 1995 and 0.83 for 2015. For each cohort from 1960 to 1995, the correlation between ages 3 and
-10 lies between 0.875 and 0.910.
+average (Table~\ref{tab:paperstability}).
+
+The agreement between ages 3 and 10 holds across publication years: for each publication year from 1960 to 1995, the
+correlation lies between 0.875 and 0.910. Early percentiles have also become more informative over time: the
+correlation between ages 1 and 10 was 0.72 for publication years before 1995 and 0.83 for 2015.
 
 \begin{table}[t]
   \centering
   \small
   \caption{Agreement between a paper's citation percentile at an early and a later age (articles published 1980--1995,
-  7.2 million papers). Correlation of Hazen percentiles within publication year, the slope of the later on the earlier
+  7.2 million articles). Correlation of Hazen percentiles within publication year, the slope of the later on the earlier
   percentile, and the mean absolute change.}
   \label{tab:paperstability}
   \begin{tabular}{lccc}
@@ -498,16 +506,17 @@ publication years before 1995 and 0.83 for 2015. For each cohort from 1960 to 19
 The speed differs by field (Figure~\ref{fig:paperstability}b), in line with \citet{wang2013window} and
 \citet{abramo2011window}. Three years give a correlation of about 0.9 with age 10 in biology (0.93), chemistry,
 physics, medicine and computer science (0.91), but 0.79 in history and 0.75 in art. The humanities and law need about
-five years to reach the agreement that the natural and life sciences reach in three. PiP uses percentiles at every
-age, including recent papers; Section~\ref{sec:discussion} discusses what this means for scholars in slow fields.
+five years to reach the agreement that the natural and life sciences reach in three. PiP uses percentiles at every age, including recent papers;
+Section~\ref{sec:discussion} discusses what this means for scholars in slow fields.
 
 \subsection{The cutoff $\tau$ is a dial between quantity and impact}
 \label{sec:tau}
 
-The cutoff decides which papers earn credit. We computed PiP for $\tau \in \{0, 0.25, 0.5, 0.6, 0.75, 0.9\}$ for
-3.43 million eligible authors at career age 10 (start years 1975--2010) and correlated each version, within cohort, with
-the author's number of articles, the mean percentile of their articles and their number of articles in the top 2.5\%
-of their year (Figure~\ref{fig:tau}a, Table~\ref{tab:tau}).
+The cutoff decides which papers earn credit. To see how it moves the score between quantity and impact, we computed
+PiP for $\tau \in \{0, 0.25, 0.5, 0.6, 0.75, 0.9\}$ for 3.43 million eligible authors at career age 10 (start years
+1975--2010). Within each cohort, we correlated each version with the author's number of articles, the mean percentile
+of their articles and their number of articles in the top 2.5\% of their year (Figure~\ref{fig:tau}a,
+Table~\ref{tab:tau}).
 
 \begin{figure}[t]
   \centering
@@ -552,43 +561,49 @@ of their year (Figure~\ref{fig:tau}a, Table~\ref{tab:tau}).
 
 As $\tau$ rises, the correlation with the number of articles falls from 0.86 to 0.37 and the correlation with the
 number of top-2.5\% articles rises from 0.49 to 0.78. The correlation with the mean percentile peaks at
-$\tau = 0.75$. In prediction, the same dial trades the \emph{number} of future top-10\% papers, best predicted at low
-$\tau$, for their \emph{citation impact}, best predicted at $\tau = 0.75$; the chance of a future top-1\% paper is
-predicted about equally well from $\tau = 0.25$ to $0.6$. Above $\tau = 0.6$ the distribution of the score drifts
-across cohorts. The drift is not an effect of the 40 percentile classes (Section~\ref{sec:computation}): with the
-exact integral, the median at $\tau = 0.9$ still falls from 0.32 in the 1960 cohort to 0.12 in the 2010 cohort. It
-comes from ties at zero (Eq.~\ref{eq:mean}): the share of eligible authors with no article in the top 10\% of its
-year rises from 6\% in the 1960 cohort to 42\% in the 2010 cohort, and all of them score zero at $\tau = 0.9$.
+$\tau = 0.75$. The same dial trades quantity for impact when PiP predicts the author's future articles. The
+\emph{number} of future top-10\% papers is best predicted at low $\tau$, and the \emph{citation impact} of future
+articles (their mean percentile) is best predicted at $\tau = 0.75$; the chance of a future top-1\% paper is predicted
+about equally well from $\tau = 0.25$ to $0.6$.
+
+Above $\tau = 0.6$ the distribution of the score drifts across cohorts. The drift is not an effect of the 40 percentile
+classes (Section~\ref{sec:computation}): with the exact integral, the median at $\tau = 0.9$ still falls from 0.32 in
+the 1960 cohort to 0.12 in the 2010 cohort. The drift comes from ties at zero (Eq.~\ref{eq:mean}): the share of
+eligible authors with no article in the top 10\% of its year rises from 6\% in the 1960 cohort to 42\% in the 2010
+cohort, and all of them score zero at $\tau = 0.9$.
 
 We use $\tau = 0.5$ as the default. It has a one-line explanation (only papers in the top half of their year count),
-it balances the correlations with quantity (0.64) and with top papers (0.60), it is at the maximum for the top-1\%
-outcome, and it is stable across cohorts. Users who care more about volume can lower it, and users who care more about
-impact can raise it up to about 0.6; the choice should be made before the evaluation and stated.
+it balances the correlations with quantity (0.64) and with top papers (0.60), it gives the best prediction of a future
+top-1\% paper, and it keeps the score's distribution stable across cohorts. Users who care more about volume can lower
+it, and users who care more about impact can raise it up to about 0.6; the choice should be made before the evaluation
+and stated.
 
 \paragraph{Retrospective temporal robustness check.} The default was chosen from results that pooled all cohorts, so
-we checked afterwards whether the choice depends on them. Because the check was made after the default was chosen, it
-does not protect against specification search as an untouched holdout would. We split the same-age prediction
-settings by start year into a choice sample (1975--1990) and a test sample (1991 and later). Applying the rule above to the choice sample alone (the highest AUC for a future top-1\%
-paper among cutoffs whose distribution is stable across cohorts, $\tau \le 0.6$) selects $\tau = 0.6$ at career age
-10, with $\tau = 0.5$ within 0.001. In the test cohorts both cutoffs keep every comparison reported in
-Sections~\ref{sec:prediction}--\ref{sec:early} at career ages 5, 10 and 15: they beat the $h$-index on all three
-outcomes, no other indicator beats either of them on more than one outcome, and both have the highest AUC for a
-future top-1\% paper. Across $\tau$ from 0.25 to 0.6 that AUC varies by less than 0.01 in the test cohorts, so the
-exact choice in this range matters little for the outcome used to make it. Two differences between the samples are
-worth noting. The quantity--impact trade-off turns at a slightly higher cutoff in the older cohorts (between 0.6 and
-0.75 rather than at 0.5), and in those cohorts at career age 5 the top-10\% count ties $\tau = 0.5$ on the top-1\%
-outcome and beats it on future citation impact, while $\tau = 0.6$ keeps its lead.
+we checked afterwards whether the choice depends on which cohorts it is made from. Because the check was made after the
+default was chosen, it does not protect against specification search as an untouched holdout would. We split the
+prediction settings that compare authors of one career age into a choice sample (start years 1975--1990) and a test
+sample (start years 1991 and later). Stated as a rule, the default is the cutoff with the highest AUC for a future
+top-1\% paper among cutoffs whose distribution is stable across cohorts ($\tau \le 0.6$). Applied to the choice sample
+alone, the rule selects $\tau = 0.6$ at career age 10, with $\tau = 0.5$ within 0.001. The choice cohorts differ from
+the test cohorts in two respects. Their quantity--impact trade-off turns at a slightly higher cutoff (between 0.6 and
+0.75 rather than at 0.5). In those cohorts at career age 5, the top-10\% count ties $\tau = 0.5$ on the top-1\% outcome
+and beats it on future citation impact, whereas $\tau = 0.6$ keeps its lead.
+
+In the test cohorts both cutoffs keep every comparison reported in Sections~\ref{sec:prediction}--\ref{sec:early} at
+career ages 5, 10 and 15: they beat the $h$-index on all three outcomes, no other indicator beats either of them on more
+than one outcome, and both have the highest AUC for a future top-1\% paper. Across $\tau$ from 0.25 to 0.6 that AUC
+varies by less than 0.01 in the test cohorts, so the exact choice in this range matters little for the outcome used to
+make it.
 
 \subsection{The distribution of PiP is stable across cohorts}
 \label{sec:cohorts}
 
 Committees compare people who started in different years, and indicators are often read against fixed rules of thumb.
 Figure~\ref{fig:cohorts} shows the distribution of PiP and of the raw $h$-index at career age 10 for every start year
-from 1960 to 2015. The PiP distribution changes little: the mean goes from 0.44 to 0.42, the lower quartile from 0.20
-to 0.16, the upper quartile stays at 0.66--0.67 and the 90th percentile at 0.85. Over the same cohorts the mean
-$h$-index at age 10 rises from 4.4 to 6.2 and its 90th percentile from 7 to 11, following the growth of publication and
-citation rates. The cohorts themselves grow nearly a hundredfold, from 4,031 eligible authors in 1960 to 392,360 in
-2015.
+from 1960 to 2015. The cohorts themselves grow nearly a hundredfold, from 4,031 eligible authors in 1960 to 392,360 in
+2015. The PiP distribution changes little: the mean goes from 0.44 to 0.42, the lower quartile from 0.20 to 0.16, the
+upper quartile stays at 0.66--0.67 and the 90th percentile at 0.85. Over the same cohorts the mean $h$-index at age 10
+rises from 4.4 to 6.2 and its 90th percentile from 7 to 11, following the growth of publication and citation rates.
 
 \begin{figure}[t]
   \centering
@@ -598,26 +613,27 @@ citation rates. The cohorts themselves grow nearly a hundredfold, from 4,031 eli
   \label{fig:cohorts}
 \end{figure}
 
-Part of this stability is built in. Because the standing counts peers with strictly fewer articles, the mean score of
-a cohort is one half minus half the probability that two random peers tie at a random threshold above $\tau$
-(Eq.~\ref{eq:mean}), so it can move only as far as ties change. The rest of the distribution is not fixed by the
-construction, and where ties at zero become common it does drift, as it does above $\tau = 0.6$
-(Section~\ref{sec:tau}). What the stability establishes is
-limited to rarity: a PiP of 0.6 at age 10 was about as rare in the 1970 cohort as in the 2010 cohort, so the scores of
-people at the same career age can be read as statements of rarity, whatever their start year. A cohort percentile of
-the $h$-index offers the same kind of scale. Stable rarity does not by itself mean that equal scores predict equal
-futures in different cohorts; Section~\ref{sec:prediction} tests prediction when cohorts and seniorities are pooled.
+Part of this stability is built in. Because the standing counts peers with strictly fewer articles, the mean score of a cohort is one half minus half the
+probability that two random peers tie at a random threshold above $\tau$ (Eq.~\ref{eq:mean}),
+so it can move only as far as ties change. The rest of the distribution is not fixed by the construction: it drifts
+where ties at zero become common, as it does above $\tau = 0.6$ (Section~\ref{sec:tau}).
+
+What the stability establishes is limited to rarity: a PiP of 0.6 at age 10 was about as rare in the 1970 cohort as in
+the 2010 cohort, so the scores of people at the same career age can be read as statements of rarity, whatever their
+start year. A cohort percentile of the $h$-index offers the same kind of scale. Stable rarity does not by itself mean
+that equal scores predict equal futures in different cohorts; Section~\ref{sec:prediction} tests prediction when
+cohorts and seniorities are pooled.
 
 \subsection{Stability over a career}
 \label{sec:careerstability}
 
-An indicator that reshuffles scholars every few years is of little use for decisions with long consequences. For
-authors who started in 1975--1995, Table~\ref{tab:careerstability} correlates each indicator's within-cohort percentile
-at two career ages. PiP is much more stable than the $h$-index: between
-ages 5 and 30 its correlation is 0.56, against 0.37 for the $h$-index and 0.45 for citations. The article count is more
-stable at every horizon, as one would expect from a quantity that only accumulates; citations are slightly more stable
-than PiP between ages 5 and 10 and less stable over longer horizons. The $h$-index is particularly unstable early in a
-career, partly because many eligible authors share the values 3 and 4.
+An indicator that reshuffles scholars every few years is of little use for decisions with long consequences. To
+measure how far each indicator reorders a cohort over time, we correlate its within-cohort percentile at two career
+ages, for authors who started in 1975--1995 (Table~\ref{tab:careerstability}). PiP is much more stable than the
+$h$-index: between ages 5 and 30 its correlation is 0.56, against 0.37 for the $h$-index and 0.45 for citations. The
+$h$-index is particularly unstable early in a career, partly because many eligible authors share the values 3 and 4.
+Citations are slightly more stable than PiP between ages 5 and 10 and less stable over longer horizons. The article
+count alone is more stable than PiP at every horizon, as one would expect from a quantity that only accumulates.
 
 \begin{table}[t]
   \centering
