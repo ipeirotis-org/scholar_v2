@@ -47,7 +47,8 @@ correlation between a paper's percentile at age 3 and at age 10 is 0.91. A PiP s
 cohort from 1960 to 2015, while the raw $h$-index at career age 10 rose by 40\% over the same cohorts. PiP predicts
 the next ten years of a scholar's work better than the $h$-index, raw or as a cohort percentile, in every setting we
 test and in each of 15 fields; at career age 10 its Spearman correlation with the number of future top-10\% papers is
-0.43 against 0.35. These results hold without self-citations, and PiP rankings computed from Semantic Scholar agree
+0.43 against 0.35. Indicators built from the same paper percentiles (counts of top papers, and the sum or the mean of
+the percentiles) each beat PiP on at most one of three prediction outcomes and fall behind on another. These results hold without self-citations, and PiP rankings computed from Semantic Scholar agree
 with rankings computed from Google Scholar profiles of the same people ($\rho = 0.78$). A field-normalized version
 removes the advantage of high-citation fields. Code, derived data and a public implementation are available.
 \end{abstract}
@@ -103,7 +104,9 @@ The paper makes four contributions:
   to 2015 (Section~\ref{sec:cohorts}); and a scholar's PiP is as stable over a career as their productivity and more
   stable than their citations or $h$-index (Section~\ref{sec:careerstability}).
   \item \textbf{Prediction.} PiP predicts a scholar's future top papers better than the $h$-index in every setting and
-  field we test, whether the $h$-index is used raw or converted to a cohort percentile (Section~\ref{sec:prediction}).
+  field we test, whether the $h$-index is used raw or converted to a cohort percentile. Unlike counts of top papers or
+  sums and means of paper percentiles, it predicts both how many top papers a scholar will publish and how good their
+  papers will be (Section~\ref{sec:prediction}).
   \item \textbf{Robustness.} The results hold without self-citations; PiP rankings from Semantic Scholar agree with
   rankings from author-curated Google Scholar profiles; and a field-normalized version removes the advantage of
   high-citation fields without reordering scholars within a field (Sections~\ref{sec:fields}--\ref{sec:robustness}).
@@ -515,10 +518,11 @@ setting we compare each indicator raw and as a percentile within its cohort.
   \centering
   \small
   \begin{threeparttable}
-  \caption{Prediction of the next ten years of work. Career age 10 (1.45 million authors) and all active authors in
-  2005 (1.85 million authors, career ages 2--30). Spearman correlation with the number of future top-10\% articles,
-  ROC AUC for at least one future top-1\% article, and Spearman correlation with the mean percentile of future
-  articles.}
+  \caption{Prediction of the next ten years of work. Career age 10 (1.45 million authors; raw values, which rank
+  authors within one career age as their cohort percentiles do) and all active authors in 2005 (1.85 million authors,
+  career ages 2--30; within-cohort percentiles, except where noted). Spearman correlation with the number of future
+  top-10\% articles, ROC AUC for at least one future top-1\% article, and Spearman correlation with the mean percentile
+  of future articles. The best value in each column is in bold.}
   \label{tab:prediction}
   \begin{tabular}{lcccccc}
     \toprule
@@ -526,13 +530,19 @@ setting we compare each indicator raw and as a percentile within its cohort.
     \cmidrule(lr){2-4}\cmidrule(lr){5-7}
     Indicator & Top-10\% & Top-1\% & Mean pct. & Top-10\% & Top-1\% & Mean pct. \\
     \midrule
-    \textbf{PiP} ($\tau = 0.5$) & 0.427 & \textbf{0.772} & \textbf{0.321} & 0.407 & \textbf{0.776} & \textbf{0.310} \\
-    Original PiP-AUC & 0.434 & 0.756 & 0.190 & 0.434 & 0.770 & 0.201 \\
-    $h$-index, raw & 0.352 & 0.719 & 0.230 & 0.284 & 0.691 & 0.174 \\
-    $h$-index, cohort percentile & 0.352 & 0.721 & 0.238 & 0.363 & 0.737 & 0.241 \\
-    Citations, cohort percentile & 0.297 & 0.716 & 0.312 & 0.312 & 0.733 & 0.303 \\
-    Articles, raw & \textbf{0.437} & 0.740 & 0.000 & 0.366 & 0.717 & $-0.025$ \\
-    Articles, cohort percentile & 0.433 & 0.739 & $-0.002$ & \textbf{0.439} & 0.757 & 0.019 \\
+    \textbf{PiP} ($\tau = 0.5$) & 0.427 & \textbf{0.772} & 0.321 & 0.416 & \textbf{0.781} & 0.318 \\
+    Original PiP-AUC & 0.434 & 0.756 & 0.190 & 0.433 & 0.770 & 0.201 \\
+    \addlinespace
+    $h$-index & 0.352 & 0.719 & 0.230 & 0.363 & 0.737 & 0.241 \\
+    \quad raw, in 2005 & & & & 0.284 & 0.691 & 0.174 \\
+    Citations & 0.290 & 0.714 & 0.298 & 0.312 & 0.733 & 0.303 \\
+    Articles & 0.437 & 0.740 & 0.000 & \textbf{0.439} & 0.757 & 0.019 \\
+    \addlinespace
+    Top-10\% count & 0.360 & 0.748 & 0.338 & 0.354 & 0.762 & 0.324 \\
+    \quad per year of career, raw & & & & 0.379 & 0.771 & 0.345 \\
+    Top-1\% count & 0.250 & 0.641 & 0.228 & 0.262 & 0.698 & 0.225 \\
+    I3 (sum of percentiles) & \textbf{0.438} & 0.755 & 0.182 & 0.434 & 0.769 & 0.189 \\
+    Mean percentile & $-0.043$ & 0.523 & \textbf{0.394} & $-0.042$ & 0.526 & \textbf{0.404} \\
     \bottomrule
   \end{tabular}
   \end{threeparttable}
@@ -543,16 +553,63 @@ Table~\ref{tab:prediction}). At career age 10, its correlation with the number o
 against 0.35, its AUC for a future top-1\% paper is 0.77 against 0.72, and its correlation with future quality is 0.32
 against 0.23. The gap is larger when people of different seniority are compared: in 2005 the raw $h$-index reaches
 0.28, 0.69 and 0.17. Converting the $h$-index into a cohort percentile helps (0.36, 0.74, 0.24) but does not close the
-gap. PiP needs no such conversion, because it is already relative to the cohort and its distribution does not depend
-on the cohort (Section~\ref{sec:cohorts}); for the original PiP-AUC, where we computed both versions, raw and percentile
-predictions agree to within 0.005 in every setting.
+gap. PiP gains much less from the conversion: in 2005 its cohort percentile reaches 0.42, 0.78 and 0.32, against 0.41,
+0.78 and 0.31 for the raw score, because the raw score is already relative to the cohort and its distribution does not
+depend on the start year (Section~\ref{sec:cohorts}). We report cohort percentiles for every indicator in the
+same-year settings.
 
-The comparison with simpler indicators shows what PiP adds. The number of articles predicts the number of future
-top-10\% papers as well as PiP or slightly better (0.44 against 0.43 at age 10), because productive authors keep
-producing; the original PiP-AUC, which is close to a productivity percentile, does the same. Neither predicts the
-quality of future work (correlations of 0.00 and 0.19). The citation percentile predicts future quality about as well
-as PiP (0.31 against 0.32) but is weaker on the number of future top papers (0.30). PiP is the only indicator that
-does well on all three outcomes, and it is the best predictor of a future top-1\% paper in every setting.
+\paragraph{Productivity and citations.} The number of articles predicts the number of future top-10\% papers as well
+as PiP or slightly better (0.44 against 0.43 at age 10), because productive authors keep producing; the original
+PiP-AUC, which is close to a productivity percentile, does the same. Neither predicts the quality of future work
+(correlations of 0.00 and 0.19). Total citations predict future quality about as well as PiP (0.30 against 0.32) but
+are weaker on the number of future top papers (0.29).
+
+\paragraph{Percentile-based indicators.} The closest alternatives to PiP use the same paper percentiles but combine
+them differently: the number of papers in the top 10\% \citep{waltman2012leiden}, also divided by career age
+\citep{bornmann2014individual}; the number in the top 1\%; I3, the sum of the percentiles
+\citep{leydesdorff2011integrated}; and their mean. Each is the best or nearly the best on one outcome and weak on
+another (Table~\ref{tab:prediction}). The mean percentile predicts the quality of future papers best (0.39 at age 10,
+against 0.32 for PiP), but says nothing about how many top papers will follow ($-0.04$) or whether one of them will be
+in the top 1\% (AUC 0.52). I3 predicts the number of future top papers as well as the article count does (0.44) but
+not their quality (0.18). The top-10\% count is the closest competitor: it predicts future quality slightly better than
+PiP (0.34 against 0.32) and the number of future top papers clearly worse (0.36 against 0.43). In all five settings,
+each of these indicators beats PiP on at most one of the three outcomes, and none beats it on the chance of a future
+top-1\% paper.
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\textwidth]{fig_frontier.pdf}
+  \caption{Indicators placed by how well they predict the number of a scholar's future top-10\% papers (horizontal) and
+  the mean percentile of their future papers (vertical), Spearman correlations. The blue curve is PiP at cutoffs from
+  $\tau = 0$ to $0.9$; the large dot is $\tau = 0.5$. Grey squares are indicators built from the same paper
+  percentiles, the $h$-index and the original PiP-AUC. (a) Active authors at career age 10, raw values. (b) All active
+  authors in 2005 at career ages 2--30, within-cohort percentiles (the top-10\% count per year of career is raw). For
+  the third outcome, a future top-1\% paper, PiP at every cutoff from 0 to 0.75 has a higher AUC than every grey
+  indicator in both settings.}
+  \label{fig:frontier}
+\end{figure}
+
+Figure~\ref{fig:frontier} places the indicators by how well they predict future quantity and future quality, with PiP
+at every cutoff. The cutoffs trace a frontier. With $\tau = 0$, PiP predicts at least as well as I3 and the original
+PiP-AUC on all three outcomes in every setting (with $\tau = 0.25$, in all but one); with $\tau = 0.75$ it does at
+least as well as the top-10\% count in every setting; and from $\tau = 0.25$ to $0.75$ it does better than the
+$h$-index on all three. Three indicators lie on or beyond the frontier. The mean percentile lies beyond it in the
+direction of pure quality, where it gives up any information about quantity. The article count lies just beyond it in
+two settings (at age 15 and in 2000), in the direction of pure quantity. The top-10\% count per year of career, which
+differs from the plain count only when seniorities are mixed, lies on the curve next to $\tau = 0.75$. The cutoff
+therefore selects a point on a curve that matches or dominates the other ways of combining paper percentiles, and
+$\tau = 0.5$ sits near its knee: from $\tau = 0.25$ to $0.5$ the curve gains 0.056 in future quality for 0.016 in
+quantity, and beyond $0.5$ each gain in quality costs more in quantity.
+
+\paragraph{Replication across cohorts.} With more than a million authors per setting, sampling error is small: the
+standard error of a Spearman correlation of 0.4 is below 0.001. The more relevant question is whether the differences
+hold in different populations. We repeated the age-10 comparison separately for each start year from 1975 to 2000, 26
+cohorts of 17,867 to 122,114 authors. PiP beats the $h$-index on all three outcomes in all 26 cohorts, by 0.06--0.10
+on the number of future top papers. It beats the top-10\% count on the number of future top papers (by 0.05--0.08) and
+on the top-1\% outcome in all 26 cohorts, and falls behind it on future quality in 20 (by up to 0.07). Against I3, the
+article count and the original PiP-AUC, PiP wins on the top-1\% outcome and on future quality in every cohort, and on
+the number of future top papers in 11 to 14 of the 26, with differences between $-0.03$ and $+0.04$. PiP is the best
+predictor of a future top-1\% paper in every setting.
 
 \subsection{Fields}
 \label{sec:fields}
@@ -686,8 +743,10 @@ most of a scholar's future unexplained.
 PiP rates a scholar by the citation percentiles of all their papers above a cutoff, compared with peers who started in
 the same year at every quality level. On 11.1 million Semantic Scholar authors it means the same thing for every
 cohort since 1960, is as stable over a career as productivity, and predicts future top papers and future quality
-better than the $h$-index in every setting and field we tested. A single parameter moves it between quantity and
-impact. The construction needs only publication years and citation counts by year, and the code computes it at full
+better than the $h$-index in every setting and field we tested. Among indicators built from the same paper
+percentiles, it is the one that predicts both how many top papers a scholar will publish and how good their papers
+will be. A single parameter moves it between quantity and impact, along a frontier that matches or dominates counting,
+summing or averaging paper percentiles, except for the mean percentile at the pure-quality end. The construction needs only publication years and citation counts by year, and the code computes it at full
 scale in a database; a public implementation on Google Scholar profiles is available at
 \url{https://www.pip-score.org}.
 

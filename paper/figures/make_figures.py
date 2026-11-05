@@ -5,6 +5,7 @@
   fig_cohorts          a PiP score means the same thing across cohorts; the raw h-index drifts
   fig_prediction       predicting future work: PiP (tau = 0.5) vs the original PiP-AUC vs h-index (raw and percentile)
   fig_fields           share of each field in its cohort's top 10%: pooled vs field-normalized score
+  fig_frontier         PiP at every cutoff against percentile-based indicators: future quantity vs future quality
 
 Run: python3 paper/figures/make_figures.py   (matplotlib; Inter if installed)
 """
@@ -207,6 +208,60 @@ def fig_fields():
     save(fig, "fig_fields")
 
 
+def fig_frontier():
+    rows = read("fig7_frontier.csv")
+    panels = [("same_age", "10", "_raw", "(a) Career age 10"),
+              ("same_year", "2005", "_pct", "(b) All active authors in 2005, cohort percentiles")]
+    baselines = [("h", "h-index"), ("pip_original", "original PiP-AUC"), ("i3", "I3 (sum of percentiles)"),
+                 ("top10", "top-10% count"), ("top10_age", "top-10% per year"), ("top1", "top-1% count")]
+    # label offsets in points (dx, dy); ha follows the sign of dx, 0 centers
+    offsets = {
+        "10": {"h": (6, 0), "pip_original": (-7, 6), "i3": (-7, -6), "top10": (0, -11), "top1": (6, 0)},
+        "2005": {"h": (6, 0), "pip_original": (-7, 6), "i3": (-7, -6), "top10": (0, -11),
+                 "top10_age": (-6, 9), "top1": (6, 0)},
+    }
+    tau_offsets = {
+        "10": {"0": (6, 0), "25": (6, 0), "50": (7, 2), "60": (6, 4), "75": (0, 8), "90": (-6, 6)},
+        "2005": {"0": (6, 0), "25": (6, 0), "50": (7, 2), "60": (6, 5), "75": (6, 7), "90": (-6, 4)},
+    }
+    taus = [("0", "τ = 0"), ("25", ".25"), ("50", ".5"), ("60", ".6"), ("75", ".75"), ("90", ".9")]
+    ha = lambda dx: "left" if dx > 0 else ("right" if dx < 0 else "center")
+    fig, axes = plt.subplots(1, 2, figsize=(7.2, 3.3), facecolor=SURFACE, sharey=True)
+    for ax, (sc, st, form, title) in zip(axes, panels):
+        clean(ax, title, grid_axis="both")
+        val = {r["predictor"]: (float(r["spearman_top10"]), float(r["spearman_mean_pct"]))
+               for r in rows if r["scenario"] == sc and r["setting"] == st}
+        xs = [val[f"pip_sym{t}{form}"][0] for t, _ in taus]
+        ys = [val[f"pip_sym{t}{form}"][1] for t, _ in taus]
+        ax.plot(xs, ys, color=BLUE, linewidth=1.6, zorder=3)
+        dots(ax, xs, ys, BLUE, ms=5)
+        dots(ax, [val[f"pip_sym50{form}"][0]], [val[f"pip_sym50{form}"][1]], BLUE, ms=8.5)
+        for (t, lab), x, y in zip(taus, xs, ys):
+            dx, dy = tau_offsets[st][t]
+            ax.annotate(lab, (x, y), xytext=(dx, dy), textcoords="offset points", color=BLUE, fontsize=6.8,
+                        ha=ha(dx), va="center", fontweight="semibold" if t == "50" else "normal")
+        for key, label in baselines:
+            if key == "top10_age" and sc == "same_age":
+                continue  # ranks exactly like the top-10% count within one career age
+            name = f"{key}{form}" if f"{key}{form}" in val else f"{key}_raw"
+            x, y = val[name]
+            dots(ax, [x], [y], INK3, marker="s", ms=4.6)
+            dx, dy = offsets[st][key]
+            ax.annotate(label, (x, y), xytext=(dx, dy), textcoords="offset points", color=INK2, fontsize=6.6,
+                        ha=ha(dx), va="center")
+        mean_x, mean_y = (v + 0.0 if abs(v) >= 0.005 else 0.0 for v in val[f"mean_pct{form}"])
+        art_x, art_y = (v + 0.0 if abs(v) >= 0.005 else 0.0 for v in val[f"articles{form}"])
+        ax.text(0.02, 0.03, f"Off the chart: mean percentile ({mean_x:.2f}, {mean_y:.2f}),\n"
+                f"article count ({art_x:.2f}, {art_y:.2f})", transform=ax.transAxes, color=INK2, fontsize=6.4,
+                va="bottom")
+        ax.set_xlabel("Predicts the number of future top-10% papers")
+        ax.set_xlim(0.22, 0.48)
+        ax.set_ylim(0.14, 0.38)
+    axes[0].set_ylabel("Predicts the mean percentile of future papers")
+    fig.tight_layout(w_pad=1.2)
+    save(fig, "fig_frontier")
+
+
 if __name__ == "__main__":
     setup()
     fig_standing_curves()
@@ -214,3 +269,4 @@ if __name__ == "__main__":
     fig_cohorts()
     fig_prediction()
     fig_fields()
+    fig_frontier()

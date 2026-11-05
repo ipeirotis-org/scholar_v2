@@ -634,3 +634,67 @@ fragmentation is a real limitation. The paper should:
 - report both sources;
 - note that S2 shortens careers and splits profiles;
 - treat GS (author-curated profiles) as the check on S2.
+
+## 14. PiP against percentile-based indicators (`sql/20_percentile_baselines.sql`)
+
+The prediction setup is that of §7. The baselines use the same paper percentiles as PiP (`below` at the evaluation
+year):
+
+- the number of articles in the top 10% (Leiden), also divided by career age (Bornmann & Marx 2014);
+- the number of articles in the top 1%;
+- I3, the sum of the percentiles (Leydesdorff & Bornmann 2011);
+- the mean percentile.
+
+Each enters raw and as a within-cohort Hazen percentile. PiP and the h-index reproduce §7–§8 exactly.
+
+### Results
+
+Values are future top-10% count (Spearman) / any future top-1% (AUC) / future mean percentile (Spearman). Age 10 uses
+raw values; 2005 uses within-cohort percentiles.
+
+| Indicator | Age 10 | 2005 |
+|---|---|---|
+| PiP (τ = 0.5) | .427 / **.772** / .321 | .416 / **.781** / .318 |
+| Original PiP-AUC | .434 / .756 / .190 | .433 / .770 / .201 |
+| h-index | .352 / .719 / .230 | .363 / .737 / .241 |
+| Articles | .437 / .740 / .000 | **.439** / .757 / .019 |
+| Top-10% count | .360 / .748 / .338 | .354 / .762 / .324 |
+| Top-10% per year of career (raw) | = top-10% count | .379 / .771 / .345 |
+| Top-1% count | .250 / .641 / .228 | .262 / .698 / .225 |
+| I3 | **.438** / .755 / .182 | .434 / .769 / .189 |
+| Mean percentile | −.043 / .523 / **.394** | −.042 / .526 / **.404** |
+
+### What it shows
+
+- **No baseline beats PiP (τ = 0.5) on more than one outcome, in any of the five settings.** None beats it on the
+  top-1% AUC.
+- **The mean percentile** is the best predictor of future quality, but it carries no information about quantity.
+- **I3 and the article count** match PiP on the future count but are weak on quality.
+- **The top-10% count** is the closest competitor. It is better on quality (.338 against .321 at age 10) and worse on
+  the count (.360 against .427) and on the top-1% AUC.
+- **The τ family forms a frontier.**
+  - τ = 0 matches or beats I3 and the original PiP-AUC on all three outcomes in every setting.
+  - τ = 0.75 matches or beats the top-10% count in every setting.
+  - τ from 0.25 to 0.75 beats the h-index on all three outcomes.
+  - The mean percentile lies beyond the frontier, at the pure-quality end. The article count lies just beyond it at
+    age 15 and in 2000. The top-10% count per year lies on the frontier next to τ = 0.75.
+- **The knee of the frontier is at τ = 0.5.** From τ = 0.25 to 0.5, quality gains 0.056 and the count loses 0.016.
+  Past 0.5, quality gains less for each unit of count lost.
+
+### Raw against percentile PiP
+
+In the same-year settings, PiP's cohort percentile predicts slightly better than the raw score (2005: .416 / .781 /
+.318 against .407 / .776 / .310). The manuscript previously said no conversion was needed; that sentence is
+corrected. The gain is much smaller than for the h-index (+0.08).
+
+### Replication across 26 cohorts (age 10, start years 1975–2000, 17,867 to 122,114 authors)
+
+Sampling error is below 0.001 with more than a million authors per setting, so the check that matters is whether the
+results hold cohort by cohort.
+
+- **Against the h-index,** PiP wins on all three outcomes in all 26 cohorts. On the count it leads by 0.055–0.102.
+- **Against the top-10% count,** PiP wins on the count (by 0.050–0.076) and on the top-1% AUC in all 26 cohorts. It
+  loses on quality in 20 cohorts (by −0.074 to +0.009). At τ = 0.6 it loses on quality in 15.
+- **Against I3, the article count and the original PiP-AUC,** PiP wins on the top-1% AUC and on quality in all 26
+  cohorts. On the count it wins in 11–14 cohorts, with differences between −0.033 and +0.044.
+
