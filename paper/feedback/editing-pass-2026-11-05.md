@@ -19,8 +19,9 @@ Every changed number was recomputed from the files the pipeline writes (`paper/f
 Each item gives the exact text of each option. Reply with the item and the letter (for example "D1 A, D2 B, D3 B").
 
 **Status after your reply of 5 November 2026 (D1 A, D2 B, D3 B, D6 A, D7 A, D8 A):** those six are applied as written
-(D6 sets *papers* in italics). Still open: D4 (text unchanged, so currently C), D5 (still a `% TODO`), D9 and D10
-(text unchanged, so currently A), D11 (inputs), and D12 below, which D8 created.
+(D6 sets *papers* in italics). Later replies: D12 A (applied: the earlier Conclusion sentence is deleted) and D4 C
+(no change: the rule stays unexplained). Still open: D5 (still a `% TODO`), D9 and D10 (text unchanged, so currently
+A) and D11 (inputs).
 
 **D12. Conclusion overlap after D8.** The Conclusion now says twice that the comparison at every threshold improves
 the prediction of citation impact and exceptional papers.
