@@ -36,6 +36,14 @@ See the [blog post](https://www.behind-the-enemy-lines.com/2024/01/the-pip-auc-s
 
 All current and planned tasks are tracked in [`TASKS.md`](TASKS.md). Check there for planned features and next steps.
 
+## Literature verification
+
+Citation checks for the paper in `paper/` are recorded in [`literature/verifications.md`](literature/verifications.md),
+a dated, append-only ledger written by the citation-needed skill. Read it before re-checking a citation: entries there
+can be reused under the skill's rules. The exact text of every source read is archived in the private bucket
+`gs://scholar-version2-literature/sources/` (public access prevention enforced). This repo is public, so source PDFs
+and other copies of papers never go into it.
+
 ## Architecture
 
 ```

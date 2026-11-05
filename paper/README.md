@@ -14,6 +14,9 @@ data, and targets *Quantitative Science Studies*.
   BigQuery (`export_figure_data.sh`, output in `figures/data/`) and the rendered PDF/PNG files.
 - **`manuscript/`** holds the arXiv v3 LaTeX source (`ms.tex` includes `introduction`, `results`, `discussion` and
   `supplemental`), with its figures from the original Google Scholar dataset.
+- **`results/`** holds CSV exports of the result tables the queries write (aggregates only; see
+  `results/README.md`). The per-author and per-article tables stay in the BigQuery datasets `paper_rp` and
+  `paper_rp_noself`, readable by anyone signed in to Google Cloud.
 - **`v3_code/`** holds the v3 R scripts, copied from
   [sentian/SciImpactRanking](https://github.com/sentian/SciImpactRanking) (commit `2aaf31d`, December 2021) for the
   record. The current analyses don't use them.

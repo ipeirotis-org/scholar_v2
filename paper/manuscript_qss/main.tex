@@ -23,10 +23,9 @@
 \newcommand{\PiP}{\mathrm{PiP}}
 \newcommand{\Peers}{\mathcal{P}}
 
-% TODO(authors): Sen Tian's current affiliation.
-\title{Percentile in Percentile: rating scholars against their career cohort\\by the impact of all their papers}
+\title{Percentile in Percentile: rating scholars against their career cohort\\by the impact of their papers}
 \author{Panos Ipeirotis\thanks{Department of Technology, Operations, and Statistics, Stern School of Business, New York University.}\textsuperscript{,}\thanks{Corresponding author: \texttt{panos@stern.nyu.edu}}
-  \and Sen Tian\footnotemark[1]}
+  \and Sen Tian\thanks{Ciphero.}}
 \date{}
 
 \begin{document}
@@ -34,94 +33,100 @@
 
 \begin{abstract}
 \noindent
-Committees often compare scholars early in their careers, before citations have accumulated, yet citation counts and
-the $h$-index drift with field, calendar and seniority, and the $h$-index reads only one corner of a record. We propose
-PiP (percentile in percentile). Each paper is ranked against papers from the same year; for every impact threshold
-$\theta$, the scholar's number of papers at or above $\theta$ is ranked against peers who started in the same year;
-PiP averages these standings over $\theta \ge \tau$. With $\tau = 0.5$, only papers in the top half of their year can
-earn credit; $\tau$ is a dial between quantity and impact. We compute PiP for 11.1 million Semantic Scholar authors
-from the publications and citations up to each evaluation year. Paper percentiles settle quickly (correlation 0.91
-between ages 3 and 10), and the distribution of PiP changes little across cohorts from 1960 to 2015, while the mean
-$h$-index at career age 10 rose by 40\%. PiP predicts the next ten years of work better than the $h$-index in every
-setting and in each of 15 fields (at career age 10, Spearman 0.43 against 0.35 for the number of future top-10\%
-papers); the lead narrows but remains when eligibility does not depend on citations. Indicators built from the same
-paper percentiles, such as top-10\% counts or the sum or mean of percentiles, each beat PiP on at most one of three
-outcomes. PiP reaches the $h$-index's age-10 accuracy in finding future high performers 1.6 to 1.9 years sooner, and
-anticipates later academy memberships
-and fellowships better than the $h$-index (AUC 0.75 against 0.71 at career age 5), though only slightly within
-already notable groups. The results hold without self-citations and agree with Google Scholar profiles
-($\rho = 0.78$).
+Committees judge scholars early in their careers, before citations accumulate, but citation counts and the $h$-index
+depend on field, grow with seniority and drift with the calendar. We propose PiP (percentile in percentile). Each paper
+is ranked within its publication year. At every impact threshold above a cutoff, a scholar's count of papers at or
+above it is ranked against peers who started publishing in the same year; PiP averages these standings. We compute PiP
+for 11.1 million Semantic Scholar authors with data up to each evaluation year. A paper's percentile at age 3
+correlates at 0.91 with its percentile at age 10, and PiP's distribution barely changes across cohorts from 1960 to
+2015, while the mean $h$-index at career age 10 rose by about 40\%. PiP predicts a scholar's next ten years (number of
+top papers, chance of an exceptional paper, citation impact) better than the $h$-index in every setting and in each of
+15 fields. It finds future high performers as accurately as the $h$-index does at career age 10, but 1.6 to 1.8 years
+sooner, and better anticipates academy memberships, fellowships and prizes (AUC 0.75 against 0.71 at career age 5).
+The results hold without self-citations.
 \end{abstract}
 
-\noindent\textbf{Keywords:} research evaluation; citation percentiles; $h$-index; career age; indicators; Semantic Scholar
+\noindent\textbf{Keywords:} research evaluation; citation percentiles; $h$-index; career age; indicators; Semantic
+Scholar
 
 \section{Introduction}
 
 Hiring, promotion and award committees compare scholars with others at a similar stage of their careers. A committee
-deciding on tenure asks whether a candidate's record is strong for someone six years past the doctorate; a funding
+deciding on tenure asks whether a candidate's record is strong for someone at that career stage; a funding
 panel compares early-career applicants across departments. Bibliometric indicators enter these decisions alongside
-expert judgment, and the most common ones, citation counts and the $h$-index \citep{hirsch2005index}, are hard to read
-in this setting. Their values depend on the field, grow with seniority and drift with the calendar: the average
+expert judgment. The most common are citation counts and the $h$-index \citep{hirsch2005index}, and both are hard to
+read in this setting: their values depend on the field, grow with seniority and drift with the calendar. The average
 $h$-index of a scholar ten years into their career is 40\% higher for those who started in 2010 than for those who
 started in 1960 (Section~\ref{sec:cohorts}). A raw value says little until it is compared with the values of
 comparable scholars.
 
-Many of these decisions are made early. Hiring and tenure committees, fellowship panels and early-career grants judge
-scholars three to eight years into their careers, when most of their papers are recent and few have had time to
-collect many citations. An indicator is most useful in this setting if it detects strong records early: if, measured
-at year five, it already separates the scholars who will go on to do important work from those who will not. Detecting
+Many of these decisions are made early. Hiring and tenure committees and the panels for fellowships and early-career
+grants judge scholars in the first years of their careers, when most of their papers are recent and few have had
+time to collect many citations. An indicator is most useful in this setting if it detects strong records early: if,
+measured at year five, it already separates the scholars who will do well later from those who will not. Detecting
 performance early was one of the motivations for this work.
 
 The $h$-index also reads only part of a record. It is the largest $h$ such that $h$ papers have at least $h$
-citations each: the corner where the sorted citation curve crosses the diagonal. Papers below the corner do not count,
-the citations of papers above it beyond $h$ do not count, and a recent paper counts only once it has collected $h$
-citations, however well it compares with papers of its own age. A scholar with one landmark paper and a scholar with
-one average paper both have $h = 1$.
+citations each. On a plot of a scholar's papers sorted by citations, it is the corner where the citation curve crosses
+the diagonal. Papers below the corner do not count, and neither do the citations of papers above it beyond $h$: a
+scholar with one landmark paper and a scholar with one average paper both have $h = 1$. A recent paper counts only
+after it has collected $h$ citations, however well it compares with papers of its own age.
 
-At the level of single papers, the field has settled on percentiles as the preferred normalization
-\citep{bornmann2013use,waltman2016review,hicks2015bibliometrics}: a paper is compared with papers of the same
-publication year, and possibly the same field, by the share of them it out-cites. Percentiles do not depend on the
-skewed tail of the citation distribution, they need no assumption about how citations grow with age, and their
-meaning does not change with the calendar. Combining paper percentiles into an indicator for a scholar is less
-settled. Sums of percentiles, such as I3 \citep{leydesdorff2011integrated}, grow without bound with the number of
-papers, so many weak papers can outweigh one strong paper. Means ignore volume altogether. Counts of papers in the top
-10\% \citep{waltman2012leiden,bornmann2014individual} use one threshold and discard everything below it.
+At the level of single papers, percentiles make that comparison. A paper's percentile is the share of papers from the
+same publication year, and possibly the same field, that it out-cites. A paper one year old thus competes only with
+other papers one year old. Percentiles have become an established normalization, which the Leiden Manifesto calls the
+most robust \citep{bornmann2013use,waltman2016review,hicks2015bibliometrics}. They are less influenced than means by
+the skewed tail of the citation distribution \citep{bornmann2013use}, they need no assumption about how citations grow
+with age, and their meaning does not change with the calendar.
+
+Combining paper percentiles into an indicator for a scholar is less settled. Sums of percentiles, such as I3
+\citep{leydesdorff2011integrated}, grow without bound with the number of papers, so many weak papers can outweigh one
+strong paper. Means ignore volume altogether. Counts of papers in the top 10\%
+\citep{waltman2012leiden,bornmann2014individual} use one threshold and discard everything below it.
 
 This paper proposes PiP, short for \emph{percentile in percentile}, which places a scholar's papers in percentiles of
-their publication year and then places the scholar in percentiles of their career cohort. For each impact threshold
-$\theta$, we count the scholar's papers at or above percentile $\theta$ and ask what share of peers, scholars who
-published their first paper in the same year, have fewer such papers. This standing, traced over all thresholds, forms
-a curve (Figure~\ref{fig:curves}). PiP is the average height of the curve above a cutoff $\tau$. Where the $h$-index
-reads one corner of a record, PiP measures the area under the whole curve. With $\tau = 0.5$, which we use throughout,
-only papers in the top half of their year can earn credit, recent papers can earn it as soon as they stand out among
-papers of their own age, and a single paper in the top 2.5\% counts at every threshold of the computation, including
-the highest ones, where most peers have nothing. Lowering $\tau$ moves weight towards the number of papers; raising it
-moves weight towards their impact.
+their publication year and then places the scholar in percentiles of their career cohort. The cohort consists of the
+scholar's peers: scholars who published their first paper in the same year. For each impact threshold $\theta$, we
+count the scholar's papers at or above percentile $\theta$ and ask what share of peers have fewer such papers. That
+share is the scholar's standing at the threshold; across all thresholds, the standings form a curve
+(Figure~\ref{fig:curves}). PiP is the average height of this curve over the thresholds above a cutoff $\tau$. Where
+the $h$-index reads one corner of a record, PiP reads the whole curve above the cutoff.
+
+With $\tau = 0.5$, which we use throughout, only papers in the top half of their year can earn credit, and recent
+papers can earn it as soon as they stand out among papers of their own age. A single paper in the top 2.5\% counts at
+every threshold of the computation (Section~\ref{sec:computation}), including the highest ones, where most peers have
+nothing. Lowering $\tau$ moves
+weight towards the number of papers; raising it moves weight towards their impact. The cutoff is a dial between
+quantity and impact.
 
 We compute PiP from the Semantic Scholar Academic Graph \citep{kinney2023semantic} for 11.1 million authors at every
-career age from 1 to 30, reconstructing peers and percentiles in each evaluation year from the publications and
-citations up to that year. The paper makes six contributions:
+career age from 1 to 30, where career age is the number of years since an author's first paper. An author enters
+the comparison once they have at least three articles and an $h$-index of at least three; we call such authors
+\emph{eligible}. In each evaluation year,
+we reconstruct peers and percentiles from the publications and citations up to that year. The paper makes six
+contributions:
 \begin{enumerate}
   \item \textbf{Definition and properties.} PiP is bounded, never decreases when a paper is added or gains citations,
-  gives nothing to papers below the cutoff, and reads as the probability that the scholar has more papers than a
-  random peer above a random impact threshold (Section~\ref{sec:pip}).
-  \item \textbf{Measurement over time.} Paper percentiles settle within three to five years, with field-specific
-  windows (Section~\ref{sec:paperstability}); the distribution of PiP changes little across career cohorts from 1960
-  to 2015 (Section~\ref{sec:cohorts}); and a scholar's PiP is less stable over a career than their article count, more
-  stable than their $h$-index, and more stable than their citations over horizons of ten years or more
+  gives nothing to papers below the cutoff, and reads as the probability that the scholar has more papers above a
+  random impact threshold than a random peer has (Section~\ref{sec:pip}).
+  \item \textbf{Measurement over time.} Paper percentiles settle within three to five years, and the time they need
+  differs by field (Section~\ref{sec:paperstability}); the distribution of PiP changes little across career cohorts
+  from 1960 to 2015 (Section~\ref{sec:cohorts}); and a scholar's PiP is less stable over a career than their article
+  count, more stable than their $h$-index, and more stable than their citations over horizons of ten years or more
   (Section~\ref{sec:careerstability}).
   \item \textbf{Prediction.} PiP predicts a scholar's future top papers better than the $h$-index in every setting and
   field we test, whether the $h$-index is used raw or converted to a cohort percentile; with eligibility that does not
-  depend on citations, the lead narrows but remains. Counts of top papers and sums and means of paper percentiles each
-  beat it on at most one of three outcomes; PiP is the indicator that predicts both how many top papers a scholar will
-  publish and how highly cited their papers will be. Comparing the scholar with peers at every threshold, rather than
-  once for the whole record, improves the prediction of future citation impact and of exceptional papers in every
-  cohort (Section~\ref{sec:prediction}).
-  \item \textbf{Early detection.} Measured at the same career age, PiP identifies future high performers at least as
-  accurately as the other indicators we test, and it reaches the accuracy of the
-  $h$-index at career age 10 1.6 to 1.9 years sooner (Section~\ref{sec:early}).
+  depend on citations, the lead at the same career age narrows but remains. PiP is the indicator that predicts both how
+  many top papers a scholar will publish and how highly cited their papers will be (their citation impact). Counts of
+  top papers and sums and means of paper percentiles each beat it on at most one of three outcomes: these two and the
+  chance of an exceptional paper. Comparing the scholar with peers at every threshold, rather than once for the whole
+  record, improves the prediction of future citation impact and of exceptional papers in every cohort
+  (Section~\ref{sec:prediction}).
+  \item \textbf{Early detection.} Measured at the same career age and under the main eligibility rule, PiP identifies
+  future high performers at least as accurately as the other indicators we test. It reaches the accuracy that the
+  $h$-index has at career age 10, and does so 1.6 to 1.8 years sooner (Section~\ref{sec:early}).
   \item \textbf{Later recognition.} Measured early in a career, PiP anticipates later academy memberships,
-  fellowships and prizes better than the $h$-index among all scholars; within groups that are already notable the
+  fellowships and prizes better than the $h$-index among all scholars; within groups that are already notable, the
   lead is small. For this purpose the impact end of the dial works best (Section~\ref{sec:honors}).
   \item \textbf{Robustness.} The results hold without self-citations; PiP rankings from Semantic Scholar agree with
   rankings from author-curated Google Scholar profiles; and a field-normalized version removes most of the advantage
@@ -131,105 +136,131 @@ citations up to that year. The paper makes six contributions:
 
 An earlier version of this work \citep{tian2021predictability} studied the predictability of paper and scholar
 percentiles on a smaller dataset of faculty at top US universities and rated scholars by the sum of their paper
-percentiles. Reviewers of that version objected to the sum, which rewards volume without bound, to the selected
-population, and to the lack of field-level results. This paper replaces the sum with PiP, moves to a population of all
-authors who meet an eligibility rule at each evaluation year, including those who later stop publishing, and reports
-results by field. A first, asymmetric form of the score was
-described by \citet{ipeirotis2024pip} and is used by the website \url{https://www.pip-score.org}; Section~\ref{sec:pip}
-explains why we replace it.
+percentiles. Reviewers of that version objected to the sum, which rewards volume without bound; to the selected
+population; and to the lack of field-level results. This paper replaces the sum with PiP; moves to a population of all
+authors who meet an eligibility rule at each evaluation year, including those who later stop publishing; and reports
+results by field. An earlier, asymmetric form of the score was described by \citet{ipeirotis2024pip} and is used by the
+website \url{https://www.pip-score.org} (formerly \url{https://scholar.ipeirotis.org}); Section~\ref{sec:pip} explains
+why we replace it.
 
 \section{Related work}
 \label{sec:related}
 
-\paragraph{The $h$-index and its variants.} The $h$-index \citep{hirsch2005index} combines productivity and impact in
-one number and has been studied, criticized and modified at length. The $g$-index \citep{egghe2006theory} gives credit
-to the citations above the corner; the $m$-quotient \citep{hirsch2005index}, the contemporary $h$-index
-\citep{sidiropoulos2007generalized} and $hI_{a}$ \citep{harzing2014hia} correct for career length by dividing by
-academic age or discounting old papers; \citet{kaur2013universality} rescale the $h$-index by the field average. Most
-variants correlate highly with the original \citep{bornmann2011metaanalysis}. They keep its basic construction, a
-count of papers above a citation threshold that depends on the scholar, and so keep its blindness to papers outside
-the core. The $h$-index is also inconsistent: adding the same paper to two scholars can reverse their order
-\citep{waltman2012inconsistency}.
+\paragraph{The $h$-index and its variants.} The $h$-index \citep{hirsch2005index} is a single number that depends on
+both the number of papers and their citations, and it has been studied, criticized and modified at length. The $g$-index
+\citep{egghe2006theory} gives credit to the citations above the corner; the $m$-quotient \citep{hirsch2005index}, the
+contemporary $h$-index \citep{sidiropoulos2007generalized} and $hI_{a}$ \citep{harzing2014hia} correct for career length
+by dividing by career age or discounting old papers; \citet{kaur2013universality} rescale the $h$-index by the field
+average. Most variants correlate highly with the original \citep{bornmann2011metaanalysis}. They keep its basic
+construction, a count of papers above a citation threshold that depends on the scholar, and so keep its blindness to
+papers below the corner. The $h$-index is also inconsistent: adding the same paper to two scholars can reverse their
+order \citep{waltman2012inconsistency}. PiP shares this property (Section~\ref{sec:properties}).
 
 \paragraph{Percentiles.} Percentile-based indicators compare each paper with a reference set of papers from the same
 year and field \citep{bornmann2013use,leydesdorff2011turning,waltman2013percentile,bornmann2020evaluation}. They are
-less sensitive to outliers than mean-based normalization \citep{schubert1986relative,Radicchi2008,waltman2019field} and
+less sensitive to outliers \citep{bornmann2013use,bornmann2020evaluation} than normalization by mean citation rates,
+which compares a paper's citations with the average of comparable papers \citep{schubert1986relative,Radicchi2008}, and
 are recommended in the Leiden Manifesto \citep{hicks2015bibliometrics}. Ties and the definition of the percentile need
-care \citep{waltman2013percentile}; we use the share of the reference set with strictly fewer citations for scoring, so
-that uncited papers have percentile zero, and Hazen's mid-rank \citep{hazen1914storage} for correlations
-(Section~\ref{sec:properties} discusses the choice). At the level of a scholar, \citet{bornmann2014individual} propose
-counting papers in percentile classes and normalizing by academic age, and I3
-\citep{leydesdorff2011integrated,rousseau2012basic} sums percentiles over a set of papers. Composite indicators such as
-the one of \citet{ioannidis2019standardized} combine several citation counts, and \citet{abramo2014productivity} weight
-field-normalized citations by inputs. For countries and institutions, double rank analysis gives each of a unit's
-papers a rank within the unit and a rank among all papers in the world, and reads the unit's output at very high
-percentiles from the relation between the two \citep{rodriguez2018double,brito2018percentile}. PiP differs from these
-in normalizing twice: papers by their publication year, and the scholar by their career cohort, at every impact
-threshold. The cohort comparison is made threshold by threshold: the count of a scholar's papers above each
-percentile is ranked among career peers, rather than read against the world distribution of papers.
+care \citep{waltman2013percentile}. For scoring we use the share of the reference set with strictly fewer citations, so
+that uncited papers have percentile zero; for correlations we use Hazen's mid-rank \citep{hazen1914storage}
+(Section~\ref{sec:properties} discusses the choice).
+
+\paragraph{From papers to scholars.} \citet{bornmann2014individual} propose counting a scholar's papers in the top 10\%
+and dividing by career age, and I3 \citep{leydesdorff2011integrated,rousseau2012basic} sums percentiles over a set of
+papers. Composite indicators such as the one of \citet{ioannidis2019standardized} combine several citation counts, and
+\citet{abramo2014productivity} relate field-normalized citations to the cost of labor. For countries and institutions,
+double rank analysis expresses the rank of each of a unit's papers within the unit as a function of its rank among all
+papers in the world; a power law fits this relation and estimates how likely the unit is to produce a very highly cited
+paper \citep{rodriguez2018double,brito2018percentile}. PiP differs from these in normalizing twice: papers by their
+publication year, and the scholar by their career cohort. The cohort comparison is made at every impact threshold: the
+count of a scholar's papers above each percentile is ranked among career peers, rather than read against the world
+distribution of papers.
 
 \paragraph{Prediction of scholarly impact.} \citet{hirsch2007does} found that the $h$-index predicts a scholar's
-later $h$-index and citations better than counts of papers or citations do. Later work predicted future $h$-index values from features of a career
-\citep{acuna2012future}, questioned how much of that predictability is mechanical, since the future $h$-index
-contains the current one \citep{penner2013predictability}, and modeled impact as a stable individual parameter applied
-to papers of random quality \citep{sinatra2016quantifying}; \citet{clauset2017datadriven} review the area. We avoid the
-mechanical overlap by predicting outcomes built only from papers published after the evaluation year.
+later $h$-index and citations better than counts of papers or citations do. Later work modeled impact as a stable
+individual parameter applied to papers of random quality \citep{sinatra2016quantifying}, and
+\citet{clauset2017datadriven} review the area. Other work predicted future $h$-index values from features of a career
+\citep{acuna2012future} and questioned how much of that predictability is mechanical, because the future $h$-index
+contains the current one \citep{penner2013predictability}. We avoid the mechanical overlap by predicting outcomes
+built only from papers published after the evaluation year.
 
 \paragraph{Citation windows and cumulative advantage.} How long a paper needs before its citations reflect its impact
-depends on the field \citep{wang2013window,abramo2011window}. Citations also feed on themselves: well-known scholars
-receive more attention for the same work \citep{merton1968matthew,petersen2014reputation}, which affects any
-citation-based indicator and any test of its predictive validity. We return to this in Section~\ref{sec:discussion}.
+depends on the field \citep{wang2013window,abramo2011window}. This matters for PiP, which scores recent papers by
+their early percentiles; Section~\ref{sec:paperstability} measures how quickly those settle. Citations also feed on
+themselves: well-known scholars
+receive more attention for the same work \citep{merton1968matthew,petersen2014reputation}. This cumulative advantage
+affects any citation-based indicator and any test of its predictive validity. We return to it in
+Section~\ref{sec:discussion}.
 
 \section{Data}
 \label{sec:data}
 
-\paragraph{Papers and citations.} We use the Semantic Scholar Academic Graph \citep{kinney2023semantic}, release of 27
-October 2026, which is distributed under the ODC-BY license. It contains 226.0 million papers published from 1950 to
-2025. For every paper we count citations by the year of the citing paper, which gives the cumulative citations at each
-age $t$ (the number of years after publication), through calendar year 2025. These counts add up to 97.5\% of the
-citation counts that Semantic Scholar reports for papers from 2000--2005, with a correlation of 0.999; the difference
-consists of citations from 2026 and from citing papers without a year.
+\paragraph{Papers and citations.} We use the 27 October 2026 release of the Semantic Scholar Academic Graph
+\citep{kinney2023semantic}, which is distributed under the ODC-BY license \citep{s2datasets2026}. It contains 226.0
+million papers published from 1950 to 2025. For every paper we count citations by the year of the citing paper, which
+gives the cumulative citations at each age $t$ (the number of years after publication), through calendar year 2025.
+These counts add up to 97.5\% of the citation counts that Semantic Scholar reports for papers from 2000--2005, with a
+correlation of 0.999; the difference consists of citations from 2026 and from citing papers without a year.
 
 \paragraph{Articles.} Semantic Scholar contains many records that are not research articles. We keep the 71.5 million
 papers typed as journal articles, conference papers, reviews, studies, clinical trials, meta-analyses or case reports,
 and not as editorials, news or letters. Only these \emph{articles} enter the reference sets, the paper counts and the
-$h$-index. In the 2000 cohort, 63\% of all records are uncited at age 5, but only 30\% of articles. Each article
-carries zero or more of Semantic Scholar's 23 fields of study.
+$h$-index. Of the records published in 2000, 63\% are uncited at age 5, but only 30\% of the articles from that year.
+Each article carries zero or more of Semantic Scholar's 23 fields of study \citep{s2graphapi}. From here on,
+\emph{papers} means articles unless stated otherwise.
 
-\paragraph{Authors and careers.} Semantic Scholar assigns author identifiers through automatic disambiguation. We link
-authors to their articles (277.8 million links) and define an author's \emph{start year} $s_a$ as the year of their first
-article, and their \emph{career age} at evaluation year $Y$ as $A = Y - s_a$. We follow every author from career age 1
-to 30, or to 2025, whichever comes first. At each evaluation year an author is \emph{eligible} if they have at least
-three articles and an $h$-index of at least three, both computed from citations received through $Y$. Because both
-counts only grow, an author who becomes eligible remains eligible, also after they stop publishing. In total, 11.1
-million authors are eligible at some career age, giving 111.6 million author-age records. The $h$-index condition is
-strict early in a career and in fields that cite slowly: among authors with at least three articles at career age 3
-(start years 1975--2000), it excludes 79\%, and at career age 10 it excludes 43\%, from 22\% in biology to 64\% in
-economics and 97\% in history. Sections~\ref{sec:early} and~\ref{sec:robustness} repeat the main comparisons with
-eligibility defined by the three articles alone.
+\paragraph{Authors and careers.} Semantic Scholar assigns author identifiers through automatic disambiguation
+\citep{kinney2023semantic}. Automatic disambiguation can split one person across several records or merge different
+people. We link authors to their articles (277.8 million links) and define an author's \emph{start year} $s_a$ as the
+year of their first article, and their \emph{career age} at evaluation year $Y$ as $A = Y - s_a$; an author who
+started in 1995 has career age 10 in 2005. We follow every
+author from career age 1 to 30, or to 2025, whichever comes first.
 
 Every quantity used at evaluation year $Y$ is computed from the articles published up to $Y$ and the citations they
-received up to $Y$. The reconstruction is retrospective in one respect: author identities, publication types and
+received up to $Y$. This reconstruction is retrospective in one respect: author identities, publication types and
 fields come from the 2026 release, not from the records available at the time.
 
-\paragraph{Google Scholar profiles.} For validation we use 16,218 Google Scholar profiles collected for
-\url{https://www.pip-score.org}, mostly of faculty. Unlike Semantic Scholar's author records, these profiles are
-curated by the scholars themselves, so they are a check on automatic disambiguation (Section~\ref{sec:robustness}).
+\paragraph{Eligibility.} At each evaluation year an author is \emph{eligible} if they have at least three articles and
+an $h$-index of at least three, both computed from citations received through $Y$. The second condition means that at
+least three of their articles have at least three citations each, so it implies the first. Because both counts only
+grow, an author who becomes eligible remains eligible, even after they stop publishing. We compute PiP only for eligible
+authors and compare each with their peers, the eligible authors who share their start year. In total, 11.1 million
+authors are eligible at some career age, giving 111.6 million author-age records. The $h$-index condition is strict
+early in a career and in fields that cite slowly. Among authors with start years 1975--2000 who have at least three
+articles, it excludes 79\% at career age 3 and 43\% at career age 10, from 22\% in biology to 64\% in economics and 97\%
+in history and philosophy. Sections~\ref{sec:early} and~\ref{sec:robustness} repeat the main comparisons under a
+\emph{three-article rule}, which defines eligibility by the three articles alone.
+
+\paragraph{Google Scholar profiles.} For validation we use 16,218 Google Scholar profiles, mostly of faculty, collected
+for \url{https://www.pip-score.org}. Semantic Scholar's author records are built by automatic disambiguation, although
+authors can claim and correct them \citep{kinney2023semantic}. Google Scholar profiles are created and curated by the
+scholars themselves \citep{googlescholarprofiles}, so they are a check on automatic disambiguation
+(Section~\ref{sec:robustness}). Section~\ref{sec:honors} also uses them in the test of later recognition.
+
+\paragraph{Honors.} For the test of later recognition (Section~\ref{sec:honors}) we use Wikidata \citep{wikidata2026},
+a free, collaborative knowledge base whose structured data are released under CC0. Its items describe people, among
+other things, and can record the honors a person received, with dates, and the person's Semantic Scholar and Google
+Scholar identifiers. We queried it for honors on 5 November 2026. For the Google Scholar profiles we also record, from
+the website's monthly copy of Wikidata, whether the scholar's item links to an English Wikipedia article.
 
 \section{The PiP score}
 \label{sec:pip}
 
+PiP makes two comparisons. It first ranks each of a scholar's papers against papers published in the same year. It
+then counts the scholar's papers at or above each impact threshold and ranks that count against the counts of peers,
+the scholars who started publishing in the same year. The score averages these standings over the thresholds above a
+cutoff.
+
 \subsection{Paper percentiles}
-Fix an evaluation year $Y$. For an article $j$ published in year $p_j \le Y$, let $c_j(Y)$ be the citations it has
-received through $Y$. Its \emph{percentile} is the share of articles published in the same year with strictly fewer
-citations at $Y$:
+A paper one year old competes only with other papers one year old. Fix an evaluation year $Y$. For an article $j$
+published in year $p_j \le Y$, let $c_j(Y)$ be the citations it has received through $Y$. Its \emph{percentile} is the
+share of articles published in the same year with strictly fewer citations at $Y$:
 \begin{equation}
 y_j(Y) = \frac{\left|\{\,i : p_i = p_j,\ c_i(Y) < c_j(Y)\,\}\right|}{\left|\{\,i : p_i = p_j\,\}\right|} \in [0, 1).
 \end{equation}
 Uncited articles have $y_j = 0$. Every article is compared only with articles of the same publication year, evaluated
 at the same time, so $y_j$ needs no correction for the age of the paper or for the growth of citations over the
-decades. A paper one year old competes only with other papers one year old. The main analysis pools all fields;
-Section~\ref{sec:fields} computes percentiles within fields.
+decades. The main analysis pools all fields; Section~\ref{sec:fields} computes percentiles within fields.
 
 \subsection{Peers and standing curves}
 At evaluation year $Y = s_a + A$, the \emph{peers} $\Peers$ of author $a$ are the authors with the same start year who
@@ -237,28 +268,33 @@ are eligible at $Y$, the author included. For an impact threshold $\theta \in [0
 \begin{equation}
 n_a(\theta) = \left|\{\, j \in a : p_j \le Y,\ y_j(Y) \ge \theta \,\}\right|
 \end{equation}
-be the number of the author's articles at or above percentile $\theta$; $n_a(0)$ is the number of articles. The
-author's \emph{standing} at threshold $\theta$ is the share of peers with strictly fewer articles at or above $\theta$:
+be the number of the author's articles at or above percentile $\theta$; $n_a(0)$ is the number of articles, and
+$n_a(0.9)$ the number in the top 10\% of their publication year.
+
+The author's \emph{standing} at threshold $\theta$ is the share of peers with strictly fewer articles at or above
+$\theta$:
 \begin{equation}
 g_a(\theta) = G_\theta\!\left(n_a(\theta)\right), \qquad
 G_\theta(m) = \frac{\left|\{\, b \in \Peers : n_b(\theta) < m \,\}\right|}{|\Peers|}.
 \end{equation}
 An author with no article at or above $\theta$ stands at zero there, however many peers share that count
-(Section~\ref{sec:properties} discusses ties). The \emph{standing curve} $\theta \mapsto g_a(\theta)$ starts at the
-author's standing on the number of articles and ends at their standing on the number of top articles. It need not be
-monotone: an author can rank higher among peers on the number of top-10\% papers than on the number of papers
-(Figure~\ref{fig:curves}).
+(Section~\ref{sec:properties} discusses ties).
+
+Traced over all thresholds, the standings form the author's \emph{standing curve} $\theta \mapsto g_a(\theta)$. The
+curve starts at the author's standing on the number of articles and ends at their standing on the number of top
+articles. It need not be monotone: an author can rank higher among peers on the number of top-10\% articles than on
+the number of articles (Figure~\ref{fig:curves}).
 
 \begin{figure}[t]
   \centering
   \includegraphics[width=\textwidth]{fig_standing_curves.pdf}
   \caption{Standing curves of three authors who published their first article in 1995, evaluated in 2005 (career age
   10). Each was chosen as the author whose PiP is closest to the 25th, 50th or 90th percentile of the cohort's
-  scores. The curve gives, for each threshold $\theta$, the share of the 1995 cohort's eligible authors who have fewer
+  scores. Each curve gives, at every threshold $\theta$, the share of the 1995 cohort's eligible authors who have fewer
   articles at or above percentile $\theta$ of their publication year. PiP is the shaded area to the right of
   $\tau = 0.5$, rescaled by $1/(1-\tau)$, or equivalently the average height of the curve there (dashed line). The
   median author has seven articles, two of them in the top 10\% of their year and one in the top 5\%. At thresholds
-  from 0.85 to 0.95 this author stands above about half of the peers, who have fewer articles that highly cited.}
+  from 0.85 to 0.95 this author stands above 49\% to 63\% of the peers, who have fewer articles that highly cited.}
   \label{fig:curves}
 \end{figure}
 
@@ -268,41 +304,43 @@ The PiP score with cutoff $\tau \in [0, 1)$ is the average standing over the thr
 \PiP_\tau(a) = \frac{1}{1-\tau} \int_\tau^1 g_a(\theta)\, d\theta .
 \label{eq:pip}
 \end{equation}
-It is the area under the standing curve to the right of $\tau$, rescaled to $[0,1]$. We use $\tau = 1/2$ throughout,
-so only articles in the top half of their publication year can earn credit, and write PiP for $\PiP_{1/2}$.
-Section~\ref{sec:tau} shows how the cutoff moves the score between quantity and impact.
+It is the area under the standing curve to the right of $\tau$, rescaled to $[0,1]$. The cutoff moves the score
+between quantity and impact (Section~\ref{sec:tau}). We use $\tau = 1/2$ throughout and write PiP for $\PiP_{1/2}$.
+With this cutoff, only articles in the top half of their publication year can earn credit.
 
-The score has a direct probabilistic reading. If $B$ is a peer drawn at random and $\Theta$ a threshold drawn uniformly
+The score has a direct probabilistic reading: it is the chance of winning a simple game. Draw a threshold at random
+from $[\tau, 1]$ and a peer at random. The author and the drawn peer each count their
+articles at or above the threshold, and the author wins with strictly more, so a tie is not a win. The cutoff decides
+where thresholds can be drawn. Formally, if $B$ is a peer drawn at random and $\Theta$ a threshold drawn uniformly
 from $[\tau, 1]$, then
 \begin{equation}
 \PiP_\tau(a) = \Pr\left[\, n_a(\Theta) > n_B(\Theta) \,\right]:
 \end{equation}
-PiP is the probability that the author has more articles than a random peer above a random impact threshold.
+PiP is the probability that, above a random impact threshold, the author has more articles than a random peer.
 
-In words, PiP is the chance of winning a simple game. Draw a threshold at random from $[\tau, 1]$ and a scholar at random
-from the same cohort; each counts their articles at or above the threshold, and the author wins with strictly more, so
-a tie is not a win. The cutoff decides where thresholds can be drawn. For the median author of
-Figure~\ref{fig:curves}, a threshold at the 90th percentile wins against 63\% of peers (the author has two articles
-there and most peers have fewer), the 75th percentile against 28\%, and the 97.5th percentile against none; averaged
-over the thresholds above the cutoff, the author wins 37\% of the time. A score of 0.6 therefore means winning 60\% of
-these matchups, which is not the same as being at the 60th percentile of scores.
+The median author of Figure~\ref{fig:curves} wins against 63\% of peers when the threshold is at the 90th percentile
+(the author has two articles there and most peers have fewer), against 28\% at the 75th percentile, and against none
+at the 97.5th percentile. Averaged over the thresholds above the cutoff, the author wins 37\% of the time, even though
+their score is close to the median of the cohort. A score of 0.6 therefore means winning 60\% of these matchups, which
+is not the same as being at the 60th percentile of scores.
 
-Averaging over the peers gives the mean score of a peer group. Let $p_{\theta,m}$ be the share of peers with exactly $m$ articles
-at or above $\theta$. Two random peers tie at $\theta$ with probability $\sum_m p_{\theta,m}^2$ and are otherwise
-equally likely to be ahead, so
+The rule that a tie is not a win also determines the mean score of a peer group. Let $p_{\theta,m}$ be the share of
+peers with exactly $m$ articles at or above $\theta$. Two random peers tie at $\theta$ with probability
+$\sum_m p_{\theta,m}^2$ and are otherwise equally likely to be ahead, so averaging over the peers gives
 \begin{equation}
 \frac{1}{|\Peers|} \sum_{a \in \Peers} \PiP_\tau(a)
 = \frac{1}{2(1-\tau)} \int_\tau^1 \Bigl(1 - \sum_m p_{\theta,m}^2\Bigr)\, d\theta .
 \label{eq:mean}
 \end{equation}
-The mean score of a cohort is below one half and falls as ties become more common, which matters at high cutoffs
+The mean score of a peer group is below one half and falls as ties become more common, which matters at high cutoffs
 (Section~\ref{sec:tau}).
 
 \subsection{Properties}
 \label{sec:properties}
-The following hold for a fixed peer group that contains the author, both for the integral and for the computed score
-of Section~\ref{sec:computation}; each follows in a line from the definitions. We also checked them numerically on
-simulated cohorts, on the grid of the computation and on a fine grid (the code is in the replication package).
+The properties below hold for a fixed peer group that contains the author, both for the integral and for the computed
+score of Section~\ref{sec:computation}; each follows in a line from the definitions. We also checked them numerically
+on simulated cohorts, on the grid of the computation and on a fine grid (the code is in the replication package; see
+Data and code availability).
 
 \paragraph{Range.} $0 \le \PiP_\tau(a) < 1$. The author is one of their own peers and does not have fewer articles
 than themselves, so $g_a(\theta) \le 1 - 1/|\Peers|$ at every threshold. The score is zero when, at almost every
@@ -310,7 +348,7 @@ threshold above $\tau$, no peer has fewer articles at or above that threshold th
 article above $\tau$.
 
 \paragraph{Monotonicity.} Adding an article, or raising the percentile of an existing article, never lowers
-$\PiP_\tau$, because either change weakly increases $n_a(\theta)$ at every threshold and $G_\theta$ is
+$\PiP_\tau$, because at every threshold either change raises $n_a(\theta)$ or leaves it unchanged, and $G_\theta$ is
 non-decreasing. The gain can be zero: one more article at or above $\theta$ raises the standing at $\theta$ only if some
 peer has exactly as many such articles as the author had before. An article whose percentile stays below $\tau$
 changes $n_a(\theta)$ only for $\theta < \tau$ and leaves the score unchanged.
@@ -319,21 +357,26 @@ changes $n_a(\theta)$ only for $\theta < \tau$ and leaves the score unchanged.
 publication year scores zero, however many such articles they publish.
 
 \paragraph{Credit for the best work.} A single article in the top 2.5\% of its year raises $n_a(\theta)$ by one at
-every threshold of the computation, including the highest, where most peers have none. In a simulated cohort of 2,000
-peers, a record of one such article scores 0.45, while one article at the 50th percentile scores 0.004. With the exact
-integral, one article at the 97.5th, 99th or 99.9th percentile scores 0.42, 0.45 or 0.47, and one at the 50th
-percentile scores 0. The $h$-index cannot tell any of these records apart (all have $h = 1$).
+every threshold on the grid of the computation, including the highest, where most peers have none. Scored against a
+simulated cohort of 2,000 peers that it does not join, a record of one such article scores 0.45, while one article at
+the 50th percentile scores 0.004 (on the grid, an article in the class just above the median earns a full class of
+credit; Section~\ref{sec:computation}).
+With the exact integral, one article at the 97.5th, 99th or 99.9th percentile scores 0.42, 0.45 or 0.47, and one at
+the 50th percentile scores 0. The $h$-index cannot tell any of these records apart (all have $h = 1$).
 
-\paragraph{Ties.} The standing counts peers with strictly fewer articles. Mid-ranks, which count half of the tied
-peers, are a common choice for the percentile of a single paper \citep{waltman2013percentile}, but here they would give
-credit to authors with nothing above a threshold: at high thresholds most peers have no article, and an author tied
-with them at zero would stand at half their share. In the simulated cohort, an author whose five articles all fall
-below the median would score 0.22 with mid-ranks instead of 0. The strict rule keeps weak papers from earning credit
-through ties; its price is that the mean score of a cohort depends on how common ties are (Eq.~\ref{eq:mean}).
+\paragraph{Ties.} The standing counts peers with strictly fewer articles. Mid-ranks instead count half of the tied
+peers. They are a common choice for the percentile of a single paper \citep{bornmann2013use,waltman2013percentile},
+but in the standing they would give credit to authors with nothing above a threshold: at high thresholds most peers
+have no article, and an author tied with them at zero would stand at half their share. In the simulated cohort, an
+author whose five articles all fall below the median would score 0.22 with mid-ranks instead of 0. The strict rule
+keeps weak articles from earning credit through ties; its price is that the mean score of a peer group depends on how
+common
+ties are (Eq.~\ref{eq:mean}).
 
-\paragraph{Factorization.} Let $F(m) = |\{b \in \Peers : n_b(0) \le m\}| / |\Peers|$ be the productivity percentile.
-Unlike $G_\theta$ it counts tied peers, so that it is positive for every member of the peer group. Defining the
-\emph{impact multiplier} $Q_\tau(a) = \PiP_\tau(a) / F(n_a(0))$ gives
+\paragraph{Factorization.} PiP can be written as the author's productivity percentile times an impact multiplier. Let
+$F(m) = |\{b \in \Peers : n_b(0) \le m\}| / |\Peers|$ be the productivity percentile. Unlike $G_\theta$, it counts
+tied peers, so that it is positive for every member of the peer group. Defining the \emph{impact multiplier}
+$Q_\tau(a) = \PiP_\tau(a) / F(n_a(0))$ gives
 \begin{equation}
 \PiP_\tau(a) = F\!\left(n_a(0)\right) \cdot Q_\tau(a).
 \label{eq:factor}
@@ -341,50 +384,57 @@ Unlike $G_\theta$ it counts tied peers, so that it is positive for every member 
 The identity holds by the definition of $Q_\tau$; it describes a score rather than explaining it. The multiplier
 compares the author's standing on counts of articles above the cutoff with their standing on the number of articles,
 and it exceeds one when the author ranks higher among peers on the former. Because $F$ counts ties and $G_\theta$ does
-not, an author whose standing is the same at every threshold has $Q_\tau$ slightly below one. In our data $Q_{1/2}$
-exceeds one for 30--36\% of eligible authors, depending on career age. Across eligible authors who started in
-1975--2005, at career ages 5, 10 and 20, the variance of $\log \PiP_{1/2}$ splits into 0.74--0.82 from $\log Q$, about
-0.30 from $\log F$ and a small negative covariance ($-0.04$ to $-0.11$). These shares describe how the scores vary; they
-do not measure how much of PiP reflects research quality.
+not, an author whose standing is the same at every threshold has $Q_\tau$ slightly below one.
+
+In our data $Q_{1/2}$ exceeds one for 30--36\% of eligible authors, depending on career age. Across eligible authors
+who started in 1975--2005, at career ages 5, 10 and 20, the variance of $\log \PiP_{1/2}$ splits into 0.74--0.82 from
+$\log Q$, about 0.30 from $\log F$ and a small negative covariance ($-0.04$ to $-0.11$). Most of the variation in PiP
+across authors thus comes from the impact multiplier rather than from the number of articles. These shares describe
+how the scores vary; they do not measure how much of PiP reflects research quality.
 
 \paragraph{Consistency.} PiP is not consistent in the sense of \citet{waltman2012inconsistency}: adding the same
 article to two authors can reverse their order, because $G_\theta$ is not linear. In simulation, this happened in 0.7\%
 of 3,000 random pairs. The $h$-index shares the property.
 
 \subsection{Relation to other indicators}
-Writing indicators in terms of the count curve $\theta \mapsto n_a(\theta)$ places PiP among existing ones.
-A top-$x\%$ count reads the curve at one threshold, $n_a(1-x)$, without comparing it with peers. I3 sums the
-percentiles, $\sum_j y_j = \int_0^1 n_a(\theta)\,d\theta$: the same integral without the peer comparison, so it grows
-without bound with the number of articles. The $h$-index reads one point of the analogous curve in citation space,
-where the number of articles with at least $k$ citations equals $k$.
+Writing indicators in terms of the count curve $\theta \mapsto n_a(\theta)$ places PiP among existing ones. The count
+curve gives the number of the author's articles at or above each threshold; PiP ranks this number among peers at every
+threshold above the cutoff and averages the standings. A top-$x\%$ count reads the curve at one threshold,
+$n_a(1-x)$, without comparing it with peers. I3 sums the percentiles, $\sum_j y_j = \int_0^1 n_a(\theta)\,d\theta$:
+the same integral without the peer comparison, so it grows without bound with the number of articles. The $h$-index
+reads one point of the analogous curve in citation space, where the number of articles with at least $k$ citations
+equals $k$.
 
-The first form of the score \citep{ipeirotis2024pip}, which the website \url{https://www.pip-score.org} uses, is
-asymmetric. It sorts an author's articles by percentile, $y_{(1)} \ge y_{(2)} \ge \cdots$, and computes the area under
-the step curve that plots $y_{(k)}$ against the productivity percentile $F(k)$:
+The earlier form of the score \citep{ipeirotis2024pip} is asymmetric; the website \url{https://www.pip-score.org} uses
+it. The asymmetric form, as the website computes it, sorts an author's articles by percentile, $y_{(1)} \ge y_{(2)} \ge
+\cdots$, and computes the area under the step curve that plots $y_{(k)}$ against the productivity percentile $F(k)$:
 \begin{equation}
-\text{PiP-AUC}(a) = \sum_{k=1}^{n_a(0)} y_{(k)}\,\bigl[F(k) - F(k-1)\bigr] = \int_0^1 F\!\left(n_a(\theta)\right) d\theta .
+\text{PiP-AUC}(a) = \sum_{k=1}^{n_a(0)} y_{(k)}\,\bigl[F(k) - F(k-1)\bigr] = \int_0^1 F\!\left(n_a(\theta)\right)
+d\theta .
 \end{equation}
 The second expression shows the difference from PiP: the asymmetric form compares the author's count at or above
-$\theta$ with peers' \emph{total} counts rather than with their counts at or above $\theta$. It is the product of
-$F(n_a(0))$ and a weighted mean of the author's own percentiles, which keeps it bounded and monotone. But the weight
-of the $k$-th best article, $F(k) - F(k-1)$, is the share of peers with exactly $k$ articles, which is zero for every
-$k$ below the smallest article count among peers. Among the eligible authors of a cohort, nobody has fewer than three
-articles, so an author's best two articles receive no weight at all; among Google Scholar faculty profiles, the median
-author's best four articles receive none. The asymmetric form is therefore dominated by productivity: the
-productivity percentile accounts for 0.59--0.77 of the variance of its logarithm, and an author with one article at the
-99th percentile scores zero, while an author with 40 weak articles scores 0.10 in the simulated cohort. A cutoff
-$\tau$ applied to it compares partial counts with growing total counts, and its median at career age 10 halves between
-the 1960 and 2010 cohorts. The symmetric comparison in PiP removes both problems.
+$\theta$ with peers' \emph{total} counts rather than with their counts at or above $\theta$.
 
-A simpler form, which we call \emph{PiP-simple}, compares the scholar with peers only once. It sums the counts above
+The asymmetric form is the product of $F(n_a(0))$ and a weighted mean of the author's own percentiles, which keeps it
+bounded and monotone. But the weight of the $k$-th best article, $F(k) - F(k-1)$, is the share of peers with exactly $k$
+articles, which is zero for every $k$ below the smallest article count among peers. Among the eligible authors of a
+cohort, nobody has fewer than three articles, so an author's best two articles receive no weight at all; among Google
+Scholar faculty profiles, the median author's best four articles receive none. This form is therefore dominated by
+productivity: the productivity percentile accounts for 0.59--0.77 of the variance of its logarithm. Scored against the
+simulated cohort, whose members all have at least three articles, an author with one article at the 99th percentile
+scores zero, while an author with 40 weak articles scores 0.10. Applying a cutoff $\tau$ to this form causes a second
+problem: it then compares partial counts with growing total counts, and its median at career age 10 halves between the
+1960 and 2010 cohorts. The symmetric comparison in PiP removes both problems.
+
+To show what the comparison with peers at every threshold adds, Sections~\ref{sec:prediction} and~\ref{sec:early} use
+a simpler form that compares the scholar with peers only once. We call it \emph{PiP-simple}. It sums the counts above
 the cutoff instead of the standings,
 \begin{equation}
 \text{PiP-simple}_\tau(a) = \frac{1}{1-\tau} \int_\tau^1 n_a(\theta)\, d\theta
 = \frac{1}{1-\tau} \sum_j \max\left(y_j - \tau, 0\right),
 \end{equation}
 and is compared with peers only through its rank in the cohort, as I3 is; it is I3 restricted to the articles above
-the cutoff and measured from the cutoff. Sections~\ref{sec:prediction} and~\ref{sec:early} use it to show what the
-comparison with peers at every threshold adds.
+the cutoff and measured from the cutoff.
 
 \subsection{Computation}
 \label{sec:computation}
@@ -395,29 +445,36 @@ the next multiple of $1/40$. The reported score is therefore PiP on 40 percentil
 for it as stated. The classes have two visible effects: articles in the top 2.5\% of their year are not told apart,
 and an article in the class just above the median earns a full class of credit.
 
+For each start year and evaluation year, the distributions $G_{\theta_k}$ come from one pass over the peers' counts.
+The whole computation covers 111.6 million author-age records and runs as a set of SQL queries in BigQuery.
+
 To check that the classes do not drive the results, we also computed the exact integral for the 5.3 million eligible
-authors at career age 10 (start years 1960--2015). On $(y_{(k+1)}, y_{(k)}]$, where $y_{(k)}$ is the author's $k$-th
-best percentile, the author has $k$ articles at or above $\theta$, and a peer has fewer exactly when its own $k$-th best
-percentile is below $\theta$, so the integral reduces to sorting the peers' $k$-th best percentiles. Against the exact
-score, the 40-class score is 0.010 higher on average at $\tau = 0.5$ (0.055 at most) and ranks authors within cohorts
-almost identically: the rank correlation is 0.9994, and 96\% of each cohort's top 10\% is the same (start years
-1975--2010). At $\tau = 0.75$ and $0.9$ the correlation is 0.998 and 0.996 and the overlap 93\% and 85\%. None of the
-prediction results at career age 10 (Section~\ref{sec:prediction}) changes by more than 0.004 at any of the three
-cutoffs, so we keep the 40 classes. For each start year and evaluation year, the distributions $G_{\theta_k}$ come
-from one pass over the peers' counts. The whole computation, 111.6 million author-age records, runs as a set of SQL
-queries in BigQuery.
+authors at career age 10 (start years 1960--2015). Write $y_{(k)}$ for the author's $k$-th best percentile. On
+$(y_{(k+1)}, y_{(k)}]$ the author has $k$ articles at or above $\theta$, and a peer has fewer exactly when its own
+$k$-th best percentile is below $\theta$, so the integral reduces to sorting the peers' $k$-th best percentiles.
+Against the exact score, the 40-class score is 0.010 higher on average at $\tau = 0.5$ (0.055 at most) and ranks
+authors within cohorts almost identically: the rank correlation is 0.9994, and 96\% of each cohort's top 10\% is the
+same (start years 1975--2010). At $\tau = 0.75$ and $0.9$ the correlation is 0.998 and 0.996 and the overlap 93\% and
+85\%. None of the prediction results at career age 10 (Section~\ref{sec:prediction}) changes by more than 0.004 at any
+of the three cutoffs, so we keep the 40 classes.
 
 \section{Results}
 \label{sec:results}
 
+We first examine PiP as a measurement: how soon a paper's percentile settles, what the cutoff changes, whether a given
+score is equally rare in every cohort and how much a scholar's score moves over a career. We then test whether PiP
+anticipates a scholar's future work and later honors, and check these findings by field and under other choices of
+data.
+
 \subsection{Paper percentiles settle within a few years}
 \label{sec:paperstability}
 
-A scholar's PiP uses percentiles of recent papers, measured after only a few years of citations. We first check how
+A scholar's PiP uses percentiles of recent papers, measured after only a few years of citations. We therefore check how
 well an early percentile anticipates the later one. For every article published from 1980 to 1995, we compute its
-percentile within its publication year at each age, using Hazen mid-ranks \citep{hazen1914storage}, and correlate
-the percentiles at two ages within each publication year. Because the percentiles are ranks, this is the Spearman
-correlation of the citation counts. We report the average over publication years.
+percentile within its publication year at each age and correlate the percentiles at two ages within each publication
+year. These percentiles are not the strict shares used in the score but Hazen mid-ranks \citep{hazen1914storage}.
+Because they are ranks, the correlation is the Spearman correlation of the citation counts. We report the average over
+publication years.
 
 \begin{figure}[t]
   \centering
@@ -434,15 +491,17 @@ the percentile at age 10 is 0.72 after one year, 0.91 after three and 0.96 after
 is 0.84 after three years and 0.89 after five. The ordinary least-squares slope of the later percentile on the earlier
 one is close to one (0.94 for ages 3 and 10), so early percentiles are not strongly biased towards the middle. High
 correlations still leave room for individual movement: between ages 3 and 10 a paper's percentile changes by 0.086 on
-average (Table~\ref{tab:paperstability}). Early percentiles have become more informative over time: the correlation between ages 1 and 10 was 0.72 for
-publication years before 1995 and 0.83 for 2015. For each cohort from 1960 to 1995, the correlation between ages 3 and
-10 lies between 0.875 and 0.910.
+average (Table~\ref{tab:paperstability}).
+
+The agreement between ages 3 and 10 holds across publication years: for each publication year from 1960 to 1995, the
+correlation lies between 0.875 and 0.910. Early percentiles have also become more informative over time: the
+correlation between ages 1 and 10 was 0.72 for publication years 1980--1995 and 0.83 for 2015.
 
 \begin{table}[t]
   \centering
   \small
   \caption{Agreement between a paper's citation percentile at an early and a later age (articles published 1980--1995,
-  7.2 million papers). Correlation of Hazen percentiles within publication year, the slope of the later on the earlier
+  7.2 million articles). Correlation of Hazen percentiles within publication year, the slope of the later on the earlier
   percentile, and the mean absolute change.}
   \label{tab:paperstability}
   \begin{tabular}{lccc}
@@ -462,28 +521,30 @@ publication years before 1995 and 0.83 for 2015. For each cohort from 1960 to 19
 \end{table}
 
 The speed differs by field (Figure~\ref{fig:paperstability}b), in line with \citet{wang2013window} and
-\citet{abramo2011window}. Three years give a correlation of about 0.9 with age 10 in biology (0.93), chemistry,
+\citet{abramo2011window}. Three years give a correlation of about 0.9 with age 10 in biology (0.93), chemistry (0.92),
 physics, medicine and computer science (0.91), but 0.79 in history and 0.75 in art. The humanities and law need about
-five years to reach the agreement that the natural and life sciences reach in three. PiP uses percentiles at every
-age, including recent papers; Section~\ref{sec:discussion} discusses what this means for scholars in slow fields.
+five years to reach the agreement that the natural and life sciences reach in three. PiP uses each paper's percentile at
+whatever age the paper has reached, so in slow fields part of a scholar's score rests on percentiles that are still
+settling; Section~\ref{sec:discussion} discusses what this means for scholars in those fields.
 
 \subsection{The cutoff $\tau$ is a dial between quantity and impact}
 \label{sec:tau}
 
-The cutoff decides which papers earn credit. We computed PiP for $\tau \in \{0, 0.25, 0.5, 0.6, 0.75, 0.9\}$ for
-3.43 million eligible authors at career age 10 (start years 1975--2010) and correlated each version, within cohort, with
-the author's number of articles, the mean percentile of their articles and their number of articles in the top 2.5\%
-of their year (Figure~\ref{fig:tau}a, Table~\ref{tab:tau}).
+The cutoff decides which papers earn credit. To see how it moves the score between quantity and impact, we computed
+PiP for $\tau \in \{0, 0.25, 0.5, 0.6, 0.75, 0.9\}$ for 3.43 million eligible authors at career age 10 (start years
+1975--2010). Within each cohort, we correlated each version with the author's number of articles, the mean percentile
+of their articles and their number of articles in the top 2.5\% of their year (Figure~\ref{fig:tau}a,
+Table~\ref{tab:tau}).
 
 \begin{figure}[t]
   \centering
   \includegraphics[width=\textwidth]{tau_sweep.pdf}
   \caption{The cutoff $\tau$ moves PiP from quantity towards impact. Eligible authors at career age 10, start years
-  1975--2010. (a) Within-cohort Spearman correlation of PiP with the author's number of articles, number of articles
-  in the top 2.5\% of their year, and mean article percentile. (b--d) Prediction of the author's articles published
-  in the next ten years (Section~\ref{sec:prediction}): (b) Spearman correlation with the number of future top-10\%
-  articles, (c) Spearman correlation with their mean percentile, (d) ROC AUC for publishing at least one top-1\%
-  article. The horizontal line shows the $h$-index. In the shaded range the score's distribution drifts across
+  1975--2010. (a) Within-cohort Spearman correlation of PiP with the author's number of articles, number of articles in
+  the top 2.5\% of their year, and mean article percentile. (b--d) Prediction of the author's articles published in the
+  next ten years, for start years 1975--2000 (Section~\ref{sec:prediction}): (b) Spearman correlation with the number of
+  future top-10\% articles, (c) Spearman correlation with their mean percentile, (d) ROC AUC for publishing at least one
+  top-1\% article. The horizontal line shows the $h$-index. In the shaded range the score's distribution drifts across
   cohorts.}
   \label{fig:tau}
 \end{figure}
@@ -518,72 +579,85 @@ of their year (Figure~\ref{fig:tau}a, Table~\ref{tab:tau}).
 
 As $\tau$ rises, the correlation with the number of articles falls from 0.86 to 0.37 and the correlation with the
 number of top-2.5\% articles rises from 0.49 to 0.78. The correlation with the mean percentile peaks at
-$\tau = 0.75$. In prediction, the same dial trades the \emph{number} of future top-10\% papers, best predicted at low
-$\tau$, for their \emph{citation impact}, best predicted at $\tau = 0.75$; the chance of a future top-1\% paper is
-predicted about equally well from $\tau = 0.25$ to $0.6$. Above $\tau = 0.6$ the distribution of the score drifts
-across cohorts. The drift is not an effect of the 40 percentile classes (Section~\ref{sec:computation}): with the
-exact integral, the median at $\tau = 0.9$ still falls from 0.32 in the 1960 cohort to 0.12 in the 2010 cohort. It
-comes from ties at zero (Eq.~\ref{eq:mean}): the share of eligible authors with no article in the top 10\% of its
-year rises from 6\% in the 1960 cohort to 42\% in the 2010 cohort, and all of them score zero at $\tau = 0.9$.
+$\tau = 0.75$. The same dial trades quantity for impact when PiP predicts the author's future articles
+(Section~\ref{sec:prediction}). The
+\emph{number} of future top-10\% papers is best predicted at low $\tau$, and the \emph{citation impact} of future
+articles (their mean percentile) is best predicted at $\tau = 0.75$; the chance of a future top-1\% paper is predicted
+about equally well from $\tau = 0.25$ to $0.6$.
+
+Above $\tau = 0.6$ the distribution of the score drifts across cohorts. The drift is not an effect of the 40 percentile
+classes (Section~\ref{sec:computation}): with the exact integral, the median at $\tau = 0.9$ still falls from 0.32 in
+the 1960 cohort to 0.12 in the 2010 cohort. The drift comes from ties at zero (Eq.~\ref{eq:mean}): the share of
+eligible authors with no article in the top 10\% of its year rises from 6\% in the 1960 cohort to 42\% in the 2010
+cohort, and all of them score zero at $\tau = 0.9$.
 
 We use $\tau = 0.5$ as the default. It has a one-line explanation (only papers in the top half of their year count),
-it balances the correlations with quantity (0.64) and with top papers (0.60), it is at the maximum for the top-1\%
-outcome, and it is stable across cohorts. Users who care more about volume can lower it, and users who care more about
-impact can raise it up to about 0.6; the choice should be made before the evaluation and stated.
+it balances the correlations with quantity (0.64) and with top papers (0.60), it gives the best prediction of a future
+top-1\% paper, and it keeps the score's distribution stable across cohorts. Users who care more about volume can lower
+it, and users who care more about impact can raise it up to about 0.6; the choice should be made before the evaluation
+and stated.
 
-\paragraph{Retrospective temporal robustness check.} The default was chosen from results that pooled all cohorts, so
-we checked afterwards whether the choice depends on them. Because the check was made after the default was chosen, it
-does not protect against specification search as an untouched holdout would. We split the same-age prediction
-settings by start year into a choice sample (1975--1990) and a test sample (1991 and later). Applying the rule above to the choice sample alone (the highest AUC for a future top-1\%
-paper among cutoffs whose distribution is stable across cohorts, $\tau \le 0.6$) selects $\tau = 0.6$ at career age
-10, with $\tau = 0.5$ within 0.001. In the test cohorts both cutoffs keep every comparison reported in
-Sections~\ref{sec:prediction}--\ref{sec:early} at career ages 5, 10 and 15: they beat the $h$-index on all three
-outcomes, no other indicator beats either of them on more than one outcome, and both have the highest AUC for a
-future top-1\% paper. Across $\tau$ from 0.25 to 0.6 that AUC varies by less than 0.01 in the test cohorts, so the
-exact choice in this range matters little for the outcome used to make it. Two differences between the samples are
-worth noting. The quantity--impact trade-off turns at a slightly higher cutoff in the older cohorts (between 0.6 and
-0.75 rather than at 0.5), and in those cohorts at career age 5 the top-10\% count ties $\tau = 0.5$ on the top-1\%
-outcome and beats it on future citation impact, while $\tau = 0.6$ keeps its lead.
+\paragraph{Retrospective temporal robustness check.} The default was chosen from results that pooled all cohorts, so we
+checked afterwards whether the choice depends on which cohorts it is made from. Because the check was made after the
+default was chosen, it does not protect against specification search as an untouched holdout would. We split the
+prediction settings that compare authors of one career age into a choice sample (start years 1975--1990) and a test
+sample (start years 1991 and later). Stated as a rule, the default is the cutoff with the highest AUC for a future
+top-1\% paper among cutoffs whose distribution is stable across cohorts ($\tau \le 0.6$). Applied to the choice sample
+alone, the rule selects $\tau = 0.6$ at career age 10, with $\tau = 0.5$ within 0.001. The choice cohorts differ from
+the test cohorts in two respects. The knee of their quantity--impact frontier (Figure~\ref{fig:frontier}) lies at a
+slightly higher cutoff (between 0.6 and 0.75 rather than at 0.5). In those cohorts at career age 5, the top-10\% count
+ties $\tau = 0.5$ on the top-1\% outcome and beats it on future citation impact, whereas $\tau = 0.6$ keeps its lead.
+
+In the test cohorts both cutoffs keep every comparison reported in Sections~\ref{sec:prediction}--\ref{sec:early} at
+career ages 5, 10 and 15: they beat the $h$-index on all three outcomes, no other indicator beats either of them on more
+than one outcome, and both have the highest AUC for a future top-1\% paper. Across $\tau$ from 0.25 to 0.6 that AUC
+varies by less than 0.01 in the test cohorts, so the exact choice in this range matters little for the outcome used to
+make it.
 
 \subsection{The distribution of PiP is stable across cohorts}
 \label{sec:cohorts}
 
 Committees compare people who started in different years, and indicators are often read against fixed rules of thumb.
+A fixed rule treats every start year alike only if the indicator's distribution does not change with the start year.
 Figure~\ref{fig:cohorts} shows the distribution of PiP and of the raw $h$-index at career age 10 for every start year
-from 1960 to 2015. The PiP distribution changes little: the mean goes from 0.44 to 0.42, the lower quartile from 0.20
-to 0.16, the upper quartile stays at 0.66--0.67 and the 90th percentile at 0.85. Over the same cohorts the mean
-$h$-index at age 10 rises from 4.4 to 6.2 and its 90th percentile from 7 to 11, following the growth of publication and
-citation rates. The cohorts themselves grow nearly a hundredfold, from 4,031 eligible authors in 1960 to 392,360 in
-2015.
+from 1960 to 2015. The cohorts themselves grow nearly a hundredfold, from 4,031 eligible authors in 1960 to 392,360 in
+2015. The PiP distribution changes little: the mean goes from 0.44 to 0.42, the lower quartile from 0.20 to 0.16, the
+upper quartile stays at 0.66--0.67 and the 90th percentile at 0.85. Over the same cohorts the mean $h$-index at age 10
+rises by 40\%, from 4.4 in the 1960 cohort to 6.2 in the 2010 cohort (6.1 in 2015), and its 90th percentile from 7 to
+11, following the growth of publication and citation rates.
 
 \begin{figure}[t]
   \centering
   \includegraphics[width=\textwidth]{fig_cohorts.pdf}
   \caption{Distribution of (a) PiP ($\tau = 0.5$) and (b) the raw $h$-index of eligible authors at career age 10, by
-  start year. The PiP distribution changes little over 55 cohorts; the mean $h$-index grows by 40\%.}
+  start year. The PiP distribution changes little over 56 cohorts; the mean $h$-index grows by about 40\%.}
   \label{fig:cohorts}
 \end{figure}
 
-Part of this stability is built in. Because the standing counts peers with strictly fewer articles, the mean score of
-a cohort is one half minus half the probability that two random peers tie at a random threshold above $\tau$
-(Eq.~\ref{eq:mean}), so it can move only as far as ties change. The rest of the distribution is not fixed by the
-construction, and where ties at zero become common it does drift, as it does above $\tau = 0.6$
-(Section~\ref{sec:tau}). What the stability establishes is
-limited to rarity: a PiP of 0.6 at age 10 was about as rare in the 1970 cohort as in the 2010 cohort, so the scores of
-people at the same career age can be read as statements of rarity, whatever their start year. A cohort percentile of
-the $h$-index offers the same kind of scale. Stable rarity does not by itself mean that equal scores predict equal
-futures in different cohorts; Section~\ref{sec:prediction} tests prediction when cohorts and seniorities are pooled.
+Part of this stability is built in. The standing counts peers with strictly fewer articles, so a tie earns neither peer
+credit, whereas two random peers who do not tie are equally likely to be ahead. The mean score of a peer group is
+therefore
+one half minus half the probability that two random peers tie at a random threshold above $\tau$ (Eq.~\ref{eq:mean}),
+so it can move only as far as ties change. The rest of the distribution is not fixed by the construction: it drifts
+where ties at zero become common, as it does above $\tau = 0.6$ (Section~\ref{sec:tau}).
+
+What the stability establishes is limited to rarity: a PiP of 0.6 at age 10 was about as rare in the 1970 cohort as in
+the 2010 cohort, so the scores of people at the same career age can be read as statements of rarity, whatever their
+start year. A cohort percentile of the $h$-index offers the same kind of scale. Stable rarity does not by itself mean
+that equal scores predict equal futures in different cohorts; Section~\ref{sec:prediction} tests prediction when
+cohorts and seniorities are pooled.
 
 \subsection{Stability over a career}
 \label{sec:careerstability}
 
-An indicator that reshuffles scholars every few years is of little use for decisions with long consequences. For
-authors who started in 1975--1995, Table~\ref{tab:careerstability} correlates each indicator's within-cohort percentile
-at two career ages. PiP is much more stable than the $h$-index: between
-ages 5 and 30 its correlation is 0.56, against 0.37 for the $h$-index and 0.45 for citations. The article count is more
-stable at every horizon, as one would expect from a quantity that only accumulates; citations are slightly more stable
-than PiP between ages 5 and 10 and less stable over longer horizons. The $h$-index is particularly unstable early in a
-career, partly because many eligible authors share the values 3 and 4.
+An indicator that reshuffles scholars every few years is of little use for decisions with long consequences. To measure
+how far each indicator reorders a cohort over time, we correlate its within-cohort percentile at two career ages, for
+authors who started in 1975--1995 (Table~\ref{tab:careerstability}). Over horizons that start early in a career, PiP is
+much more stable than the $h$-index: between ages 5 and 30 its correlation is 0.56, against 0.37 for the $h$-index and
+0.45 for citations. The $h$-index is particularly unstable early in a career, partly because many eligible authors share
+the values 3 and 4. Citations are slightly more stable than PiP between ages 5 and 10 and less stable over longer
+horizons. The article count alone is more stable than PiP at every horizon, as one would expect from a quantity that
+only accumulates.
 
 \begin{table}[t]
   \centering
@@ -607,20 +681,28 @@ career, partly because many eligible authors share the values 3 and 4.
 \subsection{Predicting future work}
 \label{sec:prediction}
 
-The most demanding test of an indicator meant for career decisions is whether it anticipates what the scholar does
-next. For each eligible author at evaluation year $Y$, we take the articles they publish in years $Y+1$ to $Y+10$ and
-score each at its own age 5, within its publication year. No article counts towards both the predictor and the outcome.
-We use three outcomes: the number of future articles in the top 10\% (Spearman correlation), whether at least one
-future article is in the top 1\% (ROC AUC), and the mean percentile of the future articles among authors with at
-least one (Spearman correlation), which we call their citation impact.
+The most demanding test of an indicator meant for career decisions is whether it anticipates what the scholar does next.
+For each eligible author at evaluation year $Y$, we take the articles they publish in years $Y+1$ to $Y+10$ and score
+each at its own age 5 by its percentile within its publication year (at age 5 a paper's percentile already correlates at
+0.96 with its percentile at age 10; Section~\ref{sec:paperstability}). Every indicator is computed from the author's
+articles and citations up to the evaluation year. No article counts towards both the predictor and the outcome. We use
+three outcomes, each with a measure of how accurately an indicator anticipates it: the number of future articles in the
+top 10\% (Spearman correlation); whether at least one future article is in the top 1\% (ROC AUC, here and below the
+probability that a randomly chosen author who has the outcome ranks above a randomly chosen author who does not, with
+ties counted as one half, so that 0.5 is chance); and the mean percentile of the future articles among authors with at
+least one (Spearman correlation). We call this mean percentile the citation impact of the future articles. We compare
+PiP with the $h$-index, total citations and the number of articles, and with several indicators built from the same
+paper percentiles (defined below).
 
-Within one cohort, a raw indicator and its cohort percentile order people identically, so the comparison pools cohorts
-in two ways. \emph{Same career age}: all eligible authors at career age $A = 5$, 10 or 15, with start years from 1975
-to $2010 - A$, so that every article published in the ten years after the evaluation has five years of citations by
-2025 (start years 1975--2000 at career age 10). This is the case of a tenure committee comparing candidates of similar
-seniority. \emph{Same year}: all eligible authors in 2000 or in 2005, at career ages 2 to 30 (the case of a panel
-comparing people of different seniority). Pooling start years, a raw indicator and its cohort percentile no longer rank
-people identically, so in the second setting we compare each indicator raw and as a percentile within its cohort.
+The Spearman correlation and the ROC AUC both depend only on how an indicator orders people. Within one cohort, a raw
+indicator and its cohort percentile order people identically, so the comparison pools cohorts in two ways.
+\emph{Same career age}: all eligible authors at career age $A = 5$, 10 or 15, with start years from 1975 to $2010 - A$,
+so that every article published in the ten years after the evaluation has five years of citations by 2025 (start years
+1975--2000 at career age 10). This is the case of a tenure committee comparing candidates of similar seniority.
+\emph{Same year}: all eligible authors in 2000 or in 2005, at career ages 2 to 30 (the case of a panel comparing people
+of different seniority). Together, the two kinds of pooling give five settings. When start years are pooled, a raw
+indicator and its cohort percentile no longer rank people identically, so in the same-year settings we compare each
+indicator raw and as a percentile within its cohort.
 
 \begin{figure}[t]
   \centering
@@ -669,90 +751,97 @@ people identically, so in the second setting we compare each indicator raw and a
 PiP predicts better than the $h$-index on all three outcomes, in all five settings (Figure~\ref{fig:prediction},
 Table~\ref{tab:prediction}). At career age 10, its correlation with the number of future top-10\% papers is 0.43
 against 0.35, its AUC for a future top-1\% paper is 0.77 against 0.72, and its correlation with the citation impact of
-future papers is 0.32 against 0.23. The gap is larger when people of different seniority are compared: in 2005 the raw $h$-index reaches
-0.28, 0.69 and 0.17. Converting the $h$-index into a cohort percentile helps (0.36, 0.74, 0.24) but does not close the
-gap. PiP gains much less from the conversion: in 2005 its cohort percentile reaches 0.42, 0.78 and 0.32, against 0.41,
-0.78 and 0.31 for the raw score, because the raw score is already relative to the cohort and its distribution does not
-depend on the start year (Section~\ref{sec:cohorts}). We report cohort percentiles for every indicator in the
-same-year settings.
+future papers is 0.32 against 0.23. The gap is larger when people of different seniority are compared: in 2005 the raw
+$h$-index reaches 0.28, 0.69 and 0.17, against 0.41, 0.78 and 0.31 for the raw PiP score. Converting the $h$-index
+into a cohort percentile helps (0.36, 0.74, 0.24) but does not close the gap. PiP gains much less from the conversion:
+in 2005 its cohort percentile reaches 0.42, 0.78 and 0.32, because the raw score is already relative to the cohort and
+its distribution does not depend on the start year (Section~\ref{sec:cohorts}). We report cohort percentiles for every
+indicator in the same-year settings. In the same-career-age settings the two forms give nearly the same results;
+Table~\ref{tab:predictionall} in the appendix gives raw PiP and both forms of the $h$-index in all five settings.
 
 \paragraph{Productivity and citations.} The number of articles predicts the number of future top-10\% papers as well
 as PiP or slightly better (0.44 against 0.43 at age 10), because productive authors keep producing, but it does not
 predict the citation impact of future work (correlation 0.00). Total citations predict future citation impact about
 as well as PiP (0.30 against 0.32) but are weaker on the number of future top papers (0.29).
 
-\paragraph{Percentile-based indicators.} The closest alternatives to PiP use the same paper percentiles but combine
-them differently: the number of papers in the top 10\% \citep{waltman2012leiden}, also divided by career age
+\paragraph{Percentile-based indicators.} The closest alternatives to PiP use the same paper percentiles but combine them
+differently: the number of papers in the top 10\% \citep{waltman2012leiden}, also divided by career age
 \citep{bornmann2014individual}; the number in the top 1\%; I3, the sum of the percentiles
-\citep{leydesdorff2011integrated}; and their mean. Each is the best or nearly the best on one outcome and weak on
-another (Table~\ref{tab:prediction}). The mean percentile predicts the citation impact of future papers best (0.39 at
-age 10, against 0.32 for PiP), but says nothing about how many top papers will follow ($-0.04$) or whether one of them
-will be in the top 1\% (AUC 0.52). I3 predicts the number of future top papers as well as the article count does
-(0.44) but not their citation impact (0.18). The top-10\% count predicts future citation impact slightly better than
-PiP (0.34 against 0.32) and the number of future top papers clearly worse (0.36 against 0.43). In all five settings,
-each of these indicators beats PiP on at most one of the three outcomes, and none beats it on the chance of a future
-top-1\% paper. Each of them serves one of the three outcomes; PiP is the one that balances all three.
+\citep{leydesdorff2011integrated}; and their mean. Apart from the top-1\% count, which is weaker than PiP on all three
+outcomes, each is the best or nearly the best on one outcome and weak on another (Table~\ref{tab:prediction}). The mean
+percentile predicts the citation impact of future papers best (0.39 at age 10, against 0.32 for PiP), but says nothing
+about how many top papers will follow ($-0.04$) or whether one of them will be in the top 1\% (AUC 0.52). I3 predicts
+the number of future top papers as well as the article count does (0.44) but not their citation impact (0.18). The
+top-10\% count predicts future citation impact slightly better than PiP (0.34 against 0.32) and the number of future top
+papers clearly worse (0.36 against 0.43). In all five settings, each of these indicators beats PiP on at most one of the
+three outcomes, and none beats it on the chance of a future top-1\% paper. PiP is the best predictor of a future top-1\%
+paper in every setting. The top-10\% count, I3 and the mean percentile each serve one of the three outcomes; PiP is the
+one that balances all three.
 
 \begin{figure}[t]
   \centering
   \includegraphics[width=\textwidth]{fig_frontier.pdf}
   \caption{Indicators placed by how well they predict the number of a scholar's future top-10\% papers (horizontal) and
   the mean percentile of their future papers (vertical), Spearman correlations. The blue curve is PiP at cutoffs from
-  $\tau = 0$ to $0.9$; the large dot is $\tau = 0.5$. Grey squares are indicators built from the same paper
-  percentiles and the $h$-index. (a) Eligible authors at career age 10, raw values. (b) All
+  $\tau = 0$ to $0.9$; the large dot is $\tau = 0.5$. Grey squares are the $h$-index, I3, the top-10\% and top-1\%
+  counts and, in panel (b), the top-10\% count per year of career; the mean percentile and the article count lie off
+  the chart, and their coordinates are printed in each panel. (a) Eligible authors at career age 10, raw values. (b) All
   eligible authors in 2005 at career ages 2--30, within-cohort percentiles (the top-10\% count per year of career is
   raw). For the third outcome, a future top-1\% paper, PiP at every cutoff from 0 to 0.75 has a higher AUC than every
   grey indicator in both settings.}
   \label{fig:frontier}
 \end{figure}
 
-Figure~\ref{fig:frontier} places the indicators by how well they predict future quantity and future citation impact,
-with PiP at every cutoff. The cutoffs trace a frontier. With $\tau = 0$, PiP predicts at least as well as I3 on all
-three outcomes in every setting (with $\tau = 0.25$, in all but one); with $\tau = 0.75$ it does
-at least as well as the top-10\% count in every setting; and from $\tau = 0.25$ to $0.75$ it does better than the
-$h$-index on all three. Three indicators lie on or beyond the frontier. The mean percentile lies beyond it in the
-direction of pure citation impact, where it gives up any information about quantity. The article count lies just
-beyond it in two settings (at age 15 and in 2000), in the direction of pure quantity. The top-10\% count per year of
-career, which differs from the plain count only when seniorities are mixed, lies on the curve next to $\tau = 0.75$.
-For these two outcomes, the cutoff therefore selects a point on a curve that lies on or outside the other ways of
-combining paper percentiles, apart from the two extremes, and $\tau = 0.5$ sits near its knee: from $\tau = 0.25$ to
-$0.5$ the curve gains 0.056 in future citation impact for 0.016 in quantity, and beyond $0.5$ each gain in impact costs
-more in quantity.
+Figure~\ref{fig:frontier} places the indicators by how well they predict the number of future top papers (quantity) and
+the citation impact of future papers, with PiP at every cutoff. The cutoffs trace a frontier: for these two outcomes,
+the PiP curve lies on or outside the other ways of combining paper percentiles, apart from two extremes, the mean
+percentile and the article count. With $\tau = 0$, PiP predicts at least as well as I3 on all three outcomes in every
+setting (with $\tau = 0.25$, in all but one); with $\tau = 0.75$ it does at least as well as the top-10\% count on all
+three outcomes in every setting; and from $\tau = 0.25$ to $0.75$ it does better than the $h$-index on all three. Three
+indicators lie on or beyond the frontier. The mean percentile lies beyond it in the direction of pure citation impact,
+where it gives up any information about quantity. The article count lies just beyond it in two settings (at age 15 and
+in 2000), in the direction of pure quantity. The top-10\% count per year of career differs from the plain count only
+when seniorities are mixed, and it lies on the curve next to $\tau = 0.75$. Choosing the cutoff therefore selects a
+point on the frontier, and $\tau = 0.5$ sits near its knee: from $\tau = 0.25$ to $0.5$ the curve gains 0.056 in future
+citation impact for 0.016 in quantity, and beyond $0.5$ each gain in impact costs more in quantity.
 
 \paragraph{Replication across cohorts.} With more than a million authors per setting, sampling error is small: the
 standard error of a Spearman correlation of 0.4 would be below 0.001 for independent observations. Authors share
-papers, so the observations are not independent and this figure is optimistic. The more relevant question is whether
-the differences hold in different populations. We repeated the age-10 comparison separately for each start year from 1975 to 2000, 26
-cohorts of 17,867 to 122,114 authors. PiP beats the $h$-index on all three outcomes in all 26 cohorts, by 0.06--0.10
-on the number of future top papers. It beats the top-10\% count on the number of future top papers (by 0.05--0.08) and
-on the top-1\% outcome in all 26 cohorts, and falls behind it on future citation impact in 20 (by up to 0.07).
-Against I3 and the article count, PiP wins on the top-1\% outcome and on future citation impact in every cohort, and on
-the number of future top papers in 12 and 11 of the 26, with differences between $-0.03$ and $+0.04$. PiP is the best
-predictor of a future top-1\% paper in every setting.
+papers, so the observations are not independent and this standard error is optimistic. The more relevant question is
+whether the differences hold in different populations. We repeated the age-10 comparison separately for each start
+year from 1975 to 2000, 26 cohorts of 17,867 to 122,114 authors. PiP beats the $h$-index on all three outcomes in all
+26 cohorts, by 0.06--0.10 on the number of future top papers. It beats the top-10\% count on the number of future top
+papers (by 0.05--0.08) and on the top-1\% outcome in all 26 cohorts, and falls behind it on future citation impact in
+20 (by up to 0.07). Against I3 and the article count, PiP wins on the top-1\% outcome and on future citation impact in
+every cohort, and on the number of future top papers in 12 and 11 of the 26, with differences between $-0.03$ and
+$+0.04$.
 
 \paragraph{Comparing with peers at every threshold.} PiP-simple (Section~\ref{sec:pip}) uses the same percentiles and
-the same cutoff as PiP but compares the scholar with peers only once, so setting the two side by side shows what the
-comparison at every threshold contributes. It improves the AUC for a future top-1\% paper in every one of the 26
-cohorts at career age 10 (by 0.004 to 0.011) and the prediction of future citation impact in every cohort (by 0.023 to
-0.036), and the same holds in every cohort at career ages 5 and 15. On the number of future top-10\% papers the two
-forms are within 0.01 of each other. Pooled at career age 10, PiP-simple reaches 0.430, 0.765 and 0.296 on the three
-outcomes, against 0.427, 0.772 and 0.321 for PiP.
+the same cutoff as PiP but compares the scholar with peers only once, through the rank of its score in the cohort.
+Setting the two side by side therefore shows what the comparison at every threshold contributes. That comparison
+improves the AUC for a future top-1\% paper in every one of the 26 cohorts at career age 10 (by 0.004 to 0.011) and the
+prediction of future citation impact in every cohort (by 0.023 to 0.036), and the same holds in every cohort at career
+ages 5 and 15. On the number of future top-10\% papers the two forms are within 0.01 of each other. Pooled at career
+age 10, PiP-simple reaches 0.430, 0.765 and 0.296 on the three outcomes, against 0.427, 0.772 and 0.321 for PiP.
 
 \subsection{Early detection}
 \label{sec:early}
 
-The settings above compare indicators measured at one age. Early detection asks a different question: how soon does
-each indicator pick out the scholars who will do well later? To answer it we fix both the population and the outcome,
-and vary only the age at which the indicators are measured. The population is every author who is eligible at career
-age 3 (306,854 authors with start years 1975--2000); since eligibility persists, each of them has every indicator at
-every later age. The outcome is their work at career ages 11--20, scored as before (each article at its own age 5).
-We call an author a \emph{future star} if they are in the top 10\% of their start-year cohort, within the population,
-by the number of top-10\% articles published at ages 11--20 (ties broken by the mean percentile of those articles).
-We then measure each indicator at career ages 3, 4, \ldots, 10, and ask how well it finds the future stars: the
-precision of picking the top 10\% of each cohort by the indicator (chance is 0.10), and the AUC for the same outcome.
-Authors who tie at the boundary of the top 10\%, as they often do on the $h$-index, each count with the share of the
-remaining places, which gives the expected precision under random tie-breaking. We also report the AUC for publishing
-at least one top-1\% article at ages 11--20. Each indicator enters as its percentile within the start-year cohort.
+The settings above compare indicators measured at one age. Early detection asks a different question: how soon does each
+indicator pick out the scholars who will do well later? To answer it we fix both the population and the outcome, and
+vary only the age at which the indicators are measured. The population is every author who is eligible at career age 3
+(306,854 authors with start years 1975--2000); because eligibility persists, each of them has every indicator at every
+later age. The outcome is their work at career ages 11--20, scored as before (each article at its own age 5). We call an
+author a \emph{future star}, or future high performer, if they are in the top 10\% of their start-year cohort, within
+the population, by the number of top-10\% articles published at ages 11--20 (ties broken by the mean percentile of those
+articles).
+
+We then measure each indicator at career ages 3, 4, \ldots, 10, as its percentile within the start-year cohort, and
+ask how well it finds the future stars. The first measure is precision: the share of future stars among the top 10\%
+of each cohort by the indicator (chance is 0.10). Authors who tie at the boundary of the top 10\%, as they often do on
+the $h$-index, each count with the share of the remaining places, which gives the expected precision under random
+tie-breaking. The second measure is the AUC for future stars. We also report a third measure, the AUC for publishing
+at least one top-1\% article at ages 11--20.
 
 \begin{figure}[t]
   \centering
@@ -786,59 +875,68 @@ at least one top-1\% article at ages 11--20. Each indicator enters as its percen
   \end{tabular}
 \end{table}
 
-PiP is the most accurate indicator at every measurement age on all three measures (Figure~\ref{fig:early}). Measured
-at career
-age 3, the top 10\% of a cohort by PiP contains 21\% future stars, twice the chance rate, against 18\% for the
+PiP is the most accurate indicator at every measurement age on all three measures (Figure~\ref{fig:early} shows
+precision and the AUC for a future top-1\% paper; Table~\ref{tab:early} gives the lead times on all three). Measured
+at career age 3, the top 10\% of a cohort by PiP contains 21\% future stars, twice the chance rate, against 18\% for the
 $h$-index; at age 5 the shares are 30\% and 25\%, and at age 10, 49\% and 42\%. The AUC for a future top-1\% paper is
-0.63 against 0.56 at age 3 and 0.71 against 0.66 at age 5. Because every indicator improves with age, the gaps
-translate into time (Table~\ref{tab:early}): PiP reaches the accuracy that the $h$-index has at age 10 1.6 to 1.9
-years earlier, at about age 8, and the accuracy of the citation count 2.6 to 3.2 years earlier. Its lead over the
-article count, the top-10\% count and I3 is smaller, at most 1.6 years. For the larger population of authors eligible
-at age 5 (711,986), PiP reaches the
-$h$-index's age-10 accuracy 1.5 to 1.8 years earlier and the citation count's 2.3 to 2.9 years earlier.
+0.63 against 0.56 at age 3 and 0.71 against 0.66 at age 5.
+
+Because every indicator improves with age, the gaps translate into time (Table~\ref{tab:early}): across the three
+measures, PiP reaches the $h$-index's age-10 accuracy 1.6 to 1.9 years earlier (1.6 to 1.8 on the two measures for
+future stars), at about age 8, and the citation count's 2.6 to 3.2 years earlier. Its lead over the article count, the
+top-10\% count and I3 is smaller, at most 1.6 years. For the larger population of authors eligible at age 5 (711,986),
+PiP reaches the $h$-index's age-10 accuracy 1.5 to 1.8 years earlier and the citation count's 2.3 to 2.9 years earlier.
 
 \paragraph{Without the h-index condition.} Requiring an $h$-index of three by career age 3 keeps only 21\% of the
-authors who have three articles by then, and it selects the population with one of the indicators being compared. We
+authors who have three articles by then, and it selects the population by one of the indicators being compared. We
 therefore repeated the analysis for all 1,455,891 authors with at least three articles at career age 3, with peers
 defined by the same rule. PiP still leads the $h$-index at every measurement age: the top 10\% by PiP contains 24\%
-future stars at age 3 against 20\% for the $h$-index, and 31\% against 27\% at age 5, and PiP reaches the $h$-index's
-age-10 accuracy 1.2 to 1.7 years earlier. It also stays ahead of the indicators in Table~\ref{tab:early} on precision
-and on the AUC for a future top-1\% paper at every age, while I3 matches or exceeds it on the AUC for future stars from
-about career age 6.
+future stars at age 3 against 20\% for the $h$-index, and 31\% against 27\% at age 5. PiP reaches the $h$-index's age-10
+accuracy 1.2 to 1.7 years earlier. It also stays ahead of the indicators in Table~\ref{tab:early} on precision and on
+the AUC for a future top-1\% paper at every age, but I3 matches or exceeds it on the AUC for future stars from about
+career age 6.
 
-On the other two outcomes of Section~\ref{sec:prediction} the ordering at each age matches the one found there: the
+On the other two outcomes of Section~\ref{sec:prediction}, the ordering at each age matches the one found there: the
 article count predicts the number of future top-10\% papers slightly better than PiP at the earliest ages, and the mean
 percentile predicts their citation impact best. PiP's advantage in early detection is in finding the scholars at the
 top, who combine many papers with highly cited ones, and in anticipating exceptional papers. PiP-simple is about as
-accurate here (within 0.007 of PiP at every age, in every population we tested, and within 0.3 years in lead time), so in early
-detection the gain comes mainly from what the two forms share: percentiles within the publication year and the
-cutoff.
+accurate here (within 0.007 of PiP at every age, in every population we tested, and within 0.3 years in lead time;
+under the three-article rule it is slightly ahead on finding future stars from career age 6 or 7), so in early
+detection the gain over the $h$-index comes mainly from what the two forms share: percentiles within the publication
+year and the cutoff.
 
 \subsection{Later recognition}
 \label{sec:honors}
 
 The tests so far judge citation indicators by later citations. As a check against an outcome that is not a citation
-count, we ask whether the indicators anticipate later scientific honors. We take honors from Wikidata: 65 senior
-honors given for research, namely membership of national academies (such as the US National Academy of Sciences, the
-Royal Society and the Leopoldina), fellowships of learned societies (AAAS, ACM, IEEE, APS and others) and major prizes
-and fellowships (such as the Guggenheim, MacArthur and Gairdner awards). We leave out plain society memberships,
-state orders, student scholarships and the citation-based Clarivate Citation Laureates. Honors reach Semantic Scholar
-authors in two ways: through Wikidata items that carry a Semantic Scholar author ID (41,272 items), and through items
-that carry a Google Scholar ID (12,434 honorees), which we link to Semantic Scholar with the title matching of
-Section~\ref{sec:robustness}. We measure each indicator at career age 5 or 10, as a percentile within the
-start-year cohort (start years 1960--2000), and drop people whose first dated honor came at or before that age; most
-honors come decades later. This leaves 1,064 future honorees at age 5 and 1,555 at age 10.
+count, we ask whether the indicators anticipate later scientific honors. We take honors from Wikidata
+(Section~\ref{sec:data}): 65 senior honors given for research, namely membership of national academies (such as the US
+National Academy of Sciences, the Royal Society and the Leopoldina); fellowships of learned societies (AAAS, ACM, IEEE,
+APS and others); and major prizes and fellowships (such as the Guggenheim, MacArthur and Gairdner awards). We leave out
+plain society memberships, state orders, student scholarships and the citation-based Clarivate Citation Laureates. We
+connect honors to Semantic Scholar authors in two ways: through Wikidata items that carry a Semantic Scholar author ID
+(41,272 items, honored or not), and through items that carry a Google Scholar ID (12,434 honorees), which we link to
+Semantic Scholar with the title matching of Section~\ref{sec:robustness}.
+
+We measure each indicator at career age 5 or 10, as a percentile within the start-year cohort (start years
+1960--2000), and drop people whose first dated honor came at or before that age; most honors come decades later.
+Honors without a recorded date count as later honors. This
+leaves 1,064 future honorees at age 5 and 1,555 at age 10. For each indicator, the ROC AUC measures how well its
+ranking separates these future honorees from the others. We make this comparison among all eligible authors and
+within two groups that are already notable: people with a Wikidata item, and the scholars with Google Scholar
+profiles that we matched to Semantic Scholar (mostly faculty).
 
 \begin{table}[t]
   \centering
   \small
   \caption{ROC AUC for holding a senior honor. Columns 2--5: indicators measured at career age 5 or 10 in Semantic
-  Scholar, honors received later; all eligible authors (the comparison uses every honoree and a 10\% random sample of
-  the others), only people with a Wikidata item, and only our Google Scholar profiles matched to Semantic Scholar
-  (mostly faculty). Columns 6--7: current Google Scholar scores of 15,890 profiled scholars against holding an honor
-  and having an English Wikipedia article (agreement, not prediction). PiP's bootstrap intervals are about $\pm 0.015$
-  for all authors and $\pm 0.02$ within the smaller groups; differences between indicators are estimated more
-  precisely because they are paired.}
+  Scholar against honors received later, among all eligible authors (the comparison uses every honoree and a 10\%
+  random sample of the others), among people with a Wikidata item, and among our Google Scholar profiles matched to
+  Semantic Scholar (mostly faculty; GS: Google Scholar). Columns 6--7: current Google Scholar scores of the 15,890
+  profiled scholars who meet the eligibility rule and belong to a start-year cohort of at least 30 profiles, against
+  holding an honor and having an English Wikipedia article (agreement, not prediction). PiP's bootstrap intervals are
+  about $\pm 0.015$ for all authors and $\pm 0.02$ within the smaller groups; differences between indicators are
+  estimated more precisely because they are paired.}
   \label{tab:honors}
   \setlength{\tabcolsep}{4.5pt}
   \begin{tabular}{lcccccc}
@@ -865,56 +963,72 @@ Among all eligible authors, PiP measured at career age 5 picks out the future ho
 paired bootstrap intervals for PiP's lead over the $h$-index exclude zero at both ages ($+0.039$ [0.029, 0.049] and
 $+0.035$ [0.030, 0.040]). PiP ties the top-10\% count ($+0.000$ [$-0.005$, 0.005] at age 10), and the impact end of
 the dial does better than the default: at $\tau = 0.75$ the AUC is 0.76 and 0.83. Recognition rewards highly cited work
-more than volume: the article count and I3, which lean towards volume, do worst apart from the mean percentile.
+more than volume: the article count, the indicator that leans most towards volume, does worst apart from the mean
+percentile.
 
-Within groups that are already notable, every indicator separates future honorees only weakly (AUC 0.59--0.65). There,
-PiP is ahead of the $h$-index at career age 10 (by 0.018 [0.010, 0.025] among people with a Wikidata item and 0.008
-[0.003, 0.014] among the Google Scholar faculty) and level with it at age 5, while the top-10\% count and PiP at
-$\tau = 0.75$ or higher do best. Restricting to honors with a recorded date gives the same pattern. On the Google
-Scholar profiles, where scores and honors are measured at the same time, the indicators are close: PiP is slightly
-ahead of the $h$-index for holding an honor ($+0.004$ [0.001, 0.008]) and for having a Wikipedia article ($+0.012$
-[0.009, 0.015]), and total citations and the top-10\% count do as well or better.
+Within the two notable groups, every indicator separates future honorees only weakly (AUC 0.54--0.65 at career age
+10). There, PiP is level with the $h$-index at age 5 ($-0.008$ [$-0.023$, 0.007] among people with a Wikidata item and
+$+0.002$ [$-0.010$, 0.013] among the Google Scholar faculty; not shown in the table) and ahead of it at career age 10,
+by 0.018 [0.010, 0.025] and 0.008 [0.003, 0.014]. The top-10\% count and PiP at $\tau = 0.75$
+or higher do best. Restricting to honors with a recorded date gives the same pattern.
+
+A last check measures agreement rather than prediction. On the Google Scholar profiles, where scores and honors are
+measured at the same time, the indicators are close: PiP is slightly ahead of the $h$-index for holding an honor
+($+0.004$ [0.001, 0.008]) and for having a Wikipedia article ($+0.012$ [0.009, 0.015]). Total citations and the
+top-10\% count do as well for holding an honor (their paired differences from PiP include zero) and slightly better
+for having a Wikipedia article (by 0.005 and 0.004).
 
 The recognition test therefore supports PiP over the $h$-index with an outcome outside citation counts, most clearly
 for detecting future honorees among all scholars and early in their careers. Within the populations closer to faculty
-evaluation the gain over the $h$-index is small, and the top-10\% count does as well. The test also shows that the
+evaluation, the gain over the $h$-index is small, and the top-10\% count does as well. The test also shows that the
 default cutoff is not the best choice for every purpose: for anticipating recognition, an evaluator should move the
-dial towards impact. Several caveats apply. Wikidata covers honors unevenly across countries and fields, so an author
-without a recorded honor is not a confirmed non-recipient; older cohorts have had more time to receive senior honors;
-and honors depend on nominations, networks and opportunity as well as on the work. These processes can strengthen or
-weaken the association between an indicator and recorded honors, so the AUCs measure agreement with recorded
-recognition, not with merit.
+dial towards impact. Above $\tau = 0.6$ the raw score drifts across cohorts (Section~\ref{sec:tau}), so such scores
+should be read as percentiles within the start-year cohort, as they are here.
+
+Several caveats apply. Wikidata covers honors unevenly across countries and fields, so an author without a recorded
+honor is not a confirmed non-recipient; older cohorts have had more time to receive senior honors; and honors depend
+on nominations, networks and opportunity as well as on the work. These processes can strengthen or weaken the
+association between an indicator and recorded honors, so the AUCs measure agreement with recorded recognition, not
+with merit.
 
 \subsection{Fields}
 \label{sec:fields}
 
-We assign each author the most frequent field among their articles by career age 10 (whole counting) and repeat the
-analyses by field. Fifteen fields have at least 3,000 eligible authors with start years 1975--2000. In every one of
-them, PiP predicts better than the $h$-index on all three outcomes. For example, in economics PiP reaches 0.39 / 0.74 / 0.27 on
-the three outcomes against 0.31 / 0.67 / 0.17 for the $h$-index, and in mathematics 0.38 / 0.75 / 0.28 against
-0.29 / 0.68 / 0.19.
+The main analysis pools the fields: it ranks each paper against all articles from its year, whatever their field,
+although fields cite at different rates. Two questions follow: whether PiP's lead holds within each field, and whether
+pooling favors some fields. For the first question, we assign each author a main field, the most frequent field among
+their articles by career age 10 (an article with several fields counts in full for each), and repeat the analyses by
+field. Fifteen fields have at least 3,000 eligible authors with start years 1975--2000. In every one of them, PiP
+predicts better than the $h$-index on all three outcomes. For example, in economics PiP reaches 0.39 / 0.74 / 0.27 on
+the three outcomes against 0.31 / 0.67 / 0.17 for the $h$-index, and in mathematics 0.38 / 0.75 / 0.28 against 0.29 /
+0.68 / 0.19.
 
 Pooling fields in the paper percentiles favors fields with high citation rates. A field-neutral score would put 10\%
 of each field's authors in the top 10\% of their cohort; with pooled percentiles the share ranges from 1.4\% in
 education and 2.1\% in economics to 14.7\% in physics (Figure~\ref{fig:fields}). We therefore also compute a
-field-normalized PiP, in which a paper's percentile is computed within its publication year and the author's main field
-(when the paper carries that field; otherwise the pooled percentile is kept), and peers are restricted to authors with
-the same main field and start year. For 1.45 million authors at career age 10, this brings every field's share of the
-cohort top 10\% to between 6.9\% and 11.6\%. Within a field the ranking largely holds: the correlation between the
-pooled and the field-normalized score is 0.91--0.99 per field. We have not separated the sources of the remaining
-spread. Papers outside the author's main field keep their pooled percentile, and fields differ in how often peers tie,
-which also shapes the distribution of the score. The rule also gives a coauthored paper different percentiles for
-coauthors with different main fields, a choice that a rule based on the paper's own fields would avoid.
+field-normalized PiP. In this version, each paper's percentile is computed within its publication year and the
+author's main field, and peers are restricted to authors with the same main field and start year. A paper that does
+not carry the author's main field keeps its pooled percentile. The rule also gives a coauthored paper different
+percentiles for coauthors with different main fields, a choice that a rule based on the paper's own fields would
+avoid.
+
+For the eligible authors at career age 10 with start years 1975--2010 (Figure~\ref{fig:fields}), the field-normalized
+score brings every field's share of the cohort top 10\% to between 6.9\% and 11.6\%. We have not separated the sources
+of the remaining spread. Two candidates are that papers outside the author's main field keep their pooled percentile,
+and that fields differ in how often peers tie, which also shapes the distribution of the score. Within a field the
+ranking largely holds: the correlation between the pooled and the field-normalized score is 0.91--0.99 per field.
 
 \begin{figure}[t]
   \centering
   \includegraphics[width=0.72\textwidth]{fig_fields.pdf}
   \caption{Share of each field's authors who are in the top 10\% of their start-year cohort at career age 10, with
-  PiP computed from pooled percentiles and with the field-normalized version. Fields with at least 5,000 authors.}
+  PiP computed from pooled percentiles and with the field-normalized version. Eligible authors with start years
+  1975--2010; fields with at least 5,000 such authors.}
   \label{fig:fields}
 \end{figure}
 
-The two versions answer different questions. With outcomes measured on pooled percentiles, the pooled score predicts
+The two versions answer different questions: how a scholar's future work will rank among all articles of its year,
+and how it will rank within its field. With outcomes measured on pooled percentiles, the pooled score predicts
 best (0.427 / 0.772 / 0.321 against 0.414 / 0.770 / 0.298); with field-normalized outcomes, the field-normalized score
 predicts best (0.407 / 0.772 / 0.316 against 0.405 / 0.769 / 0.300). Both remain far ahead of the $h$-index
 (0.333 / 0.717 / 0.209 on field-normalized outcomes). For comparisons across fields we recommend the field-normalized
@@ -923,53 +1037,54 @@ version; within a field the two are nearly interchangeable.
 \subsection{Robustness}
 \label{sec:robustness}
 
-\paragraph{Self-citations.} A citation counts as a self-citation when the citing and the cited paper share at least
-one author. These are 8.1\% of all citations; such rates depend strongly on the definition and the citation window
-\citep{aksnes2003macro}. We removed them and reran the whole
-pipeline: percentiles, peer groups (the $h$-index condition for eligibility is then applied without self-citations),
-scores and outcomes (Table~\ref{tab:selfcites} in the appendix). The predictions of the number of future top-10\% papers
-and of a future top-1\% paper move by at most 0.003 for PiP. The $h$-index loses slightly more (0.352 to 0.340 at age
-10). The prediction of future citation impact drops more, and unevenly: by 0.018 to 0.030 for PiP and by 0.005 to
-0.009 for the $h$-index. Part of PiP's lead on this outcome therefore runs through
-authors citing their own work, but the lead remains (0.298 against 0.221 at career age 10), and the ordering of the
-indicators does not change.
+\paragraph{Self-citations.} Part of an indicator's predictive power could run through authors citing their own work.
+A citation counts as a self-citation when the citing and the cited paper share at least one author. These are 8.1\% of
+all citations; such rates depend strongly on the definition and the citation window \citep{aksnes2003macro}. We
+removed them and reran the whole pipeline: percentiles, peer groups, scores and outcomes (Table~\ref{tab:selfcites} in
+the appendix). The $h$-index condition for eligibility is then also applied without self-citations. Removing
+self-citations moves PiP's predictions of the number of future top-10\% papers and of a future top-1\% paper by at
+most 0.003. The $h$-index loses slightly more (0.352 to 0.340 at age 10). The prediction of future citation impact
+drops more, and unevenly: by 0.018 to 0.030 for PiP and by 0.005 to 0.009 for the $h$-index. Part of PiP's lead on
+this outcome therefore runs through authors citing their own work, but the lead remains (0.298 against 0.221 at career
+age 10), and PiP stays ahead of the $h$-index on all three outcomes in every setting.
 
-\paragraph{Eligibility without the h-index condition.} The main rule requires an $h$-index of three, which conditions
-on citations and on one of the compared indicators, and which excludes far more authors in some fields than in others
-(Section~\ref{sec:data}). Under a rule that requires three articles and nothing else, the same-age settings grow to
-2.81, 2.54 and 2.00 million authors at career ages 5, 10 and 15 (from 1.17, 1.45 and 1.24 million). PiP still beats the
-$h$-index on all three outcomes at every age, by 0.03 to 0.06, half to two thirds of the margin under the main rule; at career
-age 10 it reaches 0.420, 0.805 and 0.493 against 0.376, 0.770 and 0.443. It again has the highest AUC for a future
-top-1\% paper, and no other indicator beats it on more than one outcome. Section~\ref{sec:early} reports early
+\paragraph{Eligibility without the h-index condition.} The main rule requires an $h$-index of three. That condition
+selects the population by citations and by one of the compared indicators, and it excludes far more authors in some
+fields than in others (Section~\ref{sec:data}). Under the three-article rule, the same-career-age settings grow to 2.81,
+2.54 and 2.00 million authors at career ages 5, 10 and 15 (from 1.17, 1.45 and 1.24 million). PiP still beats the
+$h$-index on all three outcomes at every age, by 0.03 to 0.06, half to two thirds of the margin under the main rule; at
+career age 10 it reaches 0.420, 0.805 and 0.493 against 0.376, 0.770 and 0.443. It again has the highest AUC for a
+future top-1\% paper, and no other indicator beats it on more than one outcome. Section~\ref{sec:early} reports early
 detection under the same rule.
 
-\paragraph{Author disambiguation.} Semantic Scholar's author records come from automatic disambiguation, which can
-split one person across several records or merge different people. We matched the 16,218 Google Scholar profiles to
-Semantic Scholar through their publications: a profile's work matches a Semantic Scholar paper on its normalized title
-(at least 25 characters) and a publication year within one year, and the profile's counterpart is the Semantic Scholar
-author with the same surname who holds the most matched works. We find a confident counterpart (at least five matched
-works and at least 30\% of the profile's titles) for 14,511 profiles (89\%). For the median person, 76\% of their
-Google Scholar works are found in Semantic Scholar, and 90\% of those found sit under the main author record. Splitting
-is common, though: 64\% of people have at least two of their works under a second record with the same surname and
-first initial, and 42\% under a third. The main record is smaller than the profile (a median 67\% of the profile's
-cited works, and 78\% of its $h$-index), and its start year is later than the profile's for 47\% of people, because
-early work is missing or sits under another record.
+\paragraph{Author disambiguation.} Semantic Scholar's author records come from automatic disambiguation, which can split
+one person across several records or merge different people. To check that the results are not artifacts of this
+algorithm, we use the author-curated Google Scholar profiles. We matched the 16,218 profiles to Semantic Scholar through
+their publications. A profile's work matches a Semantic Scholar paper on its normalized title (at least 25 characters)
+and a publication year within one year. The profile's counterpart is the Semantic Scholar author record with the same
+surname that holds the most matched works. We find a confident counterpart (at least five matched works and at least
+30\% of the profile's titles) for 14,511 profiles (89\%). For the median person, 76\% of their Google Scholar works are
+found in Semantic Scholar, and 90\% of those found sit under the counterpart. Splitting is common, though: 64\% of
+people have at least two of their works under a second record with the same surname and first initial, and 42\% under a
+third. The counterpart is smaller than the profile (a median 67\% of the profile's cited works, and 78\% of its
+$h$-index), and its start year is later than the profile's for 47\% of people, because early work is missing or sits
+under another record.
 
-Despite these differences, the two sources rank people similarly. For the 9,796 people who have scores in both
-sources (Semantic Scholar start year 1995 or later, evaluated in 2025), the Spearman correlation between sources is
-0.82 for the $h$-index and 0.78 for PiP; each source computes percentiles against its
-own population (all eligible Semantic Scholar authors, and Google Scholar profiles). The agreement is lower for people
-split across three or more records (0.73) than for people with one record (0.76), but not by much. We read this as
-evidence that the results above are not artifacts of one disambiguation algorithm, and as a warning that individual
-Semantic Scholar scores can be off when a person's work is split.
+Despite these differences, the two sources rank people similarly. For the 9,796 people who have scores in both sources
+(Semantic Scholar start year 1995 or later, evaluated in 2025), the Spearman correlation between sources is 0.82 for the
+$h$-index and 0.78 for PiP. Each source computes percentiles against its own population: all eligible Semantic Scholar
+authors, and the Google Scholar profiles. For PiP, the agreement is lower for people split across three or more records
+(0.73) than for people with at most one record (0.76), but not by much. We read these comparisons as evidence that the
+results above are not artifacts of one disambiguation algorithm, and as a warning that individual Semantic Scholar
+scores can be off when a person's work is split.
 
-\paragraph{Survivorship.} The population includes every eligible author, not only those who stayed in research.
-Whether an author is still publishing at career ages 11--15 is predicted by their age-5 indicators with an AUC of 0.68
-for the article count, 0.62 for PiP, 0.58 for the $h$-index and 0.54 for citations.
-Continuing to publish is a matter of volume, so the indicators that weigh volume most predict it best. The prediction
-results of Section~\ref{sec:prediction} count authors who stop publishing as having no future top papers, which favors
-indicators that predict survival; PiP still leads the article count, which predicts survival best, on the top-1\%
-outcome and on future citation impact.
+\paragraph{Survivorship.} The population includes every eligible author, not only those who stayed in research, and
+the prediction results of Section~\ref{sec:prediction} count authors who stop publishing as having no future top
+papers. This choice favors indicators that predict survival, that is, whether an author continues to publish. Measured
+at career age 5, the indicators predict whether an author is still publishing at career ages 11--15 with an AUC of
+0.68 for the article count, 0.62 for PiP, 0.58 for the $h$-index and 0.54 for citations. Continuing to publish is a
+matter of volume, so the indicators that weigh volume most predict it best. PiP still leads the article count, the
+best predictor of survival, on the top-1\% outcome and on future citation impact.
 
 \section{Discussion}
 \label{sec:discussion}
@@ -977,100 +1092,128 @@ outcome and on future citation impact.
 \paragraph{Why PiP improves on the $h$-index.} The $h$-index summarizes a record by one point; PiP uses every paper
 above the cutoff, through a comparison with peers at every impact threshold. Three properties explain most of the gain
 in prediction. First, PiP gives credit to the best papers in proportion to how rare they are among peers: a single top
-paper raises the standing at the highest thresholds, where most peers have none, and the $h$-index ignores everything
-above the corner. Second, it gives credit to recent papers as soon as they stand out among papers of the same age,
-while the $h$-index waits until they have accumulated enough raw citations; this matters most early in a career, when
-most papers are recent, and is the likely source of much of PiP's lead in early detection (Section~\ref{sec:early});
-PiP-simple, which shares this property, detects future high performers almost as early. Third, its scale does not
-depend on the cohort, so scholars of different seniority can be compared, while the raw $h$-index favors those who
-started later, when citation rates were higher, and those who have been active longer. Setting PiP beside PiP-simple
-shows which part of the construction does what: percentiles within the publication year and the cutoff carry most of
-the gain over the $h$-index in predicting how many top papers will follow and in early detection, and the comparison
-with peers at every threshold, the first property, adds the gain in predicting the citation impact of future papers
+paper raises the standing at the highest thresholds, where most peers have none. The $h$-index ignores everything above
+the corner where the sorted citation curve crosses the diagonal. Second, PiP gives credit to recent papers as soon as
+they rise above the cutoff among papers of the same age, whereas the $h$-index waits until they have accumulated enough
+raw citations. This credit for recent papers matters most early in a career, when most papers are recent, and is the
+likely source of much of PiP's lead in early detection (Section~\ref{sec:early}). Third, PiP's scale does not depend on
+the start year: at the same career age, a given score is about equally rare in every cohort (Section~\ref{sec:cohorts}),
+and when people of different seniority are pooled, the raw score predicts almost as well as its cohort percentile
+(Section~\ref{sec:prediction}). By contrast, the raw $h$-index favors those who started later, when citation rates were
+higher, and those who have been active longer.
+
+Setting PiP beside PiP-simple shows which part of the construction does what. PiP-simple uses the same percentiles and
+cutoff, and so shares the credit for recent papers, but compares the scholar with peers only once. Percentiles within
+the publication year and the cutoff carry most of the gain over the $h$-index in predicting how many top papers will
+follow and in early detection, where PiP-simple detects future high performers almost as early as PiP. The comparison
+with peers at every threshold (the first property) adds the gain in predicting the citation impact of future papers
 and the chance of an exceptional one.
 
 \paragraph{Prediction and cumulative advantage.} Citations reward visibility as well as research quality: well-known
-scholars attract more citations for comparable work \citep{merton1968matthew,petersen2014reputation}. Part of the
-predictive power of any citation-based indicator, PiP and the $h$-index alike, may therefore come from reputation
-feeding itself rather than from the persistence of research quality. Removing self-citations, the most mechanical
-channel, leaves the ranking of indicators unchanged and lowers PiP's prediction of future citation impact by 0.02 to
-0.03 and the $h$-index's by less than 0.01; it does not rule out the broader effect of reputation, which would need an
-external source of variation to separate. Indicators can absorb cumulative advantage to different degrees, so it may
-also account for part of the differences between them. The test against later honors (Section~\ref{sec:honors}) uses
-an outcome that is not a citation count and gives the same ordering of PiP and the $h$-index, although honors are
+scholars attract more citations for comparable work \citep{merton1968matthew,petersen2014reputation}. For any
+citation-based indicator, PiP and the $h$-index alike, part of the predictive power may therefore come from reputation
+feeding itself (cumulative advantage) rather than from the persistence of research quality. The most mechanical channel
+of this feedback is self-citation. Removing self-citations leaves PiP ahead of the $h$-index but lowers PiP's prediction
+of future citation impact by 0.02 to 0.03 and the $h$-index's by less than 0.01. Part of PiP's lead on that outcome
+therefore runs through authors citing their own work, but the lead remains. The self-citation check does not rule out
+the broader effect of reputation; separating that effect from research quality would need variation in visibility that
+is unrelated to the quality of the work. Indicators can absorb cumulative advantage to different degrees, so it may also
+account for part of the differences between them. The test against later honors (Section~\ref{sec:honors}) uses an
+outcome that is not a citation count and gives the same ordering of PiP and the $h$-index, although honors are
 themselves shaped by visibility.
 
-\paragraph{Fields and windows.} The pooled score favors fields with high citation rates, and the field-normalized
-version removes most of that advantage. Field normalization brings its own choices: the field scheme, the assignment
-of multi-field papers and the assignment of an author to a main field \citep{zitt2005relativity,waltman2015field,
-waltman2019field}. Semantic Scholar's 23 fields are broad, and subfields with different citation habits share a
-reference set, so field normalization removes only the differences between these broad fields. Percentiles of recent
-papers are also noisier in fields where citations accumulate slowly (Section~\ref{sec:paperstability}). In those
-fields, an evaluation might count only papers older than two or three years, at the cost of ignoring the most recent
-work.
+\paragraph{Fields and windows.} In the pooled score, each paper is ranked against all articles of its publication
+year, whatever their field, so the score favors fields with high citation rates; the field-normalized version removes
+most of that advantage. Field normalization brings its own choices: the field scheme and the assignment of multi-field
+papers \citep{zitt2005relativity,waltman2015field,waltman2019field}, and, for a scholar, the assignment of a main field.
+Semantic Scholar's 23 fields are broad, and subfields with different citation habits share a reference set, so field
+normalization removes only the differences between these broad fields.
+
+Percentiles of recent papers are also noisier in fields where citations accumulate slowly, such as the humanities and
+law (Section~\ref{sec:paperstability}), so in those fields the credit that PiP gives to recent papers is least reliable
+and part of a scholar's score rests on percentiles that are still settling. An evaluation there might count only
+papers older than two or three years, at the cost of ignoring the most recent work.
 
 \paragraph{Limitations.}
 \begin{itemize}
-  \item \emph{Disambiguation.} Split author records shorten careers and move start years, which places the affected
-  person in a later cohort with a partial record. For evaluating individuals, a curated record such as a Google Scholar
-  or ORCID profile should be used.
-  \item \emph{Whole counting.} Every co-author receives full credit for every paper, regardless of the number of
-  authors or their roles. A fractional version would weight each paper's contribution to $n_a(\theta)$ by the author's
-  share \citep{waltman2015field}; we have not tested it.
-  \item \emph{The peer group.} Peers are defined by the year of the first article. Authors who start late, interrupt
-  their careers or move between research and other work are compared with a cohort whose careers ran differently. The
-  eligibility rule (three articles and an $h$-index of three) excludes much of the earliest stage of a career and of
-  the fields that cite slowly; without the $h$-index condition the main comparisons hold with smaller margins
-  (Sections~\ref{sec:early} and~\ref{sec:robustness}). A scholar with one exceptional paper and nothing else, the
-  example of Section~\ref{sec:properties}, is outside both rules; the score can be computed for such a record against
-  a cohort, but our tests do not cover it.
-  \item \emph{Retrospective reconstruction.} Publications and citations are limited to each evaluation year, but author
-  records, publication types and fields come from the 2026 release; an evaluation at the time would have seen different
-  records.
-  \item \emph{Reference set.} The article reference set depends on Semantic Scholar's publication types, which are
-  incomplete; untyped records are excluded from both the reference sets and the counts.
-  \item \emph{Consistency.} PiP is not consistent in the sense of \citet{waltman2012inconsistency}, although reversals
-  are rare in simulation.
+  \item \emph{Disambiguation.} Semantic Scholar's automatic disambiguation can split one person's work across several
+  author records or merge the work of different people into one. Split records shorten careers and move start years,
+  which places the affected person in a later cohort with a partial record. For evaluating individuals, a curated record
+  such as a Google Scholar or ORCID profile should be used.
+  \item \emph{Whole counting.} Every coauthor receives full credit for every paper, regardless of the number of authors
+  or their roles. Compared with fractional counting, it favors authors who publish in large teams. A fractional version
+  would weight each paper's contribution to the author's count $n_a(\theta)$ at each threshold by the author's share
+  \citep{waltman2015field}; we have not tested it.
+  \item \emph{The peer group.} Peers are defined by the start year, the year of the first article. Authors who start
+  late, interrupt their careers or move between research and other work are compared with a cohort whose careers ran
+  differently. The eligibility rule (three articles and an $h$-index of three) excludes much of the earliest stage of
+  a career and of the fields that cite slowly; under the three-article rule the main comparisons hold with smaller
+  margins (Sections~\ref{sec:early} and~\ref{sec:robustness}). Neither eligibility rule admits a scholar with one
+  top paper and nothing else (the example of Section~\ref{sec:properties}); the score can be computed for such
+  a record against a cohort, but our tests do not cover it.
+  \item \emph{Retrospective reconstruction.} Publications and citations are limited to those up to each evaluation
+  year, but author records, publication types and fields come from the 2026 release; an evaluation at the time would
+  have seen different records.
+  \item \emph{Reference set.} The set of articles against which each paper is ranked depends on Semantic Scholar's
+  publication types, which are incomplete; untyped records are excluded from the reference sets, the paper counts and
+  the $h$-index.
+  \item \emph{Consistency.} PiP is not consistent in the sense of \citet{waltman2012inconsistency}: adding the same
+  article to two authors can reverse their order, although such reversals are rare in simulation. The $h$-index shares
+  this property.
 \end{itemize}
 
 \paragraph{Responsible use.} PiP is meant to inform comparisons among scholars at a similar career stage, alongside
 reading the work itself and expert judgment, as the Leiden Manifesto \citep{hicks2015bibliometrics} and DORA
 \citep{dora2012} recommend. Its cutoff should be chosen before an evaluation, not tuned to favor a candidate, and the
-field version should be used when people from different fields are compared. A predictive correlation of 0.4 leaves
-most of a scholar's future unexplained.
+field-normalized version should be used when people from different fields are compared. A predictive correlation of
+0.4 leaves most of a scholar's future unexplained.
 
 \section{Conclusion}
 \label{sec:conclusion}
 
-PiP rates a scholar by the citation percentiles of their papers above a cutoff, compared with peers who started in
-the same year at every impact threshold. On 11.1 million Semantic Scholar authors its distribution changes little
-across cohorts since 1960, it is more stable over a career than the $h$-index, and it predicts future top
-papers and the citation impact of future work better than the $h$-index in every setting and field we tested; the lead
-narrows but remains when eligibility does not depend on citations. None of the indicators built from the same paper
-percentiles beats it on more than one of three outcomes, and comparing scholars with peers at every threshold, rather
-than once, improves the prediction of the citation impact of future work. It reaches the $h$-index's accuracy in
-detecting future high performers 1.6 to 1.9 years earlier. A single parameter moves it between quantity and impact.
-The construction needs only publication years and citation counts by year, and the code in the replication package
-computes it at full scale in a database. The website \url{https://www.pip-score.org} computes the earlier, asymmetric
-form of the score (Section~\ref{sec:pip}) from Google Scholar profiles.
+PiP rates a scholar by the citation percentiles of their papers above a cutoff, comparing the scholar at every impact
+threshold with peers who started publishing in the same year. For 11.1 million Semantic Scholar authors, the
+distribution of PiP changes little across career cohorts since 1960, and a scholar's PiP is more stable over a career
+than their $h$-index. PiP predicts three outcomes better than the $h$-index in every setting and field we tested: the
+number of future top papers, the chance of an exceptional paper and the citation impact of future work. At the same
+career age, the lead narrows but remains when eligibility does not depend on citations. None of the indicators built
+from the same paper percentiles beats PiP on more than one of these outcomes. PiP reaches the $h$-index's age-10
+accuracy in detecting future high performers 1.6 to 1.8 years earlier. Most of PiP's gain over the $h$-index comes from
+ranking papers within their publication year with a cutoff; comparing scholars with peers at every threshold adds the
+gain on citation impact and exceptional papers. PiP also anticipates later academy memberships, fellowships and prizes
+better than that index, though only slightly within already notable groups. The results hold without self-citations, PiP
+rankings from Semantic Scholar agree with rankings from author-curated Google Scholar profiles, and a field-normalized
+version removes most of the advantage of high-citation fields.
+
+A single parameter, the cutoff, moves PiP between quantity and impact. The construction needs only each scholar's
+articles, with their publication years and citations by year. The website \url{https://www.pip-score.org} computes the
+earlier, asymmetric form of the score (Section~\ref{sec:pip}) from Google Scholar profiles; the code in the replication
+package computes PiP itself at full scale in a database.
 
 \section*{Data and code availability}
-The SQL that builds every table in this paper, the numerical checks of the properties in Section~\ref{sec:pip}, the
-data behind every figure and the plotting scripts are in the \texttt{paper/} directory of
-\url{https://github.com/ipeirotis-org/scholar_v2}. Semantic Scholar data are available under the ODC-BY license from
-the Semantic Scholar Datasets API. % TODO(authors): deposit the derived tables (e.g., Zenodo) and cite the DOI here.
+The replication package is the \texttt{paper/} directory of \url{https://github.com/ipeirotis-org/scholar_v2}. It holds
+the SQL that builds every table in this paper, the result tables that the SQL writes, the numerical checks of the
+properties in Section~\ref{sec:pip}, the data behind every figure, the plotting scripts, and the scripts and curated
+honors of Section~\ref{sec:honors}. Semantic Scholar data are available under the ODC-BY license from the Semantic
+Scholar Datasets API \citep{s2datasets2026}; Wikidata is available under CC0 \citep{wikidata2026}. Author-level
+statistics for the Google Scholar profiles can be downloaded from \url{https://www.pip-score.org/data}; the per-article
+profile data used here are not redistributed. The derived tables, from the article-level reconstruction to the
+per-author scores, are in the BigQuery datasets \texttt{scholar-version2.paper\_rp} and
+\texttt{scholar-version2.paper\_rp\_noself} (without self-citations), which anyone signed in to Google Cloud can query;
+queries are billed to the reader's own project. The result tables and a snapshot of the replication package are archived
+on Zenodo \citep{ipeirotis2026replication}.
 
 \section*{Competing interests}
 Panos Ipeirotis developed and maintains \url{https://www.pip-score.org}, a free, non-commercial website that computes
-an earlier form of the score from Google Scholar profiles. The authors have no other competing interests.
-% TODO(authors): Sen Tian to confirm he has nothing to add.
+an earlier, asymmetric form of the score from Google Scholar profiles. The authors have no other competing interests.
 
 \section*{Funding}
-% TODO(authors).
 No specific funding was received for this work.
 
 \section*{Author contributions}
-% TODO(authors): CRediT roles.
+Panos Ipeirotis: Conceptualization, Methodology, Software, Formal analysis, Data curation, Visualization, Supervision,
+Writing -- original draft, Writing -- review \& editing. Sen Tian: Conceptualization, Methodology, Formal analysis,
+Writing -- review \& editing.
 
 \section*{Acknowledgments}
 We thank the reviewers of an earlier version of this work for comments that shaped this one.
