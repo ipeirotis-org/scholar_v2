@@ -1044,67 +1044,74 @@ best predictor of survival, on the top-1\% outcome and on future citation impact
 \paragraph{Why PiP improves on the $h$-index.} The $h$-index summarizes a record by one point; PiP uses every paper
 above the cutoff, through a comparison with peers at every impact threshold. Three properties explain most of the gain
 in prediction. First, PiP gives credit to the best papers in proportion to how rare they are among peers: a single top
-paper raises the standing at the highest thresholds, where most peers have none, and the $h$-index ignores everything
-above the corner. Second, it gives credit to recent papers as soon as they stand out among papers of the same age,
-while the $h$-index waits until they have accumulated enough raw citations; this matters most early in a career, when
-most papers are recent, and is the likely source of much of PiP's lead in early detection (Section~\ref{sec:early});
-PiP-simple, which shares this property, detects future high performers almost as early. Third, its scale does not
-depend on the cohort, so scholars of different seniority can be compared, while the raw $h$-index favors those who
-started later, when citation rates were higher, and those who have been active longer. Setting PiP beside PiP-simple
-shows which part of the construction does what: percentiles within the publication year and the cutoff carry most of
-the gain over the $h$-index in predicting how many top papers will follow and in early detection, and the comparison
-with peers at every threshold, the first property, adds the gain in predicting the citation impact of future papers
+paper raises the standing at the highest thresholds, where most peers have none. The $h$-index ignores everything
+above the corner where the sorted citation curve crosses the diagonal. Second, PiP gives credit to recent papers as
+soon as they stand out among papers of the same age, whereas the $h$-index waits until they have accumulated enough
+raw citations. This credit for recent papers matters most early in a career, when most papers are recent, and
+is the likely source of much of PiP's lead in early detection (Section~\ref{sec:early}). Third, PiP's scale does not
+depend on the cohort, so scholars of different seniority can be compared. By contrast, the raw $h$-index favors those
+who started later, when citation rates were higher, and those who have been active longer.
+
+Setting PiP beside PiP-simple shows which part of the construction does what. Percentiles within
+the publication year and the cutoff carry most of the gain over the $h$-index in predicting how many top papers will
+follow and in early detection, where PiP-simple detects future high performers almost as early as PiP. The comparison
+with peers at every threshold (the first property) adds the gain in predicting the citation impact of future papers
 and the chance of an exceptional one.
 
 \paragraph{Prediction and cumulative advantage.} Citations reward visibility as well as research quality: well-known
-scholars attract more citations for comparable work \citep{merton1968matthew,petersen2014reputation}. Part of the
-predictive power of any citation-based indicator, PiP and the $h$-index alike, may therefore come from reputation
-feeding itself rather than from the persistence of research quality. Removing self-citations, the most mechanical
-channel, leaves the ranking of indicators unchanged and lowers PiP's prediction of future citation impact by 0.02 to
-0.03 and the $h$-index's by less than 0.01; it does not rule out the broader effect of reputation, which would need an
-external source of variation to separate. Indicators can absorb cumulative advantage to different degrees, so it may
-also account for part of the differences between them. The test against later honors (Section~\ref{sec:honors}) uses
-an outcome that is not a citation count and gives the same ordering of PiP and the $h$-index, although honors are
-themselves shaped by visibility.
+scholars attract more citations for comparable work \citep{merton1968matthew,petersen2014reputation}. For any
+citation-based indicator, PiP and the $h$-index alike, part of the predictive power may therefore come from reputation
+feeding itself (cumulative advantage) rather than from the persistence of research quality. The most mechanical
+channel of this feedback is self-citation. Removing self-citations leaves the ranking of indicators unchanged but
+lowers PiP's prediction of future citation impact by 0.02 to 0.03 and the $h$-index's by less than 0.01. The self-citation
+check does not rule out the broader effect of reputation; separating that effect from research quality would need an
+external source of variation. Indicators can absorb cumulative advantage to different degrees, so it may also account
+for part of the differences between them. The test against later honors (Section~\ref{sec:honors}) uses an outcome
+that is not a citation count and gives the same ordering of PiP and the $h$-index, although honors are themselves
+shaped by visibility.
 
-\paragraph{Fields and windows.} The pooled score favors fields with high citation rates, and the field-normalized
-version removes most of that advantage. Field normalization brings its own choices: the field scheme and the
-assignment of multi-field papers \citep{zitt2005relativity,waltman2015field,waltman2019field}, and, for a scholar, the
-assignment of a main field. Semantic Scholar's 23 fields are broad, and subfields with different citation habits share a
-reference set, so field normalization removes only the differences between these broad fields. Percentiles of recent
-papers are also noisier in fields where citations accumulate slowly (Section~\ref{sec:paperstability}). In those
-fields, an evaluation might count only papers older than two or three years, at the cost of ignoring the most recent
-work.
+\paragraph{Fields and windows.} In the pooled score, each paper is ranked against all articles of its publication
+year, whatever their field, so the score favors fields with high citation rates; the field-normalized version removes
+most of that advantage. Field normalization brings its own choices: the field scheme and the assignment of multi-field
+papers \citep{zitt2005relativity,waltman2015field,waltman2019field}, and, for a scholar, the assignment of a main field.
+Semantic Scholar's 23 fields are broad, and subfields with different citation habits share a reference set, so field
+normalization removes only the differences between these broad fields.
+
+Percentiles of recent papers are also noisier in fields where citations accumulate slowly, such as the humanities and
+law (Section~\ref{sec:paperstability}). In those fields, an evaluation might count only papers older than two or three
+years, at the cost of ignoring the most recent work.
 
 \paragraph{Limitations.}
 \begin{itemize}
-  \item \emph{Disambiguation.} Split author records shorten careers and move start years, which places the affected
-  person in a later cohort with a partial record. For evaluating individuals, a curated record such as a Google Scholar
-  or ORCID profile should be used.
-  \item \emph{Whole counting.} Every co-author receives full credit for every paper, regardless of the number of
-  authors or their roles. A fractional version would weight each paper's contribution to $n_a(\theta)$ by the author's
-  share \citep{waltman2015field}; we have not tested it.
-  \item \emph{The peer group.} Peers are defined by the year of the first article. Authors who start late, interrupt
-  their careers or move between research and other work are compared with a cohort whose careers ran differently. The
-  eligibility rule (three articles and an $h$-index of three) excludes much of the earliest stage of a career and of
-  the fields that cite slowly; without the $h$-index condition the main comparisons hold with smaller margins
-  (Sections~\ref{sec:early} and~\ref{sec:robustness}). A scholar with one exceptional paper and nothing else, the
-  example of Section~\ref{sec:properties}, is outside both rules; the score can be computed for such a record against
-  a cohort, but our tests do not cover it.
-  \item \emph{Retrospective reconstruction.} Publications and citations are limited to each evaluation year, but author
-  records, publication types and fields come from the 2026 release; an evaluation at the time would have seen different
-  records.
-  \item \emph{Reference set.} The article reference set depends on Semantic Scholar's publication types, which are
-  incomplete; untyped records are excluded from both the reference sets and the counts.
-  \item \emph{Consistency.} PiP is not consistent in the sense of \citet{waltman2012inconsistency}, although reversals
-  are rare in simulation.
+  \item \emph{Disambiguation.} Semantic Scholar's automatic disambiguation can split one person's work across several
+  author records. Split records shorten careers and move start years, which places the affected person in a later
+  cohort with a partial record. For evaluating individuals, a curated record such as a Google Scholar or ORCID
+  profile should be used.
+  \item \emph{Whole counting.} Every coauthor receives full credit for every paper, regardless of the number of authors
+  or their roles. A fractional version would weight each paper's contribution to the author's count $n_a(\theta)$ at
+  each threshold by the author's share \citep{waltman2015field}; we have not tested it.
+  \item \emph{The peer group.} Peers are defined by the start year, the year of the first article. Authors who start
+  late, interrupt their careers or move between research and other work are compared with a cohort whose careers ran
+  differently. The eligibility rule (three articles and an $h$-index of three) excludes much of the earliest stage of
+  a career and of the fields that cite slowly; without the $h$-index condition the main comparisons hold with smaller
+  margins (Sections~\ref{sec:early} and~\ref{sec:robustness}). Neither eligibility rule admits a scholar with one
+  exceptional paper and nothing else (the example of Section~\ref{sec:properties}); the score can be computed for such
+  a record against a cohort, but our tests do not cover it.
+  \item \emph{Retrospective reconstruction.} Publications and citations are limited to those up to each evaluation
+  year, but author records, publication types and fields come from the 2026 release; an evaluation at the time would
+  have seen different records.
+  \item \emph{Reference set.} The set of articles against which each paper is ranked depends on Semantic Scholar's
+  publication types, which are incomplete; untyped records are excluded from both the reference sets and the paper
+  counts.
+  \item \emph{Consistency.} PiP is not consistent in the sense of \citet{waltman2012inconsistency}: adding the same
+  article to two authors can reverse their order, although such reversals are rare in simulation.
 \end{itemize}
 
 \paragraph{Responsible use.} PiP is meant to inform comparisons among scholars at a similar career stage, alongside
 reading the work itself and expert judgment, as the Leiden Manifesto \citep{hicks2015bibliometrics} and DORA
 \citep{dora2012} recommend. Its cutoff should be chosen before an evaluation, not tuned to favor a candidate, and the
-field version should be used when people from different fields are compared. A predictive correlation of 0.4 leaves
-most of a scholar's future unexplained.
+field-normalized version should be used when people from different fields are compared. A predictive correlation of
+0.4 leaves most of a scholar's future unexplained.
 
 \section{Conclusion}
 \label{sec:conclusion}
