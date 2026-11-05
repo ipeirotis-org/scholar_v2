@@ -46,7 +46,7 @@ def crawl_and_store(author_ids, budget, new_ids=(), new_budget=None):
     cooldown rather than being retried (and paid for) every day.
     """
     new_ids = set(new_ids)
-    author_rows, pub_rows, crawled_ids, failures = [], [], [], []
+    author_rows, pub_rows, crawled_ids, gone_ids, failures = [], [], [], [], []
     summary = {"crawled": 0, "failed": 0, "searches": 0, "skipped": 0, "new_searches": 0}
     for scholar_id in author_ids:
         is_new = scholar_id in new_ids
@@ -63,6 +63,8 @@ def crawl_and_store(author_ids, budget, new_ids=(), new_budget=None):
         if not result.ok:
             summary["failed"] += 1
             too_large = is_new and (result.error or "").startswith("search limit")
+            if result.permanent and serpapi_client.is_missing_profile(result.error):
+                gone_ids.append(scholar_id)
             if result.permanent or too_large:
                 failures.append({"scholar_id": scholar_id, "error": (result.error or "")[:500],
                                  "failed_at": datetime.now(timezone.utc).isoformat(timespec="seconds")})
@@ -80,7 +82,10 @@ def crawl_and_store(author_ids, budget, new_ids=(), new_budget=None):
     except Exception:
         logger.exception("Could not record %d crawl failures", len(failures))
     # Only after the snapshots are in BigQuery, so a repopulation sees the new data.
-    cache_invalidate.invalidate_authors(crawled_ids)
+    # Profiles found gone are now in gs_data.retired_profiles (the failures above); clearing
+    # their cache makes the next visit show the "no longer on Google Scholar" page
+    # instead of the last cached metrics.
+    cache_invalidate.invalidate_authors(crawled_ids + gone_ids)
     return summary
 
 

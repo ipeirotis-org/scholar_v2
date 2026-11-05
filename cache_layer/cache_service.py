@@ -72,6 +72,17 @@ class CacheService:
             return {"status": "error", "message": "Missing scholar_id"}
 
         exists, last_updated = self.bq.get_author_freshness(scholar_id)
+        if not exists and Config.IS_GS and _GS_ID_RE.match(scholar_id) and self.bq.is_retired(scholar_id):
+            # Google Scholar no longer serves this profile (gs_data.retired_profiles):
+            # a crawl would only fail again, so record it as gone instead of paying
+            # for one on every visit. The frontend shows a "profile no longer
+            # exists" page; a later successful crawl invalidates this entry.
+            self.writer.write(Config.CACHE_AUTHOR_FRESHNESS, scholar_id, {
+                "exists": False,
+                "retired": True,
+                "last_updated": None,
+            })
+            return {"status": "not_found", "scholar_id": scholar_id, "retired": True}
         if not exists and Config.IS_GS and _GS_ID_RE.match(scholar_id):
             # Unknown GS author: crawl the profile now (~3 SerpApi searches),
             # unless another task is already crawling it.

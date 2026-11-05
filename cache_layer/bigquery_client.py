@@ -177,6 +177,22 @@ class BigQueryClient:
             return []
         return df.to_dict("records")
 
+    def is_retired(self, scholar_id):
+        """True when Google Scholar no longer serves this profile (gs_data.retired_profiles).
+
+        GS mode only; False when the lookup fails, so a BigQuery hiccup falls back to
+        the normal on-demand crawl rather than hiding a real profile.
+        """
+        if not Config.IS_GS:
+            return False
+        sql = f"""
+            SELECT 1 FROM {Config.bq_gs('retired_profiles')}
+            WHERE scholar_id = @scholar_id
+            LIMIT 1
+        """
+        df = self._query(sql, [ScalarQueryParameter("scholar_id", "STRING", scholar_id)])
+        return df is not None and not df.empty
+
     def get_author_freshness(self, scholar_id):
         """Check author existence and get last_updated timestamp.
 

@@ -78,6 +78,7 @@ class TestWikidataIndex:
         wiki_sql = client._query.call_args_list[1][0][0]
         assert "gs_data.wikidata_authors`" in wiki_sql
         assert "NOT IN" in wiki_sql and "ranked_author_current`" in wiki_sql
+        assert "gs_data.retired_profiles`" in wiki_sql  # deleted profiles are not offered
 
     def test_coauthors_added_and_merged_with_wikidata(self, gs_mode):
         client = self._client(
@@ -95,6 +96,7 @@ class TestWikidataIndex:
         assert index["C"]["source"] == "coauthor"
         co_sql = client._query.call_args_list[2][0][0]
         assert "UNNEST(a.coauthors)" in co_sql and "ranked_author_current`" in co_sql
+        assert "gs_data.retired_profiles`" in co_sql
 
     def test_failed_coauthor_query_keeps_the_rest(self, gs_mode):
         client = self._client([{"scholar_id": "A", "name": "Profiled"}],

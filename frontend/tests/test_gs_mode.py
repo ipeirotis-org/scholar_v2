@@ -275,3 +275,33 @@ def test_index_without_prefill_does_not_search(monkeypatch):
     html = _index_with_recent(monkeypatch, "gs")
     assert 'value=""' in html
     assert "\n    findAuthor();" not in html
+
+
+def test_retired_profile_page(monkeypatch):
+    """Profiles Google Scholar no longer serves get an explanation, not a spinner."""
+    monkeypatch.setattr(Config, "DATA_SOURCE", "gs")
+    from frontend.app import create_app
+    with mock.patch("frontend.routes.FirestoreCache") as cache_cls, \
+         mock.patch("frontend.routes.enqueue_cache_populate") as enqueue:
+        cache_cls.return_value.get.side_effect = lambda c, d: (
+            {"exists": False, "retired": True, "last_updated": None} if c == "v3_author_freshness" else None)
+        html = create_app(config={"TESTING": True, "SECRET_KEY": "t"}).test_client() \
+            .get("/results?author_id=rLUV2ToAAAAJ").get_data(as_text=True)
+    assert "Profile no longer on Google Scholar" in html
+    assert "removed it or made it private" in html
+    assert "spinner-border" not in html and "automatically refresh" not in html
+    assert "window.location.href" not in html  # no reload loop
+    enqueue.assert_not_called()
+
+
+def test_plain_not_found_keeps_its_page(monkeypatch):
+    monkeypatch.setattr(Config, "DATA_SOURCE", "gs")
+    from frontend.app import create_app
+    with mock.patch("frontend.routes.FirestoreCache") as cache_cls, \
+         mock.patch("frontend.routes.enqueue_cache_populate"):
+        cache_cls.return_value.get.side_effect = lambda c, d: (
+            {"exists": False} if c == "v3_author_freshness" else None)
+        html = create_app(config={"TESTING": True, "SECRET_KEY": "t"}).test_client() \
+            .get("/results?author_id=rLUV2ToAAAAJ").get_data(as_text=True)
+    assert "was not found in our database" in html
+    assert "Profile no longer on Google Scholar" not in html

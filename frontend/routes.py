@@ -254,6 +254,11 @@ def register_routes(app):
             return cached.get("exists", True), cached.get("last_updated")
         return None, None
 
+    def _is_retired(author_id):
+        """True when the cache layer recorded this GS profile as gone from Google Scholar."""
+        cached = _read_cache(Config.CACHE_AUTHOR_FRESHNESS, author_id)
+        return bool(cached and cached.get("retired"))
+
     @app.route("/results")
     def results():
         author_id = _validate_scholar_id(request.args.get("author_id", "").strip())
@@ -289,7 +294,7 @@ def register_routes(app):
             return render_template(
                 "redirect.html",
                 author_id=author_id,
-                status="not_found",
+                status="retired" if _is_retired(author_id) else "not_found",
             )
 
         # Read all data from cache (parallel)
