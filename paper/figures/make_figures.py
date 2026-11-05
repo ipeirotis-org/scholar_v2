@@ -5,6 +5,8 @@
   fig_cohorts          a PiP score means the same thing across cohorts; the raw h-index drifts
   fig_prediction       predicting future work: PiP (tau = 0.5) vs the original PiP-AUC vs h-index (raw and percentile)
   fig_fields           share of each field in its cohort's top 10%: pooled vs field-normalized score
+  fig_frontier         PiP at every cutoff against percentile-based indicators: future quantity vs future quality
+  fig_early            early detection: accuracy by the career age at which each indicator is measured
 
 Run: python3 paper/figures/make_figures.py   (matplotlib; Inter if installed)
 """
@@ -207,6 +209,123 @@ def fig_fields():
     save(fig, "fig_fields")
 
 
+def fig_frontier():
+    rows = read("fig7_frontier.csv")
+    panels = [("same_age", "10", "_raw", "(a) Career age 10"),
+              ("same_year", "2005", "_pct", "(b) All active authors in 2005, cohort percentiles")]
+    baselines = [("h", "h-index"), ("pip_original", "original PiP-AUC"), ("i3", "I3 (sum of percentiles)"),
+                 ("top10", "top-10% count"), ("top10_age", "top-10% per year"), ("top1", "top-1% count")]
+    # label offsets in points (dx, dy); ha follows the sign of dx, 0 centers
+    offsets = {
+        "10": {"h": (6, 0), "pip_original": (-7, 6), "i3": (-7, -6), "top10": (0, -11), "top1": (6, 0)},
+        "2005": {"h": (6, 0), "pip_original": (-7, 6), "i3": (-7, -6), "top10": (0, -11),
+                 "top10_age": (-6, 9), "top1": (6, 0)},
+    }
+    tau_offsets = {
+        "10": {"0": (6, 0), "25": (6, 0), "50": (7, 2), "60": (6, 4), "75": (0, 8), "90": (-6, 6)},
+        "2005": {"0": (6, 0), "25": (6, 0), "50": (7, 2), "60": (6, 5), "75": (6, 7), "90": (-6, 4)},
+    }
+    taus = [("0", "τ = 0"), ("25", ".25"), ("50", ".5"), ("60", ".6"), ("75", ".75"), ("90", ".9")]
+    ha = lambda dx: "left" if dx > 0 else ("right" if dx < 0 else "center")
+    fig, axes = plt.subplots(1, 2, figsize=(7.2, 3.3), facecolor=SURFACE, sharey=True)
+    for ax, (sc, st, form, title) in zip(axes, panels):
+        clean(ax, title, grid_axis="both")
+        val = {r["predictor"]: (float(r["spearman_top10"]), float(r["spearman_mean_pct"]))
+               for r in rows if r["scenario"] == sc and r["setting"] == st}
+        xs = [val[f"pip_sym{t}{form}"][0] for t, _ in taus]
+        ys = [val[f"pip_sym{t}{form}"][1] for t, _ in taus]
+        ax.plot(xs, ys, color=BLUE, linewidth=1.6, zorder=3)
+        dots(ax, xs, ys, BLUE, ms=5)
+        dots(ax, [val[f"pip_sym50{form}"][0]], [val[f"pip_sym50{form}"][1]], BLUE, ms=8.5)
+        for (t, lab), x, y in zip(taus, xs, ys):
+            dx, dy = tau_offsets[st][t]
+            ax.annotate(lab, (x, y), xytext=(dx, dy), textcoords="offset points", color=BLUE, fontsize=6.8,
+                        ha=ha(dx), va="center", fontweight="semibold" if t == "50" else "normal")
+        for key, label in baselines:
+            if key == "top10_age" and sc == "same_age":
+                continue  # ranks exactly like the top-10% count within one career age
+            name = f"{key}{form}" if f"{key}{form}" in val else f"{key}_raw"
+            x, y = val[name]
+            dots(ax, [x], [y], INK3, marker="s", ms=4.6)
+            dx, dy = offsets[st][key]
+            ax.annotate(label, (x, y), xytext=(dx, dy), textcoords="offset points", color=INK2, fontsize=6.6,
+                        ha=ha(dx), va="center")
+        mean_x, mean_y = (v + 0.0 if abs(v) >= 0.005 else 0.0 for v in val[f"mean_pct{form}"])
+        art_x, art_y = (v + 0.0 if abs(v) >= 0.005 else 0.0 for v in val[f"articles{form}"])
+        ax.text(0.02, 0.03, f"Off the chart: mean percentile ({mean_x:.2f}, {mean_y:.2f}),\n"
+                f"article count ({art_x:.2f}, {art_y:.2f})", transform=ax.transAxes, color=INK2, fontsize=6.4,
+                va="bottom")
+        ax.set_xlabel("Predicts the number of future top-10% papers")
+        ax.set_xlim(0.22, 0.48)
+        ax.set_ylim(0.14, 0.38)
+    axes[0].set_ylabel("Predicts the mean percentile of future papers")
+    fig.tight_layout(w_pad=1.2)
+    save(fig, "fig_frontier")
+
+
+def spread_labels(ys, gap):
+    """Nudge label positions apart (keeping their order) so that neighbors are at least `gap` apart."""
+    order = sorted(range(len(ys)), key=lambda i: ys[i], reverse=True)
+    out = list(ys)
+    for k in range(1, len(order)):
+        i, j = order[k - 1], order[k]
+        if out[i] - out[j] < gap:
+            out[j] = out[i] - gap
+    return out
+
+
+def interp_age(curve, target):
+    ts = sorted(curve)
+    for a, b in zip(ts, ts[1:]):
+        if curve[a] < target <= curve[b]:
+            return a + (target - curve[a]) / (curve[b] - curve[a])
+    return None
+
+
+def fig_early():
+    rows = [r for r in read("fig8_early.csv") if r["pop_age"] == "3"]
+    preds = [("pip", "PiP", BLUE, 2.0), ("h", "h-index", ORANGE, 1.6), ("top10", "top-10% count", INK3, 1.0),
+             ("i3", "I3", INK3, 1.0), ("articles", "articles", INK3, 1.0), ("citations", "citations", INK3, 1.0)]
+    panels = [("precision_top10", "(a) Finding future stars: precision of the top 10%", "Share of picks who become stars",
+               0.10, 0.021),
+              ("auc_any_top1", "(b) Any future top-1% paper", "ROC AUC", 0.5, 0.0175)]
+    fig, axes = plt.subplots(1, 2, figsize=(7.2, 3.2), facecolor=SURFACE)
+    for ax, (col, title, ylabel, chance, gap) in zip(axes, panels):
+        clean(ax, title)
+        ax.title.set_fontsize(7.8)
+        curves = {}
+        for key, label, color, lw in preds:
+            c = {int(r["t"]): float(r[col]) for r in rows if r["predictor"] == key}
+            curves[key] = c
+            ts = sorted(c)
+            ax.plot(ts, [c[t] for t in ts], color=color, linewidth=lw, zorder=4 if key in ("pip", "h") else 2)
+            if key in ("pip", "h"):
+                dots(ax, ts, [c[t] for t in ts], color, ms=4)
+        ends = [curves[k][10] for k, *_ in preds]
+        label_y = spread_labels(ends, gap)
+        for (key, label, color, _), y in zip(preds, label_y):
+            ax.text(10.2, y, label, color=color if key in ("pip", "h") else INK2, fontsize=6.8, va="center",
+                    fontweight="semibold" if key == "pip" else "normal")
+        # lead time: where PiP reaches the h-index's accuracy at age 10
+        target = curves["h"][10]
+        a = interp_age(curves["pip"], target)
+        if a is not None:
+            ax.annotate("", xy=(a, target), xytext=(10, target),
+                        arrowprops=dict(arrowstyle="->", color=INK, linewidth=0.9, shrinkA=0, shrinkB=0))
+            ax.text(a - 0.15, target + gap * 0.15, f"PiP gets there\n{10 - a:.1f} years earlier", color=INK,
+                    fontsize=6.8, ha="right", va="bottom", zorder=6)
+        ax.axhline(chance, color=INK3, linewidth=0.7, linestyle=(0, (1, 2)))
+        ax.text(3.05, chance, "chance", color=INK3, fontsize=6.4, va="bottom")
+        ax.set_xlim(3, 12.2)
+        ax.set_xticks(range(3, 11))
+        ax.set_xlabel("Career age at which the indicator is measured")
+        ax.set_ylabel(ylabel)
+    axes[0].set_ylim(0.08, 0.56)
+    axes[1].set_ylim(0.48, 0.87)
+    fig.tight_layout(w_pad=1.5)
+    save(fig, "fig_early")
+
+
 if __name__ == "__main__":
     setup()
     fig_standing_curves()
@@ -214,3 +333,5 @@ if __name__ == "__main__":
     fig_cohorts()
     fig_prediction()
     fig_fields()
+    fig_frontier()
+    fig_early()

@@ -634,3 +634,228 @@ fragmentation is a real limitation. The paper should:
 - report both sources;
 - note that S2 shortens careers and splits profiles;
 - treat GS (author-curated profiles) as the check on S2.
+
+## 14. PiP against percentile-based indicators (`sql/20_percentile_baselines.sql`)
+
+The prediction setup is that of §7. The baselines use the same paper percentiles as PiP (`below` at the evaluation
+year):
+
+- the number of articles in the top 10% (Leiden), also divided by career age (Bornmann & Marx 2014);
+- the number of articles in the top 1%;
+- I3, the sum of the percentiles (Leydesdorff & Bornmann 2011);
+- the mean percentile.
+
+Each enters raw and as a within-cohort Hazen percentile. PiP and the h-index reproduce §7–§8 exactly.
+
+### Results
+
+Values are future top-10% count (Spearman) / any future top-1% (AUC) / future mean percentile (Spearman). Age 10 uses
+raw values; 2005 uses within-cohort percentiles.
+
+| Indicator | Age 10 | 2005 |
+|---|---|---|
+| PiP (τ = 0.5) | .427 / **.772** / .321 | .416 / **.781** / .318 |
+| Original PiP-AUC | .434 / .756 / .190 | .433 / .770 / .201 |
+| h-index | .352 / .719 / .230 | .363 / .737 / .241 |
+| Articles | .437 / .740 / .000 | **.439** / .757 / .019 |
+| Top-10% count | .360 / .748 / .338 | .354 / .762 / .324 |
+| Top-10% per year of career (raw) | = top-10% count | .379 / .771 / .345 |
+| Top-1% count | .250 / .641 / .228 | .262 / .698 / .225 |
+| I3 | **.438** / .755 / .182 | .434 / .769 / .189 |
+| Mean percentile | −.043 / .523 / **.394** | −.042 / .526 / **.404** |
+
+### What it shows
+
+- **No baseline beats PiP (τ = 0.5) on more than one outcome, in any of the five settings.** None beats it on the
+  top-1% AUC.
+- **The mean percentile** is the best predictor of future quality, but it carries no information about quantity.
+- **I3 and the article count** match PiP on the future count but are weak on quality.
+- **The top-10% count** is the closest competitor. It is better on quality (.338 against .321 at age 10) and worse on
+  the count (.360 against .427) and on the top-1% AUC.
+- **The τ family forms a frontier.**
+  - τ = 0 matches or beats I3 and the original PiP-AUC on all three outcomes in every setting.
+  - τ = 0.75 matches or beats the top-10% count in every setting.
+  - τ from 0.25 to 0.75 beats the h-index on all three outcomes.
+  - The mean percentile lies beyond the frontier, at the pure-quality end. The article count lies just beyond it at
+    age 15 and in 2000. The top-10% count per year lies on the frontier next to τ = 0.75.
+- **The knee of the frontier is at τ = 0.5.** From τ = 0.25 to 0.5, quality gains 0.056 and the count loses 0.016.
+  Past 0.5, quality gains less for each unit of count lost.
+
+### Raw against percentile PiP
+
+In the same-year settings, PiP's cohort percentile predicts slightly better than the raw score (2005: .416 / .781 /
+.318 against .407 / .776 / .310). The manuscript previously said no conversion was needed; that sentence is
+corrected. The gain is much smaller than for the h-index (+0.08).
+
+### Replication across 26 cohorts (age 10, start years 1975–2000, 17,867 to 122,114 authors)
+
+Sampling error is below 0.001 with more than a million authors per setting, so the check that matters is whether the
+results hold cohort by cohort.
+
+- **Against the h-index,** PiP wins on all three outcomes in all 26 cohorts. On the count it leads by 0.055–0.102.
+- **Against the top-10% count,** PiP wins on the count (by 0.050–0.076) and on the top-1% AUC in all 26 cohorts. It
+  loses on quality in 20 cohorts (by −0.074 to +0.009). At τ = 0.6 it loses on quality in 15.
+- **Against I3, the article count and the original PiP-AUC,** PiP wins on the top-1% AUC and on quality in all 26
+  cohorts. On the count it wins in 11–14 cohorts, with differences between −0.033 and +0.044.
+
+## 15. Early detection (`sql/21_early_detection.sql`)
+
+The question is how soon each indicator picks out the scholars who will do well later.
+
+### Setup
+
+- **Fixed populations:** authors active at career age 3 (306,854) and, separately, at age 5 (711,986). Start years
+  are 1975–2000. Activity persists, so every member has every indicator at every later age.
+- **Measurement:** each indicator is measured at ages s..10 as a within-cohort Hazen percentile.
+- **Fixed outcome window:** articles published at career ages 11–20, each scored at its own age 5.
+- **Future star:** the top 10% of the cohort (within the population) by the number of top-10% articles at ages 11–20.
+  Ties are broken by the mean percentile, then by a hash of the author id.
+
+### Population active at age 3
+
+Each cell is precision of the cohort's top 10% at finding stars (chance 0.10) / AUC for at least one top-1% article.
+
+| Measured at | PiP | Original PiP-AUC | I3 | Articles | Top-10% count | h-index | Citations |
+|---|---|---|---|---|---|---|---|
+| Age 3 | **.211** / **.629** | .204 / .611 | .203 / .615 | .196 / .612 | .196 / .616 | .176 / .560 | .174 / .598 |
+| Age 5 | **.299** / **.705** | .292 / .693 | .283 / .691 | .268 / .685 | .278 / .679 | .248 / .660 | .224 / .663 |
+| Age 10 | **.486** / **.817** | .486 / .811 | .460 / .803 | .430 / .793 | .469 / .794 | .423 / .782 | .368 / .768 |
+
+- **PiP leads at every age on both AUC measures** (stars and top-1%). On precision it leads at every age except 9
+  and 10, where the original PiP-AUC matches it (.451 against .450, then .486 against .486).
+
+### Lead time
+
+How many years earlier PiP reaches each indicator's accuracy, taken as the range over target ages 5–10:
+
+| Compared with | Star precision | Star AUC | Top-1% AUC |
+|---|---|---|---|
+| h-index | 1.2–1.8 | 1.1–1.6 | 1.3–1.9 |
+| Citations | 1.7–3.2 | 1.4–2.8 | 1.2–2.5 |
+| Articles | 0.7–1.6 | 0.3–0.9 | 0.6–1.3 |
+| Top-10% count | 0.5–0.6 | 1.0–1.3 | 0.8–1.3 |
+| I3 | 0.4–0.7 | 0.2–0.4 | 0.4–0.8 |
+| Original PiP-AUC | 0.0–0.2 | 0.0–0.2 | 0.3–0.4 |
+
+For the population active at age 5, the leads are similar: 1.2–1.8 years over the h-index and 1.6–2.9 over
+citations.
+
+### Other outcomes
+
+On the count of future top-10% papers, the article count is slightly ahead of PiP at the earliest ages. On future
+mean quality, the mean percentile is best at every age. This is the same ordering as in §7 and §14.
+
+### Reading
+
+PiP's early-detection advantage is in finding the scholars at the top, who combine volume with highly cited work, and
+in anticipating exceptional papers. It reaches the h-index's age-10 accuracy at about age 8.
+
+## 16. Holdout check for τ (`sql/23_tau_holdout.sql`)
+
+τ = 0.5 was chosen from results that pooled all cohorts. To check it isn't tuned to them, the same-age prediction
+settings of §14 are split into two samples:
+
+- **Choice sample:** start years 1975–1990.
+- **Test sample:** start years from 1991 (1991–2005 at age 5, 1991–2000 at age 10, 1991–1995 at age 15).
+
+Values are future top-10% count / any future top-1% (AUC) / future mean percentile, at career age 10:
+
+| τ | Choice (550K) | Test (905K) |
+|---|---|---|
+| 0 | .403 / .737 / .195 | .470 / .783 / .242 |
+| 0.25 | .405 / .743 / .234 | .465 / .786 / .286 |
+| 0.5 | .401 / .750 / .294 | .443 / .785 / .339 |
+| 0.6 | .392 / **.751** / .320 | .429 / .783 / .353 |
+| 0.75 | .371 / .750 / .347 | .398 / .775 / .362 |
+| 0.9 | .332 / .740 / .340 | .356 / .756 / .336 |
+| h-index | .311 / .695 / .232 | .380 / .733 / .237 |
+| Top-10% count | .342 / .733 / .335 | .371 / .758 / .339 |
+
+### Selection on the choice sample
+
+The selection rule is the one stated in the paper: the highest top-1% AUC among cohort-stable cutoffs (τ ≤ 0.6). On the
+choice sample it selects τ = 0.6 at age 10, with τ = 0.5 within 0.001.
+
+### Test sample
+
+Both τ = 0.5 and τ = 0.6 keep every comparison at ages 5, 10 and 15:
+
+- they beat the h-index on all three outcomes;
+- no baseline beats them on more than one outcome;
+- they have the best top-1% AUC.
+
+Across τ from 0.25 to 0.6, the test-sample top-1% AUC varies by less than 0.01 (0.008 / 0.003 / 0.005 at ages 5 / 10 /
+15).
+
+### Differences between the samples
+
+- **The knee of the quantity–quality trade-off moves.** In the older cohorts it sits between 0.6 and 0.75; in the test
+  cohorts it sits at 0.5.
+- **One exception at age 5 in the choice sample.** There the top-10% count ties τ = 0.5 on the top-1% AUC (.686 each)
+  and beats it on quality (.296 against .195). τ = 0.6 keeps its lead in that setting.
+
+## 17. Later recognition: Wikidata honors, Google Scholar IDs and Wikipedia (`sql/22_honors.sql`, `sql/24_gs_honors.sql`, `honors/`)
+
+### Honors
+
+The outcome is 65 curated senior honors from Wikidata: academies, learned-society fellowships (AAAS, ACM, IEEE, APS
+and others) and major prizes. The curation leaves out:
+
+- plain society memberships;
+- state orders and student scholarships;
+- Clarivate Citation Laureates, which are citation-based and would make the test circular.
+
+Honorees reach S2 authors by two routes:
+
+- **Semantic Scholar route:** Wikidata items that carry an S2 author ID (41,272 items).
+- **Google Scholar route:** Wikidata items that carry a GS ID (12,434 honorees). These are linked to S2 through our
+  crawled GS profiles and the title matching of §13, using confident matches only.
+
+### Prediction test on S2
+
+Each indicator is measured at career age 5 or 10 as a within-cohort percentile, start years 1960–2000. People whose
+first dated honor came at or before the evaluation year are dropped. That leaves 1,064 future honorees at age 5 and
+1,555 at age 10. Intervals are 95% bootstrap intervals, 1,000 resamples.
+
+| AUC | All, age 5 | All, age 10 | Wikidata people, 10 | GS faculty, 10 |
+|---|---|---|---|---|
+| PiP τ = 0.5 | .749 | .816 | .628 | .631 |
+| PiP τ = 0.75 | **.760** | **.826** | .646 | .638 |
+| PiP τ = 0.9 | .755 | .821 | **.654** | **.640** |
+| Original PiP-AUC | .719 | .791 | .603 | .622 |
+| h-index | .710 | .782 | .610 | .623 |
+| Citations | .701 | .789 | .629 | .627 |
+| Top-10% count | .747 | .816 | .644 | .634 |
+| I3 | .721 | .788 | .595 | .622 |
+| Articles | .693 | .772 | .569 | .611 |
+
+- **PiP against the h-index, all authors:** +0.039 [0.029, 0.049] at age 5 and +0.035 [0.030, 0.040] at age 10.
+- **PiP against the top-10% count:** a tie, +0.000 [−0.005, 0.005].
+- **Within the notable groups:** discrimination is weak for every indicator. PiP is ahead of the h-index at age 10
+  (+0.018 among Wikidata people, +0.008 among GS faculty) and level with it at age 5. The top-10% count and τ ≥ 0.75
+  do best.
+- **Dated honors only:** the same pattern holds.
+
+### Cross-sectional test on GS (15,890 profiles)
+
+Scores and recognition are both measured now, so this checks agreement, not prediction.
+
+| Outcome | Measure | PiP τ = 0.5 | τ = 0.75 | Original | h-index | Citations | Top-10% count |
+|---|---|---|---|---|---|---|---|
+| Honors (1,497) | AUC | .712 | .711 | .696 | .708 | **.714** | .709 |
+| Wikipedia article (2,160) | AUC | .716 | **.721** | .692 | .704 | **.721** | .720 |
+| Wikipedia pageviews (among those with an article) | Spearman | .259 | .310 | .179 | .219 | **.324** | .320 |
+
+### Reading
+
+- **Recognition rewards highly cited work more than volume.** The impact end of the dial (τ = 0.75) and the top-10%
+  count do best. The volume-leaning indicators (articles, I3, the original PiP-AUC) do worst.
+- **PiP beats the h-index on a non-citation outcome**, most clearly when it comes to finding future honorees among all
+  scholars, early in their careers.
+
+### Correction to the first run
+
+The first run of the all-authors comparison used notable non-honorees, kept in full, next to a 10% random sample of
+everyone else. That pulled its AUCs down. The all-authors comparison now uses every honoree against the random sample
+only.
+

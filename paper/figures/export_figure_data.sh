@@ -67,4 +67,14 @@ q 'WITH r AS (SELECT main_field,
      FROM `scholar-version2.paper_rp.field_normalized_scores` WINDOW w AS (PARTITION BY start_year))
    SELECT main_field, COUNT(*) AS authors, AVG(IF(p_pooled >= 0.9, 1, 0)) AS top10_pooled, AVG(IF(p_fn >= 0.9, 1, 0)) AS top10_fn
    FROM r GROUP BY main_field HAVING authors >= 5000 ORDER BY top10_pooled DESC' > fig6_fields.csv
+# Fig. 7: PiP at every cutoff against percentile-based indicators (from 20): career age 10 with raw values, and the
+# year 2005 (career ages 2-30) with within-cohort percentiles, plus the age-normalized top-10% count
+q 'SELECT scenario, setting, predictor, spearman_top10, auc_any_top1, spearman_mean_pct
+   FROM `scholar-version2.paper_rp.baseline_prediction`
+   WHERE (scenario = "same_age" AND setting = 10 AND ENDS_WITH(predictor, "_raw"))
+      OR (scenario = "same_year" AND setting = 2005 AND (ENDS_WITH(predictor, "_pct") OR predictor = "top10_age_raw"))
+   ORDER BY scenario, setting, predictor' > fig7_frontier.csv
+# Fig. 8: early detection (from 21): accuracy by measurement age, fixed populations (active at age 3 or 5)
+q 'SELECT pop_age, t, predictor, n, spearman_top10, auc_any_top1, auc_star, precision_top10, spearman_mean_pct
+   FROM `scholar-version2.paper_rp.early_detection_results` ORDER BY pop_age, t, predictor' > fig8_early.csv
 ls -la
