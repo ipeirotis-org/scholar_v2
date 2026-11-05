@@ -18,6 +18,16 @@ Every changed number was recomputed from the files the pipeline writes (`paper/f
 
 Each item gives the exact text of each option. Reply with the item and the letter (for example "D1 A, D2 B, D3 B").
 
+**Status after your reply of 5 November 2026 (D1 A, D2 B, D3 B, D6 A, D7 A, D8 A):** those six are applied as written
+(D6 sets *papers* in italics). Still open: D4 (text unchanged, so currently C), D5 (still a `% TODO`), D9 and D10
+(text unchanged, so currently A), D11 (inputs), and D12 below, which D8 created.
+
+**D12. Conclusion overlap after D8.** The Conclusion now says twice that the comparison at every threshold improves
+the prediction of citation impact and exceptional papers.
+- **A.** Delete the earlier sentence, "The prediction of future citation impact and of exceptional papers improves
+  when scholars are compared with peers at every threshold rather than once." The D8 sentence keeps the claim.
+- **B.** Keep both.
+
 **D1. Abstract length.** A web search reports that QSS limits abstracts to 200 words (MIT Press submission guidelines;
 the page itself returned 403 to my fetch, so please confirm). The current abstract has about 350 words.
 - **A.** Replace it with this 199-word version (every number checked against the manuscript):
