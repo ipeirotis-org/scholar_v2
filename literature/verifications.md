@@ -2657,3 +2657,16 @@ updates: none
 verdict: supported
 evidence: The draft holds one file, the archive of paper/ at cc071a3, which contains results/ (28 result tables) and the SQL, figure data, checks and honors scripts; the record description names the result tables and the BigQuery datasets.
 notes: The authors' own deposit. The DOI is reserved and resolves only after the authors publish the record; re-check then, and replace the file if the manuscript changes before publication.
+
+## [2026-11-05T19:20Z] cite:ipeirotis2026replication — paper/manuscript_qss/main.tex:1204
+claim: "The result tables and a snapshot of the replication package are archived on Zenodo \citep{ipeirotis2026replication}."
+claim-hash: e5950df8c0b7
+source: doi:10.5281/zenodo.23987119
+version-read: unpublished Zenodo draft (deposition 23987119), read through the deposit API on 2026-11-05
+archived: not copied; the deposited file is pip-replication-package-9b84e65.zip (md5:c788194f02aac0e1ba572f0fda9e39f7, sha256:5cead90a5ed47c72a92e8565098c0da98549e6740b358dfafa966b1ebe4c8b96), built by paper/make_zenodo_package.sh from commit 9b84e65
+license: CC BY 4.0 (record metadata)
+accessed: 2026-11-05
+updates: none
+verdict: supported
+evidence: The draft holds one file, the archive of paper/ at 9b84e65, which contains results/ (28 result tables) and the SQL, figure data, checks and honors scripts; the record description names the result tables and the BigQuery datasets.
+notes: The authors' own deposit. The DOI is reserved and resolves only after the authors publish the record; re-check then, and replace the file if the manuscript changes before publication. Supersedes the entry for cc071a3: the file was replaced after the CRediT statement was added.

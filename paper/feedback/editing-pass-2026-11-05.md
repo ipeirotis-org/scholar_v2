@@ -60,6 +60,11 @@ CC BY 4.0, reserved DOI 10.5281/zenodo.23987119, cited as `ipeirotis2026replicat
 from the final commit with `paper/make_zenodo_package.sh` and replace the file, so the archived manuscript carries the
 CRediT statement. Funding confirmed: "No specific funding was received for this work."
 
+**D14 A with Supervision for Panos Ipeirotis: applied** (commit `9b84e65`); the manuscript has no `TODO(authors)` left.
+The Zenodo draft now holds `pip-replication-package-9b84e65.zip` (md5 c788194f02aac0e1ba572f0fda9e39f7) in place of
+the cc071a3 archive; it is ready to publish when you are. If the manuscript changes before you publish, rebuild and
+replace the file again.
+
 **D14. CRediT roles** (the last `% TODO`). The 14 roles: Conceptualization, Data curation, Formal analysis, Funding
 acquisition, Investigation, Methodology, Project administration, Resources, Software, Supervision, Validation,
 Visualization, Writing - original draft, Writing - review & editing. The repository shows only that Sen Tian
