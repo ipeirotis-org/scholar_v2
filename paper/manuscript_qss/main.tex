@@ -63,68 +63,74 @@ Google Scholar profiles ($\rho = 0.78$).
 Hiring, promotion and award committees compare scholars with others at a similar stage of their careers. A committee
 deciding on tenure asks whether a candidate's record is strong for someone six years past the doctorate; a funding
 panel compares early-career applicants across departments. Bibliometric indicators enter these decisions alongside
-expert judgment, and the most common ones, citation counts and the $h$-index \citep{hirsch2005index}, are hard to read
-in this setting. Their values depend on the field, grow with seniority and drift with the calendar: the average
+expert judgment. The most common are citation counts and the $h$-index \citep{hirsch2005index}, and both are hard to
+read in this setting: their values depend on the field, grow with seniority and drift with the calendar. The average
 $h$-index of a scholar ten years into their career is 40\% higher for those who started in 2010 than for those who
 started in 1960 (Section~\ref{sec:cohorts}). A raw value says little until it is compared with the values of
 comparable scholars.
 
-Many of these decisions are made early. Hiring and tenure committees, fellowship panels and early-career grants judge
-scholars three to eight years into their careers, when most of their papers are recent and few have had time to
-collect many citations. An indicator is most useful in this setting if it detects strong records early: if, measured
-at year five, it already separates the scholars who will go on to do important work from those who will not. Detecting
-performance early was one of the motivations for this work.
+Many of these decisions are made early. Hiring and tenure committees and the panels for fellowships and early-career
+grants judge scholars three to eight years into their careers, when most of their papers are recent and few have had
+time to collect many citations. An indicator is most useful in this setting if it detects strong records early: if,
+measured at year five, it already separates the scholars who will do well later from those who will not. Detecting performance early was one of the motivations for this work.
 
 The $h$-index also reads only part of a record. It is the largest $h$ such that $h$ papers have at least $h$
-citations each: the corner where the sorted citation curve crosses the diagonal. Papers below the corner do not count,
-the citations of papers above it beyond $h$ do not count, and a recent paper counts only once it has collected $h$
-citations, however well it compares with papers of its own age. A scholar with one landmark paper and a scholar with
-one average paper both have $h = 1$.
+citations each. On a plot of a scholar's papers sorted by citations, it is the corner where the citation curve crosses
+the diagonal. Papers below the corner do not count, and neither do the citations of papers above it beyond $h$: a
+scholar with one landmark paper and a scholar with one average paper both have $h = 1$. A recent paper counts only
+after it has collected $h$ citations, however well it compares with papers of its own age.
 
-At the level of single papers, percentiles have become an established normalization, which the Leiden Manifesto calls
-the most robust \citep{bornmann2013use,waltman2016review,hicks2015bibliometrics}: a paper is compared with papers of
-the same publication year, and possibly the same field, by the share of them it out-cites. Percentiles do not depend on
-the skewed tail of the citation distribution \citep{bornmann2013use}, they need no assumption about how citations grow
-with age, and their meaning does not change with the calendar. Combining paper percentiles into an indicator for a scholar is less
-settled. Sums of percentiles, such as I3 \citep{leydesdorff2011integrated}, grow without bound with the number of
-papers, so many weak papers can outweigh one strong paper. Means ignore volume altogether. Counts of papers in the top
-10\% \citep{waltman2012leiden,bornmann2014individual} use one threshold and discard everything below it.
+A paper's percentile is the share of papers from the
+same publication year, and possibly the same field, that it out-cites. Percentiles have become an established normalization, which the Leiden Manifesto calls the
+most robust \citep{bornmann2013use,waltman2016review,hicks2015bibliometrics}. They do not depend on the skewed tail of
+the citation distribution \citep{bornmann2013use}, they need no assumption about how citations grow with age, and
+their meaning does not change with the calendar.
+
+Combining paper percentiles into an indicator for a scholar is less settled. Sums of percentiles, such as I3
+\citep{leydesdorff2011integrated}, grow without bound with the number of papers, so many weak papers can outweigh one
+strong paper. Means ignore volume altogether. Counts of papers in the top 10\%
+\citep{waltman2012leiden,bornmann2014individual} use one threshold and discard everything below it.
 
 This paper proposes PiP, short for \emph{percentile in percentile}, which places a scholar's papers in percentiles of
-their publication year and then places the scholar in percentiles of their career cohort. For each impact threshold
-$\theta$, we count the scholar's papers at or above percentile $\theta$ and ask what share of peers, scholars who
-published their first paper in the same year, have fewer such papers. This standing, traced over all thresholds, forms
-a curve (Figure~\ref{fig:curves}). PiP is the average height of the curve above a cutoff $\tau$. Where the $h$-index
-reads one corner of a record, PiP measures the area under the whole curve. With $\tau = 0.5$, which we use throughout,
-only papers in the top half of their year can earn credit, recent papers can earn it as soon as they stand out among
-papers of their own age, and a single paper in the top 2.5\% counts at every threshold of the computation, including
-the highest ones, where most peers have nothing. Lowering $\tau$ moves weight towards the number of papers; raising it
-moves weight towards their impact.
+their publication year and then places the scholar in percentiles of their career cohort. The cohort consists of the
+scholar's peers: scholars who published their first paper in the same year. For each impact threshold $\theta$, we
+count the scholar's papers at or above percentile $\theta$ and ask what share of peers have fewer such papers. That
+share is the scholar's standing at the threshold; across all thresholds, the standings form a curve
+(Figure~\ref{fig:curves}). PiP is the average height of this curve over the thresholds above a cutoff $\tau$. Where
+the $h$-index reads one corner of a record, PiP measures the area under the whole curve.
+
+With $\tau = 0.5$, which we use throughout, only papers in the top half of their year can earn credit, and recent
+papers can earn it as soon as they stand out among papers of their own age. A single paper in the top 2.5\% counts at
+every threshold of the computation, including the highest ones, where most peers have nothing. Lowering $\tau$ moves
+weight towards the number of papers; raising it moves weight towards their impact. The cutoff is a dial between
+quantity and impact.
 
 We compute PiP from the Semantic Scholar Academic Graph \citep{kinney2023semantic} for 11.1 million authors at every
-career age from 1 to 30, reconstructing peers and percentiles in each evaluation year from the publications and
-citations up to that year. The paper makes six contributions:
+career age from 1 to 30, where career age is the number of years since an author's first paper. In each evaluation
+year, we reconstruct peers and percentiles from the publications and citations up to that year. The paper makes six
+contributions:
 \begin{enumerate}
   \item \textbf{Definition and properties.} PiP is bounded, never decreases when a paper is added or gains citations,
-  gives nothing to papers below the cutoff, and reads as the probability that the scholar has more papers than a
-  random peer above a random impact threshold (Section~\ref{sec:pip}).
-  \item \textbf{Measurement over time.} Paper percentiles settle within three to five years, with field-specific
-  windows (Section~\ref{sec:paperstability}); the distribution of PiP changes little across career cohorts from 1960
-  to 2015 (Section~\ref{sec:cohorts}); and a scholar's PiP is less stable over a career than their article count, more
-  stable than their $h$-index, and more stable than their citations over horizons of ten years or more
+  gives nothing to papers below the cutoff, and reads as the probability that the scholar has more papers above a
+  random impact threshold than a random peer has (Section~\ref{sec:pip}).
+  \item \textbf{Measurement over time.} Paper percentiles settle within three to five years, and the time they need
+  differs by field (Section~\ref{sec:paperstability}); the distribution of PiP changes little across career cohorts
+  from 1960 to 2015 (Section~\ref{sec:cohorts}); and a scholar's PiP is less stable over a career than their article
+  count, more stable than their $h$-index, and more stable than their citations over horizons of ten years or more
   (Section~\ref{sec:careerstability}).
   \item \textbf{Prediction.} PiP predicts a scholar's future top papers better than the $h$-index in every setting and
   field we test, whether the $h$-index is used raw or converted to a cohort percentile; with eligibility that does not
-  depend on citations, the lead narrows but remains. Counts of top papers and sums and means of paper percentiles each
-  beat it on at most one of three outcomes; PiP is the indicator that predicts both how many top papers a scholar will
-  publish and how highly cited their papers will be. Comparing the scholar with peers at every threshold, rather than
-  once for the whole record, improves the prediction of future citation impact and of exceptional papers in every
-  cohort (Section~\ref{sec:prediction}).
+  depend on citations, the lead narrows but remains. PiP is the indicator that predicts both how many top papers a
+  scholar will publish and how highly cited their papers will be (their citation impact). Counts of top papers and
+  sums and means of paper percentiles each beat it on at most one of three outcomes: these two and the chance of an
+  exceptional paper. Comparing the scholar with peers at every threshold, rather than once for the whole record,
+  improves the prediction of future citation impact and of exceptional papers in every cohort
+  (Section~\ref{sec:prediction}).
   \item \textbf{Early detection.} Measured at the same career age, PiP identifies future high performers at least as
-  accurately as the other indicators we test, and it reaches the accuracy of the
-  $h$-index at career age 10 1.6 to 1.9 years sooner (Section~\ref{sec:early}).
+  accurately as the other indicators we test. It reaches the accuracy that the $h$-index has at career age 10, and
+  does so 1.6 to 1.9 years sooner (Section~\ref{sec:early}).
   \item \textbf{Later recognition.} Measured early in a career, PiP anticipates later academy memberships,
-  fellowships and prizes better than the $h$-index among all scholars; within groups that are already notable the
+  fellowships and prizes better than the $h$-index among all scholars; within groups that are already notable, the
   lead is small. For this purpose the impact end of the dial works best (Section~\ref{sec:honors}).
   \item \textbf{Robustness.} The results hold without self-citations; PiP rankings from Semantic Scholar agree with
   rankings from author-curated Google Scholar profiles; and a field-normalized version removes most of the advantage
@@ -134,13 +140,12 @@ citations up to that year. The paper makes six contributions:
 
 An earlier version of this work \citep{tian2021predictability} studied the predictability of paper and scholar
 percentiles on a smaller dataset of faculty at top US universities and rated scholars by the sum of their paper
-percentiles. Reviewers of that version objected to the sum, which rewards volume without bound, to the selected
-population, and to the lack of field-level results. This paper replaces the sum with PiP, moves to a population of all
-authors who meet an eligibility rule at each evaluation year, including those who later stop publishing, and reports
-results by field. A first, asymmetric form of the score was
-described by \citet{ipeirotis2024pip} and is used by the website \url{https://www.pip-score.org} (formerly
-\url{https://scholar.ipeirotis.org}); Section~\ref{sec:pip}
-explains why we replace it.
+percentiles. Reviewers of that version objected to the sum, which rewards volume without bound; to the selected
+population; and to the lack of field-level results. This paper replaces the sum with PiP; moves to a population of all
+authors who meet an eligibility rule at each evaluation year, including those who later stop publishing; and reports
+results by field. A first, asymmetric form of the score was described by \citet{ipeirotis2024pip} and is used by the
+website \url{https://www.pip-score.org} (formerly \url{https://scholar.ipeirotis.org}); Section~\ref{sec:pip} explains
+why we replace it.
 
 \section{Related work}
 \label{sec:related}
