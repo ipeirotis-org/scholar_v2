@@ -34,23 +34,26 @@
 
 \begin{abstract}
 \noindent
-Committees often compare scholars early in their careers, before citations have accumulated, yet citation counts and
-the $h$-index drift with field, calendar and seniority, and the $h$-index reads only one corner of a record. We propose
-PiP (percentile in percentile). Each paper is ranked against papers from the same year; for every impact threshold
-$\theta$, the scholar's number of papers at or above $\theta$ is ranked against peers who started in the same year;
-PiP averages these standings over $\theta \ge \tau$. With $\tau = 0.5$, only papers in the top half of their year can
-earn credit; $\tau$ is a dial between quantity and impact. We compute PiP for 11.1 million Semantic Scholar authors
-from the publications and citations up to each evaluation year. Paper percentiles settle quickly (correlation 0.91
-between ages 3 and 10), and the distribution of PiP changes little across cohorts from 1960 to 2015, while the mean
-$h$-index at career age 10 rose by 40\%. PiP predicts the next ten years of work better than the $h$-index in every
-setting and in each of 15 fields (at career age 10, Spearman 0.43 against 0.35 for the number of future top-10\%
-papers); the lead narrows but remains when eligibility does not depend on citations. Indicators built from the same
-paper percentiles, such as top-10\% counts or the sum or mean of percentiles, each beat PiP on at most one of three
-outcomes. PiP reaches the $h$-index's age-10 accuracy in finding future high performers 1.6 to 1.9 years sooner, and
-anticipates later academy memberships
-and fellowships better than the $h$-index (AUC 0.75 against 0.71 at career age 5), though only slightly within
-already notable groups. The results hold without self-citations and agree with Google Scholar profiles
-($\rho = 0.78$).
+Committees often compare scholars early in their careers, before citations have accumulated. Yet citation counts and
+the $h$-index depend on field, grow with seniority and drift with the calendar. The $h$-index also reads only one
+corner of a record: it ignores less-cited papers and the extra citations of the most-cited ones. We propose PiP
+(percentile in percentile). A paper's percentile is the share of papers from the same year that it out-cites. At
+every impact threshold $\theta$, a scholar's standing is the share of peers who started publishing in the same year
+and have fewer papers at or above percentile $\theta$. PiP averages these standings over the thresholds above a
+cutoff, $\theta \ge \tau$. With $\tau = 0.5$, only papers in the top half of their year can earn credit; $\tau$ is a
+dial between quantity and impact. We compute PiP for 11.1 million Semantic Scholar authors from the publications and
+citations up to each evaluation year. A paper's percentile settles quickly: its values 3 and 10 years after
+publication correlate at 0.91. Across career cohorts from 1960 to 2015, the distribution of PiP changes little,
+whereas the mean $h$-index at career age 10 rose by 40\%. We measure a scholar's next ten years of work by three
+outcomes: the number of top papers, the chance of an exceptional paper and the papers' citation impact. PiP predicts
+all three better than the $h$-index in every setting and in each of 15 fields (at career age 10, Spearman 0.43
+against 0.35 for the number of future top-10\% papers); the lead narrows but remains when eligibility for comparison
+does not depend on citations. Indicators built from the same paper percentiles, such as top-10\% counts or the sum or
+mean of percentiles, each beat PiP on at most one of these outcomes. PiP finds future high performers as accurately
+as the $h$-index does at career age 10, but 1.6 to 1.9 years sooner. It also anticipates later academy memberships,
+fellowships and prizes better than the $h$-index (AUC 0.75 against 0.71 at career age 5), though only slightly within
+already notable groups. The results hold without self-citations, and PiP scores agree with those from author-curated
+Google Scholar profiles ($\rho = 0.78$).
 \end{abstract}
 
 \noindent\textbf{Keywords:} research evaluation; citation percentiles; $h$-index; career age; indicators; Semantic Scholar
