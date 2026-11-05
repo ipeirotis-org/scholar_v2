@@ -794,3 +794,68 @@ Across τ from 0.25 to 0.6, the test-sample top-1% AUC varies by less than 0.01 
 - **One exception at age 5 in the choice sample.** There the top-10% count ties τ = 0.5 on the top-1% AUC (.686 each)
   and beats it on quality (.296 against .195). τ = 0.6 keeps its lead in that setting.
 
+## 17. Later recognition: Wikidata honors, Google Scholar IDs and Wikipedia (`sql/22_honors.sql`, `sql/24_gs_honors.sql`, `honors/`)
+
+### Honors
+
+The outcome is 65 curated senior honors from Wikidata: academies, learned-society fellowships (AAAS, ACM, IEEE, APS
+and others) and major prizes. The curation leaves out:
+
+- plain society memberships;
+- state orders and student scholarships;
+- Clarivate Citation Laureates, which are citation-based and would make the test circular.
+
+Honorees reach S2 authors by two routes:
+
+- **Semantic Scholar route:** Wikidata items that carry an S2 author ID (41,272 items).
+- **Google Scholar route:** Wikidata items that carry a GS ID (12,434 honorees). These are linked to S2 through our
+  crawled GS profiles and the title matching of §13, using confident matches only.
+
+### Prediction test on S2
+
+Each indicator is measured at career age 5 or 10 as a within-cohort percentile, start years 1960–2000. People whose
+first dated honor came at or before the evaluation year are dropped. That leaves 1,064 future honorees at age 5 and
+1,555 at age 10. Intervals are 95% bootstrap intervals, 1,000 resamples.
+
+| AUC | All, age 5 | All, age 10 | Wikidata people, 10 | GS faculty, 10 |
+|---|---|---|---|---|
+| PiP τ = 0.5 | .749 | .816 | .628 | .631 |
+| PiP τ = 0.75 | **.760** | **.826** | .646 | .638 |
+| PiP τ = 0.9 | .755 | .821 | **.654** | **.640** |
+| Original PiP-AUC | .719 | .791 | .603 | .622 |
+| h-index | .710 | .782 | .610 | .623 |
+| Citations | .701 | .789 | .629 | .627 |
+| Top-10% count | .747 | .816 | .644 | .634 |
+| I3 | .721 | .788 | .595 | .622 |
+| Articles | .693 | .772 | .569 | .611 |
+
+- **PiP against the h-index, all authors:** +0.039 [0.029, 0.049] at age 5 and +0.035 [0.030, 0.040] at age 10.
+- **PiP against the top-10% count:** a tie, +0.000 [−0.005, 0.005].
+- **Within the notable groups:** discrimination is weak for every indicator. PiP is ahead of the h-index at age 10
+  (+0.018 among Wikidata people, +0.008 among GS faculty) and level with it at age 5. The top-10% count and τ ≥ 0.75
+  do best.
+- **Dated honors only:** the same pattern holds.
+
+### Cross-sectional test on GS (15,890 profiles)
+
+Scores and recognition are both measured now, so this checks agreement, not prediction.
+
+| Outcome | Measure | PiP τ = 0.5 | τ = 0.75 | Original | h-index | Citations | Top-10% count |
+|---|---|---|---|---|---|---|---|
+| Honors (1,497) | AUC | .712 | .711 | .696 | .708 | **.714** | .709 |
+| Wikipedia article (2,160) | AUC | .716 | **.721** | .692 | .704 | **.721** | .720 |
+| Wikipedia pageviews (among those with an article) | Spearman | .259 | .310 | .179 | .219 | **.324** | .320 |
+
+### Reading
+
+- **Recognition rewards highly cited work more than volume.** The impact end of the dial (τ = 0.75) and the top-10%
+  count do best. The volume-leaning indicators (articles, I3, the original PiP-AUC) do worst.
+- **PiP beats the h-index on a non-citation outcome**, most clearly when it comes to finding future honorees among all
+  scholars, early in their careers.
+
+### Correction to the first run
+
+The first run of the all-authors comparison used notable non-honorees, kept in full, next to a 10% random sample of
+everyone else. That pulled its AUCs down. The all-authors comparison now uses every honoree against the random sample
+only.
+
