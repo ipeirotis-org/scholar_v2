@@ -74,4 +74,7 @@ q 'SELECT scenario, setting, predictor, spearman_top10, auc_any_top1, spearman_m
    WHERE (scenario = "same_age" AND setting = 10 AND ENDS_WITH(predictor, "_raw"))
       OR (scenario = "same_year" AND setting = 2005 AND (ENDS_WITH(predictor, "_pct") OR predictor = "top10_age_raw"))
    ORDER BY scenario, setting, predictor' > fig7_frontier.csv
+# Fig. 8: early detection (from 21): accuracy by measurement age, fixed populations (active at age 3 or 5)
+q 'SELECT pop_age, t, predictor, n, spearman_top10, auc_any_top1, auc_star, precision_top10, spearman_mean_pct
+   FROM `scholar-version2.paper_rp.early_detection_results` ORDER BY pop_age, t, predictor' > fig8_early.csv
 ls -la

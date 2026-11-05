@@ -698,3 +698,55 @@ results hold cohort by cohort.
 - **Against I3, the article count and the original PiP-AUC,** PiP wins on the top-1% AUC and on quality in all 26
   cohorts. On the count it wins in 11–14 cohorts, with differences between −0.033 and +0.044.
 
+## 15. Early detection (`sql/21_early_detection.sql`)
+
+The question is how soon each indicator picks out the scholars who will do well later.
+
+### Setup
+
+- **Fixed populations:** authors active at career age 3 (306,854) and, separately, at age 5 (711,986). Start years
+  are 1975–2000. Activity persists, so every member has every indicator at every later age.
+- **Measurement:** each indicator is measured at ages s..10 as a within-cohort Hazen percentile.
+- **Fixed outcome window:** articles published at career ages 11–20, each scored at its own age 5.
+- **Future star:** the top 10% of the cohort (within the population) by the number of top-10% articles at ages 11–20.
+  Ties are broken by the mean percentile, then by a hash of the author id.
+
+### Population active at age 3
+
+Each cell is precision of the cohort's top 10% at finding stars (chance 0.10) / AUC for at least one top-1% article.
+
+| Measured at | PiP | Original PiP-AUC | I3 | Articles | Top-10% count | h-index | Citations |
+|---|---|---|---|---|---|---|---|
+| Age 3 | **.211** / **.629** | .204 / .611 | .203 / .615 | .196 / .612 | .196 / .616 | .176 / .560 | .174 / .598 |
+| Age 5 | **.299** / **.705** | .292 / .693 | .283 / .691 | .268 / .685 | .278 / .679 | .248 / .660 | .224 / .663 |
+| Age 10 | **.486** / **.817** | .486 / .811 | .460 / .803 | .430 / .793 | .469 / .794 | .423 / .782 | .368 / .768 |
+
+- **PiP leads at every age on both AUC measures** (stars and top-1%). On precision it leads at every age except 9
+  and 10, where the original PiP-AUC matches it (.451 against .450, then .486 against .486).
+
+### Lead time
+
+How many years earlier PiP reaches each indicator's accuracy, taken as the range over target ages 5–10:
+
+| Compared with | Star precision | Star AUC | Top-1% AUC |
+|---|---|---|---|
+| h-index | 1.2–1.8 | 1.1–1.6 | 1.3–1.9 |
+| Citations | 1.7–3.2 | 1.4–2.8 | 1.2–2.5 |
+| Articles | 0.7–1.6 | 0.3–0.9 | 0.6–1.3 |
+| Top-10% count | 0.5–0.6 | 1.0–1.3 | 0.8–1.3 |
+| I3 | 0.4–0.7 | 0.2–0.4 | 0.4–0.8 |
+| Original PiP-AUC | 0.0–0.2 | 0.0–0.2 | 0.3–0.4 |
+
+For the population active at age 5, the leads are similar: 1.2–1.8 years over the h-index and 1.6–2.9 over
+citations.
+
+### Other outcomes
+
+On the count of future top-10% papers, the article count is slightly ahead of PiP at the earliest ages. On future
+mean quality, the mean percentile is best at every age. This is the same ordering as in §7 and §14.
+
+### Reading
+
+PiP's early-detection advantage is in finding the scholars at the top, who combine volume with highly cited work, and
+in anticipating exceptional papers. It reaches the h-index's age-10 accuracy at about age 8.
+
