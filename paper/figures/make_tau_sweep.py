@@ -105,17 +105,16 @@ def main():
     a.text(0.84, 0.97, "drifts across\ncohorts", color=INK2, fontsize=7, ha="center", va="top",
            transform=a.get_xaxis_transform())
 
-    # (b) future quantity, (c) future quality, (d) future top-1%: symmetric PiP vs the original PiP-AUC and h-index
+    # (b) future quantity, (c) future impact, (d) future top-1%: PiP at each cutoff against the h-index
     # reference-label placement per panel, chosen so no label touches the curve
     panels = [(b, "(b) Predicts how many top-10% papers", "spearman_top10", "Spearman, age 10", (0.30, 0.48),
-               dict(side="left", below=True), dict(side="left")),
+               dict(side="left")),
               (c, "(c) Predicts the impact of future papers", "spearman_mean_pct", "Spearman, age 10", (0.15, 0.40),
-               dict(side="right", below=True), dict(side="right")),
+               dict(side="right")),
               (d, "(d) Predicts any future top-1% paper", "auc_any_top1", "ROC AUC, age 10", (0.70, 0.79),
-               dict(side="left", below=True), dict(side="right"))]
-    for ax, title, col, ylabel, ylim, pip_pos, h_pos in panels:
+               dict(side="right"))]
+    for ax, title, col, ylabel, ylim, h_pos in panels:
         style(ax, title, ylabel, ylim)
-        reference(ax, p10("pip", col), "original PiP-AUC", (0, (4, 2)), INK2, **pip_pos)
         reference(ax, p10("h_raw", col), "h-index", (0, (1, 1.5)), INK3, **h_pos)
         score_line(ax, [p10(v, col) for _, v in TAUS])
 

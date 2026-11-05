@@ -45,6 +45,9 @@ Done; results in `FINDINGS.md` §18–21, manuscript and figures updated:
   variant of PiP that compares with peers once, to show what the comparison at every threshold adds; it is not
   listed among the competing indicators. The count + mean-percentile mix is left out of the paper (results in
   `FINDINGS.md` §19).
+- **The first, asymmetric form of the score** ("original PiP-AUC", the blog post and pip-score.org) is no longer
+  compared in the results, by the authors' decision: it is the authors' own earlier version, not a published
+  indicator. Section 4.5 still explains why the symmetric form replaces it. Its numbers stay in `FINDINGS.md`.
 - **Section 6** (fields): wording only. Not done: paper-field rule and ablation.
 - **Section 7** (counting, document types): not started.
 - **Section 8** (validation claims): all wording items. Not done: upper-tail transitions; dated honors as the main
