@@ -47,6 +47,13 @@ files per record (a one-time increase to 200 GB can be requested).
 The Google Scholar tables in `paper_rp` hold per-profile scores and matches, not per-article data, so all three options
 agree with the availability statement.
 
+**D13 C applied (5 November 2026).** `paper_rp` and `paper_rp_noself` now carry a READER entry for
+`allAuthenticatedUsers` (the service account owns both datasets, so no extra role was needed); no other dataset was
+opened, and `gs_data` stays private. The 28 result tables are exported to `paper/results/` (15 MB, aggregates only,
+no author or paper identifiers). `paper/make_zenodo_package.sh` builds the Zenodo archive from a commit, leaving out
+`paper/feedback/` and the compiled PDF. Data and code availability names the two datasets and the Zenodo archive; the
+DOI is a `% TODO` until the record is published.
+
 **D5, earlier note.** The export at \url{https://www.pip-score.org/data} (`scholar_data_share/all_authors_stats.csv`, last
 modified 14 March 2026) holds 16,953 Google Scholar profiles with author-level statistics (h-index, citations,
 i10-index, publication counts, start year, their percentiles and the asymmetric PiP-AUC), with profile dates from

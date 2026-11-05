@@ -14,6 +14,9 @@ data, and targets *Quantitative Science Studies*.
   BigQuery (`export_figure_data.sh`, output in `figures/data/`) and the rendered PDF/PNG files.
 - **`manuscript/`** holds the arXiv v3 LaTeX source (`ms.tex` includes `introduction`, `results`, `discussion` and
   `supplemental`), with its figures from the original Google Scholar dataset.
+- **`results/`** holds CSV exports of the result tables the queries write (aggregates only; see
+  `results/README.md`). The per-author and per-article tables stay in the BigQuery datasets `paper_rp` and
+  `paper_rp_noself`, readable by anyone signed in to Google Cloud.
 - **`sql/`** holds the analysis queries, numbered in run order. They write to the BigQuery dataset
   `scholar-version2.paper_rp`, which is kept separate from the app's `statistics` and `gs_statistics` datasets.
 - **`REVISION_PLAN.md`** lists the reviewer concerns from PLOS ONE (PONE-D-21-10383, 2021–2022) and how the revision
