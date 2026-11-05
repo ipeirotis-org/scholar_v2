@@ -222,6 +222,10 @@ Ranked views default to `active_authors` for user-facing percentiles.
 - **BigQuery schema**: S2 data stored in native tables; legacy `scholar_raw_data` stored as `{document_id, timestamp, data}` where `data` is a JSON string
 - **Author IDs**: Google Scholar user IDs (12 chars, e.g., `PA9La6oAAAAJ`) in GS mode; S2 numeric IDs (e.g., `2942126`) only when `DATA_SOURCE=s2`
 - **S2 API key**: Stored in Secret Manager (`projects/875626982900/secrets/s2-api-key`), used by dataset_ingestion for bulk downloads
+- **Paper skills (cloud sessions)**: the SessionStart hook `.claude/hooks/install-skills.sh` clones `ipeirotis/blue-pencil`
+  (prose revision, `/paper:*` commands), `ipeirotis/facts-and-figures` (re-running the pipeline behind manuscript
+  numbers) and `ipeirotis/citation-needed` (citation and novelty checks) into `~/.claude/skills/`, and pulls updates on
+  each fresh session start. It does nothing outside cloud sessions. Use them on the paper in `paper/`.
 
 ## Codex Reviews
 
