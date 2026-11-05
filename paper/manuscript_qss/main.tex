@@ -78,11 +78,11 @@ the citations of papers above it beyond $h$ do not count, and a recent paper cou
 citations, however well it compares with papers of its own age. A scholar with one landmark paper and a scholar with
 one average paper both have $h = 1$.
 
-At the level of single papers, the field has settled on percentiles as the preferred normalization
-\citep{bornmann2013use,waltman2016review,hicks2015bibliometrics}: a paper is compared with papers of the same
-publication year, and possibly the same field, by the share of them it out-cites. Percentiles do not depend on the
-skewed tail of the citation distribution, they need no assumption about how citations grow with age, and their
-meaning does not change with the calendar. Combining paper percentiles into an indicator for a scholar is less
+At the level of single papers, percentiles have become an established normalization, which the Leiden Manifesto calls
+the most robust \citep{bornmann2013use,waltman2016review,hicks2015bibliometrics}: a paper is compared with papers of
+the same publication year, and possibly the same field, by the share of them it out-cites. Percentiles do not depend on
+the skewed tail of the citation distribution \citep{bornmann2013use}, they need no assumption about how citations grow
+with age, and their meaning does not change with the calendar. Combining paper percentiles into an indicator for a scholar is less
 settled. Sums of percentiles, such as I3 \citep{leydesdorff2011integrated}, grow without bound with the number of
 papers, so many weak papers can outweigh one strong paper. Means ignore volume altogether. Counts of papers in the top
 10\% \citep{waltman2012leiden,bornmann2014individual} use one threshold and discard everything below it.
@@ -141,8 +141,8 @@ explains why we replace it.
 \section{Related work}
 \label{sec:related}
 
-\paragraph{The $h$-index and its variants.} The $h$-index \citep{hirsch2005index} combines productivity and impact in
-one number and has been studied, criticized and modified at length. The $g$-index \citep{egghe2006theory} gives credit
+\paragraph{The $h$-index and its variants.} The $h$-index \citep{hirsch2005index} is a single number that depends on
+both the number of papers and their citations, and it has been studied, criticized and modified at length. The $g$-index \citep{egghe2006theory} gives credit
 to the citations above the corner; the $m$-quotient \citep{hirsch2005index}, the contemporary $h$-index
 \citep{sidiropoulos2007generalized} and $hI_{a}$ \citep{harzing2014hia} correct for career length by dividing by
 academic age or discounting old papers; \citet{kaur2013universality} rescale the $h$-index by the field average. Most
@@ -153,12 +153,12 @@ the core. The $h$-index is also inconsistent: adding the same paper to two schol
 
 \paragraph{Percentiles.} Percentile-based indicators compare each paper with a reference set of papers from the same
 year and field \citep{bornmann2013use,leydesdorff2011turning,waltman2013percentile,bornmann2020evaluation}. They are
-less sensitive to outliers than mean-based normalization \citep{schubert1986relative,Radicchi2008,waltman2019field} and
-are recommended in the Leiden Manifesto \citep{hicks2015bibliometrics}. Ties and the definition of the percentile need
+less sensitive to outliers \citep{bornmann2013use,bornmann2020evaluation} than normalization by mean citation rates
+\citep{schubert1986relative,Radicchi2008} and are recommended in the Leiden Manifesto \citep{hicks2015bibliometrics}. Ties and the definition of the percentile need
 care \citep{waltman2013percentile}; we use the share of the reference set with strictly fewer citations for scoring, so
 that uncited papers have percentile zero, and Hazen's mid-rank \citep{hazen1914storage} for correlations
 (Section~\ref{sec:properties} discusses the choice). At the level of a scholar, \citet{bornmann2014individual} propose
-counting papers in percentile classes and normalizing by academic age, and I3
+counting a scholar's papers in the top 10\% and dividing by academic age, and I3
 \citep{leydesdorff2011integrated,rousseau2012basic} sums percentiles over a set of papers. Composite indicators such as
 the one of \citet{ioannidis2019standardized} combine several citation counts, and \citet{abramo2014productivity} weight
 field-normalized citations by inputs. For countries and institutions, double rank analysis gives each of a unit's
@@ -184,7 +184,7 @@ citation-based indicator and any test of its predictive validity. We return to t
 \label{sec:data}
 
 \paragraph{Papers and citations.} We use the Semantic Scholar Academic Graph \citep{kinney2023semantic}, release of 27
-October 2026, which is distributed under the ODC-BY license. It contains 226.0 million papers published from 1950 to
+October 2026, which is distributed under the ODC-BY license \citep{s2datasets2026}. It contains 226.0 million papers published from 1950 to
 2025. For every paper we count citations by the year of the citing paper, which gives the cumulative citations at each
 age $t$ (the number of years after publication), through calendar year 2025. These counts add up to 97.5\% of the
 citation counts that Semantic Scholar reports for papers from 2000--2005, with a correlation of 0.999; the difference
@@ -194,9 +194,10 @@ consists of citations from 2026 and from citing papers without a year.
 papers typed as journal articles, conference papers, reviews, studies, clinical trials, meta-analyses or case reports,
 and not as editorials, news or letters. Only these \emph{articles} enter the reference sets, the paper counts and the
 $h$-index. In the 2000 cohort, 63\% of all records are uncited at age 5, but only 30\% of articles. Each article
-carries zero or more of Semantic Scholar's 23 fields of study.
+carries zero or more of Semantic Scholar's 23 fields of study \citep{s2graphapi}.
 
-\paragraph{Authors and careers.} Semantic Scholar assigns author identifiers through automatic disambiguation. We link
+\paragraph{Authors and careers.} Semantic Scholar assigns author identifiers through automatic disambiguation
+\citep{kinney2023semantic}. We link
 authors to their articles (277.8 million links) and define an author's \emph{start year} $s_a$ as the year of their first
 article, and their \emph{career age} at evaluation year $Y$ as $A = Y - s_a$. We follow every author from career age 1
 to 30, or to 2025, whichever comes first. At each evaluation year an author is \emph{eligible} if they have at least
@@ -213,8 +214,10 @@ received up to $Y$. The reconstruction is retrospective in one respect: author i
 fields come from the 2026 release, not from the records available at the time.
 
 \paragraph{Google Scholar profiles.} For validation we use 16,218 Google Scholar profiles collected for
-\url{https://www.pip-score.org}, mostly of faculty. Unlike Semantic Scholar's author records, these profiles are
-curated by the scholars themselves, so they are a check on automatic disambiguation (Section~\ref{sec:robustness}).
+\url{https://www.pip-score.org}, mostly of faculty. Semantic Scholar's author records are built by automatic
+disambiguation, although authors can claim and correct them \citep{kinney2023semantic}; Google Scholar profiles are
+created and curated by the scholars themselves \citep{googlescholarprofiles}, so they are a check on automatic
+disambiguation (Section~\ref{sec:robustness}).
 
 \section{The PiP score}
 \label{sec:pip}
@@ -325,8 +328,8 @@ integral, one article at the 97.5th, 99th or 99.9th percentile scores 0.42, 0.45
 percentile scores 0. The $h$-index cannot tell any of these records apart (all have $h = 1$).
 
 \paragraph{Ties.} The standing counts peers with strictly fewer articles. Mid-ranks, which count half of the tied
-peers, are a common choice for the percentile of a single paper \citep{waltman2013percentile}, but here they would give
-credit to authors with nothing above a threshold: at high thresholds most peers have no article, and an author tied
+peers, are a common choice for the percentile of a single paper \citep{bornmann2013use,waltman2013percentile}, but
+here they would give credit to authors with nothing above a threshold: at high thresholds most peers have no article, and an author tied
 with them at zero would stand at half their share. In the simulated cohort, an author whose five articles all fall
 below the median would score 0.22 with mid-ranks instead of 0. The strict rule keeps weak papers from earning credit
 through ties; its price is that the mean score of a cohort depends on how common ties are (Eq.~\ref{eq:mean}).
@@ -1001,9 +1004,9 @@ an outcome that is not a citation count and gives the same ordering of PiP and t
 themselves shaped by visibility.
 
 \paragraph{Fields and windows.} The pooled score favors fields with high citation rates, and the field-normalized
-version removes most of that advantage. Field normalization brings its own choices: the field scheme, the assignment
-of multi-field papers and the assignment of an author to a main field \citep{zitt2005relativity,waltman2015field,
-waltman2019field}. Semantic Scholar's 23 fields are broad, and subfields with different citation habits share a
+version removes most of that advantage. Field normalization brings its own choices: the field scheme and the
+assignment of multi-field papers \citep{zitt2005relativity,waltman2015field,waltman2019field}, and, for a scholar, the
+assignment of a main field. Semantic Scholar's 23 fields are broad, and subfields with different citation habits share a
 reference set, so field normalization removes only the differences between these broad fields. Percentiles of recent
 papers are also noisier in fields where citations accumulate slowly (Section~\ref{sec:paperstability}). In those
 fields, an evaluation might count only papers older than two or three years, at the cost of ignoring the most recent
@@ -1058,7 +1061,7 @@ form of the score (Section~\ref{sec:pip}) from Google Scholar profiles.
 The SQL that builds every table in this paper, the numerical checks of the properties in Section~\ref{sec:pip}, the
 data behind every figure and the plotting scripts are in the \texttt{paper/} directory of
 \url{https://github.com/ipeirotis-org/scholar_v2}. Semantic Scholar data are available under the ODC-BY license from
-the Semantic Scholar Datasets API. % TODO(authors): deposit the derived tables (e.g., Zenodo) and cite the DOI here.
+the Semantic Scholar Datasets API \citep{s2datasets2026}. % TODO(authors): deposit the derived tables (e.g., Zenodo) and cite the DOI here.
 
 \section*{Competing interests}
 Panos Ipeirotis developed and maintains \url{https://www.pip-score.org}, a free, non-commercial website that computes

@@ -1338,3 +1338,610 @@ candidate-source: arXiv:2103.07534 — Subramanian, King, Downey & Feldman (2021
   evidence: "Author Name Disambiguation (AND) is the task of resolving which author mentions in a bibliographic database refer to the same real-world person" (Abstract); "production on S2 today, reducing error by more than 50%" (Intro (line ~91 of extracted text; surrounding sentence not quoted in full)) — overlap: Describes the algorithmic author clustering used for S2 author records and an evaluation of the S2 production system. Supports the 'automatic disambiguation' half of the claim.
 status: candidate offered to the author; nothing inserted
 
+
+## [2026-11-05T16:29Z] cite:bornmann2013use — paper/manuscript_qss/main.tex:82
+claim: "At the level of single papers, percentiles have become an established normalization, which the Leiden Manifesto calls the most robust \citep{bornmann2013use,waltman2016review,hicks2015bibliometrics}: a paper is compared with papers of the same publication year, and possibly the same field, by the share of them it out-cites."
+claim-hash: 7fadc987d1ee
+source: doi:10.1016/j.joi.2012.10.001
+version-read: preprint (arXiv:1211.0381v1)
+archived: gs://scholar-version2-literature/sources/bornmann2013use--10.1016_j.joi.2012.10.001-681945bb.pdf sha256:3638ced7af5747f7fcc1e34f278c7ebcee3bea58c100951823931a3eab77e27c
+license: unknown (treated as restricted; private store)
+updates: none
+verdict: supported
+evidence: "Percentiles and PR have been established in bibliometrics as an important alternative" (sec. 5 Discussion)
+notes: Supports 'established'. Sentence revised by the author-approved fixes of 2026-11-05; verified by the coordinator against the archived text.
+
+## [2026-11-05T16:29Z] cite:waltman2016review — paper/manuscript_qss/main.tex:82
+claim: "At the level of single papers, percentiles have become an established normalization, which the Leiden Manifesto calls the most robust \citep{bornmann2013use,waltman2016review,hicks2015bibliometrics}: a paper is compared with papers of the same publication year, and possibly the same field, by the share of them it out-cites."
+claim-hash: 7fadc987d1ee
+source: doi:10.1016/j.joi.2016.02.007
+version-read: preprint (arXiv:1507.02099v3)
+archived: gs://scholar-version2-literature/sources/waltman2016review--10.1016_j.joi.2016.02.007-f65cd1b4.pdf sha256:dbfc29bc5a786a45fd14c9a7ab47d7b40949adff0dce04f0a3c540631491f907
+license: unknown (treated as restricted; private store)
+updates: none
+verdict: supported
+evidence: "Nowadays, the idea of calculating the proportion of publications that belong to the top 10% most highly cited in their field plays an important role both in the CWTS Leiden Ranking and in the SCImago Institutions Rankings" (sec. 6.2, p. 25)
+notes: Percentile-based indicators are in standard use in the major rankings; the review does not call them preferred, which the revised sentence no longer claims. Sentence revised by the author-approved fixes of 2026-11-05; verified by the coordinator against the archived text.
+
+## [2026-11-05T16:29Z] cite:hicks2015bibliometrics — paper/manuscript_qss/main.tex:82
+claim: "At the level of single papers, percentiles have become an established normalization, which the Leiden Manifesto calls the most robust \citep{bornmann2013use,waltman2016review,hicks2015bibliometrics}: a paper is compared with papers of the same publication year, and possibly the same field, by the share of them it out-cites."
+claim-hash: 7fadc987d1ee
+source: doi:10.1038/520429a
+version-read: version of record (Nature 520:429-431 typeset PDF, deposited in DIGITAL.CSIC)
+archived: gs://scholar-version2-literature/sources/hicks2015bibliometrics--10.1038_520429a-a1c33bfa.pdf sha256:f141b19cb5d5f7db1aba13ad02decde290b83f059b52724126f8ae5ec563395d
+license: unknown (treated as restricted; private store)
+updates: none
+verdict: supported
+evidence: "the most robust normalization method is based on percentiles" (p. 431, principle 6)
+notes: The Leiden Manifesto's own wording. Sentence revised by the author-approved fixes of 2026-11-05; verified by the coordinator against the archived text.
+
+## [2026-11-05T16:29Z] cite:bornmann2013use — paper/manuscript_qss/main.tex:84
+claim: "Percentiles do not depend on the skewed tail of the citation distribution \citep{bornmann2013use}, they need no assumption about how citations grow with age, and their meaning does not change with the calendar."
+claim-hash: cb51c03bec86
+source: doi:10.1016/j.joi.2012.10.001
+version-read: preprint (arXiv:1211.0381v1)
+archived: gs://scholar-version2-literature/sources/bornmann2013use--10.1016_j.joi.2012.10.001-681945bb.pdf sha256:3638ced7af5747f7fcc1e34f278c7ebcee3bea58c100951823931a3eab77e27c
+license: unknown (treated as restricted; private store)
+updates: none
+verdict: supported
+evidence: "(1) percentiles are not as strongly influenced by extreme values of the distribution as the mean value" (sec. 2, The calculation of percentiles); "(3) Percentiles can be calculated, even if the data are skewed, as it is usual for bibliometric data." (sec. 2)
+notes: Cited for the first clause only; the age and calendar clauses are the manuscript's own argument. Sentence revised by the author-approved fixes of 2026-11-05; verified by the coordinator against the archived text.
+
+## [2026-11-05T16:29Z] cite:hirsch2005index — paper/manuscript_qss/main.tex:144
+claim: "The $h$-index \citep{hirsch2005index} is a single number that depends on both the number of papers and their citations, and it has been studied, criticized and modified at length."
+claim-hash: 07a434ef9dcc
+source: doi:10.1073/pnas.0507655102
+version-read: preprint (arXiv:physics/0508025v5)
+archived: gs://scholar-version2-literature/sources/hirsch2005index--10.1073_pnas.0507655102-f28ddc65.pdf sha256:ad20b4b792bde68eba06d00b944b47532aa26adefdabbabf6a649fa984481b96
+license: unknown (treated as restricted; private store)
+updates: none
+verdict: supported
+evidence: "I propose the index h, defined as the number of papers with citation number higher or equal to h" (abstract); "to propose a single number, the" (p. 1)
+notes: A single number defined by both paper count and citations. Sentence revised by the author-approved fixes of 2026-11-05; verified by the coordinator against the archived text.
+
+## [2026-11-05T16:29Z] cite:bornmann2013use — paper/manuscript_qss/main.tex:156
+claim: "They are less sensitive to outliers \citep{bornmann2013use,bornmann2020evaluation} than normalization by mean citation rates \citep{schubert1986relative,Radicchi2008} and are recommended in the Leiden Manifesto \citep{hicks2015bibliometrics}."
+claim-hash: 6140009d112b
+source: doi:10.1016/j.joi.2012.10.001
+version-read: preprint (arXiv:1211.0381v1)
+archived: gs://scholar-version2-literature/sources/bornmann2013use--10.1016_j.joi.2012.10.001-681945bb.pdf sha256:3638ced7af5747f7fcc1e34f278c7ebcee3bea58c100951823931a3eab77e27c
+license: unknown (treated as restricted; private store)
+updates: none
+verdict: supported
+evidence: "(1) percentiles are not as strongly influenced by extreme values of the distribution as the mean value" (sec. 2, The calculation of percentiles)
+notes: Cited for 'less sensitive to outliers'. Sentence revised by the author-approved fixes of 2026-11-05; verified by the coordinator against the archived text.
+
+## [2026-11-05T16:29Z] cite:bornmann2020evaluation — paper/manuscript_qss/main.tex:156
+claim: "They are less sensitive to outliers \citep{bornmann2013use,bornmann2020evaluation} than normalization by mean citation rates \citep{schubert1986relative,Radicchi2008} and are recommended in the Leiden Manifesto \citep{hicks2015bibliometrics}."
+claim-hash: 6140009d112b
+source: doi:10.1007/s11192-020-03512-7
+version-read: version of record
+archived: gs://scholar-version2-literature/sources/bornmann2020evaluation--10.1007_s11192-020-03512-7-1f24fb42.pdf sha256:3ea8c359d01836ba0507727a744a394ae2b0778cfc91682e8bafe7b5676bc29e
+license: CC-BY-4.0 (Springer open access)
+updates: none
+verdict: supported
+evidence: "The advantage of PRs (and PPs) is that they are not strongly affected by outliers (highly cited papers)" (p. 1458, Introduction)
+notes: Version of record. Sentence revised by the author-approved fixes of 2026-11-05; verified by the coordinator against the archived text.
+
+## [2026-11-05T16:29Z] cite:schubert1986relative — paper/manuscript_qss/main.tex:156
+claim: "They are less sensitive to outliers \citep{bornmann2013use,bornmann2020evaluation} than normalization by mean citation rates \citep{schubert1986relative,Radicchi2008} and are recommended in the Leiden Manifesto \citep{hicks2015bibliometrics}."
+claim-hash: 6140009d112b
+source: doi:10.1007/bf02017249
+version-read: abstract-only
+archived: gs://scholar-version2-literature/sources/schubert1986relative--10.1007_bf02017249-0d8903d0--abstract--2026-11-05-26c0d74a.html sha256:26c0d74a3353e9680a72faffcf7efd140021c30bfc6d95ac61256fdc19e6c693
+license: unknown (treated as restricted; private store)
+updates: none
+verdict: unverifiable
+evidence: none — Cited as an example of normalization by mean citation rates. The abstract describes indicators relative to 'field-specific reference standards' but does not say mean; full text needed (paywalled).
+notes: Cited as an example of normalization by mean citation rates. The abstract describes indicators relative to 'field-specific reference standards' but does not say mean; full text needed (paywalled). Sentence revised by the author-approved fixes of 2026-11-05; verified by the coordinator against the archived text.
+
+## [2026-11-05T16:29Z] cite:Radicchi2008 — paper/manuscript_qss/main.tex:156
+claim: "They are less sensitive to outliers \citep{bornmann2013use,bornmann2020evaluation} than normalization by mean citation rates \citep{schubert1986relative,Radicchi2008} and are recommended in the Leiden Manifesto \citep{hicks2015bibliometrics}."
+claim-hash: 6140009d112b
+source: doi:10.1073/pnas.0806977105
+version-read: preprint (arXiv:0806.0974v2)
+archived: gs://scholar-version2-literature/sources/radicchi2008--10.1073_pnas.0806977105-fa509e28.pdf sha256:6dde217e74a426a0d1f6d900d74f0fce3452ab8c500260979751d86d06d7c5a0
+license: unknown (treated as restricted; private store)
+updates: none
+verdict: supported
+evidence: "we have considered the average number c0 of citations" (p. 2); "as an unbiased relative indicator of scientific impact" (p. 1)
+notes: Cited as an example of normalization by mean citation rates (cf = c/c0). Sentence revised by the author-approved fixes of 2026-11-05; verified by the coordinator against the archived text.
+
+## [2026-11-05T16:29Z] cite:hicks2015bibliometrics — paper/manuscript_qss/main.tex:156
+claim: "They are less sensitive to outliers \citep{bornmann2013use,bornmann2020evaluation} than normalization by mean citation rates \citep{schubert1986relative,Radicchi2008} and are recommended in the Leiden Manifesto \citep{hicks2015bibliometrics}."
+claim-hash: 6140009d112b
+source: doi:10.1038/520429a
+version-read: version of record (Nature 520:429-431 typeset PDF, deposited in DIGITAL.CSIC)
+archived: gs://scholar-version2-literature/sources/hicks2015bibliometrics--10.1038_520429a-a1c33bfa.pdf sha256:f141b19cb5d5f7db1aba13ad02decde290b83f059b52724126f8ae5ec563395d
+license: unknown (treated as restricted; private store)
+updates: none
+verdict: supported
+evidence: "the most robust normalization method is based on percentiles" (p. 431, principle 6)
+notes: Cited for the Leiden Manifesto recommendation. Sentence revised by the author-approved fixes of 2026-11-05; verified by the coordinator against the archived text.
+
+## [2026-11-05T16:29Z] cite:bornmann2014individual — paper/manuscript_qss/main.tex:160
+claim: "At the level of a scholar, \citet{bornmann2014individual} propose counting a scholar's papers in the top 10\% and dividing by academic age, and I3 \citep{leydesdorff2011integrated,rousseau2012basic} sums percentiles over a set of papers."
+claim-hash: 39b426b6f244
+source: doi:10.1007/s11192-013-1161-y
+version-read: preprint (arXiv:1302.3697v2)
+archived: gs://scholar-version2-literature/sources/bornmann2014individual--10.1007_s11192-013-1161-y-22e3c955.pdf sha256:f53354eb37b3efb9676ae2f64101071c8aa1d7ffe88e12df5d581f88ea210334
+license: unknown (treated as restricted; private store)
+updates: none
+verdict: supported
+evidence: "we would like to propose using the number of years as an active researcher (Ptop 10% quotient) to normalise Ptop 10% for age" (sec. 3.2)
+notes: Matches the revised wording (top 10%, divided by academic age). Sentence revised by the author-approved fixes of 2026-11-05; verified by the coordinator against the archived text.
+
+## [2026-11-05T16:29Z] cite:leydesdorff2011integrated — paper/manuscript_qss/main.tex:160
+claim: "At the level of a scholar, \citet{bornmann2014individual} propose counting a scholar's papers in the top 10\% and dividing by academic age, and I3 \citep{leydesdorff2011integrated,rousseau2012basic} sums percentiles over a set of papers."
+claim-hash: 39b426b6f244
+source: doi:10.1002/asi.21609
+version-read: preprint (arXiv:1103.5241v2)
+archived: gs://scholar-version2-literature/sources/leydesdorff2011integrated--10.1002_asi.21609-cbbd6e66.pdf sha256:b50d95eee11710072a36fbee7e64ebdb3ba5b3dcb4c2f1e3fee5e7d630892d9b
+license: unknown (treated as restricted; private store)
+updates: none
+verdict: supported
+evidence: "One can also consider hundred percentiles as a continuous random variable and sum these values" (pp. 5-6); "The citations are weighted in accordance with the percentile" (p. 7)
+notes: I3 sums percentiles over a set of papers. Sentence revised by the author-approved fixes of 2026-11-05; verified by the coordinator against the archived text.
+
+## [2026-11-05T16:29Z] cite:rousseau2012basic — paper/manuscript_qss/main.tex:160
+claim: "At the level of a scholar, \citet{bornmann2014individual} propose counting a scholar's papers in the top 10\% and dividing by academic age, and I3 \citep{leydesdorff2011integrated,rousseau2012basic} sums percentiles over a set of papers."
+claim-hash: 39b426b6f244
+source: doi:10.1002/asi.21684
+version-read: abstract-only
+archived: gs://scholar-version2-literature/sources/rousseau2012basic--10.1002_asi.21684-660d9303--abstract--2026-11-05-c17f011c.json sha256:c17f011c6bfe3e3e0bd0544abf7df6ba45c0d6aab62927dedf6ecd5754fb2bf4
+license: unknown (treated as restricted; private store)
+updates: none
+verdict: unverifiable
+evidence: none — Abstract only; it discusses I3 but does not state that it sums percentiles. Full text needed (paywalled).
+notes: Abstract only; it discusses I3 but does not state that it sums percentiles. Full text needed (paywalled). Sentence revised by the author-approved fixes of 2026-11-05; verified by the coordinator against the archived text.
+
+## [2026-11-05T16:29Z] cite:kinney2023semantic — paper/manuscript_qss/main.tex:186
+claim: "We use the Semantic Scholar Academic Graph \citep{kinney2023semantic}, release of 27 October 2026, which is distributed under the ODC-BY license \citep{s2datasets2026}."
+claim-hash: c360130c7554
+source: arXiv:2301.10140 (DataCite doi:10.48550/arXiv.2301.10140)
+version-read: preprint (arXiv:2301.10140v2)
+archived: gs://scholar-version2-literature/sources/kinney2023semantic--the_semantic_scholar_open_data_platform-95c53807.pdf sha256:6f4c9082252e8b420ff2cbb811379f989f087bf4e8b46ff9ec5f9565b2b43e6f
+license: unknown (treated as restricted; private store)
+accessed: 2026-11-05
+verdict: supported
+evidence: "S2AG is a disambiguated, high-quality, bibliographic" (abstract)
+notes: Cited as the description of S2AG; the license is now cited to s2datasets2026, and the release date is the authors' own. Sentence revised by the author-approved fixes of 2026-11-05; verified by the coordinator against the archived text.
+
+## [2026-11-05T16:29Z] cite:s2datasets2026 — paper/manuscript_qss/main.tex:186
+claim: "We use the Semantic Scholar Academic Graph \citep{kinney2023semantic}, release of 27 October 2026, which is distributed under the ODC-BY license \citep{s2datasets2026}."
+claim-hash: c360130c7554
+source: https://api.semanticscholar.org/datasets/v1/release/2026-10-27
+version-read: release 2026-10-27 dataset READMEs (JSON), fetched 2026-11-05
+archived: gs://scholar-version2-literature/sources/s2datasets2026--api.semanticscholar.org_datasets_v1_release_2026-10-27-1ddd5a1e--2026-11-05-385e6b41.json sha256:385e6b41f1ccaa0199439dd8b7cf1a0c3cfb112ec2f1e784741d749ca5e869f0
+license: unknown (treated as restricted; private store)
+accessed: 2026-11-05
+verdict: supported
+evidence: "This collection is licensed under ODC-BY." (README of the papers, authors and citations datasets, release 2026-10-27)
+notes: Core datasets (papers, authors, citations) are ODC-BY; SPECTER embeddings are Apache 2.0 and s2orc_v2 carries per-paper licenses, none of which the paper uses. Sentence revised by the author-approved fixes of 2026-11-05; verified by the coordinator against the archived text.
+
+## [2026-11-05T16:29Z] cite:s2graphapi — paper/manuscript_qss/main.tex:197
+claim: "Each article carries zero or more of Semantic Scholar's 23 fields of study \citep{s2graphapi}."
+claim-hash: c3493ebebd1b
+source: https://api.semanticscholar.org/api-docs/graph (content read from https://api.semanticscholar.org/graph/v1/swagger.json)
+version-read: API specification fetched 2026-11-05
+archived: gs://scholar-version2-literature/sources/allen--api.semanticscholar.org_graph_v1_swagger.json-eb4c3a82--2026-11-05-09663a55.json sha256:09663a55920f46d4ab2b9febdac51bef7b3c854ebddaa5d97b5d7ed7d244890e
+license: unknown (treated as restricted; private store)
+accessed: 2026-11-05
+verdict: supported
+evidence: "The possible fields are: Computer Science, Medicine, Chemistry, Biology, Materials Science, Physics, Geology, Psychology, Art, History, Geography, Sociology, Business, Political Science, Economics, Philosophy, Mathematics, Engineering, Environmental Science, Agricultural and Food Sciences, Education, Law, and Linguistics." (Paper.fieldsOfStudy)
+notes: The list has 23 entries (counted); fieldsOfStudy is an array, so zero or more per paper. Sentence revised by the author-approved fixes of 2026-11-05; verified by the coordinator against the archived text.
+
+## [2026-11-05T16:29Z] cite:kinney2023semantic — paper/manuscript_qss/main.tex:200
+claim: "Semantic Scholar assigns author identifiers through automatic disambiguation \citep{kinney2023semantic}."
+claim-hash: 08f0f68bb1b2
+source: arXiv:2301.10140 (DataCite doi:10.48550/arXiv.2301.10140)
+version-read: preprint (arXiv:2301.10140v2)
+archived: gs://scholar-version2-literature/sources/kinney2023semantic--the_semantic_scholar_open_data_platform-95c53807.pdf sha256:6f4c9082252e8b420ff2cbb811379f989f087bf4e8b46ff9ec5f9565b2b43e6f
+license: unknown (treated as restricted; private store)
+accessed: 2026-11-05
+verdict: supported
+evidence: "In Author Disambiguation, we use a system named" (sec. 3 (column-split)); "S2AND, introduced in Subramanian et al. (2021)," (sec. 3, continuation)
+notes: S2AND assigns an ID to each author mention. Sentence revised by the author-approved fixes of 2026-11-05; verified by the coordinator against the archived text.
+
+## [2026-11-05T16:29Z] cite:kinney2023semantic — paper/manuscript_qss/main.tex:218
+claim: "Semantic Scholar's author records are built by automatic disambiguation, although authors can claim and correct them \citep{kinney2023semantic}; Google Scholar profiles are created and curated by the scholars themselves \citep{googlescholarprofiles}, so they are a check on automatic disambiguation (Section~\ref{sec:robustness})."
+claim-hash: bfeae30d63bd
+source: arXiv:2301.10140 (DataCite doi:10.48550/arXiv.2301.10140)
+version-read: preprint (arXiv:2301.10140v2)
+archived: gs://scholar-version2-literature/sources/kinney2023semantic--the_semantic_scholar_open_data_platform-95c53807.pdf sha256:6f4c9082252e8b420ff2cbb811379f989f087bf4e8b46ff9ec5f9565b2b43e6f
+license: unknown (treated as restricted; private store)
+accessed: 2026-11-05
+verdict: supported
+evidence: "In Author Disambiguation, we use a system named" (sec. 3 (column-split)); "S2AND, introduced in Subramanian et al. (2021)," (sec. 3, continuation); "Users of the web site can claim the iden" (sec. 2 (column-split)); "tity of an author in our corpus and manually curate the papers associated with that author" (sec. 2, continuation)
+notes: Automatic disambiguation plus author claims and manual curation. Sentence revised by the author-approved fixes of 2026-11-05; verified by the coordinator against the archived text.
+
+## [2026-11-05T16:29Z] cite:googlescholarprofiles — paper/manuscript_qss/main.tex:218
+claim: "Semantic Scholar's author records are built by automatic disambiguation, although authors can claim and correct them \citep{kinney2023semantic}; Google Scholar profiles are created and curated by the scholars themselves \citep{googlescholarprofiles}, so they are a check on automatic disambiguation (Section~\ref{sec:robustness})."
+claim-hash: bfeae30d63bd
+source: https://scholar.google.com/intl/en/scholar/citations.html
+version-read: help page fetched 2026-11-05
+archived: gs://scholar-version2-literature/sources/google2026--scholar.google.com_intl_en_scholar_citations.html-5a1f02e3--2026-11-05-ee36f4c6.html sha256:ee36f4c64761878fab990a35b7ca3413ea762bd9d37e6685ebf1b6a7efe41615
+license: unknown (treated as restricted; private store)
+accessed: 2026-11-05
+verdict: supported
+evidence: "Google Scholar Profiles provide a simple way for authors to showcase their academic publications." (intro); "Add all articles that you have written" (Setting up your profile); "The best way to fix this is to look through the articles in your profile and remove the ones that were written by others." (FAQ)
+notes: Profiles are created and curated by the scholars; Google's statistical model proposes articles and can update them automatically if the author allows. Sentence revised by the author-approved fixes of 2026-11-05; verified by the coordinator against the archived text.
+
+## [2026-11-05T16:29Z] cite:bornmann2013use — paper/manuscript_qss/main.tex:331
+claim: "Mid-ranks, which count half of the tied peers, are a common choice for the percentile of a single paper \citep{bornmann2013use,waltman2013percentile}, but here they would give credit to authors with nothing above a threshold: at high thresholds most peers have no article, and an author tied with them at zero would stand at half their share."
+claim-hash: e0e4e6500ce3
+source: doi:10.1016/j.joi.2012.10.001
+version-read: preprint (arXiv:1211.0381v1)
+archived: gs://scholar-version2-literature/sources/bornmann2013use--10.1016_j.joi.2012.10.001-681945bb.pdf sha256:3638ced7af5747f7fcc1e34f278c7ebcee3bea58c100951823931a3eab77e27c
+license: unknown (treated as restricted; private store)
+updates: none
+verdict: supported
+evidence: "The compromise ((i-0.5)/n*100) derived by (Hazen, 1914) is used very frequently" (sec. 2)
+notes: Hazen's (i-0.5)/n is the mid-rank; 'used very frequently' supports 'a common choice'. Sentence revised by the author-approved fixes of 2026-11-05; verified by the coordinator against the archived text.
+
+## [2026-11-05T16:29Z] cite:waltman2013percentile — paper/manuscript_qss/main.tex:331
+claim: "Mid-ranks, which count half of the tied peers, are a common choice for the percentile of a single paper \citep{bornmann2013use,waltman2013percentile}, but here they would give credit to authors with nothing above a threshold: at high thresholds most peers have no article, and an author tied with them at zero would stand at half their share."
+claim-hash: e0e4e6500ce3
+source: doi:10.1002/asi.22775
+version-read: preprint (arXiv:1205.0646v1)
+archived: gs://scholar-version2-literature/sources/waltman2013percentile--10.1002_asi.22775-039024e8.pdf sha256:89e4c0756f18084062345454a5ad2dc5649cf29dec145615f2f19e2844310ac7
+license: unknown (treated as restricted; private store)
+updates: none
+verdict: partially supported
+evidence: "Pudovkin and Garfield put the tied publications in a random order and calculate their average percentile." (sec. 3)
+notes: Describes average-percentile tie handling as one approach; 'common' now rests on bornmann2013use. Sentence revised by the author-approved fixes of 2026-11-05; verified by the coordinator against the archived text.
+
+## [2026-11-05T16:29Z] cite:zitt2005relativity — paper/manuscript_qss/main.tex:1008
+claim: "Field normalization brings its own choices: the field scheme and the assignment of multi-field papers \citep{zitt2005relativity,waltman2015field,waltman2019field}, and, for a scholar, the assignment of a main field."
+claim-hash: 458b1cd21099
+source: doi:10.1007/s11192-005-0218-y
+version-read: abstract-only
+archived: gs://scholar-version2-literature/sources/zitt2005relativity--10.1007_s11192-005-0218-y-bf0707e5--abstract--2026-11-05-ce9c72cb.html sha256:ce9c72cbeba9eee1d4c552b5f9ffd9d3754059dec1c034a9abad75b2c54304b1
+license: unknown (treated as restricted; private store)
+updates: none
+verdict: unverifiable
+evidence: none — Abstract only: it supports the field-scheme part ('fields may be defined at various levels ... normalisation values are expected to vary') but is silent on multi-field papers. Full text needed (paywalled).
+notes: Abstract only: it supports the field-scheme part ('fields may be defined at various levels ... normalisation values are expected to vary') but is silent on multi-field papers. Full text needed (paywalled). Sentence revised by the author-approved fixes of 2026-11-05; verified by the coordinator against the archived text.
+
+## [2026-11-05T16:29Z] cite:waltman2015field — paper/manuscript_qss/main.tex:1008
+claim: "Field normalization brings its own choices: the field scheme and the assignment of multi-field papers \citep{zitt2005relativity,waltman2015field,waltman2019field}, and, for a scholar, the assignment of a main field."
+claim-hash: 458b1cd21099
+source: doi:10.1016/j.joi.2015.08.001
+version-read: preprint (arXiv:1501.04431v1)
+archived: gs://scholar-version2-literature/sources/waltman2015field--10.1016_j.joi.2015.08.001-8988ca16.pdf sha256:acc87a4b752fbf52994b18aa703b1561c84124c780e9de46a66ff8a0341fc2a6
+license: unknown (treated as restricted; private store)
+updates: none
+verdict: supported
+evidence: "fields are defined by the WoS journal subject categories." (sec. 4, p. 19); "A fractional counting approach is taken to handle publications belonging to multiple subject categories." (footnote 6, p. 19)
+notes: Both choices appear as choices the analysis makes; the author main-field clause, which it did not support, is no longer attributed. Sentence revised by the author-approved fixes of 2026-11-05; verified by the coordinator against the archived text.
+
+## [2026-11-05T16:29Z] cite:waltman2019field — paper/manuscript_qss/main.tex:1008
+claim: "Field normalization brings its own choices: the field scheme and the assignment of multi-field papers \citep{zitt2005relativity,waltman2015field,waltman2019field}, and, for a scholar, the assignment of a main field."
+claim-hash: 458b1cd21099
+source: doi:10.1007/978-3-030-02511-3_11
+version-read: preprint (arXiv:1801.09985v1)
+archived: gs://scholar-version2-literature/sources/waltman2019field--10.1007_978-3-030-02511-3_11-357ae0ed.pdf sha256:af5d1381889500d4cb5876fa62907d470b34613ed4b7db6a647e6a3d252aa77a
+license: unknown (treated as restricted; private store)
+updates: none
+verdict: supported
+evidence: "normalized indicators are quite sensitive to methodological choices, such as the choice of a field classification system" (sec. 7.2); "Another issue in the calculation of the normalized citation score of a publication is the way in which publications belonging to multiple fields are handled." (sec. 5.1)
+notes: Field scheme and multi-field assignment as choices. Sentence revised by the author-approved fixes of 2026-11-05; verified by the coordinator against the archived text.
+
+## [2026-11-05T16:29Z] cite:s2datasets2026 — paper/manuscript_qss/main.tex:1064
+claim: "Semantic Scholar data are available under the ODC-BY license from the Semantic Scholar Datasets API \citep{s2datasets2026}."
+claim-hash: cb120cdd61bf
+source: https://api.semanticscholar.org/datasets/v1/release/2026-10-27
+version-read: release 2026-10-27 dataset READMEs (JSON), fetched 2026-11-05
+archived: gs://scholar-version2-literature/sources/s2datasets2026--api.semanticscholar.org_datasets_v1_release_2026-10-27-1ddd5a1e--2026-11-05-385e6b41.json sha256:385e6b41f1ccaa0199439dd8b7cf1a0c3cfb112ec2f1e784741d749ca5e869f0
+license: unknown (treated as restricted; private store)
+accessed: 2026-11-05
+verdict: supported
+evidence: "This collection is licensed under ODC-BY." (README of the papers, authors and citations datasets, release 2026-10-27)
+notes: Same source as line 186. Sentence revised by the author-approved fixes of 2026-11-05; verified by the coordinator against the archived text.
+
+## [2026-11-05T16:29Z] bib:hirsch2005index
+entry-hash: a73810278bc1
+source: doi:10.1073/pnas.0507655102
+registrar: Crossref
+updates: none
+verdict: confirmed
+evidence: registrar record: 'An index to quantify an individual's scientific research output', Proceedings of the National Academy of Sciences 102(46) 16569-16572, doi:10.1073/pnas.0507655102; title, volume, issue, pages and DOI match the entry
+
+## [2026-11-05T16:29Z] bib:bornmann2013use
+entry-hash: cf4c5158b40a
+source: doi:10.1016/j.joi.2012.10.001
+registrar: Crossref
+updates: none
+verdict: confirmed
+evidence: registrar record: 'The use of percentiles and percentile rank classes in the analysis of bibliometric data: Opportunities and limits', Journal of Informetrics 7(1) 158-165, doi:10.1016/j.joi.2012.10.001; title, volume, issue, pages and DOI match the entry
+
+## [2026-11-05T16:29Z] bib:waltman2016review
+entry-hash: 72bad80ce78c
+source: doi:10.1016/j.joi.2016.02.007
+registrar: Crossref
+updates: none
+verdict: confirmed
+evidence: registrar record: 'A review of the literature on citation impact indicators', Journal of Informetrics 10(2) 365-391, doi:10.1016/j.joi.2016.02.007; title, volume, issue, pages and DOI match the entry
+
+## [2026-11-05T16:29Z] bib:hicks2015bibliometrics
+entry-hash: d29d879491de
+source: doi:10.1038/520429a
+registrar: Crossref
+updates: none
+verdict: confirmed
+evidence: registrar record: 'Bibliometrics: The Leiden Manifesto for research metrics', Nature 520(7548) 429-431, doi:10.1038/520429a; title, volume, issue, pages and DOI match the entry
+
+## [2026-11-05T16:29Z] bib:waltman2012leiden
+entry-hash: 59e9f2af6f39
+source: doi:10.1002/asi.22708
+registrar: Crossref
+updates: none
+verdict: confirmed
+evidence: registrar record: 'The Leiden ranking 2011/2012: Data collection, indicators, and interpretation', Journal of the American Society for Information Science and Technology 63(12) 2419-2432, doi:10.1002/asi.22708; title, volume, issue, pages and DOI match the entry
+
+## [2026-11-05T16:29Z] bib:bornmann2014individual
+entry-hash: 16dd6f7bb470
+source: doi:10.1007/s11192-013-1161-y
+registrar: Crossref
+updates: none
+verdict: confirmed
+evidence: registrar record: 'How to evaluate individual researchers working in the natural and life sciences meaningfully? A proposal of methods based on percentiles of citations', Scientometrics 98(1) 487-509, doi:10.1007/s11192-013-1161-y; title, volume, issue, pages and DOI match the entry
+
+## [2026-11-05T16:29Z] bib:kinney2023semantic
+entry-hash: a578a5ee5f35
+source: arXiv:2301.10140 (DataCite doi:10.48550/arXiv.2301.10140)
+registrar: DataCite (arXiv)
+verdict: confirmed
+evidence: arXiv API and DataCite records match the entry's title, authors and year; the entry now carries the DataCite DOI
+
+## [2026-11-05T16:29Z] bib:tian2021predictability
+entry-hash: 85710d2387fc
+source: arXiv:2103.16025 (DataCite doi:10.48550/arXiv.2103.16025)
+registrar: DataCite (arXiv)
+verdict: confirmed
+evidence: arXiv API and DataCite records match the entry's title, authors and year; the entry now carries the DataCite DOI
+
+## [2026-11-05T16:29Z] bib:ipeirotis2024pip
+entry-hash: 7641ae68b846
+source: https://www.behind-the-enemy-lines.com/2024/01/the-pip-auc-score-for-research.html (accessed 2026-11-05)
+registrar: none (URL-backed)
+verdict: confirmed
+evidence: the entry now carries the page's full title 'The PiP-AUC score for research productivity: A somewhat new metric for paper citations and number of papers'
+
+## [2026-11-05T16:29Z] bib:egghe2006theory
+entry-hash: 30b481fc5ef9
+source: doi:10.1007/s11192-006-0144-7
+registrar: Crossref
+updates: none
+verdict: confirmed
+evidence: registrar record: 'Theory and practise of the g-index', Scientometrics 69(1) 131-152, doi:10.1007/s11192-006-0144-7; title, volume, issue, pages and DOI match the entry
+
+## [2026-11-05T16:29Z] bib:sidiropoulos2007generalized
+entry-hash: 302d13d327f9
+source: doi:10.1007/s11192-007-1722-z
+registrar: Crossref
+updates: none
+verdict: confirmed
+evidence: registrar record: 'Generalized Hirsch h-index for disclosing latent facts in citation networks', Scientometrics 72(2) 253-280, doi:10.1007/s11192-007-1722-z; title, volume, issue, pages and DOI match the entry
+
+## [2026-11-05T16:29Z] bib:harzing2014hia
+entry-hash: db6eadeea8d7
+source: doi:10.1007/s11192-013-1208-0
+registrar: Crossref
+updates: none
+verdict: confirmed
+evidence: registrar record: 'hIa: an individual annual h-index to accommodate disciplinary and career length differences', Scientometrics 99(3) 811-821, doi:10.1007/s11192-013-1208-0; title, volume, issue, pages and DOI match the entry
+
+## [2026-11-05T16:29Z] bib:kaur2013universality
+entry-hash: a2b647927631
+source: doi:10.1016/j.joi.2013.09.002
+registrar: Crossref
+updates: none
+verdict: confirmed
+evidence: registrar record: 'Universality of scholarly impact metrics', Journal of Informetrics 7(4) 924-932, doi:10.1016/j.joi.2013.09.002; title, volume, issue, pages and DOI match the entry
+
+## [2026-11-05T16:29Z] bib:bornmann2011metaanalysis
+entry-hash: 1f035a8421d7
+source: doi:10.1016/j.joi.2011.01.006
+registrar: Crossref
+updates: none
+verdict: confirmed
+evidence: registrar record: 'A multilevel meta-analysis of studies reporting correlations between the h index and 37 different h index variants', Journal of Informetrics 5(3) 346-359, doi:10.1016/j.joi.2011.01.006; title, volume, issue, pages and DOI match the entry
+
+## [2026-11-05T16:29Z] bib:leydesdorff2011turning
+entry-hash: 83e1ac1cbf1e
+source: doi:10.1002/asi.21534
+registrar: Crossref
+updates: none
+verdict: confirmed
+evidence: registrar record: 'Turning the tables on citation analysis one more time: Principles for comparing sets of documents', Journal of the American Society for Information Science and Technology 62(7) 1370-1381, doi:10.1002/asi.21534; title, volume, issue, pages and DOI match the entry
+
+## [2026-11-05T16:29Z] bib:waltman2013percentile
+entry-hash: 17b7013b3861
+source: doi:10.1002/asi.22775
+registrar: Crossref
+updates: none
+verdict: confirmed
+evidence: registrar record: 'On the calculation of percentile‐based bibliometric indicators', Journal of the American Society for Information Science and Technology 64(2) 372-379, doi:10.1002/asi.22775; title, volume, issue, pages and DOI match the entry
+
+## [2026-11-05T16:29Z] bib:bornmann2020evaluation
+entry-hash: a4fc0ab0d657
+source: doi:10.1007/s11192-020-03512-7
+registrar: Crossref
+updates: none
+verdict: confirmed
+evidence: registrar record: 'An evaluation of percentile measures of citation impact, and a proposal for making them better', Scientometrics 124(2) 1457-1478, doi:10.1007/s11192-020-03512-7; title, volume, issue, pages and DOI match the entry
+
+## [2026-11-05T16:29Z] bib:schubert1986relative
+entry-hash: 69a599b266dd
+source: doi:10.1007/bf02017249
+registrar: Crossref
+updates: none
+verdict: confirmed
+evidence: registrar record: 'Relative indicators and relational charts for comparative assessment of publication output and citation impact', Scientometrics 9(5-6) 281-291, doi:10.1007/bf02017249; title, volume, issue, pages and DOI match the entry
+
+## [2026-11-05T16:29Z] bib:Radicchi2008
+entry-hash: 4e9f4271122e
+source: doi:10.1073/pnas.0806977105
+registrar: Crossref
+updates: none
+verdict: confirmed
+evidence: registrar record: 'Universality of citation distributions: Toward an objective measure of scientific impact', Proceedings of the National Academy of Sciences 105(45) 17268-17272, doi:10.1073/pnas.0806977105; title, volume, issue, pages and DOI match the entry
+
+## [2026-11-05T16:29Z] bib:hazen1914storage
+entry-hash: fe23f41b1300
+source: doi:10.1061/taceat.0002563
+registrar: Crossref
+updates: none
+verdict: confirmed
+evidence: registrar record: 'Storage to be Provided in Impounding Municipal Water Supply', Transactions of the American Society of Civil Engineers 77(1) 1539-1640, doi:10.1061/taceat.0002563; the entry's title now follows the paper's own title page ('Storage to be Provided in Impounding Reservoirs for Municipal Water Supply', Trans. ASCE Paper No. 1308, archive.org scan); the Crossref record omits 'reservoirs for', so the difference is a registrar error, not an entry correction
+
+## [2026-11-05T16:29Z] bib:rousseau2012basic
+entry-hash: 202b1dae8dc5
+source: doi:10.1002/asi.21684
+registrar: Crossref
+updates: none
+verdict: confirmed
+evidence: registrar record: 'Basic properties of both percentile rank scores and the I3 indicator', Journal of the American Society for Information Science and Technology 63(2) 416-420, doi:10.1002/asi.21684; title, volume, issue, pages and DOI match the entry
+
+## [2026-11-05T16:29Z] bib:ioannidis2019standardized
+entry-hash: 5a1ad68ccfb0
+source: doi:10.1371/journal.pbio.3000384
+registrar: Crossref
+updates: new_version doi:10.1371/journal.pbio.3000384 (2019-08-19, publisher)
+verdict: confirmed
+evidence: registrar record: 'A standardized citation metrics author database annotated for scientific field', PLOS Biology 17(8) e3000384, doi:10.1371/journal.pbio.3000384; title, volume, issue, pages and DOI match the entry
+
+## [2026-11-05T16:29Z] bib:abramo2014productivity
+entry-hash: 8c00a8378f4f
+source: doi:10.1007/s11192-014-1269-8
+registrar: Crossref
+updates: none
+verdict: confirmed
+evidence: registrar record: 'How do you define and measure research productivity?', Scientometrics 101(2) 1129-1144, doi:10.1007/s11192-014-1269-8; title, volume, issue, pages and DOI match the entry
+
+## [2026-11-05T16:29Z] bib:hirsch2007does
+entry-hash: 8fa99f7b52d6
+source: doi:10.1073/pnas.0707962104
+registrar: Crossref
+updates: none
+verdict: confirmed
+evidence: registrar record: 'Does the h index have predictive power?', Proceedings of the National Academy of Sciences 104(49) 19193-19198, doi:10.1073/pnas.0707962104; title, volume, issue, pages and DOI match the entry
+
+## [2026-11-05T16:29Z] bib:acuna2012future
+entry-hash: 12c24421dd1d
+source: doi:10.1038/489201a
+registrar: Crossref
+updates: none
+verdict: confirmed
+evidence: registrar record: 'Predicting scientific success', Nature 489(7415) 201-202, doi:10.1038/489201a; title, volume, issue, pages and DOI match the entry
+
+## [2026-11-05T16:29Z] bib:penner2013predictability
+entry-hash: c9c28e8d3ced
+source: doi:10.1038/srep03052
+registrar: Crossref
+updates: none
+verdict: confirmed
+evidence: registrar record: 'On the Predictability of Future Impact in Science', Scientific Reports 3(1) 3052, doi:10.1038/srep03052; title, volume, issue, pages and DOI match the entry
+
+## [2026-11-05T16:29Z] bib:sinatra2016quantifying
+entry-hash: c6e31a8191f5
+source: doi:10.1126/science.aaf5239
+registrar: Crossref
+updates: none
+verdict: confirmed
+evidence: registrar record: 'Quantifying the evolution of individual scientific impact', Science 354(6312) aaf5239, doi:10.1126/science.aaf5239; title, volume, issue, pages and DOI match the entry
+
+## [2026-11-05T16:29Z] bib:clauset2017datadriven
+entry-hash: de2db683f7e5
+source: doi:10.1126/science.aal4217
+registrar: Crossref
+updates: none
+verdict: confirmed
+evidence: registrar record: 'Data-driven predictions in the science of science', Science 355(6324) 477-480, doi:10.1126/science.aal4217; title, volume, issue, pages and DOI match the entry
+
+## [2026-11-05T16:29Z] bib:wang2013window
+entry-hash: de6e2d8fd17d
+source: doi:10.1007/s11192-012-0775-9
+registrar: Crossref
+updates: none
+verdict: confirmed
+evidence: registrar record: 'Citation time window choice for research impact evaluation', Scientometrics 94(3) 851-872, doi:10.1007/s11192-012-0775-9; title, volume, issue, pages and DOI match the entry
+
+## [2026-11-05T16:29Z] bib:abramo2011window
+entry-hash: 9276f557914c
+source: doi:10.1016/j.joi.2011.06.004
+registrar: Crossref
+updates: none
+verdict: confirmed
+evidence: registrar record: 'Assessing the varying level of impact measurement accuracy as a function of the citation window length', Journal of Informetrics 5(4) 659-667, doi:10.1016/j.joi.2011.06.004; title, volume, issue, pages and DOI match the entry
+
+## [2026-11-05T16:29Z] bib:merton1968matthew
+entry-hash: e7a7c5a5efc2
+source: doi:10.1126/science.159.3810.56
+registrar: Crossref
+updates: none
+verdict: confirmed
+evidence: registrar record: 'The Matthew Effect in Science', Science 159(3810) 56-63, doi:10.1126/science.159.3810.56; title, volume, issue, pages and DOI match the entry
+
+## [2026-11-05T16:29Z] bib:petersen2014reputation
+entry-hash: bc8670877214
+source: doi:10.1073/pnas.1323111111
+registrar: Crossref
+updates: none
+verdict: confirmed
+evidence: registrar record: 'Reputation and impact in academic careers', Proceedings of the National Academy of Sciences 111(43) 15316-15321, doi:10.1073/pnas.1323111111; title, volume, issue, pages and DOI match the entry
+
+## [2026-11-05T16:29Z] bib:s2datasets2026
+entry-hash: fe99d82c622b
+source: https://api.semanticscholar.org/datasets/v1/release/2026-10-27 (accessed 2026-11-05)
+registrar: none (URL-backed)
+verdict: confirmed
+evidence: the cited page is the work itself, published by its operator (archived as s2datasets2026--api.semanticscholar.org_datasets_v1_release_2026-10-27-1ddd5a1e--2026-11-05-385e6b41.json); title and URL match the entry
+
+## [2026-11-05T16:29Z] bib:s2graphapi
+entry-hash: 4a7d8baaeb7f
+source: https://api.semanticscholar.org/api-docs/graph (content read from https://api.semanticscholar.org/graph/v1/swagger.json) (accessed 2026-11-05)
+registrar: none (URL-backed)
+verdict: confirmed
+evidence: the cited page is the work itself, published by its operator (archived as allen--api.semanticscholar.org_graph_v1_swagger.json-eb4c3a82--2026-11-05-09663a55.json); title and URL match the entry
+
+## [2026-11-05T16:29Z] bib:googlescholarprofiles
+entry-hash: d2cd5eba05de
+source: https://scholar.google.com/intl/en/scholar/citations.html (accessed 2026-11-05)
+registrar: none (URL-backed)
+verdict: confirmed
+evidence: the cited page is the work itself, published by its operator (archived as google2026--scholar.google.com_intl_en_scholar_citations.html-5a1f02e3--2026-11-05-ee36f4c6.html); title and URL match the entry
+
+## [2026-11-05T16:29Z] bib:aksnes2003macro
+entry-hash: 42551c7bd51f
+source: doi:10.1023/a:1021919228368
+registrar: Crossref
+updates: none
+verdict: confirmed
+evidence: registrar record: 'A macro study of self-citation', Scientometrics 56(2) 235-246, doi:10.1023/a:1021919228368; title, volume, issue, pages and DOI match the entry
+
+## [2026-11-05T16:29Z] bib:zitt2005relativity
+entry-hash: 3103b833442b
+source: doi:10.1007/s11192-005-0218-y
+registrar: Crossref
+updates: none
+verdict: confirmed
+evidence: registrar record: 'Relativity of citation performance and excellence measures: From cross-field to cross-scale effects of field-normalisation', Scientometrics 63(2) 373-401, doi:10.1007/s11192-005-0218-y; title, volume, issue, pages and DOI match the entry
+
+## [2026-11-05T16:29Z] bib:waltman2015field
+entry-hash: 97c7512efde2
+source: doi:10.1016/j.joi.2015.08.001
+registrar: Crossref
+updates: none
+verdict: confirmed
+evidence: registrar record: 'Field-normalized citation impact indicators and the choice of an appropriate counting method', Journal of Informetrics 9(4) 872-894, doi:10.1016/j.joi.2015.08.001; title, volume, issue, pages and DOI match the entry
+
+## [2026-11-05T16:29Z] bib:waltman2019field
+entry-hash: 8a0ba37fa992
+source: doi:10.1007/978-3-030-02511-3_11
+registrar: Crossref
+updates: none
+verdict: confirmed
+evidence: registrar record: 'Field Normalization of Scientometric Indicators', Springer Handbooks None(None) 281-300, doi:10.1007/978-3-030-02511-3_11; title, volume, issue, pages and DOI match the entry
+
