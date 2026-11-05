@@ -437,6 +437,19 @@ it balances the correlations with quantity (0.64) and with top papers (0.60), it
 outcome, and it is stable across cohorts. Users who care more about volume can lower it, and users who care more about
 impact can raise it up to about 0.6; the choice should be made before the evaluation and stated.
 
+\paragraph{Holdout check.} The default was chosen from results that pooled all cohorts, so we checked that it is not
+tuned to them. We split the same-age prediction settings by start year into a choice sample (1975--1990) and a test
+sample (1991 and later). Applying the rule above to the choice sample alone (the highest AUC for a future top-1\%
+paper among cutoffs whose distribution is stable across cohorts, $\tau \le 0.6$) selects $\tau = 0.6$ at career age
+10, with $\tau = 0.5$ within 0.001. In the test cohorts both cutoffs keep every comparison reported in
+Sections~\ref{sec:prediction}--\ref{sec:early} at career ages 5, 10 and 15: they beat the $h$-index on all three
+outcomes, no other indicator beats either of them on more than one outcome, and both have the highest AUC for a
+future top-1\% paper. Across $\tau$ from 0.25 to 0.6 that AUC varies by less than 0.01 in the test cohorts, so the
+exact choice in this range matters little for the outcome used to make it. Two differences between the samples are
+worth noting. The quantity--quality trade-off turns at a slightly higher cutoff in the older cohorts (between 0.6 and
+0.75 rather than at 0.5), and in those cohorts at career age 5 the top-10\% count ties $\tau = 0.5$ on the top-1\%
+outcome and beats it on future quality, while $\tau = 0.6$ keeps its lead.
+
 \subsection{A PiP score means the same thing in every cohort}
 \label{sec:cohorts}
 

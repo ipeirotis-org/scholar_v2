@@ -750,3 +750,47 @@ mean quality, the mean percentile is best at every age. This is the same orderin
 PiP's early-detection advantage is in finding the scholars at the top, who combine volume with highly cited work, and
 in anticipating exceptional papers. It reaches the h-index's age-10 accuracy at about age 8.
 
+## 16. Holdout check for τ (`sql/23_tau_holdout.sql`)
+
+τ = 0.5 was chosen from results that pooled all cohorts. To check it isn't tuned to them, the same-age prediction
+settings of §14 are split into two samples:
+
+- **Choice sample:** start years 1975–1990.
+- **Test sample:** start years from 1991 (1991–2005 at age 5, 1991–2000 at age 10, 1991–1995 at age 15).
+
+Values are future top-10% count / any future top-1% (AUC) / future mean percentile, at career age 10:
+
+| τ | Choice (550K) | Test (905K) |
+|---|---|---|
+| 0 | .403 / .737 / .195 | .470 / .783 / .242 |
+| 0.25 | .405 / .743 / .234 | .465 / .786 / .286 |
+| 0.5 | .401 / .750 / .294 | .443 / .785 / .339 |
+| 0.6 | .392 / **.751** / .320 | .429 / .783 / .353 |
+| 0.75 | .371 / .750 / .347 | .398 / .775 / .362 |
+| 0.9 | .332 / .740 / .340 | .356 / .756 / .336 |
+| h-index | .311 / .695 / .232 | .380 / .733 / .237 |
+| Top-10% count | .342 / .733 / .335 | .371 / .758 / .339 |
+
+### Selection on the choice sample
+
+The selection rule is the one stated in the paper: the highest top-1% AUC among cohort-stable cutoffs (τ ≤ 0.6). On the
+choice sample it selects τ = 0.6 at age 10, with τ = 0.5 within 0.001.
+
+### Test sample
+
+Both τ = 0.5 and τ = 0.6 keep every comparison at ages 5, 10 and 15:
+
+- they beat the h-index on all three outcomes;
+- no baseline beats them on more than one outcome;
+- they have the best top-1% AUC.
+
+Across τ from 0.25 to 0.6, the test-sample top-1% AUC varies by less than 0.01 (0.008 / 0.003 / 0.005 at ages 5 / 10 /
+15).
+
+### Differences between the samples
+
+- **The knee of the quantity–quality trade-off moves.** In the older cohorts it sits between 0.6 and 0.75; in the test
+  cohorts it sits at 0.5.
+- **One exception at age 5 in the choice sample.** There the top-10% count ties τ = 0.5 on the top-1% AUC (.686 each)
+  and beats it on quality (.296 against .195). τ = 0.6 keeps its lead in that setting.
+
