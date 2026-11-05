@@ -236,17 +236,21 @@ scholars themselves \citep{googlescholarprofiles}, so they are a check on automa
 \section{The PiP score}
 \label{sec:pip}
 
+PiP makes two comparisons. It first ranks each of a scholar's papers against papers published in the same year. It
+then counts the scholar's papers at or above each impact threshold and ranks that count against the counts of peers,
+the scholars who started publishing in the same year. The score averages these standings over the thresholds above a
+cutoff.
+
 \subsection{Paper percentiles}
-Fix an evaluation year $Y$. For an article $j$ published in year $p_j \le Y$, let $c_j(Y)$ be the citations it has
-received through $Y$. Its \emph{percentile} is the share of articles published in the same year with strictly fewer
-citations at $Y$:
+A paper one year old competes only with other papers one year old. Fix an evaluation year $Y$. For an article $j$
+published in year $p_j \le Y$, let $c_j(Y)$ be the citations it has received through $Y$. Its \emph{percentile} is the
+share of articles published in the same year with strictly fewer citations at $Y$:
 \begin{equation}
 y_j(Y) = \frac{\left|\{\,i : p_i = p_j,\ c_i(Y) < c_j(Y)\,\}\right|}{\left|\{\,i : p_i = p_j\,\}\right|} \in [0, 1).
 \end{equation}
 Uncited articles have $y_j = 0$. Every article is compared only with articles of the same publication year, evaluated
 at the same time, so $y_j$ needs no correction for the age of the paper or for the growth of citations over the
-decades. A paper one year old competes only with other papers one year old. The main analysis pools all fields;
-Section~\ref{sec:fields} computes percentiles within fields.
+decades. The main analysis pools all fields; Section~\ref{sec:fields} computes percentiles within fields.
 
 \subsection{Peers and standing curves}
 At evaluation year $Y = s_a + A$, the \emph{peers} $\Peers$ of author $a$ are the authors with the same start year who
@@ -254,24 +258,28 @@ are eligible at $Y$, the author included. For an impact threshold $\theta \in [0
 \begin{equation}
 n_a(\theta) = \left|\{\, j \in a : p_j \le Y,\ y_j(Y) \ge \theta \,\}\right|
 \end{equation}
-be the number of the author's articles at or above percentile $\theta$; $n_a(0)$ is the number of articles. The
-author's \emph{standing} at threshold $\theta$ is the share of peers with strictly fewer articles at or above $\theta$:
+be the number of the author's articles at or above percentile $\theta$; $n_a(0)$ is the number of articles.
+
+The author's \emph{standing} at threshold $\theta$ is the share of peers with strictly fewer articles at or above
+$\theta$:
 \begin{equation}
 g_a(\theta) = G_\theta\!\left(n_a(\theta)\right), \qquad
 G_\theta(m) = \frac{\left|\{\, b \in \Peers : n_b(\theta) < m \,\}\right|}{|\Peers|}.
 \end{equation}
 An author with no article at or above $\theta$ stands at zero there, however many peers share that count
-(Section~\ref{sec:properties} discusses ties). The \emph{standing curve} $\theta \mapsto g_a(\theta)$ starts at the
-author's standing on the number of articles and ends at their standing on the number of top articles. It need not be
-monotone: an author can rank higher among peers on the number of top-10\% papers than on the number of papers
-(Figure~\ref{fig:curves}).
+(Section~\ref{sec:properties} discusses ties).
+
+Traced over all thresholds, the standings form the author's \emph{standing curve} $\theta \mapsto g_a(\theta)$. The
+curve starts at the author's standing on the number of articles and ends at their standing on the number of top
+articles. It need not be monotone: an author can rank higher among peers on the number of top-10\% papers than on the
+number of papers (Figure~\ref{fig:curves}).
 
 \begin{figure}[t]
   \centering
   \includegraphics[width=\textwidth]{fig_standing_curves.pdf}
   \caption{Standing curves of three authors who published their first article in 1995, evaluated in 2005 (career age
   10). Each was chosen as the author whose PiP is closest to the 25th, 50th or 90th percentile of the cohort's
-  scores. The curve gives, for each threshold $\theta$, the share of the 1995 cohort's eligible authors who have fewer
+  scores. Each curve gives, at every threshold $\theta$, the share of the 1995 cohort's eligible authors who have fewer
   articles at or above percentile $\theta$ of their publication year. PiP is the shaded area to the right of
   $\tau = 0.5$, rescaled by $1/(1-\tau)$, or equivalently the average height of the curve there (dashed line). The
   median author has seven articles, two of them in the top 10\% of their year and one in the top 5\%. At thresholds
@@ -285,28 +293,29 @@ The PiP score with cutoff $\tau \in [0, 1)$ is the average standing over the thr
 \PiP_\tau(a) = \frac{1}{1-\tau} \int_\tau^1 g_a(\theta)\, d\theta .
 \label{eq:pip}
 \end{equation}
-It is the area under the standing curve to the right of $\tau$, rescaled to $[0,1]$. We use $\tau = 1/2$ throughout,
-so only articles in the top half of their publication year can earn credit, and write PiP for $\PiP_{1/2}$.
-Section~\ref{sec:tau} shows how the cutoff moves the score between quantity and impact.
+It is the area under the standing curve to the right of $\tau$, rescaled to $[0,1]$. The cutoff moves the score
+between quantity and impact (Section~\ref{sec:tau}). We use $\tau = 1/2$ throughout and write PiP for $\PiP_{1/2}$.
+With this cutoff, only articles in the top half of their publication year can earn credit.
 
-The score has a direct probabilistic reading. If $B$ is a peer drawn at random and $\Theta$ a threshold drawn uniformly
+The score has a direct probabilistic reading: it is the chance of winning a simple game. Draw a threshold at random
+from $[\tau, 1]$ and a scholar at random from the same cohort. The author and the drawn scholar each count their
+articles at or above the threshold, and the author wins with strictly more, so a tie is not a win. The cutoff decides
+where thresholds can be drawn. Formally, if $B$ is a peer drawn at random and $\Theta$ a threshold drawn uniformly
 from $[\tau, 1]$, then
 \begin{equation}
 \PiP_\tau(a) = \Pr\left[\, n_a(\Theta) > n_B(\Theta) \,\right]:
 \end{equation}
 PiP is the probability that the author has more articles than a random peer above a random impact threshold.
 
-In words, PiP is the chance of winning a simple game. Draw a threshold at random from $[\tau, 1]$ and a scholar at random
-from the same cohort; each counts their articles at or above the threshold, and the author wins with strictly more, so
-a tie is not a win. The cutoff decides where thresholds can be drawn. For the median author of
-Figure~\ref{fig:curves}, a threshold at the 90th percentile wins against 63\% of peers (the author has two articles
-there and most peers have fewer), the 75th percentile against 28\%, and the 97.5th percentile against none; averaged
-over the thresholds above the cutoff, the author wins 37\% of the time. A score of 0.6 therefore means winning 60\% of
-these matchups, which is not the same as being at the 60th percentile of scores.
+The median author of Figure~\ref{fig:curves} wins against 63\% of peers when the threshold is at the 90th percentile
+(the author has two articles there and most peers have fewer), against 28\% at the 75th percentile, and against none
+at the 97.5th percentile. Averaged over the thresholds above the cutoff, the author wins 37\% of the time, even though
+their score is close to the median of the cohort. A score of 0.6 therefore means winning 60\% of these matchups, which
+is not the same as being at the 60th percentile of scores.
 
-Averaging over the peers gives the mean score of a peer group. Let $p_{\theta,m}$ be the share of peers with exactly $m$ articles
-at or above $\theta$. Two random peers tie at $\theta$ with probability $\sum_m p_{\theta,m}^2$ and are otherwise
-equally likely to be ahead, so
+The rule that a tie is not a win also determines the mean score of a peer group. Let $p_{\theta,m}$ be the share of
+peers with exactly $m$ articles at or above $\theta$. Two random peers tie at $\theta$ with probability
+$\sum_m p_{\theta,m}^2$ and are otherwise equally likely to be ahead, so averaging over the peers gives
 \begin{equation}
 \frac{1}{|\Peers|} \sum_{a \in \Peers} \PiP_\tau(a)
 = \frac{1}{2(1-\tau)} \int_\tau^1 \Bigl(1 - \sum_m p_{\theta,m}^2\Bigr)\, d\theta .
@@ -317,9 +326,9 @@ The mean score of a cohort is below one half and falls as ties become more commo
 
 \subsection{Properties}
 \label{sec:properties}
-The following hold for a fixed peer group that contains the author, both for the integral and for the computed score
-of Section~\ref{sec:computation}; each follows in a line from the definitions. We also checked them numerically on
-simulated cohorts, on the grid of the computation and on a fine grid (the code is in the replication package).
+The properties below hold for a fixed peer group that contains the author, both for the integral and for the computed
+score of Section~\ref{sec:computation}; each follows in a line from the definitions. We also checked them numerically
+on simulated cohorts, on the grid of the computation and on a fine grid (the code is in the replication package).
 
 \paragraph{Range.} $0 \le \PiP_\tau(a) < 1$. The author is one of their own peers and does not have fewer articles
 than themselves, so $g_a(\theta) \le 1 - 1/|\Peers|$ at every threshold. The score is zero when, at almost every
@@ -327,7 +336,7 @@ threshold above $\tau$, no peer has fewer articles at or above that threshold th
 article above $\tau$.
 
 \paragraph{Monotonicity.} Adding an article, or raising the percentile of an existing article, never lowers
-$\PiP_\tau$, because either change weakly increases $n_a(\theta)$ at every threshold and $G_\theta$ is
+$\PiP_\tau$, because at every threshold either change raises $n_a(\theta)$ or leaves it unchanged, and $G_\theta$ is
 non-decreasing. The gain can be zero: one more article at or above $\theta$ raises the standing at $\theta$ only if some
 peer has exactly as many such articles as the author had before. An article whose percentile stays below $\tau$
 changes $n_a(\theta)$ only for $\theta < \tau$ and leaves the score unchanged.
@@ -336,21 +345,23 @@ changes $n_a(\theta)$ only for $\theta < \tau$ and leaves the score unchanged.
 publication year scores zero, however many such articles they publish.
 
 \paragraph{Credit for the best work.} A single article in the top 2.5\% of its year raises $n_a(\theta)$ by one at
-every threshold of the computation, including the highest, where most peers have none. In a simulated cohort of 2,000
-peers, a record of one such article scores 0.45, while one article at the 50th percentile scores 0.004. With the exact
-integral, one article at the 97.5th, 99th or 99.9th percentile scores 0.42, 0.45 or 0.47, and one at the 50th
-percentile scores 0. The $h$-index cannot tell any of these records apart (all have $h = 1$).
+every threshold on the grid of the computation, including the highest, where most peers have none. In a simulated
+cohort of 2,000 peers, a record of one such article scores 0.45, while one article at the 50th percentile scores 0.004.
+With the exact integral, one article at the 97.5th, 99th or 99.9th percentile scores 0.42, 0.45 or 0.47, and one at
+the 50th percentile scores 0. The $h$-index cannot tell any of these records apart (all have $h = 1$).
 
-\paragraph{Ties.} The standing counts peers with strictly fewer articles. Mid-ranks, which count half of the tied
-peers, are a common choice for the percentile of a single paper \citep{bornmann2013use,waltman2013percentile}, but
-here they would give credit to authors with nothing above a threshold: at high thresholds most peers have no article, and an author tied
-with them at zero would stand at half their share. In the simulated cohort, an author whose five articles all fall
-below the median would score 0.22 with mid-ranks instead of 0. The strict rule keeps weak papers from earning credit
-through ties; its price is that the mean score of a cohort depends on how common ties are (Eq.~\ref{eq:mean}).
+\paragraph{Ties.} The standing counts peers with strictly fewer articles. Mid-ranks instead count half of the tied
+peers. They are a common choice for the percentile of a single paper \citep{bornmann2013use,waltman2013percentile},
+but in the standing they would give credit to authors with nothing above a threshold: at high thresholds most peers
+have no article, and an author tied with them at zero would stand at half their share. In the simulated cohort, an
+author whose five articles all fall below the median would score 0.22 with mid-ranks instead of 0. The strict rule
+keeps weak papers from earning credit through ties; its price is that the mean score of a cohort depends on how common
+ties are (Eq.~\ref{eq:mean}).
 
-\paragraph{Factorization.} Let $F(m) = |\{b \in \Peers : n_b(0) \le m\}| / |\Peers|$ be the productivity percentile.
-Unlike $G_\theta$ it counts tied peers, so that it is positive for every member of the peer group. Defining the
-\emph{impact multiplier} $Q_\tau(a) = \PiP_\tau(a) / F(n_a(0))$ gives
+\paragraph{Factorization.} PiP can be written as the author's productivity percentile times an impact multiplier. Let
+$F(m) = |\{b \in \Peers : n_b(0) \le m\}| / |\Peers|$ be the productivity percentile. Unlike $G_\theta$, it counts
+tied peers, so that it is positive for every member of the peer group. Defining the \emph{impact multiplier}
+$Q_\tau(a) = \PiP_\tau(a) / F(n_a(0))$ gives
 \begin{equation}
 \PiP_\tau(a) = F\!\left(n_a(0)\right) \cdot Q_\tau(a).
 \label{eq:factor}
@@ -358,50 +369,55 @@ Unlike $G_\theta$ it counts tied peers, so that it is positive for every member 
 The identity holds by the definition of $Q_\tau$; it describes a score rather than explaining it. The multiplier
 compares the author's standing on counts of articles above the cutoff with their standing on the number of articles,
 and it exceeds one when the author ranks higher among peers on the former. Because $F$ counts ties and $G_\theta$ does
-not, an author whose standing is the same at every threshold has $Q_\tau$ slightly below one. In our data $Q_{1/2}$
-exceeds one for 30--36\% of eligible authors, depending on career age. Across eligible authors who started in
-1975--2005, at career ages 5, 10 and 20, the variance of $\log \PiP_{1/2}$ splits into 0.74--0.82 from $\log Q$, about
-0.30 from $\log F$ and a small negative covariance ($-0.04$ to $-0.11$). These shares describe how the scores vary; they
-do not measure how much of PiP reflects research quality.
+not, an author whose standing is the same at every threshold has $Q_\tau$ slightly below one.
+
+In our data $Q_{1/2}$ exceeds one for 30--36\% of eligible authors, depending on career age. Across eligible authors
+who started in 1975--2005, at career ages 5, 10 and 20, the variance of $\log \PiP_{1/2}$ splits into 0.74--0.82 from
+$\log Q$, about 0.30 from $\log F$ and a small negative covariance ($-0.04$ to $-0.11$). These shares describe how the
+scores vary; they do not measure how much of PiP reflects research quality.
 
 \paragraph{Consistency.} PiP is not consistent in the sense of \citet{waltman2012inconsistency}: adding the same
 article to two authors can reverse their order, because $G_\theta$ is not linear. In simulation, this happened in 0.7\%
 of 3,000 random pairs. The $h$-index shares the property.
 
 \subsection{Relation to other indicators}
-Writing indicators in terms of the count curve $\theta \mapsto n_a(\theta)$ places PiP among existing ones.
-A top-$x\%$ count reads the curve at one threshold, $n_a(1-x)$, without comparing it with peers. I3 sums the
-percentiles, $\sum_j y_j = \int_0^1 n_a(\theta)\,d\theta$: the same integral without the peer comparison, so it grows
-without bound with the number of articles. The $h$-index reads one point of the analogous curve in citation space,
-where the number of articles with at least $k$ citations equals $k$.
+Writing indicators in terms of the count curve $\theta \mapsto n_a(\theta)$ places PiP among existing ones. The count
+curve gives the number of the author's articles at or above each threshold; PiP ranks this number among peers at every
+threshold above the cutoff and averages the standings. A top-$x\%$ count reads the curve at one threshold,
+$n_a(1-x)$, without comparing it with peers. I3 sums the percentiles, $\sum_j y_j = \int_0^1 n_a(\theta)\,d\theta$:
+the same integral without the peer comparison, so it grows without bound with the number of articles. The $h$-index
+reads one point of the analogous curve in citation space, where the number of articles with at least $k$ citations
+equals $k$.
 
-The first form of the score \citep{ipeirotis2024pip}, which the website \url{https://www.pip-score.org} uses, is
-asymmetric. It sorts an author's articles by percentile, $y_{(1)} \ge y_{(2)} \ge \cdots$, and computes the area under
-the step curve that plots $y_{(k)}$ against the productivity percentile $F(k)$:
+The first form of the score \citep{ipeirotis2024pip} is asymmetric; the website \url{https://www.pip-score.org} uses
+it. The asymmetric form sorts an author's articles by percentile, $y_{(1)} \ge y_{(2)} \ge \cdots$, and computes the
+area under the step curve that plots $y_{(k)}$ against the productivity percentile $F(k)$:
 \begin{equation}
 \text{PiP-AUC}(a) = \sum_{k=1}^{n_a(0)} y_{(k)}\,\bigl[F(k) - F(k-1)\bigr] = \int_0^1 F\!\left(n_a(\theta)\right) d\theta .
 \end{equation}
 The second expression shows the difference from PiP: the asymmetric form compares the author's count at or above
-$\theta$ with peers' \emph{total} counts rather than with their counts at or above $\theta$. It is the product of
-$F(n_a(0))$ and a weighted mean of the author's own percentiles, which keeps it bounded and monotone. But the weight
-of the $k$-th best article, $F(k) - F(k-1)$, is the share of peers with exactly $k$ articles, which is zero for every
-$k$ below the smallest article count among peers. Among the eligible authors of a cohort, nobody has fewer than three
-articles, so an author's best two articles receive no weight at all; among Google Scholar faculty profiles, the median
-author's best four articles receive none. The asymmetric form is therefore dominated by productivity: the
-productivity percentile accounts for 0.59--0.77 of the variance of its logarithm, and an author with one article at the
-99th percentile scores zero, while an author with 40 weak articles scores 0.10 in the simulated cohort. A cutoff
-$\tau$ applied to it compares partial counts with growing total counts, and its median at career age 10 halves between
-the 1960 and 2010 cohorts. The symmetric comparison in PiP removes both problems.
+$\theta$ with peers' \emph{total} counts rather than with their counts at or above $\theta$.
 
-A simpler form, which we call \emph{PiP-simple}, compares the scholar with peers only once. It sums the counts above
+The asymmetric form is the product of $F(n_a(0))$ and a weighted mean of the author's own percentiles, which keeps it
+bounded and monotone. But the weight of the $k$-th best article, $F(k) - F(k-1)$, is the share of peers with exactly
+$k$ articles, which is zero for every $k$ below the smallest article count among peers. Among the eligible authors of
+a cohort, nobody has fewer than three articles, so an author's best two articles receive no weight at all; among
+Google Scholar faculty profiles, the median author's best four articles receive none. This form is therefore
+dominated by productivity: the productivity percentile accounts for 0.59--0.77 of the variance of its logarithm, and
+an author with one article at the 99th percentile scores zero, while an author with 40 weak articles scores 0.10 in the
+simulated cohort. Applying a cutoff $\tau$ to this form causes a second problem: it then compares partial counts with
+growing total counts, and its median at career age 10 halves between the 1960 and 2010 cohorts. The symmetric
+comparison in PiP removes both problems.
+
+To show what the comparison with peers at every threshold adds, Sections~\ref{sec:prediction} and~\ref{sec:early} use
+a simpler form that compares the scholar with peers only once. We call it \emph{PiP-simple}. It sums the counts above
 the cutoff instead of the standings,
 \begin{equation}
 \text{PiP-simple}_\tau(a) = \frac{1}{1-\tau} \int_\tau^1 n_a(\theta)\, d\theta
 = \frac{1}{1-\tau} \sum_j \max\left(y_j - \tau, 0\right),
 \end{equation}
 and is compared with peers only through its rank in the cohort, as I3 is; it is I3 restricted to the articles above
-the cutoff and measured from the cutoff. Sections~\ref{sec:prediction} and~\ref{sec:early} use it to show what the
-comparison with peers at every threshold adds.
+the cutoff and measured from the cutoff.
 
 \subsection{Computation}
 \label{sec:computation}
@@ -412,17 +428,18 @@ the next multiple of $1/40$. The reported score is therefore PiP on 40 percentil
 for it as stated. The classes have two visible effects: articles in the top 2.5\% of their year are not told apart,
 and an article in the class just above the median earns a full class of credit.
 
+For each start year and evaluation year, the distributions $G_{\theta_k}$ come from one pass over the peers' counts.
+The whole computation covers 111.6 million author-age records and runs as a set of SQL queries in BigQuery.
+
 To check that the classes do not drive the results, we also computed the exact integral for the 5.3 million eligible
-authors at career age 10 (start years 1960--2015). On $(y_{(k+1)}, y_{(k)}]$, where $y_{(k)}$ is the author's $k$-th
-best percentile, the author has $k$ articles at or above $\theta$, and a peer has fewer exactly when its own $k$-th best
-percentile is below $\theta$, so the integral reduces to sorting the peers' $k$-th best percentiles. Against the exact
-score, the 40-class score is 0.010 higher on average at $\tau = 0.5$ (0.055 at most) and ranks authors within cohorts
-almost identically: the rank correlation is 0.9994, and 96\% of each cohort's top 10\% is the same (start years
-1975--2010). At $\tau = 0.75$ and $0.9$ the correlation is 0.998 and 0.996 and the overlap 93\% and 85\%. None of the
-prediction results at career age 10 (Section~\ref{sec:prediction}) changes by more than 0.004 at any of the three
-cutoffs, so we keep the 40 classes. For each start year and evaluation year, the distributions $G_{\theta_k}$ come
-from one pass over the peers' counts. The whole computation, 111.6 million author-age records, runs as a set of SQL
-queries in BigQuery.
+authors at career age 10 (start years 1960--2015). Write $y_{(k)}$ for the author's $k$-th best percentile. On
+$(y_{(k+1)}, y_{(k)}]$ the author has $k$ articles at or above $\theta$, and a peer has fewer exactly when its own
+$k$-th best percentile is below $\theta$, so the integral reduces to sorting the peers' $k$-th best percentiles.
+Against the exact score, the 40-class score is 0.010 higher on average at $\tau = 0.5$ (0.055 at most) and ranks
+authors within cohorts almost identically: the rank correlation is 0.9994, and 96\% of each cohort's top 10\% is the
+same (start years 1975--2010). At $\tau = 0.75$ and $0.9$ the correlation is 0.998 and 0.996 and the overlap 93\% and
+85\%. None of the prediction results at career age 10 (Section~\ref{sec:prediction}) changes by more than 0.004 at any
+of the three cutoffs, so we keep the 40 classes.
 
 \section{Results}
 \label{sec:results}
