@@ -965,7 +965,9 @@ Adding them left every existing predictor's results unchanged (largest differenc
 
 ### Early detection (population eligible at age 3)
 
-T_0.5 is below PiP at every age on all three measures, by at most 0.006. Lead of PiP in years (targets 5-10):
+T_0.5 is below PiP at every age on all three measures, by at most 0.0066 (precision at age 6). Under min3 it is
+within 0.005 and slightly ahead of PiP on precision from age 7 and on the star AUC from age 6. Lead of PiP in years
+(targets 5-10):
 T_0.5 0.1-0.2 / 0.0 / 0.1-0.3; combo50 1.9-4.5 / 1.7-4.0 / 1.7-4.1.
 
 ### Reading
