@@ -17,6 +17,9 @@ data, and targets *Quantitative Science Studies*.
 - **`results/`** holds CSV exports of the result tables the queries write (aggregates only; see
   `results/README.md`). The per-author and per-article tables stay in the BigQuery datasets `paper_rp` and
   `paper_rp_noself`, readable by anyone signed in to Google Cloud.
+- **`v3_code/`** holds the v3 R scripts, copied from
+  [sentian/SciImpactRanking](https://github.com/sentian/SciImpactRanking) (commit `2aaf31d`, December 2021) for the
+  record. The current analyses don't use them.
 - **`sql/`** holds the analysis queries, numbered in run order. They write to the BigQuery dataset
   `scholar-version2.paper_rp`, which is kept separate from the app's `statistics` and `gs_statistics` datasets.
 - **`REVISION_PLAN.md`** lists the reviewer concerns from PLOS ONE (PONE-D-21-10383, 2021–2022) and how the revision
