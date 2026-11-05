@@ -1116,17 +1116,19 @@ field-normalized version should be used when people from different fields are co
 \section{Conclusion}
 \label{sec:conclusion}
 
-PiP rates a scholar by the citation percentiles of their papers above a cutoff, compared with peers who started in
-the same year at every impact threshold. On 11.1 million Semantic Scholar authors its distribution changes little
-across cohorts since 1960, it is more stable over a career than the $h$-index, and it predicts future top
-papers and the citation impact of future work better than the $h$-index in every setting and field we tested; the lead
+PiP rates a scholar by the citation percentiles of their papers above a cutoff, comparing the scholar at every impact
+threshold with peers who started publishing in the same year. For 11.1 million Semantic Scholar authors, the
+distribution of PiP changes little across career cohorts since 1960, and a scholar's PiP is more stable over a career
+than their $h$-index. PiP predicts three outcomes better than the $h$-index in every setting and field we tested: the
+number of future top papers, the chance of an exceptional paper and the citation impact of future work. The lead
 narrows but remains when eligibility does not depend on citations. None of the indicators built from the same paper
-percentiles beats it on more than one of three outcomes, and comparing scholars with peers at every threshold, rather
-than once, improves the prediction of the citation impact of future work. It reaches the $h$-index's accuracy in
-detecting future high performers 1.6 to 1.9 years earlier. A single parameter moves it between quantity and impact.
-The construction needs only publication years and citation counts by year, and the code in the replication package
-computes it at full scale in a database. The website \url{https://www.pip-score.org} computes the earlier, asymmetric
-form of the score (Section~\ref{sec:pip}) from Google Scholar profiles.
+percentiles beats PiP on more than one of these outcomes. The prediction of future citation impact improves when scholars are compared with peers at every threshold rather than once. PiP reaches the
+$h$-index's accuracy in detecting future high performers 1.6 to 1.9 years earlier.
+
+A single parameter, the cutoff, moves PiP between quantity and impact. The construction needs only publication years
+and citation counts by year. The website \url{https://www.pip-score.org} computes the earlier, asymmetric form of the
+score (Section~\ref{sec:pip}) from Google Scholar profiles; the code in the replication package computes PiP itself at
+full scale in a database.
 
 \section*{Data and code availability}
 The SQL that builds every table in this paper, the numerical checks of the properties in Section~\ref{sec:pip}, the
