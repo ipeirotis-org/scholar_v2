@@ -932,6 +932,11 @@ instead of the strict rule, an author with five articles at the 30th percentile 
 
 ## 19. What the peer comparison adds (`sql/20_percentile_baselines.sql`, `sql/21_early_detection.sql`)
 
+**How the paper reports this (authors' decision, 2026-11-05).** T_tau appears only as *PiP-simple*, a variant of PiP
+that compares the scholar with peers once instead of at every threshold, used to show what the threshold-by-threshold
+comparison contributes. It is not presented as a competing indicator. The combo mixes are not in the paper; their
+results stay here in case a referee asks.
+
 Review B asked for baselines that use the same information as PiP without its threshold-by-threshold peer comparison.
 
 - **T_tau** = 1/(1-tau) sum of (y' - tau)^+, on PiP's 40 classes: the same percentiles and cutoff, no G_t inside the

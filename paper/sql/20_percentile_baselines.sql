@@ -10,10 +10,10 @@
 --   t25 .. t90   cutoff-matched sums, T_tau = 1/(1-tau) * sum of (y' - tau)^+ = 1/(1-tau) * integral of n(t) from tau to
 --                1, with y' = (FLOOR(40 y) + 1) / 40 the percentile on PiP's 40 classes (see 25). T_tau uses the same
 --                percentiles and the same cutoff as PiP at tau and differs from it only in the peer comparison G_t
---                inside the integral.
+--                inside the integral. The paper calls it PiP-simple.
 --   combo25 .. combo75  w * (cohort percentile of the article count) + (1 - w) * (cohort percentile of the mean
 --                percentile), w = 0.25, 0.5, 0.75: a direct mix of quantity and impact (cohort = scenario x setting x
---                start year, Hazen percentiles)
+--                start year, Hazen percentiles); not in the paper, kept for the record (FINDINGS.md §19)
 -- plus, for reference, PiP at every cutoff of 12 (sym, sym_tau25 .. sym_tau90; pip_sym50 is the main score), the
 -- original PiP-AUC, the h-index and the article count. Each also enters as a
 -- within-cohort Hazen percentile, (N + rank ascending - rank descending) / 2N within (scenario, setting, start year);

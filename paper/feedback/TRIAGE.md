@@ -41,7 +41,10 @@ Done; results in `FINDINGS.md` §18–21, manuscript and figures updated:
 - **Section 3** (ties): the tie paragraph, B's identity and the factorization wording. Not done: the tie series by
   cohort, beyond the share at zero at τ = 0.9, which settles the direction question.
 - **Section 4** (cohort claim): wording and the probability reading. Not done: calibration by PiP band.
-- **Section 5** (baselines): all items. Not done: field-normalized versions of the comparators.
+- **Section 5** (baselines): run, then reframed by the authors. The cutoff-matched sum appears only as PiP-simple, a
+  variant of PiP that compares with peers once, to show what the comparison at every threshold adds; it is not
+  listed among the competing indicators. The count + mean-percentile mix is left out of the paper (results in
+  `FINDINGS.md` §19).
 - **Section 6** (fields): wording only. Not done: paper-field rule and ablation.
 - **Section 7** (counting, document types): not started.
 - **Section 8** (validation claims): all wording items. Not done: upper-tail transitions; dated honors as the main
@@ -54,9 +57,9 @@ Done; results in `FINDINGS.md` §18–21, manuscript and figures updated:
 
 What the runs changed in the paper's claims:
 
-- **PiP against the cutoff-matched sum.** The comparison with peers at every threshold adds to predicting future
-  citation impact (+0.02 to +0.04 in every cohort) and the top-1% outcome (+0.002 to +0.011). It adds nothing to the
-  count of future top papers and little to early detection, where T_0.5 is within 0.3 years of PiP.
+- **PiP against PiP-simple** (the cutoff-matched sum). The comparison with peers at every threshold adds to predicting
+  future citation impact (+0.02 to +0.04 in every cohort) and the top-1% outcome (+0.002 to +0.011). It adds nothing to
+  the count of future top papers and little to early detection, where PiP-simple is within 0.3 years of PiP.
 - **Without the h-index condition.** PiP still beats the h-index everywhere, by half to two thirds of the margin. In
   early detection, I3, T_0.5 and the original PiP-AUC catch up with it from about career age 6–7.
 - **The grid.** It does not matter for any result (prediction changes at most 0.004). The τ = 0.9 drift is real: it
@@ -303,3 +306,8 @@ Checked against the code and data while triaging:
   isolated-first-article check and reports the S2–GS start-year comparison.
 - **Review A's direction for the drift (A2.2).** Not adopted, since our numbers suggest the opposite direction. The
   revision reports the tie series instead.
+- **New baselines as competitors (B4).** The authors decided not to present constructed scores as competing indicators.
+  The cutoff-matched sum is reported as PiP-simple, a variant of PiP, which answers B's question of what the comparison
+  at every threshold adds; the count + mean-percentile mix stays out of the paper. Both results are in `FINDINGS.md`
+  §19 for a response letter: PiP beats the mix by about 0.10 on the future count and 0.055 on the top-1% AUC, with
+  equal future impact.

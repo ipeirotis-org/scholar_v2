@@ -16,8 +16,8 @@
 -- Predictors at age t, each as a within-cohort Hazen percentile (start year x population x age), which ranks authors
 -- within a cohort exactly as the raw value does and lets cohorts pool: PiP (sym_tau50), the original PiP-AUC, h-index,
 -- citations, article count, top-10% count, I3 (sum of article percentiles), mean article percentile, the cutoff-matched
--- sum T_0.5 (sum of (y' - 0.5)^+ on PiP's 40 classes, see 20) and combo50 (the mean of the cohort percentiles of the
--- article count and of the mean article percentile).
+-- sum T_0.5 (sum of (y' - 0.5)^+ on PiP's 40 classes, see 20; PiP-simple in the paper) and combo50 (the mean of the
+-- cohort percentiles of the article count and of the mean article percentile; not in the paper).
 --   early_detection_base{SUFFIX}      one row per (population, age, author): predictors and outcomes
 --   early_detection_results{SUFFIX}   per (population, age, predictor): Spearman with fut_top10 and fut_mean, AUC
 --                                     for fut_any_top1 and for star, and precision of the cohort's top 10% by the
