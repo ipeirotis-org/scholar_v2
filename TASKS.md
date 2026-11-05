@@ -115,7 +115,10 @@ via a managed scraping API instead of `scholarly`. Vendor evaluation: [docs/goog
   crawl failed with "profile not found" after the latest snapshot. `authors_latest` leaves them out, so they
   drop from the statistics, percentiles (dist tables rebuild on deploy and weekly), search index and refresh
   schedule; the cache layer records them as gone instead of paying for a crawl on every visit, and the
-  results page says the profile no longer exists. A later successful crawl brings a profile back. First 10
+  results page says the profile no longer exists. Every missing-profile crawl error starts with "profile not
+  found" (`serpapi_client.is_missing_profile`); the crawler clears the cached page of a profile it finds gone, and
+  the name index no longer offers retired IDs from Wikidata or co-author lists. A later successful crawl brings a
+  profile back. First 10
   (all 404 on scholar.google.com): Takashi Taniguchi (`rLUV2ToAAAAJ`, 246,532 citations), Paul S. Weiss,
   Steven Bellovin (retired), Steven Raphael, S Bradley Moran, Abraham Wolcott, Daniel Kessler, Tom Coleman,
   Ross Dahlke, and one never-crawled Wikidata ID. No replacement profile found on Wikidata, Wikipedia,

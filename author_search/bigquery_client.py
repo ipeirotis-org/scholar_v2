@@ -75,6 +75,8 @@ class BigQuerySearchClient:
             FROM {Config.bq_gs_table(Config.WIKIDATA_AUTHORS_TABLE)} w
             WHERE w.scholar_id NOT IN (
               SELECT scholar_id FROM {Config.bq_view('ranked_author_current')})
+              -- Profiles Google Scholar no longer serves: offering them would lead to a dead end.
+              AND w.scholar_id NOT IN (SELECT scholar_id FROM {Config.bq_gs_table(Config.RETIRED_PROFILES_VIEW)})
             ORDER BY w.name
         """
         return self._query(sql)
@@ -95,6 +97,7 @@ class BigQuerySearchClient:
               AND TRIM(IFNULL(c.name, '')) != ''
               AND c.scholar_id NOT IN (
                 SELECT scholar_id FROM {Config.bq_view('ranked_author_current')})
+              AND c.scholar_id NOT IN (SELECT scholar_id FROM {Config.bq_gs_table(Config.RETIRED_PROFILES_VIEW)})
             GROUP BY c.scholar_id
         """
         return self._query(sql)

@@ -18,6 +18,7 @@ class Config:
     BQ_GS_DATASET = os.environ.get("BQ_GS_DATASET", "gs_data")
     WIKIDATA_AUTHORS_TABLE = "wikidata_authors"
     AUTHORS_LATEST_VIEW = "authors_latest"  # co-author lists of profiled authors
+    RETIRED_PROFILES_VIEW = "retired_profiles"  # profiles Google Scholar no longer serves
 
     # Firestore cache collection for search results
     # Separate collections per data source so switching DATA_SOURCE never

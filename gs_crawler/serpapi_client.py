@@ -46,6 +46,15 @@ def _get_api_key():
     return _api_key
 
 
+# Every failure meaning "Google Scholar has no profile behind this ID" starts with this,
+# so gs_data.retired_profiles (bigquery/gs_data/02_latest_views.sql) can match on it.
+MISSING_PROFILE = "profile not found"
+
+
+def is_missing_profile(error):
+    return (error or "").startswith(MISSING_PROFILE)
+
+
 def validate_author_page(data, start):
     """Raise SerpApiError unless `data` is a usable author page at offset `start`."""
     if not isinstance(data, dict):
@@ -55,9 +64,10 @@ def validate_author_page(data, start):
         # "Google hasn't returned any results" past the last page is not an error.
         if start > 0 and "hasn't returned any results" in msg:
             return
-        transient = not any(s in msg.lower() for s in ("invalid", "not found", "doesn't exist"))
         if start == 0 and "hasn't returned any results" in msg:
-            transient = False  # no profile behind this ID (deleted, or a stale Wikidata ID)
+            # No profile behind this ID (deleted, or a stale Wikidata ID).
+            raise SerpApiError(f"{MISSING_PROFILE} (Google returned no results for this ID)", transient=False)
+        transient = not any(s in msg.lower() for s in ("invalid", "not found", "doesn't exist"))
         raise SerpApiError(f"SerpApi error: {msg}", transient=transient)
     status = (data.get("search_metadata") or {}).get("status")
     if status != "Success":
@@ -75,7 +85,7 @@ def validate_author_page(data, start):
     if start == 0 and not data.get("author") and "articles" not in data:
         # Metadata only, no author block at all: the profile was deleted or made
         # private (seen 2026-11-03 on legacy profiles). Retrying would bill daily.
-        raise SerpApiError("profile not found (first page has only metadata)", transient=False)
+        raise SerpApiError(f"{MISSING_PROFILE} (first page has only metadata)", transient=False)
     if start == 0:
         if not (data.get("author") or {}).get("name"):
             raise SerpApiError("first page has no author name", transient=True)

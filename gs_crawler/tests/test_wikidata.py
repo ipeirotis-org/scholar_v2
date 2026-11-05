@@ -361,6 +361,15 @@ class TestFailures:
         with pytest.raises(SerpApiError) as exc:
             validate_author_page({"error": "Google hasn't returned any results for this query."}, 0)
         assert not exc.value.transient
+        # Same prefix as the metadata-only case, which gs_data.retired_profiles matches on
+        assert str(exc.value).startswith("profile not found")
+
+    def test_is_missing_profile(self):
+        from gs_crawler.serpapi_client import is_missing_profile
+        assert is_missing_profile("profile not found (first page has only metadata)")
+        assert is_missing_profile("profile not found (Google returned no results for this ID)")
+        assert not is_missing_profile("search limit 9 reached at start=900")
+        assert not is_missing_profile(None)
 
     def test_crawl_marks_permanent_failure(self, serpapi_key):
         r = MagicMock(status_code=200)
@@ -372,17 +381,20 @@ class TestFailures:
 
     def test_crawl_and_store_records_only_permanent_failures(self):
         ok = CrawlResult("GOODAAAAAAAJ", pages=[make_page(3, author_id="GOODAAAAAAAJ")], searches=1)
-        gone = CrawlResult("GONEAAAAAAAJ", searches=1, error="no profile", permanent=True)
+        gone = CrawlResult("GONEAAAAAAAJ", searches=1, error="profile not found (first page has only metadata)",
+                           permanent=True)
         flaky = CrawlResult("FLAKYAAAAAAJ", searches=1, error="HTTP 503")
         with patch.object(main, "crawl_author", side_effect=[ok, gone, flaky]), \
              patch.object(main.writer, "write_raw_pages"), \
              patch.object(main.writer, "load_snapshots"), \
              patch.object(main.writer, "record_failures") as rec, \
-             patch.object(main.cache_invalidate, "invalidate_authors"):
+             patch.object(main.cache_invalidate, "invalidate_authors") as invalidate:
             summary = main.crawl_and_store(["GOODAAAAAAAJ", "GONEAAAAAAAJ", "FLAKYAAAAAAJ"], budget=10)
         assert summary["failed"] == 2
         recorded = rec.call_args[0][0]
         assert [f["scholar_id"] for f in recorded] == ["GONEAAAAAAAJ"]
+        # The profile found gone loses its cached page too, so visitors see that it was retired
+        invalidate.assert_called_once_with(["GOODAAAAAAAJ", "GONEAAAAAAAJ"])
 
 
 class TestNewAuthorBudgetEnforced:
