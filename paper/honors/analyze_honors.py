@@ -1,10 +1,12 @@
 """External validation against later scientific honors (Wikidata), from paper/sql/22_honors.sql.
 
 Input: data/honors_sample.csv, exported from `paper_rp.honors_base`: every author with a Wikidata item linked to
-their Semantic Scholar ID, plus a 10% random sample of all other active authors (sampling negatives leaves the AUC
+their Semantic Scholar ID or in our matched Google Scholar profiles, plus a 10% random sample of all other active authors (sampling negatives leaves the AUC
 unbiased). Two comparisons, at career ages 5 and 10:
-  notable   only authors with a Wikidata item: among people notable enough to be on Wikidata, who gets honored?
-  all       all active authors: honorees against everyone else
+  notable     only authors with a Wikidata item (S2 route): among people notable enough to be on Wikidata, who
+              gets honored?
+  gs_faculty  only our Google Scholar profiles matched to S2 (mostly faculty)
+  all         all active authors: honorees against everyone else
 Outcomes: `honored` (any senior honor not dated at or before the evaluation year) and `honored_dated` (dated honors
 only; honorees without a date are dropped). For each indicator: ROC AUC with a 95% bootstrap interval (1,000
 resamples, stratified by outcome), and the paired difference PiP minus the indicator.
@@ -39,15 +41,18 @@ def auc(x, y):
 
 def main():
     rows = list(csv.DictReader(open(os.path.join(HERE, "data", "honors_sample.csv"))))
-    cols = {k: np.array([float(r[k]) for r in rows]) for k in ["age", "in_wikidata", "honored", "honored_dated"] + PREDICTORS}
+    cols = {k: np.array([float(r[k]) for r in rows])
+            for k in ["age", "in_wikidata", "in_gs_faculty", "honored", "honored_dated"] + PREDICTORS}
     rng = np.random.default_rng(20261105)
     out = []
     for age in (5, 10):
-        for pop in ("notable", "all"):
+        for pop in ("notable", "gs_faculty", "all"):
             for outcome in ("honored", "honored_dated"):
                 m = cols["age"] == age
                 if pop == "notable":
                     m &= cols["in_wikidata"] == 1
+                elif pop == "gs_faculty":
+                    m &= cols["in_gs_faculty"] == 1
                 if outcome == "honored_dated":
                     m &= ~((cols["honored"] == 1) & (cols["honored_dated"] == 0))
                 y = cols[outcome][m].astype(int)

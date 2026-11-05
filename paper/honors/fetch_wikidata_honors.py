@@ -8,7 +8,9 @@
    Excluded on purpose: plain society memberships, state orders, student scholarships, honorary doctorates, and
    citation-based honors (Clarivate Citation Laureates), which would make the validation circular.
                                                                          -> data/honors_curated.csv
-4. Load both into `scholar-version2.paper_rp.wikidata_s2_items` and `.wikidata_honors` (needs `bq`).
+4. Google Scholar route: for each senior honor, the honored people whose Wikidata item carries a Google Scholar ID
+   (P1960), with the year when given (one query per honor; a single query times out)  -> data/gs_honors_dated.csv
+5. Load into `scholar-version2.paper_rp.wikidata_s2_items`, `.wikidata_honors` and `.wikidata_gs_honors` (needs `bq`).
 
 Run: python3 paper/honors/fetch_wikidata_honors.py   (fetched 2026-11-05: 41,272 linked items, 4,222 honor rows)
 """
@@ -77,11 +79,29 @@ def main():
             w.writerow([qid(r["p"]), r["s2"], q, labels.get(q, q), HONORS[q], m.group(1) if m else ""])
             n += 1
     print(f"{len(items)} linked items, {n} curated honor rows")
+    gs_rows = set()
+    for q in SENIOR:
+        txt = sparql(f"""SELECT ?p ?gs ?date WHERE {{
+          ?p wdt:P1960 ?gs .
+          {{ ?p p:P166 ?st . ?st ps:P166 wd:{q} . OPTIONAL {{ ?st pq:P585 ?date }} }}
+          UNION {{ ?p p:P463 ?st . ?st ps:P463 wd:{q} . OPTIONAL {{ ?st pq:P580 ?date }} }} }}""")
+        if "Exception" in txt:
+            raise RuntimeError(f"Wikidata query for {q} timed out; rerun")
+        for r in csv.DictReader(io.StringIO(txt)):
+            m = re.match(r"^(\d{4})-", r["date"] or "")
+            gs_rows.add((qid(r["p"]), r["gs"], q, m.group(1) if m else ""))
+    with open(os.path.join(DATA, "gs_honors_dated.csv"), "w", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(["wikidata_id", "scholar_id", "honor_qid", "honor_year"])
+        w.writerows(sorted(gs_rows))
+    print(f"{len({r[0] for r in gs_rows})} honored people with a Google Scholar ID")
     env = {k: v for k, v in os.environ.items() if k != "CLOUDSDK_AUTH_ACCESS_TOKEN"}
     for table, path, schema in (
         ("wikidata_s2_items", "s2_items.csv", "wikidata_id:STRING,s2_authorid:STRING"),
         ("wikidata_honors", "honors_curated.csv",
          "wikidata_id:STRING,s2_authorid:STRING,honor_qid:STRING,honor:STRING,category:STRING,honor_year:INTEGER"),
+        ("wikidata_gs_honors", "gs_honors_dated.csv",
+         "wikidata_id:STRING,scholar_id:STRING,honor_qid:STRING,honor_year:INTEGER"),
     ):
         subprocess.run(["bq", "load", "--replace", "--source_format=CSV", "--skip_leading_rows=1",
                         f"scholar-version2:paper_rp.{table}", os.path.join(DATA, path), schema], check=True, env=env)
