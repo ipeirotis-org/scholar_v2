@@ -452,6 +452,13 @@ integral without the peer comparison, so it grows without bound with article cou
 articles above the cutoff, measured from the cutoff. The $h$-index reads one point of the analogous curve in citation
 space, where the number of articles with at least $k$ citations equals $k$.
 
+\paragraph{Numerical evaluation.} The empirical analyses use 40 percentile classes. At the default cutoff, the reported
+score is $\widehat{\PiP}_{1/2}(a) = 20^{-1}\sum_{k=20}^{39} g_a(k/40)$. This equals the integral after replacing every
+paper percentile $y$ by $(\lfloor 40y \rfloor + 1)/40$. Against the unrounded integral at career age 10, the
+within-cohort rank correlation is 0.9994 and top-decile overlap is approximately 96\%; predictive statistics differ by
+at most 0.004 in the tested comparisons. The replication package documents the computation, convergence checks, and
+finer-grid calculations used for the illustrative examples.
+
 \section{Results}
 \label{sec:results}
 
