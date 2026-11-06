@@ -2733,3 +2733,16 @@ updates: none
 verdict: partially supported
 evidence: "Pudovkin and Garfield put the tied publications in a random order and calculate their average percentile." (sec. 3)
 notes: The Ties paragraph was shortened when its detail moved to the Supplementary Information (supplement.tex, Section S2, which keeps the earlier sentence verbatim, claim-hash 22f090d147a6). The attribution to this source is unchanged: mid-ranks as a common choice for single-paper percentiles. Co-cited Bornmann et al. (2013) covers the 'common choice' part, as before.
+
+## [2026-11-06T01:20Z] cite:ipeirotis2026replication — paper/manuscript_qss/main.tex:1204
+claim: "The result tables and a snapshot of the replication package are archived on Zenodo \citep{ipeirotis2026replication}."
+claim-hash: e5950df8c0b7
+source: doi:10.5281/zenodo.23987119
+version-read: unpublished Zenodo draft (deposition 23987119), read through the deposit API on 2026-11-05
+archived: not copied; the deposited file is pip-replication-package-07777bf.zip (md5:c6527171d19b832ea0ec628d7d943347, sha256:72cf5a9ddf5228693ffdd0e0326ade453931793c1b276e30283c0315cd3ca930), built by paper/make_zenodo_package.sh from commit 07777bf
+license: CC BY 4.0 (record metadata)
+accessed: 2026-11-05
+updates: none
+verdict: supported
+evidence: The draft holds one file, the archive of paper/ at 07777bf, which contains results/ (28 result tables) and the SQL, figure data, checks and honors scripts; the record description names the result tables and the BigQuery datasets.
+notes: The authors' own deposit. The DOI is reserved and resolves only after the authors publish the record; re-check then, and replace the file if the manuscript changes before publication. Supersedes the entry for 3191c7c: the file was replaced after the move of ten checks into supplement.tex.
