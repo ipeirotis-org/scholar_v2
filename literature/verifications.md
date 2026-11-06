@@ -3214,3 +3214,16 @@ updates: none
 verdict: supported
 evidence: "If two scientists achieve the same absolute performance improvement, their ranking relative to each other should remain unchanged." (sec. 3.2, Example 2, p. 7); "the h-index fails to provide consistent rankings of individual scientists and research groups" (sec. 3.3, Example 3, p. 8)
 notes: The item now opens 'Like the $h$-index'; the source shows that the $h$-index is inconsistent in this sense, which is what the sentence attributes to it. The simulation result is the authors' own. Re-verified on 2026-11-06 against the same archived passage after the sentence was tightened to bring the main text under 9,000 words: the wording changed, the attribution to this source did not.
+
+## [2026-11-06T02:46Z] cite:ipeirotis2026replication — paper/manuscript_qss/main.tex:1087
+claim: "The result tables and a snapshot of the replication package are archived on Zenodo \citep{ipeirotis2026replication}."
+claim-hash: e5950df8c0b7
+source: doi:10.5281/zenodo.23987119
+version-read: unpublished Zenodo draft (deposition 23987119), read through the deposit API on 2026-11-06
+archived: not copied; the deposited file is pip-replication-package-d7ab533.zip (md5:ed49af7b01928f42688043a0cbcb51c3, sha256:e511af7c461ae03bc9e36ed64a06473f6b990f087e6899b029f759166ce85d0c), built by paper/make_zenodo_package.sh from commit d7ab533
+license: CC BY 4.0 (record metadata)
+accessed: 2026-11-06
+updates: none
+verdict: supported
+evidence: The draft holds one file, the archive of paper/ at d7ab533, which contains results/ (28 result tables) and the SQL, figure data, checks and honors scripts; the record description names the result tables and the BigQuery datasets.
+notes: The authors' own deposit. The DOI is reserved and resolves only after the authors publish the record; re-check then, and replace the file if the manuscript changes before publication. Supersedes the entry for 07777bf: the file was replaced after the cut of the main text below 9,000 words and the typography audit (the archive of fb579f3 was never uploaded).
