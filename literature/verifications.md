@@ -2746,3 +2746,471 @@ updates: none
 verdict: supported
 evidence: The draft holds one file, the archive of paper/ at 07777bf, which contains results/ (28 result tables) and the SQL, figure data, checks and honors scripts; the record description names the result tables and the BigQuery datasets.
 notes: The authors' own deposit. The DOI is reserved and resolves only after the authors publish the record; re-check then, and replace the file if the manuscript changes before publication. Supersedes the entry for 3191c7c: the file was replaced after the move of ten checks into supplement.tex.
+
+## [2026-11-06T02:43Z] cite:hirsch2005index — paper/manuscript_qss/main.tex:58
+claim: "The most common are citation counts and the $h$-index \citep{hirsch2005index}, whose values depend on the field, grow with seniority and drift with the calendar."
+claim-hash: 98b19e36f794
+source: doi:10.1073/pnas.0507655102
+version-read: preprint (arXiv:physics/0508025v5)
+archived: gs://scholar-version2-literature/sources/hirsch2005index--10.1073_pnas.0507655102-f28ddc65.pdf sha256:ad20b4b792bde68eba06d00b944b47532aa26adefdabbabf6a649fa984481b96
+license: unknown (treated as restricted; private store)
+updates: none
+verdict: supported
+evidence: "I propose the index h, defined as the number of papers with citation number higher or equal to h, as a useful index to characterize the scientific output of a researcher." (abstract)
+notes: Re-verified on 2026-11-06 against the same archived passage after the sentence was tightened to bring the main text under 9,000 words: the wording changed, the attribution to this source did not.
+
+## [2026-11-06T02:43Z] cite:bornmann2013use — paper/manuscript_qss/main.tex:78
+claim: "They are less influenced than means by the skewed tail of the citation distribution \citep{bornmann2013use}, need no assumption about how citations grow with age, and do not change meaning with the calendar."
+claim-hash: 0a508e615b2c
+source: doi:10.1016/j.joi.2012.10.001
+version-read: preprint (arXiv:1211.0381v1)
+archived: gs://scholar-version2-literature/sources/bornmann2013use--10.1016_j.joi.2012.10.001-681945bb.pdf sha256:3638ced7af5747f7fcc1e34f278c7ebcee3bea58c100951823931a3eab77e27c
+license: unknown (treated as restricted; private store)
+updates: none
+verdict: supported
+evidence: "(1) percentiles are not as strongly influenced by extreme values of the distribution as the mean value" (sec. 2, The calculation of percentiles); "(3) Percentiles can be calculated, even if the data are skewed, as it is usual for bibliometric data." (sec. 2)
+notes: Re-verified on 2026-11-06 against the same archived passage after the sentence was tightened to bring the main text under 9,000 words: the wording changed, the attribution to this source did not.
+
+## [2026-11-06T02:43Z] cite:leydesdorff2011integrated — paper/manuscript_qss/main.tex:82
+claim: "Sums such as I3 \citep{leydesdorff2011integrated} grow without bound with the number of papers, so many weak papers can outweigh one strong paper."
+claim-hash: f59b01c96a73
+source: doi:10.1002/asi.21609
+version-read: preprint (arXiv:1103.5241v2)
+archived: gs://scholar-version2-literature/sources/leydesdorff2011integrated--10.1002_asi.21609-cbbd6e66.pdf sha256:b50d95eee11710072a36fbee7e64ebdb3ba5b3dcb4c2f1e3fee5e7d630892d9b
+license: unknown (treated as restricted; private store)
+updates: none
+verdict: partially supported
+evidence: "Using the sum total of the frequencies (f) in each percentile, however, accounts for both the size and shape of the distribution." (p. 6-7, section on percentile rank classes (I3 definition)); "number of publications with less impact matters for the overall impact of two otherwise comparable documents sets." (p. 16-17, results (comparison of I3 with h-index-like top segment))
+notes: Re-verified on 2026-11-06 against the same archived passage after the sentence was tightened to bring the main text under 9,000 words: the wording changed, the attribution to this source did not. Earlier note, still applicable: The source defines I3 as a sum over percentile values and says it accounts for size, so that the number of lower-impact publications matters. It does not state that the sum grows without bound or that many weak papers can outweigh one strong paper; that is the manuscript's own inference from the summation.
+
+## [2026-11-06T02:43Z] cite:kinney2023semantic — paper/manuscript_qss/main.tex:99
+claim: "We compute PiP from the Semantic Scholar Academic Graph \citep{kinney2023semantic} for 11.1 million authors at career ages 1 to 30 (years since their first paper)."
+claim-hash: e3b85637e2e4
+source: arXiv:2301.10140 (DataCite doi:10.48550/arXiv.2301.10140)
+version-read: preprint (arXiv:2301.10140v2)
+archived: gs://scholar-version2-literature/sources/kinney2023semantic--the_semantic_scholar_open_data_platform-95c53807.pdf sha256:6f4c9082252e8b420ff2cbb811379f989f087bf4e8b46ff9ec5f9565b2b43e6f
+license: unknown (treated as restricted; private store)
+accessed: 2026-11-05
+verdict: supported
+evidence: "form is to build and distribute the Semantic Scholar" (sec. 2, Platform Overview (continues 'Academic Graph, or S2AG')); "Download links to monthly snapshots of our knowl" (sec. 4.2, Datasets)
+notes: Re-verified on 2026-11-06 against the same archived passage after the sentence was tightened to bring the main text under 9,000 words: the wording changed, the attribution to this source did not.
+
+## [2026-11-06T02:43Z] cite:tian2021predictability — paper/manuscript_qss/main.tex:132
+claim: "An earlier version of this work \citep{tian2021predictability} studied the predictability of paper and scholar percentiles on a smaller dataset of faculty at top US universities and rated scholars by summing their paper percentiles."
+claim-hash: 486463bf0851
+source: arXiv:2103.16025 (DataCite doi:10.48550/arXiv.2103.16025)
+version-read: preprint (arXiv:2103.16025v3)
+archived: gs://scholar-version2-literature/sources/tian2021predictability--on_the_predictability_of_utilizing_rank_percentile_to_evalua-681c8251.pdf sha256:b937c4c4ca0316809d0d9133cf4a82700a26d04511b1788436d7edee67ad64ed
+license: unknown (treated as restricted; private store)
+accessed: 2026-11-05
+verdict: supported
+evidence: "The dataset utilized for this study is from Google Scholar and includes active faculty members (assistant, associate, and full professors) in multiple disciplines from the top 10 universities in the United States, which totals 14, 358 scholars." (p. 2, Dataset); "The publication percentile is highly stable over time, while the scholar percentile exhibits short-term stability and can be predicted via a simple linear regression model." (p. 1, Abstract); "The evaluation metric for scholar i is determined by aggregating the performance of all N(t)" (p. 3, The Rank Percentile Indicator for Scholars); "that is ∑ Pcj (5)" (p. 3, The Rank Percentile Indicator for Scholars)
+notes: Re-verified on 2026-11-06 against the same archived passage after the sentence was tightened to bring the main text under 9,000 words: the wording changed, the attribution to this source did not.
+
+## [2026-11-06T02:43Z] cite:hirsch2005index — paper/manuscript_qss/main.tex:142
+claim: "The $h$-index \citep{hirsch2005index} combines the number of papers and their citations into a single number and has been studied, criticized and modified at length."
+claim-hash: 2ab04f756dba
+source: doi:10.1073/pnas.0507655102
+version-read: preprint (arXiv:physics/0508025v5)
+archived: gs://scholar-version2-literature/sources/hirsch2005index--10.1073_pnas.0507655102-f28ddc65.pdf sha256:ad20b4b792bde68eba06d00b944b47532aa26adefdabbabf6a649fa984481b96
+license: unknown (treated as restricted; private store)
+updates: none
+verdict: supported
+evidence: "I propose the index h, defined as the number of papers with citation number higher or equal to h" (abstract); "to propose a single number, the" (p. 1)
+notes: 'Is a single number that depends on both the number of papers and their citations' became 'combines the number of papers and their citations into a single number'; the source defines $h$ from a scholar's papers and their citation counts. Re-verified on 2026-11-06 against the same archived passage after the sentence was tightened to bring the main text under 9,000 words: the wording changed, the attribution to this source did not.
+
+## [2026-11-06T02:43Z] cite:egghe2006theory — paper/manuscript_qss/main.tex:144
+claim: "The $g$-index \citep{egghe2006theory} credits the citations above the corner; the $m$-quotient \citep{hirsch2005index}, the contemporary $h$-index \citep{sidiropoulos2007generalized} and $hI_{a}$ \citep{harzing2014hia} correct for career length by dividing by career age or discounting old papers; \citet{kaur2013universality} rescale the $h$-index by the field average."
+claim-hash: d3fe93ade82a
+source: doi:10.1007/s11192-006-0144-7
+version-read: version of record (author-supplied copy, identity checked against the registrar record)
+archived: gs://scholar-version2-literature/sources/egghe2006theory--10.1007_s11192-006-0144-7-c5ffc342--author-supplied.pdf sha256:6cbee1f21ba0279b2b76d5d8692a0c7a29e6a9be859436fceaa88adbc747b72d
+license: restricted — author-supplied copy, private store
+updates: none
+verdict: supported
+evidence: "the g-index is the (unique) largest number such that the top g articles received (together) at least g2 citations" (abstract); "it is insensitive to one or several outstandingly highly cited papers" (sec. 1, on the h-index)
+notes: Re-verified on 2026-11-06 against the same archived passage after the sentence was tightened to bring the main text under 9,000 words: the wording changed, the attribution to this source did not.
+
+## [2026-11-06T02:43Z] cite:hirsch2005index — paper/manuscript_qss/main.tex:144
+claim: "The $g$-index \citep{egghe2006theory} credits the citations above the corner; the $m$-quotient \citep{hirsch2005index}, the contemporary $h$-index \citep{sidiropoulos2007generalized} and $hI_{a}$ \citep{harzing2014hia} correct for career length by dividing by career age or discounting old papers; \citet{kaur2013universality} rescale the $h$-index by the field average."
+claim-hash: d3fe93ade82a
+source: doi:10.1073/pnas.0507655102
+version-read: preprint (arXiv:physics/0508025v5)
+archived: gs://scholar-version2-literature/sources/hirsch2005index--10.1073_pnas.0507655102-f28ddc65.pdf sha256:ad20b4b792bde68eba06d00b944b47532aa26adefdabbabf6a649fa984481b96
+license: unknown (treated as restricted; private store)
+updates: none
+verdict: supported
+evidence: "of h versus n, the parameter m, should provide a useful yardstick to compare scientists of different seniority." (p. 3, after Eq. (6))
+notes: Re-verified on 2026-11-06 against the same archived passage after the sentence was tightened to bring the main text under 9,000 words: the wording changed, the attribution to this source did not.
+
+## [2026-11-06T02:43Z] cite:sidiropoulos2007generalized — paper/manuscript_qss/main.tex:144
+claim: "The $g$-index \citep{egghe2006theory} credits the citations above the corner; the $m$-quotient \citep{hirsch2005index}, the contemporary $h$-index \citep{sidiropoulos2007generalized} and $hI_{a}$ \citep{harzing2014hia} correct for career length by dividing by career age or discounting old papers; \citet{kaur2013universality} rescale the $h$-index by the field average."
+claim-hash: d3fe93ade82a
+source: doi:10.1007/s11192-007-1722-z
+version-read: preprint (arXiv:cs/0607066v1)
+archived: gs://scholar-version2-literature/sources/sidiropoulos2007generalized--10.1007_s11192-007-1722-z-93dc68b1.pdf sha256:926776aa9e2f6d8a4f93cf91421b1c18070eba8be4192c44955d37ef2b6de9dc
+license: unknown (treated as restricted; private store)
+updates: none
+verdict: supported
+evidence: "This way, an old article gradually loses its “value”, even if it still gets citations." (p. 4, The contemporary h-index (after Eq. 2)); "If we set δ=1, then S c (i) is the number of citations that the article i has received, divided by the “age” of the article." (p. 4, The contemporary h-index (after Eq. 2))
+notes: Re-verified on 2026-11-06 against the same archived passage after the sentence was tightened to bring the main text under 9,000 words: the wording changed, the attribution to this source did not.
+
+## [2026-11-06T02:43Z] cite:harzing2014hia — paper/manuscript_qss/main.tex:144
+claim: "The $g$-index \citep{egghe2006theory} credits the citations above the corner; the $m$-quotient \citep{hirsch2005index}, the contemporary $h$-index \citep{sidiropoulos2007generalized} and $hI_{a}$ \citep{harzing2014hia} correct for career length by dividing by career age or discounting old papers; \citet{kaur2013universality} rescale the $h$-index by the field average."
+claim-hash: d3fe93ade82a
+source: doi:10.1007/s11192-013-1208-0
+version-read: accepted manuscript (author version, December 2013)
+archived: gs://scholar-version2-literature/sources/harzing2014hia--10.1007_s11192-013-1208-0-17a20b4c.pdf sha256:c9490f3f542009fd086dc526c1de10836280b53afbf58252d29aafc5cdd44f1d
+license: unknown (treated as restricted; private store)
+updates: none
+verdict: supported
+evidence: "We therefore follow Hirsch’s original suggestion to correct for career length by dividing the h‐index by the number of years an academic has been publishing." (p. 5); "the hIa‐index is thus calculated by dividing Harzing’s Publish or Perish hI‐norm (Harzing, 2007) by the number of years that an academic has been publishing" (p. 5)
+notes: Re-verified on 2026-11-06 against the same archived passage after the sentence was tightened to bring the main text under 9,000 words: the wording changed, the attribution to this source did not.
+
+## [2026-11-06T02:43Z] cite:kaur2013universality — paper/manuscript_qss/main.tex:144
+claim: "The $g$-index \citep{egghe2006theory} credits the citations above the corner; the $m$-quotient \citep{hirsch2005index}, the contemporary $h$-index \citep{sidiropoulos2007generalized} and $hI_{a}$ \citep{harzing2014hia} correct for career length by dividing by career age or discounting old papers; \citet{kaur2013universality} rescale the $h$-index by the field average."
+claim-hash: d3fe93ade82a
+source: doi:10.1016/j.joi.2013.09.002
+version-read: preprint (arXiv:1305.6339v2)
+archived: gs://scholar-version2-literature/sources/kaur2013universality--10.1016_j.joi.2013.09.002-74fa8e45.pdf sha256:784a714cf7633ff9623c1b53b56491fb53fa5b7d0ab70b1592b7b50a29317267
+license: unknown (treated as restricted; private store)
+updates: none
+verdict: supported
+evidence: "hs index is proposed here as a normalization of the h index by the average h of the authors in the same discipline." (sec. 2, metric definitions (hs index))
+notes: Re-verified on 2026-11-06 against the same archived passage after the sentence was tightened to bring the main text under 9,000 words: the wording changed, the attribution to this source did not.
+
+## [2026-11-06T02:43Z] cite:bornmann2013use — paper/manuscript_qss/main.tex:154
+claim: "They are less sensitive to outliers \citep{bornmann2013use,bornmann2020evaluation} than mean normalization, which compares a paper's citations with the average of comparable papers \citep{schubert1986relative,Radicchi2008}."
+claim-hash: 866335ba2b42
+source: doi:10.1016/j.joi.2012.10.001
+version-read: preprint (arXiv:1211.0381v1)
+archived: gs://scholar-version2-literature/sources/bornmann2013use--10.1016_j.joi.2012.10.001-681945bb.pdf sha256:3638ced7af5747f7fcc1e34f278c7ebcee3bea58c100951823931a3eab77e27c
+license: unknown (treated as restricted; private store)
+updates: none
+verdict: supported
+evidence: "(1) percentiles are not as strongly influenced by extreme values of the distribution as the mean value" (sec. 2, The calculation of percentiles)
+notes: Re-verified on 2026-11-06 against the same archived passage after the sentence was tightened to bring the main text under 9,000 words: the wording changed, the attribution to this source did not.
+
+## [2026-11-06T02:43Z] cite:bornmann2020evaluation — paper/manuscript_qss/main.tex:154
+claim: "They are less sensitive to outliers \citep{bornmann2013use,bornmann2020evaluation} than mean normalization, which compares a paper's citations with the average of comparable papers \citep{schubert1986relative,Radicchi2008}."
+claim-hash: 866335ba2b42
+source: doi:10.1007/s11192-020-03512-7
+version-read: version of record
+archived: gs://scholar-version2-literature/sources/bornmann2020evaluation--10.1007_s11192-020-03512-7-1f24fb42.pdf sha256:3ea8c359d01836ba0507727a744a394ae2b0778cfc91682e8bafe7b5676bc29e
+license: CC-BY-4.0 (Springer open access)
+updates: none
+verdict: supported
+evidence: "The advantage of PRs (and PPs) is that they are not strongly affected by outliers (highly cited papers)" (p. 1458, Introduction)
+notes: Re-verified on 2026-11-06 against the same archived passage after the sentence was tightened to bring the main text under 9,000 words: the wording changed, the attribution to this source did not.
+
+## [2026-11-06T02:43Z] cite:schubert1986relative — paper/manuscript_qss/main.tex:154
+claim: "They are less sensitive to outliers \citep{bornmann2013use,bornmann2020evaluation} than mean normalization, which compares a paper's citations with the average of comparable papers \citep{schubert1986relative,Radicchi2008}."
+claim-hash: 866335ba2b42
+source: doi:10.1007/bf02017249
+version-read: version of record (author-supplied copy, identity checked against the registrar record)
+archived: gs://scholar-version2-literature/sources/schubert1986relative--10.1007_bf02017249-0d8903d0--author-supplied.pdf sha256:608a7ca180944a650b810b6317e708c6785aab50bd6953918c1411afd98ca2f0
+license: restricted — author-supplied copy, private store
+updates: none
+verdict: supported
+evidence: "the average citation rate of the journal in which a paper was published is a valid standard to which its citation rate can be matched" (sec. 2); "corresponds precisely to the world average" (sec. 2, activity and attractivity indexes)
+notes: Re-verified on 2026-11-06 against the same archived passage after the sentence was tightened to bring the main text under 9,000 words: the wording changed, the attribution to this source did not.
+
+## [2026-11-06T02:43Z] cite:Radicchi2008 — paper/manuscript_qss/main.tex:154
+claim: "They are less sensitive to outliers \citep{bornmann2013use,bornmann2020evaluation} than mean normalization, which compares a paper's citations with the average of comparable papers \citep{schubert1986relative,Radicchi2008}."
+claim-hash: 866335ba2b42
+source: doi:10.1073/pnas.0806977105
+version-read: preprint (arXiv:0806.0974v2)
+archived: gs://scholar-version2-literature/sources/radicchi2008--10.1073_pnas.0806977105-fa509e28.pdf sha256:6dde217e74a426a0d1f6d900d74f0fce3452ab8c500260979751d86d06d7c5a0
+license: unknown (treated as restricted; private store)
+updates: none
+verdict: supported
+evidence: "we have considered the average number c0 of citations" (p. 2); "as an unbiased relative indicator of scientific impact" (p. 1)
+notes: Re-verified on 2026-11-06 against the same archived passage after the sentence was tightened to bring the main text under 9,000 words: the wording changed, the attribution to this source did not.
+
+## [2026-11-06T02:43Z] cite:hicks2015bibliometrics — paper/manuscript_qss/main.tex:156
+claim: "The Leiden Manifesto recommends them \citep{hicks2015bibliometrics}."
+claim-hash: 4eb493a165e8
+source: doi:10.1038/520429a
+version-read: version of record (Nature 520:429-431 typeset PDF, deposited in DIGITAL.CSIC)
+archived: gs://scholar-version2-literature/sources/hicks2015bibliometrics--10.1038_520429a-a1c33bfa.pdf sha256:f141b19cb5d5f7db1aba13ad02decde290b83f059b52724126f8ae5ec563395d
+license: unknown (treated as restricted; private store)
+updates: none
+verdict: supported
+evidence: "the most robust normalization method is based on percentiles" (p. 431, principle 6)
+notes: The Leiden Manifesto clause became its own sentence ('The Leiden Manifesto recommends them'); the attribution, the Manifesto's recommendation of percentile-based normalization, is unchanged. Re-verified on 2026-11-06 against the same archived passage after the sentence was tightened to bring the main text under 9,000 words: the wording changed, the attribution to this source did not.
+
+## [2026-11-06T02:43Z] cite:hazen1914storage — paper/manuscript_qss/main.tex:158
+claim: "For scoring we use the share of the reference set with strictly fewer citations, so that uncited papers have percentile zero; for correlations, Hazen's mid-rank \citep{hazen1914storage} (Section~\ref{sec:properties})."
+claim-hash: 94981dad6cca
+source: doi:10.1061/taceat.0002563
+version-read: version of record (scan of Trans. ASCE vol. 77, 1914; pages 1629-1740 of the archive.org volume scan, extracted)
+archived: gs://scholar-version2-literature/sources/hazen1914storage--10.1061_taceat.0002563-1fbb5981.pdf sha256:e80f3c2b37f161d8ac843c6c0e1a78db86343bb4e08fff8db8f9324db8dfc5de
+license: public domain (1914 US publication)
+updates: none
+verdict: supported
+evidence: "the figure for each term, arranged in its order of magnitude, is plotted at the percentage which corresponds to the middle of its strip" (printed p. 1549, 'Probability Paper'); "The first term will be plotted at the middle of the first 2% strip; that is, on the 1% line" (printed p. 1549)
+notes: Re-verified on 2026-11-06 against the same archived passage after the sentence was tightened to bring the main text under 9,000 words: the wording changed, the attribution to this source did not.
+
+## [2026-11-06T02:43Z] cite:ioannidis2019standardized — paper/manuscript_qss/main.tex:163
+claim: "Composite indicators such as that of \citet{ioannidis2019standardized} combine several citation counts, and \citet{abramo2014productivity} relate field-normalized citations to the cost of labor."
+claim-hash: de20a729d9a9
+source: doi:10.1371/journal.pbio.3000384
+version-read: version of record
+archived: gs://scholar-version2-literature/sources/ioannidis2019standardized--10.1371_journal.pbio.3000384-89de78a2.xml sha256:68b36d5eddd9616ed488af0c2dd001e879b5a380d2d6059023cd6c338ff901a8
+license: CC-BY-4.0 (PLOS)
+updates: new_version doi:10.1371/journal.pbio.3000384 (2019-08-19, publisher)
+verdict: supported
+evidence: "composite indicator that considers six citation metrics (total citations; Hirsch h-index; coauthorship-adjusted Schreiber hm-index; number of citations to papers as single author; number of citations to papers as single or first author; and number of citations to papers as single, first, or last author)" (Main text, database construction paragraph)
+notes: Re-verified on 2026-11-06 against the same archived passage after the sentence was tightened to bring the main text under 9,000 words: the wording changed, the attribution to this source did not.
+
+## [2026-11-06T02:43Z] cite:abramo2014productivity — paper/manuscript_qss/main.tex:163
+claim: "Composite indicators such as that of \citet{ioannidis2019standardized} combine several citation counts, and \citet{abramo2014productivity} relate field-normalized citations to the cost of labor."
+claim-hash: de20a729d9a9
+source: doi:10.1007/s11192-014-1269-8
+version-read: preprint (arXiv:1810.12830v1)
+archived: gs://scholar-version2-literature/sources/abramo2014productivity--10.1007_s11192-014-1269-8-95b9efa5.pdf sha256:04b35f0064c50e7c47e8a5d72e4caff628f477c4fc8658039293823fb32e5f37
+license: unknown (treated as restricted; private store)
+updates: none
+verdict: supported
+evidence: "we measure FSSR, a proxy of the average yearly productivity over a period of time, accounting for the cost of labor." (sec. Labor productivity at the individual level, p. 7); "To measure the cost efficiency or research units, one should normalize its output by the cost of labor." (sec. Labor productivity in research activity and the FSS, p. 5-6); "average of the distribution of citations received for all cited publications" (definition of c-bar in Eq. [1], p. 7)
+notes: Re-verified on 2026-11-06 against the same archived passage after the sentence was tightened to bring the main text under 9,000 words: the wording changed, the attribution to this source did not.
+
+## [2026-11-06T02:43Z] cite:rodriguez2018double — paper/manuscript_qss/main.tex:167
+claim: "For countries and institutions, double rank analysis expresses each paper's rank within its unit as a function of its rank among all papers in the world; a power law fitted to this relation estimates the unit's chance of producing a very highly cited paper \citep{rodriguez2018double,brito2018percentile}."
+claim-hash: f6f9cf82df94
+source: doi:10.1016/j.joi.2017.11.004
+version-read: version of record (author-supplied copy, identity checked against the registrar record)
+archived: gs://scholar-version2-literature/sources/rodriguez2018double--10.1016_j.joi.2017.11.004-a349ac75--author-supplied.pdf sha256:b6b046520aa6f09e3fc45ef69b73699277e103b12d7c4db425a716a7c06efcfe
+license: restricted — author-supplied copy, private store
+updates: none
+verdict: supported
+evidence: "the internal ranking number can be expressed as a function of the world ranking number" (abstract); "extrapolation allows estimating the likelihood of publishing the highest cited publication" (abstract); "which includes a low number of publications in most countries and institutions" (abstract)
+notes: Re-verified on 2026-11-06 against the same archived passage after the sentence was tightened to bring the main text under 9,000 words: the wording changed, the attribution to this source did not.
+
+## [2026-11-06T02:43Z] cite:brito2018percentile — paper/manuscript_qss/main.tex:167
+claim: "For countries and institutions, double rank analysis expresses each paper's rank within its unit as a function of its rank among all papers in the world; a power law fitted to this relation estimates the unit's chance of producing a very highly cited paper \citep{rodriguez2018double,brito2018percentile}."
+claim-hash: f6f9cf82df94
+source: doi:10.1016/j.joi.2018.01.011
+version-read: preprint (arXiv:1712.00399v2)
+archived: gs://scholar-version2-literature/sources/brito2018percentile--10.1016_j.joi.2018.01.011-2027d857.pdf sha256:7ebab94bcec8cf9f7d71333a6783dadd0107ff16314c4b89a211681f1d8508ba
+license: unknown (treated as restricted; private store)
+updates: none
+verdict: supported
+evidence: "In the double rank analysis of research publications, the local rank position of a country or institution publication is expressed as a function of the world rank position." (Abstract); "the ranking number of a publication in a country or institution is expressed as a function of its world ranking number. The resulting function can be well fitted by a power law, which allows estimating the likelihood of any country or institution producing a very highly cited paper" (Sec. 1, Introduction)
+notes: Re-verified on 2026-11-06 against the same archived passage after the sentence was tightened to bring the main text under 9,000 words: the wording changed, the attribution to this source did not.
+
+## [2026-11-06T02:43Z] cite:hirsch2007does — paper/manuscript_qss/main.tex:171
+claim: "\citet{hirsch2007does} found that the $h$-index predicts a scholar's later $h$-index and citations better than paper or citation counts do."
+claim-hash: bba4e8cfdfbc
+source: doi:10.1073/pnas.0707962104
+version-read: preprint (arXiv:0708.0646v2)
+archived: gs://scholar-version2-literature/sources/hirsch2007does--10.1073_pnas.0707962104-c362526c.pdf sha256:a56674327d7e8c6fb528c1518969af379c2deb402e21fd217d4e120b74428285
+license: unknown (treated as restricted; private store)
+updates: none
+verdict: supported
+evidence: "Our findings indicate that the h-index is better than other indicators considered (total citation count, citations per paper, and total paper count) in predicting future scientific achievement." (Abstract)
+notes: Re-verified on 2026-11-06 against the same archived passage after the sentence was tightened to bring the main text under 9,000 words: the wording changed, the attribution to this source did not.
+
+## [2026-11-06T02:43Z] cite:acuna2012future — paper/manuscript_qss/main.tex:174
+claim: "Other work predicted future $h$-index values from career features \citep{acuna2012future} and questioned how much of that predictability is mechanical, because the future $h$-index contains the current one \citep{penner2013predictability}."
+claim-hash: 858fc8fc26b8
+source: doi:10.1038/489201a
+version-read: version of record (author-supplied copy, identity checked against the registrar record)
+archived: gs://scholar-version2-literature/sources/acuna2012future--10.1038_489201a-fecad52c--author-supplied.pdf sha256:6cee4984a49915129d5de245ffbee91a948378792120f2e1a329424a0bef4c6b
+license: restricted — author-supplied copy, private store
+updates: none
+verdict: supported
+evidence: "present a formula to estimate the future h-index of life scientists" (standfirst); "n, number of articles written; h, current h-index; y, years since publishing first article; j, number of distinct journals published in" (figure key)
+notes: Re-verified on 2026-11-06 against the same archived passage after the sentence was tightened to bring the main text under 9,000 words: the wording changed, the attribution to this source did not.
+
+## [2026-11-06T02:43Z] cite:penner2013predictability — paper/manuscript_qss/main.tex:174
+claim: "Other work predicted future $h$-index values from career features \citep{acuna2012future} and questioned how much of that predictability is mechanical, because the future $h$-index contains the current one \citep{penner2013predictability}."
+claim-hash: 858fc8fc26b8
+source: doi:10.1038/srep03052
+version-read: version of record
+archived: gs://scholar-version2-literature/sources/penner2013predictability--10.1038_srep03052-5af70d94.xml sha256:0ec5949cf8c9968d00edb312c484c4008ff9fb57f89ce2fa9fb1a3d89800c0a4
+license: CC-BY-NC-SA-3.0 (Scientific Reports)
+updates: none
+verdict: supported
+evidence: "cumulative non-decreasing measures like the h -index contain intrinsic autocorrelation, resulting in significant overestimation of their “predictive power”" (Abstract); "linear regression models are not so much predicting future impact as they are picking up on a correlation intrinsic to cumulative measures" (Results, 'Modeling non-cumulative measures')
+notes: Re-verified on 2026-11-06 against the same archived passage after the sentence was tightened to bring the main text under 9,000 words: the wording changed, the attribution to this source did not.
+
+## [2026-11-06T02:43Z] cite:kinney2023semantic — paper/manuscript_qss/main.tex:190
+claim: "We use the 27 October 2026 release of the Semantic Scholar Academic Graph \citep{kinney2023semantic}, distributed under the ODC-BY license \citep{s2datasets2026}."
+claim-hash: ed1725ca6e1c
+source: arXiv:2301.10140 (DataCite doi:10.48550/arXiv.2301.10140)
+version-read: preprint (arXiv:2301.10140v2)
+archived: gs://scholar-version2-literature/sources/kinney2023semantic--the_semantic_scholar_open_data_platform-95c53807.pdf sha256:6f4c9082252e8b420ff2cbb811379f989f087bf4e8b46ff9ec5f9565b2b43e6f
+license: unknown (treated as restricted; private store)
+accessed: 2026-11-05
+verdict: supported
+evidence: "S2AG is a disambiguated, high-quality, bibliographic" (abstract)
+notes: Re-verified on 2026-11-06 against the same archived passage after the sentence was tightened to bring the main text under 9,000 words: the wording changed, the attribution to this source did not.
+
+## [2026-11-06T02:43Z] cite:s2datasets2026 — paper/manuscript_qss/main.tex:190
+claim: "We use the 27 October 2026 release of the Semantic Scholar Academic Graph \citep{kinney2023semantic}, distributed under the ODC-BY license \citep{s2datasets2026}."
+claim-hash: ed1725ca6e1c
+source: https://api.semanticscholar.org/datasets/v1/release/2026-10-27
+version-read: release 2026-10-27 dataset READMEs (JSON), fetched 2026-11-05
+archived: gs://scholar-version2-literature/sources/s2datasets2026--api.semanticscholar.org_datasets_v1_release_2026-10-27-1ddd5a1e--2026-11-05-385e6b41.json sha256:385e6b41f1ccaa0199439dd8b7cf1a0c3cfb112ec2f1e784741d749ca5e869f0
+license: unknown (treated as restricted; private store)
+accessed: 2026-11-05
+verdict: supported
+evidence: "This collection is licensed under ODC-BY." (README of the papers, authors and citations datasets, release 2026-10-27)
+notes: Re-verified on 2026-11-06 against the same archived passage after the sentence was tightened to bring the main text under 9,000 words: the wording changed, the attribution to this source did not.
+
+## [2026-11-06T02:43Z] cite:kinney2023semantic — paper/manuscript_qss/main.tex:226
+claim: "Semantic Scholar's author records are built automatically, although authors can claim and correct them \citep{kinney2023semantic}."
+claim-hash: a1ac65843029
+source: arXiv:2301.10140 (DataCite doi:10.48550/arXiv.2301.10140)
+version-read: preprint (arXiv:2301.10140v2)
+archived: gs://scholar-version2-literature/sources/kinney2023semantic--the_semantic_scholar_open_data_platform-95c53807.pdf sha256:6f4c9082252e8b420ff2cbb811379f989f087bf4e8b46ff9ec5f9565b2b43e6f
+license: unknown (treated as restricted; private store)
+accessed: 2026-11-05
+verdict: supported
+evidence: "In Author Disambiguation, we use a system named" (sec. 3 (column-split)); "S2AND, introduced in Subramanian et al. (2021)," (sec. 3, continuation)
+notes: 'Built by automatic disambiguation' became 'built automatically'; the source describes S2AG as built by automated pipelines and states that users can claim and correct author records. Re-verified on 2026-11-06 against the same archived passage after the sentence was tightened to bring the main text under 9,000 words: the wording changed, the attribution to this source did not.
+
+## [2026-11-06T02:43Z] cite:bornmann2013use — paper/manuscript_qss/main.tex:364
+claim: "Mid-ranks, a common choice for single-paper percentiles \citep{bornmann2013use,waltman2013percentile}, would credit authors with nothing above a threshold; the strict rule prevents this, at the price that a peer group's mean score depends on how common ties are (Eq.~\ref{eq:mean}; Supplementary Section~\ref{S-supp:ties})."
+claim-hash: 0f0911cee5f3
+source: doi:10.1016/j.joi.2012.10.001
+version-read: preprint (arXiv:1211.0381v1)
+archived: gs://scholar-version2-literature/sources/bornmann2013use--10.1016_j.joi.2012.10.001-681945bb.pdf sha256:3638ced7af5747f7fcc1e34f278c7ebcee3bea58c100951823931a3eab77e27c
+license: unknown (treated as restricted; private store)
+updates: none
+verdict: supported
+evidence: "The compromise ((i-0.5)/n*100) derived by (Hazen, 1914) is used very frequently" (sec. 2)
+notes: Re-verified on 2026-11-06 against the same archived passage after the sentence was tightened to bring the main text under 9,000 words: the wording changed, the attribution to this source did not.
+
+## [2026-11-06T02:43Z] cite:waltman2013percentile — paper/manuscript_qss/main.tex:364
+claim: "Mid-ranks, a common choice for single-paper percentiles \citep{bornmann2013use,waltman2013percentile}, would credit authors with nothing above a threshold; the strict rule prevents this, at the price that a peer group's mean score depends on how common ties are (Eq.~\ref{eq:mean}; Supplementary Section~\ref{S-supp:ties})."
+claim-hash: 0f0911cee5f3
+source: doi:10.1002/asi.22775
+version-read: preprint (arXiv:1205.0646v1)
+archived: gs://scholar-version2-literature/sources/waltman2013percentile--10.1002_asi.22775-039024e8.pdf sha256:89e4c0756f18084062345454a5ad2dc5649cf29dec145615f2f19e2844310ac7
+license: unknown (treated as restricted; private store)
+updates: none
+verdict: partially supported
+evidence: "Pudovkin and Garfield put the tied publications in a random order and calculate their average percentile." (sec. 3)
+notes: Re-verified on 2026-11-06 against the same archived passage after the sentence was tightened to bring the main text under 9,000 words: the wording changed, the attribution to this source did not. Earlier note, still applicable: The Ties paragraph was shortened when its detail moved to the Supplementary Information (supplement.tex, Section S2, which keeps the earlier sentence verbatim, claim-hash 22f090d147a6). The attribution to this source is unchanged: mid-ranks as a common choice for single-paper percentiles. Co-cited Bornmann et al. (2013) covers the 'common choice' part, as before.
+
+## [2026-11-06T02:43Z] cite:ipeirotis2024pip — paper/manuscript_qss/main.tex:404
+claim: "The website \url{https://www.pip-score.org} uses the earlier, asymmetric form of the score \citep{ipeirotis2024pip}."
+claim-hash: e57187c4868a
+source: https://www.behind-the-enemy-lines.com/2024/01/the-pip-auc-score-for-research.html
+version-read: version of record (blog post, snapshot 2026-11-05)
+archived: gs://scholar-version2-literature/sources/ipeirotis2024pip--the_pip-auc_score_for_research_productivity-05d4fa50--2026-11-05-63eaa116.html sha256:63eaa11614270464d18349834da6403392da00961e5077b08a6139e1f55e95f3
+license: CC-BY-NC-3.0 (site footer)
+accessed: 2026-11-05
+verdict: supported
+evidence: "we created a small app at https://scholar.ipeirotis.org/ that allows anyone to search for a Google Scholar profile" (post body, second paragraph)
+notes: Re-verified on 2026-11-06 against the same archived passage after the sentence was tightened to bring the main text under 9,000 words: the wording changed, the attribution to this source did not.
+
+## [2026-11-06T02:43Z] cite:hazen1914storage — paper/manuscript_qss/main.tex:446
+claim: "These percentiles are not the score's strict shares but Hazen mid-ranks \citep{hazen1914storage}, so the correlation is the Spearman correlation of the citation counts."
+claim-hash: c62e6eb2d850
+source: doi:10.1061/taceat.0002563
+version-read: version of record (scan of Trans. ASCE vol. 77, 1914; pages 1629-1740 of the archive.org volume scan, extracted)
+archived: gs://scholar-version2-literature/sources/hazen1914storage--10.1061_taceat.0002563-1fbb5981.pdf sha256:e80f3c2b37f161d8ac843c6c0e1a78db86343bb4e08fff8db8f9324db8dfc5de
+license: public domain (1914 US publication)
+updates: none
+verdict: supported
+evidence: "if there are 50 terms in the series, each is taken to represent 2% of the whole space" (printed p. 1549); "the figure for each term, arranged in its order of magnitude, is plotted at the percentage which corresponds to the middle of its strip" (printed p. 1549)
+notes: The sentence now adds that the correlation of these mid-ranks is the Spearman correlation of the citation counts; that clause follows the citation and is the authors' own statement, not attributed to Hazen. The attribution to Hazen, the mid-rank plotting position, is unchanged.
+
+## [2026-11-06T02:43Z] cite:waltman2012leiden — paper/manuscript_qss/main.tex:719
+claim: "The closest alternatives to PiP combine the same paper percentiles differently: the number of papers in the top 10\% \citep{waltman2012leiden}, also divided by career age \citep{bornmann2014individual}; the number in the top 1\%; I3, the sum of the percentiles \citep{leydesdorff2011integrated}; and their mean."
+claim-hash: 9a7e522bb3ea
+source: doi:10.1002/asi.22708
+version-read: preprint (arXiv:1202.3941v1)
+archived: gs://scholar-version2-literature/sources/waltman2012leiden--10.1002_asi.22708-420e6186.pdf sha256:463b811dfb698626177a2533bda112c3cc0def73dd694eb2ba606c068d4c54f9
+license: unknown (treated as restricted; private store)
+updates: none
+verdict: supported
+evidence: "Proportion top 10% publications (PPtop 10%). The proportion of the publications of a university that, compared with other similar publications, belong to the top 10% most frequently cited" (sec. 3, indicator list)
+notes: Re-verified on 2026-11-06 against the same archived passage after the sentence was tightened to bring the main text under 9,000 words: the wording changed, the attribution to this source did not.
+
+## [2026-11-06T02:43Z] cite:bornmann2014individual — paper/manuscript_qss/main.tex:719
+claim: "The closest alternatives to PiP combine the same paper percentiles differently: the number of papers in the top 10\% \citep{waltman2012leiden}, also divided by career age \citep{bornmann2014individual}; the number in the top 1\%; I3, the sum of the percentiles \citep{leydesdorff2011integrated}; and their mean."
+claim-hash: 9a7e522bb3ea
+source: doi:10.1007/s11192-013-1161-y
+version-read: preprint (arXiv:1302.3697v2)
+archived: gs://scholar-version2-literature/sources/bornmann2014individual--10.1007_s11192-013-1161-y-22e3c955.pdf sha256:f53354eb37b3efb9676ae2f64101071c8aa1d7ffe88e12df5d581f88ea210334
+license: unknown (treated as restricted; private store)
+updates: none
+verdict: supported
+evidence: "we would like to propose using the number of years as an active researcher (Ptop 10% quotient) to normalise Ptop 10% for age" (sec. 3.2, Ptop 10% paragraphs); "With a value of 2.8, Researcher 2 published around twice as many Ptop 10% as Researcher 3" (sec. 3.2, end)
+notes: Re-verified on 2026-11-06 against the same archived passage after the sentence was tightened to bring the main text under 9,000 words: the wording changed, the attribution to this source did not.
+
+## [2026-11-06T02:43Z] cite:leydesdorff2011integrated — paper/manuscript_qss/main.tex:719
+claim: "The closest alternatives to PiP combine the same paper percentiles differently: the number of papers in the top 10\% \citep{waltman2012leiden}, also divided by career age \citep{bornmann2014individual}; the number in the top 1\%; I3, the sum of the percentiles \citep{leydesdorff2011integrated}; and their mean."
+claim-hash: 9a7e522bb3ea
+source: doi:10.1002/asi.21609
+version-read: preprint (arXiv:1103.5241v2)
+archived: gs://scholar-version2-literature/sources/leydesdorff2011integrated--10.1002_asi.21609-cbbd6e66.pdf sha256:b50d95eee11710072a36fbee7e64ebdb3ba5b3dcb4c2f1e3fee5e7d630892d9b
+license: unknown (treated as restricted; private store)
+updates: none
+verdict: supported
+evidence: "Because this indicator is based on a summation, the value for the EU-27" (p. 25, nations decomposition); "The integrals in this stepwise" (p. 5, percentile rank section)
+notes: Re-verified on 2026-11-06 against the same archived passage after the sentence was tightened to bring the main text under 9,000 words: the wording changed, the attribution to this source did not.
+
+## [2026-11-06T02:43Z] cite:aksnes2003macro — paper/manuscript_qss/main.tex:953
+claim: "Self-citations are 8.1\% of all citations; such rates depend strongly on the definition and the citation window \citep{aksnes2003macro}."
+claim-hash: d3669455d31e
+source: doi:10.1023/a:1021919228368
+version-read: version of record (author-supplied copy, identity checked against the registrar record)
+archived: gs://scholar-version2-literature/sources/aksnes2003macro--10.1023_a_1021919228368-e0aafd03--author-supplied.pdf sha256:92570f9adaa3f4694f532bdfd9d5ab74268dd6ce73a01d4e6a95fd1cbb664756
+license: restricted — author-supplied copy, private store
+updates: none
+verdict: supported
+evidence: "Using a three-year citation window we find that 36% of all citations represent author self-citations." (abstract); "In contrast, the self-citation share would be 29% when using a 5-year window." (results); "Methodologically, self-citations can be counted in two different ways, diachronously or synchronously." (methods)
+notes: Re-verified on 2026-11-06 against the same archived passage after the sentence was tightened to bring the main text under 9,000 words: the wording changed, the attribution to this source did not.
+
+## [2026-11-06T02:43Z] cite:zitt2005relativity — paper/manuscript_qss/main.tex:1017
+claim: "Field normalization brings its own choices: the field scheme and the assignment of multi-field papers \citep{zitt2005relativity,waltman2015field,waltman2019field} and, for a scholar, of a main field."
+claim-hash: f72dd8a809d3
+source: doi:10.1007/s11192-005-0218-y
+version-read: version of record (author-supplied copy, identity checked against the registrar record)
+archived: gs://scholar-version2-literature/sources/zitt2005relativity--10.1007_s11192-005-0218-y-bf0707e5--author-supplied.pdf sha256:6e9640a55a90b60b373274f2171207e2633146e5c84f790cb75db0bf6b43becf
+license: restricted — author-supplied copy, private store
+updates: none
+verdict: supported
+evidence: "the contents of the" (abstract); "set is completely dependent on the level of observation" (abstract); "Overlapping classes result in several normalised impact measures for each multi-assigned journal" (sec. 2, data)
+notes: Re-verified on 2026-11-06 against the same archived passage after the sentence was tightened to bring the main text under 9,000 words: the wording changed, the attribution to this source did not.
+
+## [2026-11-06T02:43Z] cite:waltman2015field — paper/manuscript_qss/main.tex:1017
+claim: "Field normalization brings its own choices: the field scheme and the assignment of multi-field papers \citep{zitt2005relativity,waltman2015field,waltman2019field} and, for a scholar, of a main field."
+claim-hash: f72dd8a809d3
+source: doi:10.1016/j.joi.2015.08.001
+version-read: preprint (arXiv:1501.04431v1)
+archived: gs://scholar-version2-literature/sources/waltman2015field--10.1016_j.joi.2015.08.001-8988ca16.pdf sha256:acc87a4b752fbf52994b18aa703b1561c84124c780e9de46a66ff8a0341fc2a6
+license: unknown (treated as restricted; private store)
+updates: none
+verdict: supported
+evidence: "fields are defined by the WoS journal subject categories." (sec. 4, p. 19); "A fractional counting approach is taken to handle publications belonging to multiple subject categories." (footnote 6, p. 19)
+notes: Re-verified on 2026-11-06 against the same archived passage after the sentence was tightened to bring the main text under 9,000 words: the wording changed, the attribution to this source did not.
+
+## [2026-11-06T02:43Z] cite:waltman2019field — paper/manuscript_qss/main.tex:1017
+claim: "Field normalization brings its own choices: the field scheme and the assignment of multi-field papers \citep{zitt2005relativity,waltman2015field,waltman2019field} and, for a scholar, of a main field."
+claim-hash: f72dd8a809d3
+source: doi:10.1007/978-3-030-02511-3_11
+version-read: preprint (arXiv:1801.09985v1)
+archived: gs://scholar-version2-literature/sources/waltman2019field--10.1007_978-3-030-02511-3_11-357ae0ed.pdf sha256:af5d1381889500d4cb5876fa62907d470b34613ed4b7db6a647e6a3d252aa77a
+license: unknown (treated as restricted; private store)
+updates: none
+verdict: supported
+evidence: "normalized indicators are quite sensitive to methodological choices, such as the choice of a field classification system" (sec. 7.2); "Another issue in the calculation of the normalized citation score of a publication is the way in which publications belonging to multiple fields are handled." (sec. 5.1)
+notes: Re-verified on 2026-11-06 against the same archived passage after the sentence was tightened to bring the main text under 9,000 words: the wording changed, the attribution to this source did not.
+
+## [2026-11-06T02:43Z] cite:waltman2012inconsistency — paper/manuscript_qss/main.tex:1047
+claim: "\emph{Consistency.} Like the $h$-index, PiP is not consistent in the sense of \citet{waltman2012inconsistency}: adding the same article to two authors can reverse their order, though rarely in simulation."
+claim-hash: e5a76857c3c7
+source: doi:10.1002/asi.21678
+version-read: preprint (arXiv:1108.3901v1)
+archived: gs://scholar-version2-literature/sources/waltman2012inconsistency--10.1002_asi.21678-42823f3e.pdf sha256:8afcd8681c22f8267eb5442a4ca26783f88c7206b05a96133294a97a369198ca
+license: unknown (treated as restricted; private store)
+updates: none
+verdict: supported
+evidence: "If two scientists achieve the same absolute performance improvement, their ranking relative to each other should remain unchanged." (sec. 3.2, Example 2, p. 7); "the h-index fails to provide consistent rankings of individual scientists and research groups" (sec. 3.3, Example 3, p. 8)
+notes: The item now opens 'Like the $h$-index'; the source shows that the $h$-index is inconsistent in this sense, which is what the sentence attributes to it. The simulation result is the authors' own. Re-verified on 2026-11-06 against the same archived passage after the sentence was tightened to bring the main text under 9,000 words: the wording changed, the attribution to this source did not.

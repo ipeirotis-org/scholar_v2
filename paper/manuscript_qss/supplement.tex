@@ -42,7 +42,7 @@ table, figure and equation numbers without an S refer to the main text.
 
 \section{Factorization}
 \label{supp:factor}
-\noindent Main text: Section~\ref{sec:properties}.
+\noindent Main text: Section~\ref{sec:properties}.\par\nopagebreak
 
 PiP can be written as the author's productivity percentile times an impact multiplier. Let
 $F(m) = |\{b \in \Peers : n_b(0) \le m\}| / |\Peers|$ be the productivity percentile. Unlike $G_\theta$, it counts
@@ -61,11 +61,11 @@ In our data $Q_{1/2}$ exceeds one for 30--36\% of eligible authors, depending on
 with a positive score who started in 1975--2005, at career ages 5, 10 and 20, the variance of $\log \PiP_{1/2}$ splits
 into 0.74--0.82 from $\log Q$, about 0.30 from $\log F$ and a small negative covariance ($-0.04$ to $-0.11$). Most of
 the variation in PiP across authors thus comes from the impact multiplier rather than from the number of articles. These
-shares describe how the scores vary; they do not measure how much of PiP reflects research quality.
+shares describe how scores vary, not how much of PiP reflects research quality.
 
 \section{Ties}
 \label{supp:ties}
-\noindent Main text: Section~\ref{sec:properties}.
+\noindent Main text: Section~\ref{sec:properties}.\par\nopagebreak
 
 The standing counts peers with strictly fewer articles. Mid-ranks instead count half of the tied
 peers. They are a common choice for the percentile of a single paper \citep{bornmann2013use,waltman2013percentile},
@@ -78,7 +78,7 @@ ties are (Eq.~\ref{eq:mean}).
 
 \section{The earlier, asymmetric form of the score}
 \label{supp:asym}
-\noindent Main text: Section~\ref{sec:relation}.
+\noindent Main text: Section~\ref{sec:relation}.\par\nopagebreak
 
 The earlier form of the score \citep{ipeirotis2024pip} is asymmetric; the website \url{https://www.pip-score.org} uses
 it. The asymmetric form, as the website computes it, sorts an author's articles by percentile, $y_{(1)} \ge y_{(2)} \ge
@@ -103,7 +103,7 @@ problem: it then compares partial counts with growing total counts, and its medi
 
 \section{The exact integral}
 \label{supp:exact}
-\noindent Main text: Section~\ref{sec:computation}.
+\noindent Main text: Section~\ref{sec:computation}.\par\nopagebreak
 
 To check that the classes do not drive the results, we also computed the exact integral for the 5.3 million eligible
 authors at career age 10 (start years 1960--2015). Write $y_{(k)}$ for the author's $k$-th best percentile. On
@@ -117,7 +117,7 @@ of the three cutoffs, so we keep the 40 classes.
 
 \section{Retrospective check of the cutoff}
 \label{supp:holdout}
-\noindent Main text: Section~\ref{sec:tau}.
+\noindent Main text: Section~\ref{sec:tau}.\par\nopagebreak
 
 The default was chosen from results that pooled all cohorts, so we
 checked afterwards whether the choice depends on which cohorts it is made from. Because the check was made after the
@@ -133,12 +133,11 @@ ties $\tau = 0.5$ on the top-1\% outcome and beats it on future citation impact,
 In the test cohorts both cutoffs keep every comparison reported in Sections~\ref{sec:prediction}--\ref{sec:early} at
 career ages 5, 10 and 15: they beat the $h$-index on all three outcomes, no other indicator beats either of them on more
 than one outcome, and both have the highest AUC for a future top-1\% paper. Across $\tau$ from 0.25 to 0.6 that AUC
-varies by less than 0.01 in the test cohorts, so the exact choice in this range matters little for the outcome used to
-make it.
+varies by less than 0.01 in the test cohorts, so the exact choice in this range matters little for that outcome.
 
 \section{Replication across cohorts}
 \label{supp:cohorts}
-\noindent Main text: Section~\ref{sec:prediction}.
+\noindent Main text: Section~\ref{sec:prediction}.\par\nopagebreak
 
 With more than a million authors per setting, sampling error is small: the
 standard error of a Spearman correlation of 0.4 would be below 0.001 for independent observations. Authors share
@@ -153,20 +152,19 @@ $+0.04$.
 
 \section{Early detection under the three-article rule}
 \label{supp:min3early}
-\noindent Main text: Section~\ref{sec:early}.
+\noindent Main text: Section~\ref{sec:early}.\par\nopagebreak
 
-Requiring an $h$-index of three by career age 3 keeps only 21\% of the
-authors who have three articles by then, and it selects the population by one of the indicators being compared. We
-therefore repeated the analysis for all 1,455,891 authors with at least three articles at career age 3, with peers
-defined by the same rule. PiP still leads the $h$-index at every measurement age: the top 10\% by PiP contains 24\%
-future stars at age 3 against 20\% for the $h$-index, and 31\% against 27\% at age 5. PiP reaches the $h$-index's age-10
-accuracy 1.2 to 1.7 years earlier. It also stays ahead of the indicators in Table~\ref{tab:early} on precision and on
-the AUC for a future top-1\% paper at every age, but I3 matches or exceeds it on the AUC for future stars from about
-career age 6.
+Requiring an $h$-index of three by career age 3 keeps only 21\% of the authors who have three articles by then, and it
+selects the population by one of the indicators being compared. We therefore repeated the analysis for all 1,455,891
+authors with at least three articles at career age 3, with peers defined by the same rule. PiP still leads the $h$-index
+at every measurement age: the top 10\% by PiP contains 24\% future stars at age 3 against 20\% for the $h$-index, and
+31\% against 27\% at age 5. PiP reaches the $h$-index's age-10 accuracy 1.2 to 1.7 years earlier. It also leads the
+indicators of Table~\ref{tab:early} on precision and on the AUC for a future top-1\% paper at every age, but I3 matches
+or exceeds it on the AUC for future stars from about age 6.
 
 \section{Agreement on the Google Scholar profiles}
 \label{supp:gsagree}
-\noindent Main text: Section~\ref{sec:honors}.
+\noindent Main text: Section~\ref{sec:honors}.\par\nopagebreak
 
 A last check measures agreement rather than prediction. On the Google Scholar profiles, where scores and honors are
 measured at the same time, the indicators are close: PiP is slightly ahead of the $h$-index for holding an honor
@@ -176,7 +174,7 @@ for having a Wikipedia article (by 0.005 and 0.004).
 
 \section{Author disambiguation}
 \label{supp:disamb}
-\noindent Main text: Section~\ref{sec:robustness}.
+\noindent Main text: Section~\ref{sec:robustness}.\par\nopagebreak
 
 Semantic Scholar's author records come from automatic disambiguation, which can split
 one person across several records or merge different people. To check that the results are not artifacts of this
@@ -201,7 +199,7 @@ scores can be off when a person's work is split.
 
 \section{Survivorship}
 \label{supp:surv}
-\noindent Main text: Section~\ref{sec:robustness}.
+\noindent Main text: Section~\ref{sec:robustness}.\par\nopagebreak
 
 The population includes every eligible author, not only those who stayed in research, and
 the prediction results of Section~\ref{sec:prediction} count authors who stop publishing as having no future top
@@ -213,7 +211,7 @@ best predictor of survival, on the top-1\% outcome and on future citation impact
 
 \section{The quantity--impact frontier}
 \label{supp:frontier}
-\noindent Main text: Section~\ref{sec:prediction}, Figure~\ref{fig:frontier}.
+\noindent Main text: Section~\ref{sec:prediction}, Figure~\ref{fig:frontier}.\par\nopagebreak
 
 With $\tau = 0$, PiP predicts at least as well as I3 on all three outcomes in every
 setting (with $\tau = 0.25$, in all but one); with $\tau = 0.75$ it does at least as well as the top-10\% count on all
@@ -225,7 +223,7 @@ when seniorities are mixed, and it lies on the curve next to $\tau = 0.75$.
 
 \section{The field-normalized score}
 \label{supp:fields}
-\noindent Main text: Section~\ref{sec:fields}.
+\noindent Main text: Section~\ref{sec:fields}.\par\nopagebreak
 
 In this version, each paper's percentile is computed within its publication year and the
 author's main field, and peers are restricted to authors with the same main field and start year. A paper that does
