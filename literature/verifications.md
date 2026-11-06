@@ -3277,3 +3277,16 @@ accessed: 2026-11-05
 verdict: supported
 evidence: "we created a small app at https://scholar.ipeirotis.org/ that allows anyone to search for a Google Scholar profile" (post body, second paragraph)
 notes: Section 4 was reordered on 2026-11-06 at the author's request: the earlier form is now introduced by name, PiP-AUC, before PiP. The name is the source's own (its title is 'The PiP-AUC score for research productivity'); the attribution, an earlier form of the score used by the website, is unchanged. The asymmetry and its problems are stated by the authors in the sentences that follow, not attributed to the post.
+
+## [2026-11-06T04:33Z] cite:ipeirotis2026replication — paper/manuscript_qss/main.tex:1176
+claim: "The result tables and a snapshot of the replication package are archived on Zenodo \citep{ipeirotis2026replication}."
+claim-hash: e5950df8c0b7
+source: doi:10.5281/zenodo.23987119
+version-read: unpublished Zenodo draft (deposition 23987119), read through the deposit API on 2026-11-06
+archived: not copied; the deposited file is pip-replication-package-90674b3.zip (md5:bcf371a3b96bca1e79a350b7728e1312, sha256:fd9f3e3969bd8c216fcd788b183315ddb184a2c2a25d98ad21bbb93c9956ab4a), built by paper/make_zenodo_package.sh from commit 90674b3
+license: CC BY 4.0 (record metadata)
+accessed: 2026-11-06
+updates: none
+verdict: supported
+evidence: The draft holds one file, the archive of paper/ at 90674b3, which contains results/ (28 result tables) and the SQL, figure data, checks and honors scripts; the record description names the result tables and the BigQuery datasets.
+notes: The authors' own deposit. The DOI is reserved and resolves only after the authors publish the record; re-check then, and replace the file if the manuscript changes before publication. Supersedes the entry for 2fc4023: the file was replaced after Section 4 was reordered and the Computation subsection removed.
