@@ -14,3 +14,12 @@ downloads/
 *.log
 /tmp/
 sa-key.json
+
+# LaTeX build files (paper/manuscript_qss/build.sh)
+*.aux
+*.bbl
+*.blg
+*.out
+*.fls
+*.fdb_latexmk
+build/typography/

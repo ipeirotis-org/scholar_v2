@@ -8,7 +8,7 @@ data, and targets *Quantitative Science Studies*.
 ## Layout
 
 - **`manuscript_qss/`** holds the new manuscript for *Quantitative Science Studies* (`main.tex`, `references.bib`,
-  compiled `main.pdf`). Build with `latexmk -pdf main.tex`. Every number in it comes from `FINDINGS.md`; open
+  and the compiled `main.pdf`). Build it with `build.sh`. Every number in it comes from `FINDINGS.md`; open
   decisions for the authors are marked `TODO(authors)`.
 - **`figures/`** holds the figure scripts (`make_figures.py`, `make_tau_sweep.py`), the export of their data from
   BigQuery (`export_figure_data.sh`, output in `figures/data/`) and the rendered PDF/PNG files.
@@ -20,6 +20,8 @@ data, and targets *Quantitative Science Studies*.
 - **`v3_code/`** holds the v3 R scripts, copied from
   [sentian/SciImpactRanking](https://github.com/sentian/SciImpactRanking) (commit `2aaf31d`, December 2021) for the
   record. The current analyses don't use them.
+- **`COMPUTATION.md`** explains how the SQL evaluates the integral that defines PiP (40 percentile classes), how
+  `sql/25_pip_exact.sql` computes the exact integral, and how much the two differ.
 - **`sql/`** holds the analysis queries, numbered in run order. They write to the BigQuery dataset
   `scholar-version2.paper_rp`, which is kept separate from the app's `statistics` and `gs_statistics` datasets.
 - **`REVISION_PLAN.md`** lists the reviewer concerns from PLOS ONE (PONE-D-21-10383, 2021–2022) and how the revision
