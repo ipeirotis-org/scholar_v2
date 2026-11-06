@@ -1,7 +1,7 @@
 # Final typography and layout checklist
 
 Adapted from `writeup/TYPOGRAPHY.md` in `parasurama/adversarial_screener` (commit `f5cfb2a`) for the QSS manuscript in
-`paper/manuscript_qss/` (`main.tex` and `supplement.tex`). Only the build commands, file names, source conventions and
+`paper/manuscript_qss/` (`main.tex`). Only the build commands, file names, source conventions and
 validation checks were changed.
 
 Complete this audit before handing off manuscript changes or preparing a
@@ -11,8 +11,8 @@ log, or an automated short-line scan alone does not establish visual quality.
 
 ## 1. Build and inspect
 
-- Build through the existing configuration: `paper/manuscript_qss/build.sh`, which compiles `main.tex` and
-  `supplement.tex` together (they cross-reference each other). Preserve a before PDF and log for comparison.
+- Build through the existing configuration: `paper/manuscript_qss/build.sh`, which compiles `main.tex`. Preserve a
+  before PDF and log for comparison.
 - Render **every page** at approximately **150–200 DPI** and visually inspect
   prose, proofs, footnotes, headings, lists, tables, captions, references,
   appendices, and page boundaries. Check both paragraph endings and whitespace.
@@ -37,19 +37,18 @@ from pathlib import Path
 import pymupdf
 
 # Choose a new directory for each iteration; refuse to mix old and new pages.
-for doc in ("main", "supplement"):
-    out = Path(f"build/typography/final/{doc}")
-    out.mkdir(parents=True, exist_ok=False)
-    with pymupdf.open(f"paper/manuscript_qss/{doc}.pdf") as pdf:
-        pages = []
-        for number, page in enumerate(pdf, start=1):
-            page.get_pixmap(dpi=160, alpha=False).save(out / f"page-{number:03d}.png")
-            pages.append({"pdf_page": number, "bounds": list(page.rect),
-                          "words": page.get_text("words", sort=True)})
-        (out / "words.json").write_text(json.dumps({
-            "word_fields": ["x0", "y0", "x1", "y1", "text", "block", "line", "word"],
-            "pages": pages,
-        }, ensure_ascii=False, indent=2), encoding="utf-8")
+out = Path("build/typography/final")
+out.mkdir(parents=True, exist_ok=False)
+with pymupdf.open("paper/manuscript_qss/main.pdf") as pdf:
+    pages = []
+    for number, page in enumerate(pdf, start=1):
+        page.get_pixmap(dpi=160, alpha=False).save(out / f"page-{number:03d}.png")
+        pages.append({"pdf_page": number, "bounds": list(page.rect),
+                      "words": page.get_text("words", sort=True)})
+    (out / "words.json").write_text(json.dumps({
+        "word_fields": ["x0", "y0", "x1", "y1", "text", "block", "line", "word"],
+        "pages": pages,
+    }, ensure_ascii=False, indent=2), encoding="utf-8")
 PY
 ```
 
