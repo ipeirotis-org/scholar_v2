@@ -3240,3 +3240,16 @@ updates: none
 verdict: supported
 evidence: The draft holds one file, the archive of paper/ at f0a69b9, which contains results/ (28 result tables) and the SQL, figure data, checks and honors scripts; the record description names the result tables and the BigQuery datasets.
 notes: The authors' own deposit. The DOI is reserved and resolves only after the authors publish the record; re-check then, and replace the file if the manuscript changes before publication. Supersedes the entry for d7ab533: the file was replaced after the tenure example and the later-recognition summary were restored.
+
+## [2026-11-06T03:36Z] cite:ipeirotis2026replication — paper/manuscript_qss/main.tex:1191
+claim: "The result tables and a snapshot of the replication package are archived on Zenodo \citep{ipeirotis2026replication}."
+claim-hash: e5950df8c0b7
+source: doi:10.5281/zenodo.23987119
+version-read: unpublished Zenodo draft (deposition 23987119), read through the deposit API on 2026-11-06
+archived: not copied; the deposited file is pip-replication-package-2fc4023.zip (md5:03c33ac66e69d01039ac70009cf689ef, sha256:c513cecc436aa06e216aebd19ba338da933ee2ab89f3b899e1d457fc5f10afa8), built by paper/make_zenodo_package.sh from commit 2fc4023
+license: CC BY 4.0 (record metadata)
+accessed: 2026-11-06
+updates: none
+verdict: supported
+evidence: The draft holds one file, the archive of paper/ at 2fc4023, which contains results/ (28 result tables) and the SQL, figure data, checks and honors scripts; the record description names the result tables and the BigQuery datasets.
+notes: The authors' own deposit. The DOI is reserved and resolves only after the authors publish the record; re-check then, and replace the file if the manuscript changes before publication. Supersedes the entry for f0a69b9: the file was replaced after the Supplementary Information was folded back into main.tex (supplement.tex removed). The cited sentences that sat in supplement.tex (Ties, claim-hash 22f090d147a6; the asymmetric form, 69c1e5fd3f33) are back in main.tex word for word, under their earlier entries.
