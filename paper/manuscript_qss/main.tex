@@ -314,10 +314,9 @@ unless peers' counts fall enough at the same threshold.
   Each curve gives, at every threshold $\theta$, the share of the 1995 cohort's eligible authors who have fewer articles
   at or above percentile $\theta$ of their publication year. PiP is the shaded area to the right of $\tau = 0.5$,
   rescaled by $1/(1-\tau)$, or equivalently the average height of the curve there (dashed line). The ticks on the
-  horizontal axis mark the author's articles, at their percentiles rounded up to the next multiple of $1/40$
-  (Section~\ref{sec:definition}); the curve can fall only at these ticks. The median author has seven articles, two of
-  them in the top 10\% of their year and one in the top 5\%. At thresholds from 0.85 to 0.95 this author stands above
-  49\% to 63\% of the peers, who have fewer articles cited that highly.}
+  horizontal axis mark the author's articles; the curve can fall only at these ticks. The median author has seven
+  articles, two of them in the top 10\% of their year and one in the top 5\%. At thresholds from 0.85 to 0.95 this
+  author stands above 49\% to 63\% of the peers, who have fewer articles cited that highly.}
   \label{fig:curves}
 \end{figure}
 
@@ -330,10 +329,7 @@ The PiP score with cutoff $\tau \in [0, 1)$ is the average standing over the thr
 \end{equation}
 It is the area under the standing curve to the right of $\tau$, rescaled to $[0,1]$. The cutoff moves the score
 between quantity and impact (Section~\ref{sec:tau}). We use $\tau = 1/2$ throughout and write PiP for $\PiP_{1/2}$.
-With this cutoff, only articles in the top half of their publication year can earn credit. We evaluate the integral on
-40 percentile classes, at the thresholds $k/40$; against the exact integral, computed for the 5.3 million eligible
-authors at career age 10, this ranks authors within cohorts almost identically (rank correlation 0.9994) and changes no
-prediction result by more than 0.004.
+With this cutoff, only articles in the top half of their publication year can earn credit.
 
 The score is also the chance of winning a simple game. Draw a random peer and a random threshold from $[\tau, 1]$, the
 range the cutoff sets. The author wins with strictly more articles at or above the threshold, so a tie is not a win.
@@ -372,14 +368,31 @@ through the rank of the score in the cohort: it sums the counts above the cutoff
 
 \subsection{Properties}
 \label{sec:properties}
-The properties below hold for a fixed peer group that contains the author, both for the integral and for the score on
-40 classes; each follows in a line from the definitions. We also checked them numerically on simulated cohorts, on the
-40 classes and on a fine grid (code in the replication package).
+The properties below hold for a fixed peer group that contains the author; each follows in a line from the definitions.
+We also checked them numerically on simulated cohorts (code in the replication package).
 
 \paragraph{Range.} $0 \le \PiP_\tau(a) < 1$. The author is one of their own peers and never has fewer articles than
 themselves, so $g_a(\theta) \le 1 - 1/|\Peers|$ at every threshold. The score is zero when, at almost every threshold
-above $\tau$ (at every class threshold $k/40 \ge \tau$ for the computed score), no peer has a lower count than $a$, for
-example when every article of $a$ falls strictly below $\tau$.
+above $\tau$, no peer has a lower count than $a$, for example when every article of $a$ falls strictly below $\tau$.
+
+\begin{table}[t]
+  \centering
+  \small
+  \caption{Indicators as summaries of the count curve $n_a(\theta)$, the number of the author's articles at or above
+  percentile $\theta$, and of the standing curve $g_a(\theta) = G_\theta(n_a(\theta))$.}
+  \label{tab:taxonomy}
+  \begin{tabular}{llll}
+    \toprule
+    Indicator & In terms of the curves & Thresholds used & Comparison with peers \\
+    \midrule
+    Article count & $n_a(0)$ & one ($\theta = 0$) & none, or once by rank \\
+    Top-10\% count & $n_a(0.9)$ & one ($\theta = 0.9$) & none, or once by rank \\
+    I3 & $\int_0^1 n_a(\theta)\,d\theta = \sum_j y_j$ & all & none, or once by rank \\
+    PiP-simple$_\tau$ & $\frac{1}{1-\tau}\int_\tau^1 n_a(\theta)\,d\theta$ & $\theta \ge \tau$ & once, by rank \\
+    $\PiP_\tau$ & $\frac{1}{1-\tau}\int_\tau^1 g_a(\theta)\,d\theta$ & $\theta \ge \tau$ & at every threshold \\
+    \bottomrule
+  \end{tabular}
+\end{table}
 
 \paragraph{Monotonicity.} With the peers and the percentiles of the author's other articles held fixed, adding an
 article or raising an existing article's percentile never lowers $\PiP_\tau$: at every threshold either change raises
@@ -396,7 +409,7 @@ year scores zero, however many they publish; under PiP-AUC, 40 articles at the 1
 \paragraph{Credit for the best work.} A single highly cited article raises $n_a(\theta)$ by one at every threshold up
 to its own percentile, including high thresholds where most peers have none. Scored against the simulated cohort of
 Section~\ref{sec:auc}, which it does not join, a record of one article at the 97.5th, 99th or 99.9th percentile scores
-0.42, 0.45 or 0.47 (exact integral), and one at the 50th percentile scores 0; PiP-AUC gives all four records zero. The
+0.42, 0.45 or 0.47, and one at the 50th percentile scores 0; PiP-AUC gives all four records zero. The
 $h$-index cannot tell these records apart (all have $h = 1$).
 
 \paragraph{Ties.} The standing counts peers with strictly fewer articles. Mid-ranks instead count half of the tied
@@ -424,25 +437,6 @@ with a positive score who started in 1975--2005, at career ages 5, 10 and 20, th
 into 0.74--0.82 from $\log Q$, about 0.30 from $\log F$ and a small negative covariance ($-0.04$ to $-0.11$). Most of
 the variation in PiP across authors thus comes from the impact multiplier rather than from the number of articles. These
 shares describe how scores vary, not how much of PiP reflects research quality.
-
-\begin{table}[t]
-  \centering
-  \small
-  \caption{Indicators as summaries of the count curve $n_a(\theta)$, the number of the author's articles at or above
-  percentile $\theta$, and of the standing curve $g_a(\theta) = G_\theta(n_a(\theta))$.}
-  \label{tab:taxonomy}
-  \begin{tabular}{llll}
-    \toprule
-    Indicator & In terms of the curves & Thresholds used & Comparison with peers \\
-    \midrule
-    Article count & $n_a(0)$ & one ($\theta = 0$) & none, or once by rank \\
-    Top-10\% count & $n_a(0.9)$ & one ($\theta = 0.9$) & none, or once by rank \\
-    I3 & $\int_0^1 n_a(\theta)\,d\theta = \sum_j y_j$ & all & none, or once by rank \\
-    PiP-simple$_\tau$ & $\frac{1}{1-\tau}\int_\tau^1 n_a(\theta)\,d\theta$ & $\theta \ge \tau$ & once, by rank \\
-    $\PiP_\tau$ & $\frac{1}{1-\tau}\int_\tau^1 g_a(\theta)\,d\theta$ & $\theta \ge \tau$ & at every threshold \\
-    \bottomrule
-  \end{tabular}
-\end{table}
 
 \paragraph{Consistency.} PiP is not consistent in the sense of \citet{waltman2012inconsistency}: adding the same
 article to two authors can reverse their order, because $G_\theta$ is not linear. In simulation, this happened in 0.7\%
@@ -580,11 +574,9 @@ trades quantity for impact when PiP predicts the author's future articles (Secti
 articles (their mean percentile) at $\tau = 0.75$; the chance of a future top-1\% paper is predicted about equally well
 from $\tau = 0.25$ to $0.6$.
 
-Above $\tau = 0.6$ the score's distribution drifts across cohorts. The drift is not due to the 40 percentile classes
-(Section~\ref{sec:definition}): with the exact integral, the median at $\tau = 0.9$ still falls from 0.32 to 0.12
-between the 1960 and 2010 cohorts. The drift comes from ties at zero (Eq.~\ref{eq:mean}): the share of eligible authors
-with no article in the top 10\% of its year rises from 6\% to 42\% over the same cohorts, and all of them score zero at
-$\tau = 0.9$.
+Above $\tau = 0.6$ the score's distribution drifts across cohorts. The drift comes from ties at zero
+(Eq.~\ref{eq:mean}): the share of eligible authors with no article in the top 10\% of its year rises from 6\% to 42\%
+between the 1960 and 2010 cohorts, and all of them score zero at $\tau = 0.9$.
 
 We use $\tau = 0.5$ as the default: it has a one-line explanation (only papers in the top half of their year count),
 balances the correlations with quantity (0.64) and with top papers (0.60), best predicts a future top-1\% paper and
@@ -806,8 +798,8 @@ papers (by 0.05--0.08) and on the top-1\% outcome in all 26 cohorts, and falls b
 every cohort, and on the number of future top papers in 12 and 11 of the 26, with differences between $-0.03$ and
 $+0.04$.
 
-\paragraph{Comparing with peers at every threshold.} PiP-simple (Section~\ref{sec:definition}) uses the same percentiles and
-cutoff as PiP but compares the scholar with peers only once, through the rank of its score in the cohort. The pair
+\paragraph{Comparing with peers at every threshold.} PiP-simple (Section~\ref{sec:definition}) uses the same percentiles
+and cutoff as PiP but compares the scholar with peers only once, through the rank of its score in the cohort. The pair
 therefore shows what the comparison at every threshold contributes. In each of the 26 cohorts at career age 10, that
 comparison improves the AUC for a future top-1\% paper (by 0.004 to 0.011) and the prediction of future citation impact
 (by 0.023 to 0.036); the same holds in every cohort at career ages 5 and 15. On the number of future top-10\% papers PiP
@@ -1166,14 +1158,14 @@ computes PiP itself at full scale in a database.
 The replication package is the \texttt{paper/} directory of \url{https://github.com/ipeirotis-org/scholar_v2}. It holds
 the SQL that builds every table in this paper, the result tables that the SQL writes, the numerical checks of the
 properties in Section~\ref{sec:pip}, the data behind every figure, the plotting scripts, and the scripts and curated
-honors of Section~\ref{sec:honors}. Semantic Scholar data are available under the ODC-BY license from the Semantic
-Scholar Datasets API \citep{s2datasets2026}; Wikidata is available under CC0 \citep{wikidata2026}. Author-level
-statistics for the Google Scholar profiles can be downloaded from \url{https://www.pip-score.org/data}; the per-article
-profile data used here are not redistributed. The derived tables, from the article-level reconstruction to the
-per-author scores, are in the BigQuery datasets \texttt{scholar-version2.paper\_rp} and
-\texttt{scholar-version2.paper\_rp\_noself} (without self-citations), which anyone signed in to Google Cloud can query;
-queries are billed to the reader's own project. The result tables and a snapshot of the replication package are archived
-on Zenodo \citep{ipeirotis2026replication}.
+honors of Section~\ref{sec:honors}. Its \texttt{COMPUTATION.md} explains how the SQL evaluates the integral that defines
+PiP. Semantic Scholar data are available under the ODC-BY license from the Semantic Scholar Datasets API
+\citep{s2datasets2026}; Wikidata is available under CC0 \citep{wikidata2026}. Author-level statistics for the Google
+Scholar profiles can be downloaded from \url{https://www.pip-score.org/data}; the per-article profile data used here are
+not redistributed. The derived tables, from the article-level reconstruction to the per-author scores, are in the
+BigQuery datasets \texttt{scholar-version2.paper\_rp} and \texttt{scholar-version2.paper\_rp\_noself} (without
+self-citations), which anyone signed in to Google Cloud can query; queries are billed to the reader's own project. The
+result tables and a snapshot of the replication package are archived on Zenodo \citep{ipeirotis2026replication}.
 
 \section*{Competing interests}
 Panos Ipeirotis developed and maintains \url{https://www.pip-score.org}, a free, non-commercial website that computes
