@@ -211,6 +211,38 @@ at career age 5, the indicators predict whether an author is still publishing at
 matter of volume, so the indicators that weigh volume most predict it best. PiP still leads the article count, the
 best predictor of survival, on the top-1\% outcome and on future citation impact.
 
+\section{The quantity--impact frontier}
+\label{supp:frontier}
+\noindent Main text: Section~\ref{sec:prediction}, Figure~\ref{fig:frontier}.
+
+With $\tau = 0$, PiP predicts at least as well as I3 on all three outcomes in every
+setting (with $\tau = 0.25$, in all but one); with $\tau = 0.75$ it does at least as well as the top-10\% count on all
+three outcomes in every setting; and from $\tau = 0.25$ to $0.75$ it does better than the $h$-index on all three. Three
+indicators lie on or beyond the frontier. The mean percentile lies beyond it in the direction of pure citation impact,
+where it gives up any information about quantity. The article count lies just beyond it in two settings (at age 15 and
+in 2000), in the direction of pure quantity. The top-10\% count per year of career differs from the plain count only
+when seniorities are mixed, and it lies on the curve next to $\tau = 0.75$.
+
+\section{The field-normalized score}
+\label{supp:fields}
+\noindent Main text: Section~\ref{sec:fields}.
+
+In this version, each paper's percentile is computed within its publication year and the
+author's main field, and peers are restricted to authors with the same main field and start year. A paper that does
+not carry the author's main field keeps its pooled percentile. The rule also gives a coauthored paper different
+percentiles for coauthors with different main fields, a choice that a rule based on the paper's own fields would
+avoid.
+
+We have not separated the sources
+of the remaining spread. Two candidates are that papers outside the author's main field keep their pooled percentile,
+and that fields differ in how often peers tie, which also shapes the distribution of the score.
+
+The two versions answer different questions: how a scholar's future work will rank among all articles of its year,
+and how it will rank within its field. With outcomes measured on pooled percentiles, the pooled score predicts
+best (0.427 / 0.772 / 0.321 against 0.414 / 0.770 / 0.298); with field-normalized outcomes, the field-normalized score
+predicts best (0.407 / 0.772 / 0.316 against 0.405 / 0.769 / 0.300). Both remain far ahead of the $h$-index
+(0.333 / 0.717 / 0.209 on field-normalized outcomes).
+
 \bibliographystyle{apalike}
 \bibliography{references}
 

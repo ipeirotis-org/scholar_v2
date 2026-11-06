@@ -783,13 +783,8 @@ each serve one of the three outcomes, whereas PiP balances all three.
 Figure~\ref{fig:frontier} places the indicators by how well they predict the number of future top papers (quantity) and
 the citation impact of future papers, with PiP at every cutoff. The cutoffs trace a frontier: for these two outcomes,
 the PiP curve lies on or outside the other ways of combining paper percentiles, apart from two extremes, the mean
-percentile and the article count. With $\tau = 0$, PiP predicts at least as well as I3 on all three outcomes in every
-setting (with $\tau = 0.25$, in all but one); with $\tau = 0.75$ it does at least as well as the top-10\% count on all
-three outcomes in every setting; and from $\tau = 0.25$ to $0.75$ it does better than the $h$-index on all three. Three
-indicators lie on or beyond the frontier. The mean percentile lies beyond it in the direction of pure citation impact,
-where it gives up any information about quantity. The article count lies just beyond it in two settings (at age 15 and
-in 2000), in the direction of pure quantity. The top-10\% count per year of career differs from the plain count only
-when seniorities are mixed, and it lies on the curve next to $\tau = 0.75$. Choosing the cutoff therefore selects a
+percentile and the article count. Supplementary Section~\ref{S-supp:frontier} places each indicator relative to the frontier.
+Choosing the cutoff therefore selects a
 point on the frontier, and $\tau = 0.5$ sits near its knee: from $\tau = 0.25$ to $0.5$ the curve gains 0.056 in future
 citation impact for 0.016 in quantity, and beyond $0.5$ each gain in impact costs more in quantity.
 
@@ -981,16 +976,11 @@ the three outcomes against 0.31 / 0.67 / 0.17 for the $h$-index, and in mathemat
 Pooling fields in the paper percentiles favors fields with high citation rates. A field-neutral score would put 10\%
 of each field's authors in the top 10\% of their cohort; with pooled percentiles the share ranges from 1.4\% in
 education and 2.1\% in economics to 14.7\% in physics (Figure~\ref{fig:fields}). We therefore also compute a
-field-normalized PiP. In this version, each paper's percentile is computed within its publication year and the
-author's main field, and peers are restricted to authors with the same main field and start year. A paper that does
-not carry the author's main field keeps its pooled percentile. The rule also gives a coauthored paper different
-percentiles for coauthors with different main fields, a choice that a rule based on the paper's own fields would
-avoid.
+field-normalized PiP. Its percentiles and peers are computed within the author's main field (Supplementary
+Section~\ref{S-supp:fields}).
 
 For the eligible authors at career age 10 with start years 1975--2010 (Figure~\ref{fig:fields}), the field-normalized
-score brings every field's share of the cohort top 10\% to between 6.9\% and 11.6\%. We have not separated the sources
-of the remaining spread. Two candidates are that papers outside the author's main field keep their pooled percentile,
-and that fields differ in how often peers tie, which also shapes the distribution of the score. Within a field the
+score brings every field's share of the cohort top 10\% to between 6.9\% and 11.6\%. Within a field the
 ranking largely holds: the correlation between the pooled and the field-normalized score is 0.91--0.99 per field.
 
 \begin{figure}[t]
@@ -1002,11 +992,8 @@ ranking largely holds: the correlation between the pooled and the field-normaliz
   \label{fig:fields}
 \end{figure}
 
-The two versions answer different questions: how a scholar's future work will rank among all articles of its year,
-and how it will rank within its field. With outcomes measured on pooled percentiles, the pooled score predicts
-best (0.427 / 0.772 / 0.321 against 0.414 / 0.770 / 0.298); with field-normalized outcomes, the field-normalized score
-predicts best (0.407 / 0.772 / 0.316 against 0.405 / 0.769 / 0.300). Both remain far ahead of the $h$-index
-(0.333 / 0.717 / 0.209 on field-normalized outcomes). For comparisons across fields we recommend the field-normalized
+Each version predicts best on outcomes measured its own way, and both remain far ahead of the $h$-index
+(Supplementary Section~\ref{S-supp:fields}). For comparisons across fields we recommend the field-normalized
 version; within a field the two are nearly interchangeable.
 
 \subsection{Robustness}

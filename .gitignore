@@ -22,3 +22,4 @@ sa-key.json
 *.out
 *.fls
 *.fdb_latexmk
+build/typography/
