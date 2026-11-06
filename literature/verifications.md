@@ -2709,3 +2709,27 @@ updates: none
 verdict: supported
 evidence: The draft holds one file, the archive of paper/ at 3191c7c, which contains results/ (28 result tables) and the SQL, figure data, checks and honors scripts; the record description names the result tables and the BigQuery datasets.
 notes: The authors' own deposit. The DOI is reserved and resolves only after the authors publish the record; re-check then, and replace the file if the manuscript changes before publication. Supersedes the entry for dc9ff2b: the file was replaced after the sawtooth wording fix.
+
+## [2026-11-06T01:10Z] cite:bornmann2013use — paper/manuscript_qss/main.tex:384
+claim: "Mid-ranks, a common choice for the percentile of a single paper \citep{bornmann2013use,waltman2013percentile}, would give credit to authors with nothing above a threshold; the strict rule prevents this, at the price that the mean score of a peer group depends on how common ties are (Eq.~\ref{eq:mean}; Supplementary Section~\ref{S-supp:ties})."
+claim-hash: 2936f5fea2d6
+source: doi:10.1016/j.joi.2012.10.001
+version-read: preprint (arXiv:1211.0381v1)
+archived: gs://scholar-version2-literature/sources/bornmann2013use--10.1016_j.joi.2012.10.001-681945bb.pdf sha256:3638ced7af5747f7fcc1e34f278c7ebcee3bea58c100951823931a3eab77e27c
+license: unknown (treated as restricted; private store)
+updates: none
+verdict: supported
+evidence: "The compromise ((i-0.5)/n*100) derived by (Hazen, 1914) is used very frequently" (sec. 2)
+notes: The Ties paragraph was shortened when its detail moved to the Supplementary Information (supplement.tex, Section S2, which keeps the earlier sentence verbatim, claim-hash 22f090d147a6). The attribution to this source is unchanged: mid-ranks as a common choice for single-paper percentiles.
+
+## [2026-11-06T01:10Z] cite:waltman2013percentile — paper/manuscript_qss/main.tex:384
+claim: "Mid-ranks, a common choice for the percentile of a single paper \citep{bornmann2013use,waltman2013percentile}, would give credit to authors with nothing above a threshold; the strict rule prevents this, at the price that the mean score of a peer group depends on how common ties are (Eq.~\ref{eq:mean}; Supplementary Section~\ref{S-supp:ties})."
+claim-hash: 2936f5fea2d6
+source: doi:10.1002/asi.22775
+version-read: preprint (arXiv:1205.0646v1)
+archived: gs://scholar-version2-literature/sources/waltman2013percentile--10.1002_asi.22775-039024e8.pdf sha256:89e4c0756f18084062345454a5ad2dc5649cf29dec145615f2f19e2844310ac7
+license: unknown (treated as restricted; private store)
+updates: none
+verdict: partially supported
+evidence: "Pudovkin and Garfield put the tied publications in a random order and calculate their average percentile." (sec. 3)
+notes: The Ties paragraph was shortened when its detail moved to the Supplementary Information (supplement.tex, Section S2, which keeps the earlier sentence verbatim, claim-hash 22f090d147a6). The attribution to this source is unchanged: mid-ranks as a common choice for single-paper percentiles. Co-cited Bornmann et al. (2013) covers the 'common choice' part, as before.
