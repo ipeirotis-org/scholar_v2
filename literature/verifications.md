@@ -3303,3 +3303,16 @@ updates: none
 verdict: supported
 evidence: The draft holds one file, the archive of paper/ at 74000c5, which contains results/ (28 result tables), COMPUTATION.md and the SQL, figure data, checks and honors scripts; the record description names the result tables and the BigQuery datasets.
 notes: The authors' own deposit. The DOI is reserved and resolves only after the authors publish the record; re-check then, and replace the file if the manuscript changes before publication. Supersedes the entry for 90674b3: the file was replaced after the computation details moved from the paper into paper/COMPUTATION.md.
+
+## [2026-11-06T12:58Z] cite:ipeirotis2026replication — paper/manuscript_qss/main.tex:1175
+claim: "The result tables and a snapshot of the replication package are archived on Zenodo \citep{ipeirotis2026replication}."
+claim-hash: e5950df8c0b7
+source: doi:10.5281/zenodo.23987119
+version-read: unpublished Zenodo draft (deposition 23987119), read through the deposit API on 2026-11-06
+archived: not copied; the deposited file is pip-replication-package-ac0eae2.zip (md5:9be541db21bc39357e78a6dea2d7dbe7, sha256:8f1d6eaf41c23f834c888cb80903f609e1dcb5eade64a42ccd73739a34119ed0), built by paper/make_zenodo_package.sh from commit ac0eae2
+license: CC BY 4.0 (record metadata)
+accessed: 2026-11-06
+updates: none
+verdict: supported
+evidence: The draft holds one file, the archive of paper/ at ac0eae2, which contains results/ (28 result tables), COMPUTATION.md and the SQL, figure data, checks and honors scripts; the record description names the result tables and the BigQuery datasets.
+notes: The authors' own deposit. The DOI is reserved and resolves only after the authors publish the record; re-check then, and replace the file if the manuscript changes before publication. Supersedes the entry for 74000c5: the file was replaced after the Numerical evaluation paragraph was added to Section 4.
