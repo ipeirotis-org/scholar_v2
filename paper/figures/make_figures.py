@@ -83,13 +83,24 @@ def fig_standing_curves():
         ax.fill_between(xs, ys, step="post", where=[x >= 0.5 for x in xs], color=BLUE_LIGHT, linewidth=0, zorder=1)
         ax.step(xs, ys, where="post", color=BLUE, linewidth=1.5, zorder=3)
         ax.hlines(pip, 0.5, 1.0, color=INK, linewidth=1.0, linestyle=(0, (3, 2)), zorder=4)
+        if q == "50":
+            ax.annotate("average height = PiP", xy=(0.80, pip), xytext=(0.56, 0.80), color=INK, fontsize=6.4,
+                        ha="left", va="center", zorder=5,
+                        arrowprops=dict(arrowstyle="-", color=INK3, linewidth=0.7, shrinkA=2, shrinkB=0))
+        # one tick per article, where the count n_a drops: its percentile rounded up to the next multiple of 1/40
+        n_at = {int(r["j"]): int(r["n_j"]) for r in pts}
+        for j in range(40):
+            drop = n_at[j] - n_at.get(j + 1, 0)
+            for k in range(drop):
+                ax.plot([(j + 1) / 40] * 2, [0.0 + 0.035 * k, 0.03 + 0.035 * k], color=INK, linewidth=1.1,
+                        solid_capstyle="butt", zorder=5, clip_on=False)
         ax.set_xlim(0, 1)
         ax.set_ylim(0, 1)
         ax.set_xticks([0, 0.25, 0.5, 0.75, 1])
         ax.set_xticklabels(["0", ".25", ".5", ".75", "1"])
         ax.set_xlabel("Paper percentile threshold θ")
-    axes[0].set_ylabel("Standing among peers g(θ)")
-    axes[0].text(0.25, 0.04, "θ < τ: not counted", color=INK2, fontsize=6.6, ha="center", va="bottom")
+    axes[0].set_ylabel("Standing among peers gₐ(θ)")
+    axes[0].text(0.25, 0.10, "θ < τ: not counted", color=INK2, fontsize=6.6, ha="center", va="bottom")
     fig.tight_layout(w_pad=1.0)
     save(fig, "fig_standing_curves")
 
@@ -160,10 +171,14 @@ def fig_prediction():
                 ("auc_any_top1", "(b) Any future top-1% paper", "ROC AUC"),
                 ("spearman_mean_pct", "(c) Mean future percentile", "Spearman correlation")]
     fig, axes = plt.subplots(1, 3, figsize=(7.2, 3.1), facecolor=SURFACE)
-    offsets = [-0.18, 0.0, 0.18]
+    offsets = [0.0, 0.0, 0.2]
     for ax, (col, title, ylabel) in zip(axes, outcomes):
         clean(ax, title)
         ax.title.set_fontsize(7.6)
+        for i, (sc, st, _) in enumerate(settings):
+            a, b = value.get((sc, st, "sym_tau50")), value.get((sc, st, "h_pct"))
+            if a and b:
+                ax.plot([i, i], [float(b[col]), float(a[col])], color=INK3, linewidth=1.0, zorder=2)
         for (key, label, color, marker), off in zip(predictors, offsets):
             xs, ys = [], []
             for i, (sc, st, _) in enumerate(settings):
@@ -241,6 +256,12 @@ def fig_frontier():
             dx, dy = tau_offsets[st][t]
             ax.annotate(lab, (x, y), xytext=(dx, dy), textcoords="offset points", color=BLUE, fontsize=6.8,
                         ha=ha(dx), va="center", fontweight="semibold" if t == "50" else "normal")
+        ps = val.get(f"t50{form}")
+        if ps:
+            ax.plot([ps[0]], [ps[1]], linestyle="none", marker="o", markersize=6.5, markerfacecolor=SURFACE,
+                    markeredgecolor=BLUE, markeredgewidth=1.3, zorder=5)
+            ax.annotate("PiP-simple", ps, xytext=(-8, -1), textcoords="offset points", color=BLUE, fontsize=6.6,
+                        ha="right", va="center")
         for key, label in baselines:
             if key == "top10_age" and sc == "same_age":
                 continue  # ranks exactly like the top-10% count within one career age

@@ -98,8 +98,6 @@ def main():
         y0 = float(profile["sym"][col])
         a.annotate(label, (0.0, y0), xytext=(4, 5 if key == "articles" else -12), textcoords="offset points",
                    color=INK2, fontsize=7)
-    leg = a.legend(loc="lower right", frameon=True, fontsize=7, handlelength=1.6, borderpad=0.4)
-    leg.get_frame().set_facecolor(SURFACE); leg.get_frame().set_edgecolor("none"); leg.get_frame().set_alpha(0.92)
     a.text(0.5, 0.97, "default", color=INK2, fontsize=7, ha="center", va="top",
            transform=a.get_xaxis_transform())
     a.text(0.84, 0.97, "drifts across\ncohorts", color=INK2, fontsize=7, ha="center", va="top",

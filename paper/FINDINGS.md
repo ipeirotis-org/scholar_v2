@@ -836,6 +836,28 @@ first dated honor came at or before the evaluation year are dropped. That leaves
   do best.
 - **Dated honors only:** the same pattern holds.
 
+### Dated honors only (main analysis in the manuscript from 2026-11-05)
+
+Honorees whose honors are all undated are dropped (not counted as non-honorees), so every counted honor comes after
+the evaluation year. Future honorees: 919 (all, age 5), 1,308 (all, age 10), 629 (Wikidata people, 10), 755 (GS
+faculty, 10). From `honors/data/honors_results.csv`, outcome `honored_dated`:
+
+| AUC | All, age 5 | All, age 10 | Wikidata people, 10 | GS faculty, 10 |
+|---|---|---|---|---|
+| PiP τ = 0.5 | .751 | .827 | .641 | .648 |
+| PiP τ = 0.75 | **.761** | **.836** | .658 | .654 |
+| h-index | .709 | .790 | .618 | .637 |
+| Citations | .700 | .798 | .637 | .638 |
+| Articles | .694 | .783 | .579 | .628 |
+| Top-10% count | .748 | .826 | .656 | .649 |
+| I3 | .722 | .799 | .607 | .639 |
+| Mean percentile | .531 | .572 | .574 | .541 |
+
+- **PiP against the h-index, all authors:** +0.042 [0.031, 0.052] at age 5 and +0.037 [0.031, 0.043] at age 10.
+- **PiP against the top-10% count:** +0.001 [−0.005, 0.007] at age 10.
+- **Notable groups:** level with the h-index at age 5 (−0.005 [−0.019, 0.011] Wikidata; +0.001 [−0.011, 0.013] GS
+  faculty), ahead at age 10 (+0.022 [0.014, 0.030]; +0.011 [0.005, 0.018]).
+
 ### Cross-sectional test on GS (15,890 profiles)
 
 Scores and recognition are both measured now, so this checks agreement, not prediction.

@@ -60,6 +60,15 @@ CC BY 4.0, reserved DOI 10.5281/zenodo.23987119, cited as `ipeirotis2026replicat
 from the final commit with `paper/make_zenodo_package.sh` and replace the file, so the archived manuscript carries the
 CRediT statement. Funding confirmed: "No specific funding was received for this work."
 
+**Exposition review (5 November 2026):** applied in `dc9ff2b` after checking each item against the data (worked example
+in Section 4.2, sawtooth explanation, cohort quantiles of PiP, indicator table, appendix table by column with the
+three-article rule, Figures 1, 3a, 5 and 6). The Zenodo draft now holds `pip-replication-package-dc9ff2b.zip`
+(md5 33de642531272581fdbbb66401b11e7f).
+
+**Pre-submission review (5 November 2026):** the verified edits are applied (commit `29efa8a`); abstract B (197 words,
+with the eligibility-rule and notable-group qualifiers) and v3_code A (left out of the Zenodo archive) are applied
+in `05c00d3`. The Zenodo draft now holds `pip-replication-package-05c00d3.zip` (md5 c49e8ec09bd7c53e4bd4eac11c2b4e96).
+
 **D14 A with Supervision for Panos Ipeirotis: applied** (commit `9b84e65`); the manuscript has no `TODO(authors)` left.
 The Zenodo draft now holds `pip-replication-package-9b84e65.zip` (md5 c788194f02aac0e1ba572f0fda9e39f7) in place of
 the cc071a3 archive; it is ready to publish when you are. If the manuscript changes before you publish, rebuild and
@@ -146,7 +155,7 @@ benchmark.
 same thing.
 - **A.** Keep "papers" in Results and add one sentence at the end of the Data paragraph on articles: "From here on,
   papers means articles unless stated otherwise."
-- **B.** Replace "papers" with "articles" wherever the counted unit is meant in Sections 4.1 to 4.9 (about 40
+- **B.** Replace "papers" with "articles" wherever the counted unit is meant in Sections 5.1 to 5.9 (about 40
   places). Front matter and Discussion keep "papers".
 
 **D7. Whole-counting limitation.** The bullet does not say which way whole counting moves scores.
@@ -183,8 +192,8 @@ authors; the Zenodo DOI once the derived tables are deposited.
 
 | # | Finding | Fix | Source |
 |---|---|---|---|
-| 1 | 40\% rise, 2010 or 2015 endpoint | Section 4.3: "rises by 40\%, from 4.4 in the 1960 cohort to 6.2 in the 2010 cohort (6.1 in 2015)"; abstract and caption: "about 40\%". The Introduction's 2010 comparison was right (+40.7\%). | `fig2_cohorts.csv` |
-| 2 | 1.6 to 1.9 years | At target age 10 the leads are 1.79 (precision), 1.58 (star AUC), 1.90 (top-1\% AUC). Abstract, contribution 4 and Conclusion (future high performers): 1.6 to 1.8. Section 4.6 keeps 1.6 to 1.9 "across the three measures" and adds "(1.6 to 1.8 on the two measures for future stars)". | `fig8_early.csv` with the interpolation in `make_figures.py` |
+| 1 | 40\% rise, 2010 or 2015 endpoint | Section 5.3: "rises by 40\%, from 4.4 in the 1960 cohort to 6.2 in the 2010 cohort (6.1 in 2015)"; abstract and caption: "about 40\%". The Introduction's 2010 comparison was right (+40.7\%). | `fig2_cohorts.csv` |
+| 2 | 1.6 to 1.9 years | At target age 10 the leads are 1.79 (precision), 1.58 (star AUC), 1.90 (top-1\% AUC). Abstract, contribution 4 and Conclusion (future high performers): 1.6 to 1.8. Section 5.6 keeps 1.6 to 1.9 "across the three measures" and adds "(1.6 to 1.8 on the two measures for future stars)". | `fig8_early.csv` with the interpolation in `make_figures.py` |
 | 3 | Honors text against the table | Only the article count does worst among all authors (I3 is above the $h$-index there); notable-group AUCs at age 10 span 0.54 to 0.65; "level at age 5" now gives the paired differences ($-0.008$ [$-0.023$, 0.007]; $+0.002$ [$-0.010$, 0.013]), which the table does not show; the Google Scholar sentence says citations and the top-10\% count tie PiP on honors (intervals include zero) and lead by 0.005 and 0.004 on Wikipedia. | `honors_results.csv`, `gs_honors_results.csv` |
 | 4 | fig:curves "about half" | "stands above 49\% to 63\% of the peers" | `fig3_curves.csv` |
 | 5 | 16,218 against 15,890 | Caption: 15,890 are the profiles that meet the eligibility rule and belong to a start-year cohort of at least 30. | `sql/24_gs_honors.sql` |
@@ -201,38 +210,38 @@ authors; the Zenodo DOI once the derived tables are deposited.
 |---|---|---|
 | 10 | "Area under the whole curve" | "PiP reads the whole curve above the cutoff". Title: D2. |
 | 11 | "Do not depend on the skewed tail" | "are less influenced than means by the skewed tail", the source's own comparative claim |
-| 12 | Seniority in the Discussion | Third property now rests on Results: stable rarity at the same career age (Section 4.3) and raw PiP predicting almost as well as its cohort percentile when seniorities are pooled (Section 4.5). Responsible use unchanged. |
+| 12 | Seniority in the Discussion | Third property now rests on Results: stable rarity at the same career age (Section 5.3) and raw PiP predicting almost as well as its cohort percentile when seniorities are pooled (Section 5.5). Responsible use unchanged. |
 | 13 | $\tau$ up to 0.6 against 0.75 for honors | Honors section adds that above 0.6 the raw score drifts, so such scores should be read as cohort percentiles, as in the honors test. |
 | 14 | "Ordering of the indicators" without self-citations | Only PiP, the asymmetric form and the $h$-index were rerun. Robustness and Discussion now say PiP stays ahead of the $h$-index on all three outcomes in every setting (Appendix A). |
 | 15 | "Needs only publication years and citation counts" | "needs only each scholar's articles, with their publication years and citations by year" |
 | 16 | Step or trapezoid in the blog post | The post says "area under the curve" without the form. The formula is now tied to the website ("as the website computes it"); the website has used the step form since 4 November 2026. |
 | 17 | Three-article rule scope | It was run only at the same career age and for early detection; abstract, contribution 3 and Conclusion say "at the same career age". |
-| 18 | Contribution 4 | Scoped to the main eligibility rule; Section 4.6 says PiP-simple edges ahead on future stars from age 6 or 7 under the three-article rule (by at most 0.003). |
+| 18 | Contribution 4 | Scoped to the main eligibility rule; Section 5.6 says PiP-simple edges ahead on future stars from age 6 or 7 under the three-article rule (by at most 0.003). |
 | 19 | Conclusion coverage | Adds self-citations, Google Scholar agreement and the field-normalized version. The abstract: D1. |
 | 21 | Wikidata and Wikipedia | New Data paragraph ("Honors") with a citation (`wikidata2026`, CC0, queried 5 November 2026); Wikidata availability added; Google Scholar data: D5. |
-| 22 | Replication package | Defined as the `paper/` directory in Data and code availability; Section 3 points there. |
-| 23 | tab:predictionall uncited | Cited in Section 4.5, with the observation that raw and percentile forms nearly agree at the same career age. |
+| 22 | Replication package | Defined as the `paper/` directory in Data and code availability; Section 4 points there. |
+| 23 | tab:predictionall uncited | Cited in Section 5.5, with the observation that raw and percentile forms nearly agree at the same career age. |
 | 24 | "All three measures (Figure early)" | Says what the figure shows and that Table early covers all three. |
 | 26 | fig:frontier legend | Names the grey squares and the two off-chart indicators; total citations are not plotted. |
 | 27 | Doctorate-based ages | D3 |
 | 28 | Academic age | "career age" in Related work; the sources mean years since the first publication. |
-| 29 | Future high performers | Section 4.6 defines "future star, or future high performer". |
-| 30 | ROC AUC, GS | ROC AUC defined at first use in Section 4.5 (rank-sum form with ties at one half, as `sql/11_prediction.sql` computes it); "GS" spelled out in the honors caption. |
-| 31 | Smaller variants | "Three-article rule" defined in Data and used throughout; whole counting of fields glossed; "exceptional paper" in the Limitations is now "top paper"; "peer group" for the mean-score results; "articles" in Section 3. Papers against articles in Results: D6. |
+| 29 | Future high performers | Section 5.6 defines "future star, or future high performer". |
+| 30 | ROC AUC, GS | ROC AUC defined at first use in Section 5.5 (rank-sum form with ties at one half, as `sql/11_prediction.sql` computes it); "GS" spelled out in the honors caption. |
+| 31 | Smaller variants | "Three-article rule" defined in Data and used throughout; whole counting of fields glossed; "exceptional paper" in the Limitations is now "top paper"; "peer group" for the mean-score results; "articles" in Section 4. Papers against articles in Results: D6. |
 | 32 | Asymmetric single-article zero | Exact: the simulation scores records against a cohort they do not join, whose members all have at least three articles (`checks/sym_properties.py`). The text now says so, here and in Credit for the best work. |
 | 33 | TODOs | D11 |
 
-Also from the section questions: Intro states the eligibility rule and points to Section 3.6 for the grid; Related work
+Also from the section questions: Intro states the eligibility rule and points to Section 4.6 for the grid; Related work
 says PiP shares the $h$-index's inconsistency, glosses mean normalization, Abramo and D'Angelo's measure and double
-rank analysis from the archived sources, and links citation windows to Section 4.1; Data gives a career-age example,
-says the $h$-index condition implies three articles, and notes that Section 4.7 uses the profiles; Section 3 gives
+rank analysis from the archived sources, and links citation windows to Section 5.1; Data gives a career-age example,
+says the $h$-index condition implies three articles, and notes that Section 5.7 uses the profiles; Section 4 gives
 $n_a(0.9)$ as an example, states that most of the variance comes from the impact multiplier, and points the 0.004 to
-Section 3.6; Section 4.2 points to Section 4.5, names the "knee" of the frontier and fixes the fig:tau start years;
-Section 4.4 scopes "much more stable" to horizons that start early; Section 4.5 explains scoring at age 5, excludes the
+Section 4.6; Section 5.2 points to Section 5.5, names the "knee" of the frontier and fixes the fig:tau start years;
+Section 5.4 scopes "much more stable" to horizons that start early; Section 5.5 explains scoring at age 5, excludes the
 top-1\% count from "each is the best on one outcome", moves "best predictor of a future top-1\% paper in every setting"
 to the paragraph it summarizes, and says $\tau = 0.75$ matches the top-10\% count on all three outcomes in all five
-settings (checked in `paper_rp.baseline_prediction`); Section 4.7 says undated honors count as later honors
-(`sql/22_honors.sql`) and that 41,272 counts items, honored or not; Section 4.8 names the two questions the field
+settings (checked in `paper_rp.baseline_prediction`); Section 5.7 says undated honors count as later honors
+(`sql/22_honors.sql`) and that 41,272 counts items, honored or not; Section 5.8 names the two questions the field
 versions answer and presents the two sources of remaining spread as candidates; Robustness uses one term
 (counterpart); Discussion names the cutoff in the second property, replaces "external source of variation", says what
 slow fields mean for a scholar's score, and adds merged records and the $h$-index's inconsistency to the Limitations.
@@ -252,7 +261,7 @@ slow fields mean for a scholar's score, and adds merged records and the $h$-inde
 - "Self-citation" as a channel of cumulative advantage matches `FINDINGS.md` section 11; unchanged.
 - "Coauthor" is the house spelling; untouched.
 - The disambiguation sentence appears in both Data and Robustness; kept as a reminder in Robustness.
-- PS2 "publication year" (not cohort), and all numerical moves in Sections 4.1 to 4.4: values and referents unchanged.
+- PS2 "publication year" (not cohort), and all numerical moves in Sections 5.1 to 5.4: values and referents unchanged.
 
 ## 4. Citation status
 
