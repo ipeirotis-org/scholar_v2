@@ -3253,3 +3253,27 @@ updates: none
 verdict: supported
 evidence: The draft holds one file, the archive of paper/ at 2fc4023, which contains results/ (28 result tables) and the SQL, figure data, checks and honors scripts; the record description names the result tables and the BigQuery datasets.
 notes: The authors' own deposit. The DOI is reserved and resolves only after the authors publish the record; re-check then, and replace the file if the manuscript changes before publication. Supersedes the entry for f0a69b9: the file was replaced after the Supplementary Information was folded back into main.tex (supplement.tex removed). The cited sentences that sat in supplement.tex (Ties, claim-hash 22f090d147a6; the asymmetric form, 69c1e5fd3f33) are back in main.tex word for word, under their earlier entries.
+
+## [2026-11-06T04:31Z] cite:ipeirotis2024pip — paper/manuscript_qss/main.tex:137
+claim: "An earlier, asymmetric form of the score was described by \citet{ipeirotis2024pip} and is used by the website \url{https://www.pip-score.org} (formerly \url{https://scholar.ipeirotis.org}); Section~\ref{sec:auc} explains why we replace it."
+claim-hash: bab3cd6dcb1f
+source: https://www.behind-the-enemy-lines.com/2024/01/the-pip-auc-score-for-research.html
+version-read: version of record (blog post, snapshot 2026-11-05)
+archived: gs://scholar-version2-literature/sources/ipeirotis2024pip--the_pip-auc_score_for_research_productivity-05d4fa50--2026-11-05-63eaa116.html sha256:63eaa11614270464d18349834da6403392da00961e5077b08a6139e1f55e95f3
+license: CC-BY-NC-3.0 (site footer)
+accessed: 2026-11-05
+verdict: supported
+evidence: "we have a nice new score that we have given the thoroughly boring name "Percentile in Percentile Area Under the Curve" score, or PiP-AUC for short" (post body); "we created a small app at https://scholar.ipeirotis.org/" (post body, second paragraph)
+notes: Only the cross-reference changed (Section~\ref{sec:pip} became Section~\ref{sec:auc}, the new subsection that defines PiP-AUC) when Section 4 was reordered on 2026-11-06 at the author's request; the attribution to this source is unchanged.
+
+## [2026-11-06T04:31Z] cite:ipeirotis2024pip — paper/manuscript_qss/main.tex:266
+claim: "The website \url{https://www.pip-score.org} uses the earlier form of the score, PiP-AUC \citep{ipeirotis2024pip}."
+claim-hash: c8f654870b85
+source: https://www.behind-the-enemy-lines.com/2024/01/the-pip-auc-score-for-research.html
+version-read: version of record (blog post, snapshot 2026-11-05)
+archived: gs://scholar-version2-literature/sources/ipeirotis2024pip--the_pip-auc_score_for_research_productivity-05d4fa50--2026-11-05-63eaa116.html sha256:63eaa11614270464d18349834da6403392da00961e5077b08a6139e1f55e95f3
+license: CC-BY-NC-3.0 (site footer)
+accessed: 2026-11-05
+verdict: supported
+evidence: "we created a small app at https://scholar.ipeirotis.org/ that allows anyone to search for a Google Scholar profile" (post body, second paragraph)
+notes: Section 4 was reordered on 2026-11-06 at the author's request: the earlier form is now introduced by name, PiP-AUC, before PiP. The name is the source's own (its title is 'The PiP-AUC score for research productivity'); the attribution, an earlier form of the score used by the website, is unchanged. The asymmetry and its problems are stated by the authors in the sentences that follow, not attributed to the post.

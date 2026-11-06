@@ -92,10 +92,9 @@ form a curve (Figure~\ref{fig:curves}). PiP is the average height of this curve 
 $\tau$. Where the $h$-index reads one corner of a record, PiP reads the whole curve above the cutoff.
 
 With $\tau = 0.5$, used throughout, only papers in the top half of their year can earn credit, and recent papers can
-earn it as soon as they stand out among papers of their own age. A single paper in the top 2.5\% counts at every
-threshold of the computation (Section~\ref{sec:computation}), including the highest, where most peers have nothing.
-Lowering $\tau$ moves weight towards the number of papers; raising it, towards their impact. The cutoff is a dial
-between quantity and impact.
+earn it as soon as they stand out among papers of their own age. A single paper in the top 1\% counts at every threshold
+up to the 99th percentile, where most peers have nothing. Lowering $\tau$ moves weight towards the number of papers;
+raising it, towards their impact. The cutoff is a dial between quantity and impact.
 
 We compute PiP from the Semantic Scholar Academic Graph \citep{kinney2023semantic} for 11.1 million authors at career
 ages 1 to 30 (years since their first paper). Authors with at least three articles and an $h$-index of at least three
@@ -136,7 +135,7 @@ percentiles. Its reviewers objected to the unbounded sum, the selected populatio
 This paper replaces the sum with PiP, covers every author eligible in each evaluation year (including those who later
 stop publishing) and reports results by field. An earlier, asymmetric form of the score was described by
 \citet{ipeirotis2024pip} and is used by the website \url{https://www.pip-score.org} (formerly
-\url{https://scholar.ipeirotis.org}); Section~\ref{sec:pip} explains why we replace it.
+\url{https://scholar.ipeirotis.org}); Section~\ref{sec:auc} explains why we replace it.
 \section{Related work}
 \label{sec:related}
 
@@ -238,7 +237,9 @@ Wikipedia article, using the website's monthly copy of Wikidata.
 
 PiP makes two comparisons. It first ranks each of a scholar's papers against papers from the same year. It then counts
 the scholar's papers at or above each impact threshold and ranks that count among peers, the scholars who started
-publishing in the same year. The score averages these standings over the thresholds above a cutoff.
+publishing in the same year. The score averages these standings over the thresholds above a cutoff. We build it in
+steps: the paper percentiles; the earlier form of the score, PiP-AUC, and why it rewards productivity more than impact;
+and PiP, which removes that imbalance by comparing the scholar with peers at every threshold.
 
 \subsection{Paper percentiles}
 A paper one year old competes only with other papers one year old. Fix an evaluation year $Y$. For an article $j$
@@ -251,7 +252,8 @@ Uncited articles have $y_j = 0$. Because the comparison stays within a publicati
 $y_j$ needs no correction for paper age or for citation growth over the decades. The main analysis pools all fields;
 Section~\ref{sec:fields} computes percentiles within fields.
 
-\subsection{Peers and standing curves}
+\subsection{Peers and the earlier score, PiP-AUC}
+\label{sec:auc}
 At evaluation year $Y = s_a + A$, the \emph{peers} $\Peers$ of author $a$ are the authors eligible at $Y$ with the same
 start year, the author included. For an impact threshold $\theta \in [0,1]$, let
 \begin{equation}
@@ -261,6 +263,32 @@ count the author's articles at or above percentile $\theta$; $n_a(0)$ counts all
 top 10\% of their publication year. For the median author of Figure~\ref{fig:curves}, $n_a(0) = 7$, $n_a(0.9) = 2$
 and $n_a(0.95) = 1$.
 
+The website \url{https://www.pip-score.org} uses the earlier form of the score, PiP-AUC \citep{ipeirotis2024pip}.
+PiP-AUC compares the author with peers only through their total article counts. Let $F(m) = |\{b \in \Peers : n_b(0) \le
+m\}| / |\Peers|$ be the productivity percentile, the share of peers with at most $m$ articles. With articles sorted by
+percentile, $y_{(1)} \ge y_{(2)} \ge \cdots$, PiP-AUC is the area under the step curve of $y_{(k)}$ against $F(k)$:
+\begin{equation}
+\text{PiP-AUC}(a) = \sum_{k=1}^{n_a(0)} y_{(k)}\,\bigl[F(k) - F(k-1)\bigr] = \int_0^1 F\!\left(n_a(\theta)\right)
+d\theta .
+\label{eq:auc}
+\end{equation}
+It is the product of $F(n_a(0))$ and a weighted mean of the author's own percentiles, which keeps it bounded and
+monotone. The second expression shows its asymmetry: at each threshold $\theta$, PiP-AUC compares the author's count at
+or above $\theta$ with peers' \emph{total} counts rather than with their counts at or above $\theta$.
+
+This asymmetry causes two problems. First, the score rewards productivity more than impact. The weight of the $k$-th
+best article, $F(k) - F(k-1)$, is the share of peers with exactly $k$ articles, which is zero for every $k$ below the
+smallest article count among peers. Among the eligible authors of a cohort, nobody has fewer than three articles, so an
+author's best two articles receive no weight at all; among Google Scholar faculty profiles, the median author's best
+four articles receive none. The productivity percentile accounts for 0.59--0.77 of the variance of the logarithm of
+PiP-AUC. Scored against a simulated cohort of 2,000 peers, all with at least three articles, an author with one article
+at the 99th percentile scores zero, while an author with 40 articles at the 10th percentile scores 0.10. Second,
+applying a cutoff $\tau$ to this form makes it unstable across cohorts: it then compares partial counts with growing
+total counts, and its median at career age 10 halves between the 1960 and 2010 cohorts. PiP removes both problems by
+comparing like with like: at every threshold, the author's count at or above $\theta$ against peers' counts at or above
+$\theta$.
+
+\subsection{Standing curves}
 The author's \emph{standing} at threshold $\theta$ is the share of peers with strictly fewer articles at or above
 $\theta$:
 \begin{equation}
@@ -287,13 +315,14 @@ unless peers' counts fall enough at the same threshold.
   at or above percentile $\theta$ of their publication year. PiP is the shaded area to the right of $\tau = 0.5$,
   rescaled by $1/(1-\tau)$, or equivalently the average height of the curve there (dashed line). The ticks on the
   horizontal axis mark the author's articles, at their percentiles rounded up to the next multiple of $1/40$
-  (Section~\ref{sec:computation}); the curve can fall only at these ticks. The median author has seven articles, two of
+  (Section~\ref{sec:definition}); the curve can fall only at these ticks. The median author has seven articles, two of
   them in the top 10\% of their year and one in the top 5\%. At thresholds from 0.85 to 0.95 this author stands above
   49\% to 63\% of the peers, who have fewer articles cited that highly.}
   \label{fig:curves}
 \end{figure}
 
 \subsection{Definition}
+\label{sec:definition}
 The PiP score with cutoff $\tau \in [0, 1)$ is the average standing over the thresholds at or above $\tau$:
 \begin{equation}
 \PiP_\tau(a) = \frac{1}{1-\tau} \int_\tau^1 g_a(\theta)\, d\theta .
@@ -301,7 +330,10 @@ The PiP score with cutoff $\tau \in [0, 1)$ is the average standing over the thr
 \end{equation}
 It is the area under the standing curve to the right of $\tau$, rescaled to $[0,1]$. The cutoff moves the score
 between quantity and impact (Section~\ref{sec:tau}). We use $\tau = 1/2$ throughout and write PiP for $\PiP_{1/2}$.
-With this cutoff, only articles in the top half of their publication year can earn credit.
+With this cutoff, only articles in the top half of their publication year can earn credit. We evaluate the integral on
+40 percentile classes, at the thresholds $k/40$; against the exact integral, computed for the 5.3 million eligible
+authors at career age 10, this ranks authors within cohorts almost identically (rank correlation 0.9994) and changes no
+prediction result by more than 0.004.
 
 The score is also the chance of winning a simple game. Draw a random peer and a random threshold from $[\tau, 1]$, the
 range the cutoff sets. The author wins with strictly more articles at or above the threshold, so a tie is not a win.
@@ -330,16 +362,24 @@ and are otherwise equally likely to lead, so averaging over peers gives
 \end{equation}
 This mean is below one half and falls as ties become more common, as at high cutoffs (Section~\ref{sec:tau}).
 
+To measure what the comparison at every threshold adds, Sections~\ref{sec:prediction} and~\ref{sec:early} also report
+\emph{PiP-simple}. It keeps the paper percentiles and the cutoff but compares the scholar with peers only once,
+through the rank of the score in the cohort: it sums the counts above the cutoff instead of the standings,
+\begin{equation}
+\text{PiP-simple}_\tau(a) = \frac{1}{1-\tau} \int_\tau^1 n_a(\theta)\, d\theta
+= \frac{1}{1-\tau} \sum_j \max\left(y_j - \tau, 0\right).
+\end{equation}
+
 \subsection{Properties}
 \label{sec:properties}
-The properties below hold for a fixed peer group that contains the author, for both the integral and the computed
-score of Section~\ref{sec:computation}; each follows in a line from the definitions. We also checked them numerically
-on simulated cohorts, on the computation grid and on a fine grid (code in the replication package).
+The properties below hold for a fixed peer group that contains the author, both for the integral and for the score on
+40 classes; each follows in a line from the definitions. We also checked them numerically on simulated cohorts, on the
+40 classes and on a fine grid (code in the replication package).
 
 \paragraph{Range.} $0 \le \PiP_\tau(a) < 1$. The author is one of their own peers and never has fewer articles than
 themselves, so $g_a(\theta) \le 1 - 1/|\Peers|$ at every threshold. The score is zero when, at almost every threshold
-above $\tau$ (at every grid threshold $\theta_k \ge \tau$ for the computed score), no peer has a lower count than $a$,
-for example when every article of $a$ falls strictly below $\tau$.
+above $\tau$ (at every class threshold $k/40 \ge \tau$ for the computed score), no peer has a lower count than $a$, for
+example when every article of $a$ falls strictly below $\tau$.
 
 \paragraph{Monotonicity.} With the peers and the percentiles of the author's other articles held fixed, adding an
 article or raising an existing article's percentile never lowers $\PiP_\tau$: at every threshold either change raises
@@ -351,15 +391,13 @@ are recomputed, and a paper that ties or overtakes another of the author's paper
 score can fall.
 
 \paragraph{No reward for volume alone.} At $\tau = 1/2$, an author whose articles all fall below the median of their
-publication year scores zero, however many they publish.
+year scores zero, however many they publish; under PiP-AUC, 40 articles at the 10th percentile score 0.10.
 
-\paragraph{Credit for the best work.} A single article in the top 2.5\% of its year raises $n_a(\theta)$ by one at
-every grid threshold, including the highest, where most peers have none. Scored against a simulated cohort of 2,000
-peers that it does not join, a record of one such article scores 0.45, while one article at the 50th percentile scores
-0.004 (on the grid, an article in the class just above the median earns a full class of credit;
-Section~\ref{sec:computation}). With the exact integral, one article at the 97.5th, 99th or 99.9th percentile scores
-0.42, 0.45 or 0.47, and one at the 50th percentile scores 0. The $h$-index cannot tell these records apart (all have
-$h = 1$).
+\paragraph{Credit for the best work.} A single highly cited article raises $n_a(\theta)$ by one at every threshold up
+to its own percentile, including high thresholds where most peers have none. Scored against the simulated cohort of
+Section~\ref{sec:auc}, which it does not join, a record of one article at the 97.5th, 99th or 99.9th percentile scores
+0.42, 0.45 or 0.47 (exact integral), and one at the 50th percentile scores 0; PiP-AUC gives all four records zero. The
+$h$-index cannot tell these records apart (all have $h = 1$).
 
 \paragraph{Ties.} The standing counts peers with strictly fewer articles. Mid-ranks instead count half of the tied
 peers. They are a common choice for the percentile of a single paper \citep{bornmann2013use,waltman2013percentile}, but
@@ -369,10 +407,9 @@ five articles all fall below the median would score 0.22 with mid-ranks instead 
 articles from earning credit through ties; its price is that the mean score of a peer group depends on how common ties
 are (Eq.~\ref{eq:mean}).
 
-\paragraph{Factorization.} PiP can be written as the author's productivity percentile times an impact multiplier. Let
-$F(m) = |\{b \in \Peers : n_b(0) \le m\}| / |\Peers|$ be the productivity percentile. Unlike $G_\theta$, it counts
-tied peers, so that it is positive for every member of the peer group. Defining the \emph{impact multiplier}
-$Q_\tau(a) = \PiP_\tau(a) / F(n_a(0))$ gives
+\paragraph{Factorization.} PiP can be written as the author's productivity percentile $F$ (Section~\ref{sec:auc}) times
+an impact multiplier. Unlike $G_\theta$, $F$ counts tied peers, so that it is positive for every member of the peer
+group. Defining the \emph{impact multiplier} $Q_\tau(a) = \PiP_\tau(a) / F(n_a(0))$ gives
 \begin{equation}
 \PiP_\tau(a) = F\!\left(n_a(0)\right) \cdot Q_\tau(a).
 \label{eq:factor}
@@ -416,63 +453,11 @@ of 3,000 random pairs. The $h$-index shares the property.
 Writing indicators in terms of the count curve $\theta \mapsto n_a(\theta)$ places PiP among existing ones. This curve
 counts the author's articles at or above each threshold; PiP ranks this count among peers at every threshold above the
 cutoff and averages the standings (Table~\ref{tab:taxonomy}). A top-$x\%$ count reads the curve at one threshold,
-$n_a(1-x)$, without a peer comparison. I3 sums the percentiles, $\sum_j y_j = \int_0^1
-n_a(\theta)\,d\theta$: the same integral without the peer comparison, so it grows without bound with article count.
-The $h$-index reads one point of the analogous curve in citation space, where the number of articles with at least $k$
-citations equals $k$.
+$n_a(1-x)$, without a peer comparison. I3 sums the percentiles, $\sum_j y_j = \int_0^1 n_a(\theta)\,d\theta$: the same
+integral without the peer comparison, so it grows without bound with article count; PiP-simple applies this sum to the
+articles above the cutoff, measured from the cutoff. The $h$-index reads one point of the analogous curve in citation
+space, where the number of articles with at least $k$ citations equals $k$.
 
-The earlier form of the score \citep{ipeirotis2024pip} is asymmetric; the website \url{https://www.pip-score.org} uses
-it. The asymmetric form, as the website computes it, sorts an author's articles by percentile, $y_{(1)} \ge y_{(2)} \ge
-\cdots$, and computes the area under the step curve that plots $y_{(k)}$ against the productivity percentile $F(k)$:
-\begin{equation}
-\text{PiP-AUC}(a) = \sum_{k=1}^{n_a(0)} y_{(k)}\,\bigl[F(k) - F(k-1)\bigr] = \int_0^1 F\!\left(n_a(\theta)\right)
-d\theta .
-\end{equation}
-The second expression shows the difference from PiP: the asymmetric form compares the author's count at or above
-$\theta$ with peers' \emph{total} counts rather than with their counts at or above $\theta$.
-
-The asymmetric form is the product of $F(n_a(0))$ and a weighted mean of the author's own percentiles, which keeps it
-bounded and monotone. But the weight of the $k$-th best article, $F(k) - F(k-1)$, is the share of peers with exactly $k$
-articles, which is zero for every $k$ below the smallest article count among peers. Among the eligible authors of a
-cohort, nobody has fewer than three articles, so an author's best two articles receive no weight at all; among Google
-Scholar faculty profiles, the median author's best four articles receive none. This form is therefore dominated by
-productivity: the productivity percentile accounts for 0.59--0.77 of the variance of its logarithm. Scored against the
-simulated cohort, whose members all have at least three articles, an author with one article at the 99th percentile
-scores zero, while an author with 40 weak articles scores 0.10. Applying a cutoff $\tau$ to this form causes a second
-problem: it then compares partial counts with growing total counts, and its median at career age 10 halves between the
-1960 and 2010 cohorts. The symmetric comparison in PiP removes both problems.
-
-To show what comparing with peers at every threshold adds, Sections~\ref{sec:prediction} and~\ref{sec:early} use a
-simpler form, \emph{PiP-simple}, which compares the scholar with peers only once, through the score's rank in the
-cohort, as I3 does. It sums the counts above the cutoff instead of the standings,
-\begin{equation}
-\text{PiP-simple}_\tau(a) = \frac{1}{1-\tau} \int_\tau^1 n_a(\theta)\, d\theta
-= \frac{1}{1-\tau} \sum_j \max\left(y_j - \tau, 0\right),
-\end{equation}
-and is I3 restricted to the articles above the cutoff and measured from the cutoff.
-
-\subsection{Computation}
-\label{sec:computation}
-We evaluate the integral on the grid $\theta_k = k/40$, $k = 0, \dots, 39$, so that $\PiP_{1/2}(a) =
-\frac{1}{20}\sum_{k=20}^{39} g_a(\theta_k)$. On the interval $(k/40, (k+1)/40]$ an article counts exactly when $y_j \ge
-k/40$, so this sum equals the integral of Eq.~\ref{eq:pip} with every percentile $y_j$ replaced by $(\lfloor 40 y_j
-\rfloor + 1)/40$, the next multiple of $1/40$ strictly above it. The reported score is therefore PiP on 40 percentile
-classes, for which the properties above hold as stated. The classes have two visible effects: articles in the top 2.5\%
-of their year are not told apart, and an article at or just above the median ($0.5 \le y_j < 0.525$) earns a full class
-of credit.
-
-For each start year and evaluation year, the distributions $G_{\theta_k}$ come from one pass over the peers' counts.
-The whole computation covers 111.6 million author-age records and runs as SQL queries in BigQuery.
-
-To check that the classes do not drive the results, we also computed the exact integral for the 5.3 million eligible
-authors at career age 10 (start years 1960--2015). Write $y_{(k)}$ for the author's $k$-th best percentile. On
-$(y_{(k+1)}, y_{(k)}]$ the author has $k$ articles at or above $\theta$, and a peer has fewer exactly when its own
-$k$-th best percentile is below $\theta$, so the integral reduces to sorting the peers' $k$-th best percentiles.
-Against the exact score, the 40-class score is 0.010 higher on average at $\tau = 0.5$ (0.055 at most) and ranks
-authors within cohorts almost identically: the rank correlation is 0.9994, and 96\% of each cohort's top 10\% is the
-same (start years 1975--2010). At $\tau = 0.75$ and $0.9$ the correlation is 0.998 and 0.996 and the overlap 93\% and
-85\%. None of the prediction results at career age 10 (Section~\ref{sec:prediction}) changes by more than 0.004 at any
-of the three cutoffs, so we keep the 40 classes.
 \section{Results}
 \label{sec:results}
 
@@ -596,7 +581,7 @@ articles (their mean percentile) at $\tau = 0.75$; the chance of a future top-1\
 from $\tau = 0.25$ to $0.6$.
 
 Above $\tau = 0.6$ the score's distribution drifts across cohorts. The drift is not due to the 40 percentile classes
-(Section~\ref{sec:computation}): with the exact integral, the median at $\tau = 0.9$ still falls from 0.32 to 0.12
+(Section~\ref{sec:definition}): with the exact integral, the median at $\tau = 0.9$ still falls from 0.32 to 0.12
 between the 1960 and 2010 cohorts. The drift comes from ties at zero (Eq.~\ref{eq:mean}): the share of eligible authors
 with no article in the top 10\% of its year rises from 6\% to 42\% over the same cohorts, and all of them score zero at
 $\tau = 0.9$.
@@ -726,7 +711,7 @@ both forms.
   values, pooled over start years) and all eligible authors in 2005 (1.85 million authors, career ages 2--30;
   within-cohort percentiles, except where noted). Spearman correlation with the number of future top-10\% articles, ROC
   AUC for at least one future top-1\% article, and Spearman correlation with the mean percentile of future articles. The
-  best value in each column is in bold. PiP-simple (Section~\ref{sec:pip}) compares the scholar with peers only
+  best value in each column is in bold. PiP-simple (Section~\ref{sec:definition}) compares the scholar with peers only
   once.}
   \label{tab:prediction}
   \begin{tabular}{lcccccc}
@@ -821,7 +806,7 @@ papers (by 0.05--0.08) and on the top-1\% outcome in all 26 cohorts, and falls b
 every cohort, and on the number of future top papers in 12 and 11 of the 26, with differences between $-0.03$ and
 $+0.04$.
 
-\paragraph{Comparing with peers at every threshold.} PiP-simple (Section~\ref{sec:pip}) uses the same percentiles and
+\paragraph{Comparing with peers at every threshold.} PiP-simple (Section~\ref{sec:definition}) uses the same percentiles and
 cutoff as PiP but compares the scholar with peers only once, through the rank of its score in the cohort. The pair
 therefore shows what the comparison at every threshold contributes. In each of the 26 cohorts at career age 10, that
 comparison improves the AUC for a future top-1\% paper (by 0.004 to 0.011) and the prediction of future citation impact
@@ -1175,7 +1160,7 @@ high-citation fields.
 
 A single parameter, the cutoff, moves PiP between quantity and impact. The construction needs only each scholar's
 articles, with their publication years and citations by year. The website \url{https://www.pip-score.org} computes the
-earlier, asymmetric form of the score (Section~\ref{sec:pip}) from Google Scholar profiles; the replication code
+earlier form of the score, PiP-AUC (Section~\ref{sec:auc}), from Google Scholar profiles; the replication code
 computes PiP itself at full scale in a database.
 \section*{Data and code availability}
 The replication package is the \texttt{paper/} directory of \url{https://github.com/ipeirotis-org/scholar_v2}. It holds
@@ -1208,7 +1193,6 @@ We thank the reviewers of an earlier version of this work for comments that shap
 \bibliographystyle{apalike}
 \bibliography{references}
 
-\clearpage
 \appendix
 \section{Self-citations}
 \label{app:selfcites}
