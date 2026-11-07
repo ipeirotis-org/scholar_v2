@@ -233,28 +233,38 @@ Wikipedia article, using the website's monthly copy of Wikidata.
 \section{The PiP score}
 \label{sec:pip}
 
-PiP makes two comparisons: it first ranks each of a scholar's papers against papers from the same publication year, and
-then compares the scholar's output with peers who started publishing in the same year. We build the score in steps. We
-start by plotting a scholar's paper percentiles against paper rank, then normalize the horizontal axis by the typical
-productivity of peers of the same career age, and finally show how the limitations of that normalization motivate
-comparing the scholar with peers at every impact threshold.
+A standard way to visualize a scholar's record is the citation-rank graph: papers are sorted from most to least cited,
+with raw citations on the vertical axis and paper rank ($k = 1, 2, \ldots$) on the horizontal axis. The $h$-index
+summarizes this curve by finding the largest $h \times h$ square that fits beneath it. Summarizing a record by that
+single square has two drawbacks: geometrically, it ignores both the excess citations of landmark papers above $h$ and
+all papers ranked beyond $h$; dynamically, because raw citations take years to accumulate, a recent paper sits near the
+bottom of the vertical axis until it collects at least $h$ citations, even if it already leads its publication year.
+
+PiP addresses both drawbacks by transforming the two axes in turn: it first normalizes the vertical axis by ranking each
+paper against papers from the same publication year, and then normalizes the horizontal comparison against peers who
+started publishing in the same year. We build the score in steps, starting from paper percentiles plotted against paper
+rank, normalizing the horizontal axis by the typical productivity of peers of the same career age, and showing how the
+limitations of that normalization motivate comparing the scholar with peers at every impact threshold.
 
 \subsection{Paper percentiles}
-A paper one year old competes only with other papers one year old. At the time of evaluation, an article's
-\emph{percentile} (on a scale from $0$ to $1$) is the share of articles from the same publication year that have
-strictly fewer citations. An article at percentile $0.90$ has more citations than 90\% of articles published in the same
-year; an uncited article has percentile $0$. Because the comparison stays within a publication year at a common
-evaluation time, paper percentiles need no correction for paper age or for citation growth over the decades. Moreover,
-as the empirical results in Section~\ref{sec:paperstability} show, a paper's citation percentile converges very fast:
-its percentile two and three years after publication already correlates at $0.85$ and $0.91$ with its percentile at age
-ten. Ranking papers within their publication year therefore identifies promising papers early in their lifetime, long
-before they have accumulated enough raw citations to move the $h$-index. The main analysis pools all fields;
+Replacing raw citations on the vertical axis with citation percentiles puts papers of different ages on a common
+$[0, 1]$ scale: a paper one year old competes only with other papers one year old. At evaluation, an article's
+\emph{percentile} is the share of articles from the same publication year with strictly fewer citations. An article at
+percentile $0.90$ has more citations than 90\% of articles published in the same year; an uncited article has percentile
+$0$. Because the comparison stays within a publication year, paper percentiles need no correction for paper age or for
+citation growth over the decades.
+
+Normalizing citations to percentiles also yields much faster convergence. Whereas raw citation counts take many years to
+build, a paper's relative standing within its publication year settles quickly: as Section~\ref{sec:paperstability}
+shows, a paper's percentile two and three years after publication already correlates at $0.85$ and $0.91$ with its
+percentile at age ten. On the percentile scale, a promising recent paper immediately rises near the top of the vertical
+axis instead of waiting years to accumulate $h$ raw citations. The main analysis pools all fields;
 Section~\ref{sec:fields} computes percentiles within fields.
 
 \subsection{From paper rank to productivity-normalized area}
 \label{sec:auc}
-Once each article has a citation percentile within its publication year, a scholar's record can be drawn by sorting
-their articles from highest to lowest percentile and plotting paper percentile on the vertical axis against paper rank
+With the vertical axis normalized to paper percentiles, a scholar's record can be drawn by sorting their articles from
+highest to lowest percentile and plotting paper percentile on the vertical axis against paper rank
 ($k = 1, 2, 3, \ldots$) on the horizontal axis (Figure~\ref{fig:construction}a). The median scholar of the 1995 cohort at
 career age 10, for example, has seven articles: two in the top 10\% of their publication year (ranks 1 and 2), three more
 at or above the median (ranks 3 to 5), and two below the median (ranks 6 and 7). Each article forms a bar of width $1$

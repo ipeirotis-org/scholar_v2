@@ -3317,7 +3317,7 @@ verdict: supported
 evidence: The draft holds one file, the archive of paper/ at ac0eae2, which contains results/ (28 result tables), COMPUTATION.md and the SQL, figure data, checks and honors scripts; the record description names the result tables and the BigQuery datasets.
 notes: The authors' own deposit. The DOI is reserved and resolves only after the authors publish the record; re-check then, and replace the file if the manuscript changes before publication. Supersedes the entry for 74000c5: the file was replaced after the Numerical evaluation paragraph was added to Section 4.
 
-## [2026-11-06T20:20Z] cite:waltman2012inconsistency — paper/manuscript_qss/main.tex:449
+## [2026-11-06T20:20Z] cite:waltman2012inconsistency — paper/manuscript_qss/main.tex:459
 claim: "PiP is not consistent in the sense of \citet{waltman2012inconsistency}: adding the same article to two authors can reverse their order, because peer standings are not linear in article counts."
 claim-hash: cc58eb29fdbf
 source: doi:10.1002/asi.21678
@@ -3329,7 +3329,7 @@ verdict: supported
 evidence: "If two scientists achieve the same absolute performance improvement, their ranking relative to each other should remain unchanged." (sec. 3.2, Example 2, p. 7); "Scientists X and Y have both achieved exactly the same performance improvement (i.e., two publications with six citations each), but despite of this their ranking has reversed." (sec. 3.2, Example 2, p. 7)
 notes: Re-verified on 2026-11-06 after replacing the internal symbol $G_\theta$ with 'peer standings are not linear in article counts'; the attribution to this source is unchanged.
 
-## [2026-11-06T20:35Z] cite:leydesdorff2011integrated — paper/manuscript_qss/main.tex:262
+## [2026-11-06T20:35Z] cite:leydesdorff2011integrated — paper/manuscript_qss/main.tex:272
 claim: "The area under this step curve is the sum of the scholar's paper percentiles ($4.40$ in Figure~\ref{fig:construction}a), which is the I3 indicator of \citet{leydesdorff2011integrated}."
 claim-hash: d89ea5bdc57e
 source: doi:10.1002/asi.21609
@@ -3341,7 +3341,7 @@ verdict: supported
 evidence: "Using the sum total of the frequencies (f) in each percentile, however, accounts for both the size and shape of the distribution." (p. 6-7, section on percentile rank classes (I3 definition)); "The integrals in this stepwise" (p. 5, percentile rank section)
 notes: Added in Section 4.2 when illustrating the step curve of paper percentiles against raw paper rank; the attribution to this source (defining I3 as the sum of paper percentiles) is identical to the existing entry at line 769.
 
-## [2026-11-06T20:35Z] cite:bornmann2013use — paper/manuscript_qss/main.tex:433
+## [2026-11-06T20:35Z] cite:bornmann2013use — paper/manuscript_qss/main.tex:443
 claim: "They are a common choice for the percentile of a single paper \citep{bornmann2013use,waltman2013percentile}, but in $g(\theta)$ they would give credit to authors with nothing above a threshold: at high thresholds most peers have no article, and an author tied with them at zero would stand at half their share."
 claim-hash: 444f3426f82b
 source: doi:10.1016/j.joi.2012.10.001
@@ -3353,7 +3353,7 @@ verdict: supported
 evidence: "In the case of publications with the same number of citations (tied ranks), the average rank is assigned." (sec. 2)
 notes: Re-verified on 2026-11-06 after replacing 'in the standing' with 'in $g(\theta)$' for line-break tightening; the attribution to this source is unchanged.
 
-## [2026-11-06T20:35Z] cite:waltman2013percentile — paper/manuscript_qss/main.tex:433
+## [2026-11-06T20:35Z] cite:waltman2013percentile — paper/manuscript_qss/main.tex:443
 claim: "They are a common choice for the percentile of a single paper \citep{bornmann2013use,waltman2013percentile}, but in $g(\theta)$ they would give credit to authors with nothing above a threshold: at high thresholds most peers have no article, and an author tied with them at zero would stand at half their share."
 claim-hash: 444f3426f82b
 source: doi:10.1002/asi.22775
@@ -3365,7 +3365,7 @@ verdict: partially supported
 evidence: "Pudovkin and Garfield put the tied publications in a random order and calculate their average percentile." (sec. 3)
 notes: Re-verified on 2026-11-06 after replacing 'in the standing' with 'in $g(\theta)$' for line-break tightening; the attribution to this source is unchanged.
 
-## [2026-11-06T20:35Z] cite:waltman2015field — paper/manuscript_qss/main.tex:1133
+## [2026-11-06T20:35Z] cite:waltman2015field — paper/manuscript_qss/main.tex:1143
 claim: "A fractional version would weight each paper by the author's share when counting papers above each threshold \citep{waltman2015field}; we have not tested it."
 claim-hash: 9d228cddd00b
 source: doi:10.1016/j.joi.2015.08.001
@@ -3377,7 +3377,7 @@ verdict: supported
 evidence: "In the case of fractional counting, a publication co-authored by n researchers is assigned a weight of 1/n for each researcher." (sec. 2.2)
 notes: Re-verified on 2026-11-06 after replacing the removed notation $n_a(\theta)$ with 'when counting papers above each threshold'; the attribution to this source is unchanged.
 
-## [2026-11-06T20:35Z] cite:ipeirotis2026replication — paper/manuscript_qss/main.tex:1184
+## [2026-11-06T20:35Z] cite:ipeirotis2026replication — paper/manuscript_qss/main.tex:1194
 claim: "Result tables and a snapshot of the replication package are archived on Zenodo \citep{ipeirotis2026replication}."
 claim-hash: f0adc4ad5444
 source: doi:10.5281/zenodo.23987119
