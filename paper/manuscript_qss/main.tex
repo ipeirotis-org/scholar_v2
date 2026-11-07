@@ -394,8 +394,8 @@ summing the amount by which each article exceeds $\tau$ (divided by $1-\tau$) an
 
 \subsection{Properties}
 \label{sec:properties}
-The properties below hold for a fixed peer group that contains the author; each follows directly from the definition,
-and we also checked them numerically on simulated cohorts (code in the replication package).
+The properties below hold for a fixed peer group that contains the author; each follows directly from the definition
+(Appendix~\ref{app:proofs}), and we also checked them numerically on simulated cohorts (code in the replication package).
 
 \paragraph{Range.} $0 \le \PiP < 1$. Because the peer group includes the author, no one can have more articles than
 every peer including themselves, so the standing $g(\theta)$ is strictly below $1$ at every threshold. The score is zero
@@ -474,10 +474,10 @@ analogous curve in citation space, where the number of articles with at least $h
 \paragraph{Numerical evaluation.} To compute PiP in our empirical analyses, we divide $[0, 1)$ into 40 percentile bins
 of width $0.025$. At the default cutoff $\tau = 0.5$, the reported score averages the author's standing $g(\theta)$ over
 the 20 thresholds $0.50, 0.525, \ldots, 0.975$ (which equals the exact integral in Eq.~\ref{eq:pip} when each paper
-percentile is rounded up to the top of its bin). Against the unrounded integral at career age 10, the within-cohort rank
-correlation is 0.9994 and top-decile overlap is approximately 96\%; predictive statistics differ by at most 0.004 in the
-tested comparisons. The replication package documents the computation, convergence checks, and finer-grid calculations
-used for the illustrative examples.
+percentile is rounded up to the top of its bin; Appendix~\ref{app:proofs}). Against the unrounded integral at career
+age 10, the within-cohort rank correlation is 0.9994 and top-decile overlap is approximately 96\%; predictive statistics
+differ by at most 0.004 in the tested comparisons. The replication package documents the computation, convergence
+checks, and finer-grid calculations used for the illustrative examples.
 
 \section{Results}
 \label{sec:results}
@@ -1182,7 +1182,7 @@ articles, with their publication years and citations by year; \url{https://www.p
 Google Scholar profiles, and the replication code computes it in a database.
 \section*{Data and code availability}
 The replication package is the \texttt{paper/} directory of \url{https://github.com/ipeirotis-org/scholar_v2}. It holds
-the SQL that builds every table in this paper, the result tables that the SQL writes, the numerical checks of the
+the SQL that builds every table, the result tables that the SQL writes, the Lean~4 and numerical checks of the
 properties in Section~\ref{sec:pip}, the data behind every figure, the plotting scripts, and the scripts and curated
 honors of Section~\ref{sec:honors}. Its \texttt{COMPUTATION.md} explains how the SQL evaluates the integral that defines
 PiP. Semantic Scholar data are available under the ODC-BY license from the Semantic Scholar Datasets API
@@ -1274,5 +1274,186 @@ We thank the reviewers of an earlier version of this work for comments that shap
     \bottomrule
   \end{tabular}
 \end{table}
+
+\clearpage
+\section{Mathematical proofs and formal verification}
+\label{app:proofs}
+\newcommand{\Peers}{{\mathcal{P}\mkern2.5mu}}
+\providecommand{\square}{\mdlgwhtsquare}
+
+This appendix states and proves the mathematical properties of the standing curve, the grid and integral forms of PiP,
+the cohort-mean identity, the upward-rounding equivalence, and the order-statistics formula for exact integration in
+Section~\ref{sec:pip} and \texttt{COMPUTATION.md}. Every proposition is formally verified in Lean~4 with Mathlib
+(\texttt{paper/lean/} in the replication package; Table~\ref{tab:lean}).
+
+Let $\Peers$ be a finite peer cohort of size $N = |\Peers| \ge 1$. Each author $b \in \Peers$ has a finite list of
+article percentiles $(y_{b,1}, \dots, y_{b,n_b(0)})$ in $[0, 1)$, and at any threshold $\theta \in [0, 1]$ has qualifying
+count $n_b(\theta) = |\{j : y_{b,j} \ge \theta\}| \in \mathbb{N}_0$. For a focal author $a \in \Peers$, the standing at
+$\theta$ is $g_a(\theta) = N^{-1}\sum_{b \in \Peers} \mathbf{1}\{n_b(\theta) < n_a(\theta)\}$, and the continuous score
+with cutoff $\tau \in [0, 1)$ is $\PiP_\tau(a) = (1-\tau)^{-1}\int_\tau^1 g_a(\theta)\,d\theta$. Given a non-empty finite
+threshold grid $\mathcal{T} = \{t_1, \dots, t_K\} \subset [\tau, 1]$ of size $K \ge 1$ and counts $n_{b,k} = n_b(t_k)$,
+the finite-grid score is
+\begin{equation}
+  S(a) = \frac{1}{K}\sum_{k=1}^{K} g_a(t_k)
+  = \frac{1}{NK}\sum_{k=1}^{K}\sum_{b \in \Peers} \mathbf{1}\{n_{b,k} < n_{a,k}\}.
+  \label{eq:gridscore}
+\end{equation}
+
+\paragraph{Proposition C.1 (Bounds, zero score below cutoff, and sawtooth step).}
+\emph{Let $a \in \Peers$ ($N = |\Peers| \ge 1$).}
+\begin{enumerate}
+  \item[(i)] \emph{At every threshold $\theta$, $0 \le g_a(\theta) \le (N-1)/N < 1$, and thus both $S(a)$ and
+  $\PiP_\tau(a)$ lie in $[0, (N-1)/N]$.}
+  \item[(ii)] \emph{If $n_a(\theta) = 0$, then $g_a(\theta) = 0$. If every article of $a$ has $y_{a,j} < \tau$, then
+  $S(a) = 0$ and $\PiP_\tau(a) = 0$.}
+  \item[(iii)] \emph{If $\theta_1 \le \theta_2$ and $n_a(\theta_1) = n_a(\theta_2)$, then $g_a(\theta_1) \le
+  g_a(\theta_2)$.}
+\end{enumerate}
+
+\noindent\emph{Proof.}
+(i) The strict-comparison set $\{b \in \Peers : n_b(\theta) < n_a(\theta)\}$ has non-negative size and excludes $a$ by
+irreflexivity of $<$, so its cardinality is at most $N - 1$. Dividing by $N > 0$ gives $0 \le g_a(\theta) \le (N-1)/N <
+1$, and averaging over $k$ or integrating over $[\tau, 1]$ preserves both bounds.
+(ii) Since $n_b(\theta) \ge 0$ for all $b \in \Peers$, no peer satisfies $n_b(\theta) < 0$, so $n_a(\theta) = 0$ implies
+$g_a(\theta) = 0$. If $y_{a,j} < \tau$ for all $j$, then $n_a(\theta) = 0$ for every $\theta \ge \tau$, making every
+summand of $S(a)$ and the integrand of $\PiP_\tau(a)$ zero.
+(iii) For every $b \in \Peers$, $\theta_1 \le \theta_2$ implies $\{j : y_{b,j} \ge \theta_2\} \subseteq \{j : y_{b,j}
+\ge \theta_1\}$ and thus $n_b(\theta_2) \le n_b(\theta_1)$. Whenever $n_b(\theta_1) < n_a(\theta_1) = n_a(\theta_2)$,
+transitivity gives $n_b(\theta_2) < n_a(\theta_2)$, so $g_a(\theta_1) \le g_a(\theta_2)$. \hfill$\square$
+
+\begin{table}[t]
+  \centering
+  \footnotesize
+  \setlength{\tabcolsep}{4pt}
+  \caption{Mapping between Appendix~\ref{app:proofs} and the machine-checked Lean~4 theorems in \texttt{paper/lean/PiP/}
+  (Lean and Mathlib \texttt{v4.35.0}); \texttt{lake build} compiles all modules and checks their axioms via
+  \texttt{\#print axioms}.}
+  \label{tab:lean}
+  \begin{tabular}{llp{8.1cm}}
+    \toprule
+    Result & Module (\texttt{PiP/}) & Principal Lean theorem names \tabularnewline
+    \midrule
+    Prop.\ C.1(i): Score bounds & \texttt{Basic.lean} &
+      \raggedright\texttt{gridScore\_nonneg}, \texttt{gridScore\_le\_pred\_div\_card}, \texttt{gridScore\_lt\_one} \tabularnewline
+    Prop.\ C.1(ii): Zero below cutoff & \texttt{Basic.lean} &
+      \raggedright\texttt{standing\_eq\_zero\_of\_count\_eq\_zero}, \texttt{gridScore\_eq\_zero\_of\_all\_below\_cutoff} \tabularnewline
+    Prop.\ C.1(iii): Sawtooth step & \texttt{Basic.lean} &
+      \raggedright\texttt{standing\_mono\_threshold\_on\_const\_count} \tabularnewline
+    Prop.\ C.2: Monotonicity & \texttt{Basic.lean} &
+      \raggedright\texttt{standing\_mono\_focal}, \texttt{gridScore\_mono\_focal} \tabularnewline
+    Prop.\ C.2(i)--(iii): Paper edits & \texttt{Basic.lean} &
+      \raggedright\texttt{gridScore\_add\_paper\_le}, \texttt{gridScore\_raise\_paper\_le}, \texttt{gridScore\_add\_paper\_below\_cutoff\_eq} \tabularnewline
+    Remark: Citation ties & \texttt{Basic.lean} &
+      \raggedright\texttt{citation\_monotonicity\_counterexample} \tabularnewline
+    Prop.\ C.3: Cohort mean & \texttt{CohortMean.lean} &
+      \raggedright\texttt{cohort\_mean\_standing}, \texttt{cohort\_mean\_gridScore}, \texttt{cohort\_mean\_pip} \tabularnewline
+    Prop.\ C.4: Strict rounding & \texttt{GridIntegral.lean} &
+      \raggedright\texttt{roundUp\_ge\_iff\_ge\_grid}, \texttt{standingAt\_roundUp\_eq\_on\_cell}, \texttt{grid\_eq\_integral\_roundUp} \tabularnewline
+    Prop.\ C.5: Exact integration & \texttt{ExactIntegral.lean} &
+      \raggedright\texttt{countAboveList\_lt\_iff\_kthPercentile\_lt}, \texttt{integral\_standingAt\_const\_eq\_H\_sub\_H}, \texttt{H\_eq\_asof\_formula} \tabularnewline
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\paragraph{Proposition C.2 (Conditional monotonicity with peer-group update).}
+\emph{Let $a \in \Peers$, and let $n, n' : \Peers \times \{1, \dots, K\} \to \mathbb{N}_0$ be two qualifying-count
+profiles such that $n'_{b,k} = n_{b,k}$ for every peer $b \ne a$ and $n'_{a,k} \ge n_{a,k}$ for every threshold $k \in
+\{1, \dots, K\}$. Recomputing standings within the updated cohort $\Peers$ (with $a$ included in $\Peers$ under both
+profiles) gives $g'_a(t_k) \ge g_a(t_k)$ for all $k$ and $S'(a) \ge S(a)$. Consequently, with peers' article percentiles
+and the focal author's other article percentiles held fixed:}
+\begin{enumerate}
+  \item[(i)] \emph{adding an article with assigned percentile $y$ to author $a$ cannot lower $S(a)$ or $\PiP_\tau(a)$;}
+  \item[(ii)] \emph{raising an article's assigned percentile from $y$ to $y' \ge y$ cannot lower $S(a)$ or
+  $\PiP_\tau(a)$; and}
+  \item[(iii)] \emph{adding an article with assigned percentile $y < \tau$ leaves $S(a)$ and $\PiP_\tau(a)$ unchanged.}
+\end{enumerate}
+
+\noindent\emph{Proof.}
+Fix $k$ and any peer $b \in \Peers$ with $n_{b,k} < n_{a,k}$. Since $n_{a,k} < n_{a,k}$ is false, $b \ne a$, so
+$n'_{b,k} = n_{b,k} < n_{a,k} \le n'_{a,k}$. Thus $\{b \in \Peers : n_{b,k} < n_{a,k}\} \subseteq \{b \in \Peers :
+n'_{b,k} < n'_{a,k}\}$, which yields $g_a(t_k) \le g'_a(t_k)$ for each $k$ and $S(a) \le S'(a)$ upon averaging. Under
+(i), appending $y$ increases $n_a(\theta)$ by $\mathbf{1}\{y \ge \theta\} \ge 0$ while leaving $n_b(\theta)$ unchanged
+for $b \ne a$; under (ii), replacing $y$ by $y' \ge y$ satisfies $\mathbf{1}\{y \ge \theta\} \le \mathbf{1}\{y' \ge
+\theta\}$ at every $\theta$; under (iii), $y < \tau \le \theta$ implies $\mathbf{1}\{y \ge \theta\} = 0$ for all
+$\theta \in [\tau, 1]$, so every count $n_b(\theta)$ on $[\tau, 1]$ is unchanged. \hfill$\square$
+
+\paragraph{Remark (Citation-monotonicity counterexample).}
+Proposition~C.2 holds fixed the assigned percentiles of other articles. When a paper instead gains raw citations and
+same-year percentiles are recomputed via $y_i = |\{\ell : c_\ell < c_i\}|/M_{\text{year}}$, a tie with another of the
+focal author's papers lowers that second paper's percentile and can reduce PiP. Consider a publication year with four
+papers and citation counts $c = (0, 0, 1, 2)$, giving strict percentiles $(0, 0, 1/2, 3/4)$. Let $\Peers = \{a, b\}$,
+where $a$ authored the third and fourth papers (percentiles $1/2$ and $3/4$) and $b$ authored the first two (percentile
+$0$). On $(1/2, 3/4]$, $n_a(\theta) = 1 > 0 = n_b(\theta)$, so $g_a(\theta) = 1/2$ and $\PiP_{1/2}(a) = 1/4$. When $a$'s
+third paper gains one citation, $c' = (0, 0, 2, 2)$ and the recomputed percentiles become $(0, 0, 1/2, 1/2)$; on $(1/2,
+3/4]$, $n_a(\theta)$ drops from $1$ to $0$, reducing $g_a(\theta)$ from $1/2$ to $0$ and $\PiP_{1/2}(a)$ from $1/4$ to $0$.
+
+\paragraph{Proposition C.3 (Cohort-mean tie identity).}
+\emph{Let $p_{k,m} = N^{-1}|\{a \in \Peers : n_{a,k} = m\}|$ and $p_{\theta,m} = N^{-1}|\{a \in \Peers : n_a(\theta) =
+m\}|$ denote the share of peers in $\Peers$ with qualifying count $m \in \mathbb{N}_0$. Then}
+\begin{equation}
+  \frac{1}{N}\sum_{a \in \Peers} S(a) = \frac{1}{2K}\sum_{k=1}^{K}\Bigl(1 - \sum_{m \ge 0} p_{k,m}^2\Bigr) < \frac{1}{2},
+  \qquad
+  \frac{1}{N}\sum_{a \in \Peers} \PiP_\tau(a)
+  = \frac{1}{2(1-\tau)}\int_\tau^1 \Bigl(1 - \sum_{m \ge 0} p_{\theta,m}^2\Bigr)\,d\theta .
+  \label{eq:gridmean}
+\end{equation}
+
+\noindent\emph{Proof.}
+Fix $k$ and partition the $N^2$ ordered pairs $(a, b) \in \Peers \times \Peers$ by trichotomy into $W_k = \{(a,b) :
+n_{b,k} < n_{a,k}\}$, $L_k = \{(a,b) : n_{a,k} < n_{b,k}\}$, and $T_k = \{(a,b) : n_{a,k} = n_{b,k}\}$. The involution
+$(a, b) \mapsto (b, a)$ is a bijection between $W_k$ and $L_k$, so $|W_k| = |L_k|$, while grouping $T_k$ by the common
+value $m = n_{a,k} = n_{b,k}$ gives $|T_k| = \sum_{m \ge 0} |\{a \in \Peers : n_{a,k} = m\}|^2 = N^2 \sum_{m \ge 0}
+p_{k,m}^2$. Because $|W_k| + |L_k| + |T_k| = 2|W_k| + |T_k| = N^2$ and $\sum_{a \in \Peers} g_a(t_k) = |W_k|/N$,
+dividing by $2N^2$ gives $N^{-1}\sum_{a \in \Peers} g_a(t_k) = \frac{1}{2}(1 - \sum_{m \ge 0} p_{k,m}^2)$. Since $N \ge
+1$, at least one count $m$ has $p_{k,m} > 0$, so $\sum_{m \ge 0} p_{k,m}^2 > 0$ and the mean is strictly below $1/2$.
+Averaging over $k = 1, \dots, K$ gives the first identity in Eq.~\ref{eq:gridmean}, and integrating over $\theta \in
+[\tau, 1]$ gives the second (Section~\ref{sec:definition}). Five conventions enter: every author is evaluated against
+$\Peers$; the focal author remains in $\Peers$ (contributing $(a,a) \in T_k$); comparisons are strict; peers with
+$n_{b,k} = 0$ stay in $\Peers$; and the pair interpretation samples with replacement. \hfill$\square$
+
+\paragraph{Proposition C.4 (Grid-to-integral equivalence under strict upward rounding).}
+\emph{For an integer grid size $M \ge 1$ and cutoff index $0 \le q < M$ with $\tau = q/M$, define $R_M(y) = (\lfloor M y
+\rfloor + 1)/M$ and let $g_a^{R_M}(\theta)$ be author $a$'s standing at $\theta$ after replacing every article percentile
+$y$ in $\Peers$ by $R_M(y)$. For $0 \le k < M$ and $\theta \in (k/M, (k+1)/M]$, $g_a^{R_M}(\theta) = g_a(k/M)$ and}
+\begin{equation}
+  \frac{1}{M - q}\sum_{k=q}^{M-1} g_a(k/M) = \frac{1}{1-\tau}\int_\tau^1 g_a^{R_M}(\theta)\, d\theta .
+  \label{eq:gridequiv}
+\end{equation}
+
+\noindent\emph{Proof.}
+Fix $k \in \{0, \dots, M-1\}$ and $\theta \in (k/M, (k+1)/M]$. Because $M\theta \in (k, k+1]$ and $\lfloor M y \rfloor$
+is an integer, $\lfloor M y \rfloor + 1 \ge M\theta$ holds if and only if $\lfloor M y \rfloor + 1 \ge k + 1$, which is
+equivalent to $\lfloor M y \rfloor \ge k$ and hence to $y \ge k/M$. Dividing by $M > 0$ shows that $R_M(y) \ge \theta
+\iff y \ge k/M$ for every article of every peer $b \in \Peers$. Thus $n_b^{R_M}(\theta) = n_b(k/M)$ for all $b \in
+\Peers$, so $g_a^{R_M}(\theta) = g_a(k/M)$ on $(k/M, (k+1)/M]$ (length $1/M$), with cell integral $\int_{k/M}^{(k+1)/M}
+g_a^{R_M}(\theta)\, d\theta = M^{-1} g_a(k/M)$. Summing $k = q, \dots, M-1$ from $\tau = q/M$ to $1$ and dividing by
+$1 - \tau = (M-q)/M$ gives Eq.~\ref{eq:gridequiv}; in particular, an article at $y = \tau$ has $R_M(\tau) = (q+1)/M$ and
+qualifies throughout $(\tau, (q+1)/M]$. \hfill$\square$
+
+\paragraph{Proposition C.5 (Exact integration via order statistics).}
+\emph{For each peer $b \in \Peers$, sort $b$'s article percentiles in non-increasing order $y_{b,(1)} \ge y_{b,(2)} \ge
+\cdots \ge y_{b,(n_b(0))}$ and set $y_{b,(k)} = 0$ for $k > n_b(0)$. Then for every integer $k \ge 1$ and threshold
+$\theta > 0$, $n_b(\theta) < k$ if and only if $y_{b,(k)} < \theta$. Consequently, on any interval $(x_0, x_1] \subseteq
+[\tau, 1]$ with $0 \le x_0 \le x_1$ on which the focal author has constant count $n_a(\theta) = k \ge 1$,}
+\begin{equation}
+  \int_{x_0}^{x_1} g_a(\theta)\, d\theta = H_k(x_1) - H_k(x_0),
+  \qquad
+  H_k(x) = \frac{1}{N}\sum_{b \in \Peers} \max\!\bigl(x - y_{b,(k)},\, 0\bigr)
+  = \frac{c_k(x)\, x - s_k(x)}{N},
+  \label{eq:exactint}
+\end{equation}
+\emph{where $c_k(x) = |\{b \in \Peers : y_{b,(k)} \le x\}|$ and $s_k(x) = \sum_{b \in \Peers : y_{b,(k)} \le x}
+y_{b,(k)}$.}
+
+\noindent\emph{Proof.}
+Since $b$'s percentiles are non-increasing in $[0, 1)$, at least $k$ entries satisfy $y_{b,j} \ge \theta > 0$ if and only
+if $k \le n_b(0)$ and the $k$-th entry satisfies $y_{b,(k)} \ge \theta$; since $y_{b,(k)} = 0 < \theta$ when $k >
+n_b(0)$, negation gives $n_b(\theta) < k \iff y_{b,(k)} < \theta$. Thus, for $\theta \in (x_0, x_1]$ where $n_a(\theta) =
+k$, $g_a(\theta) = N^{-1}\sum_{b \in \Peers} \mathbf{1}\{y_{b,(k)} < \theta\}$. For each peer $b$, $\int_{x_0}^{x_1}
+\mathbf{1}\{y_{b,(k)} < \theta\}\, d\theta = \max(x_1 - \max(x_0, y_{b,(k)}), 0) = \max(x_1 - y_{b,(k)}, 0) - \max(x_0 -
+y_{b,(k)}, 0)$ whenever $x_0 \le x_1$. Averaging over $b \in \Peers$ gives $H_k(x_1) - H_k(x_0)$. Finally, partitioning
+$\Peers$ into $\{b : y_{b,(k)} \le x\}$ (where $\max(x - y_{b,(k)}, 0) = x - y_{b,(k)}$) and $\{b : y_{b,(k)} > x\}$
+(where $\max(x - y_{b,(k)}, 0) = 0$) gives $N H_k(x) = c_k(x)\, x - s_k(x)$, the running count-and-sum formula evaluated
+by \texttt{sql/25\_pip\_exact.sql}. \hfill$\square$
 
 \end{document}

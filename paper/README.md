@@ -22,6 +22,8 @@ data, and targets *Quantitative Science Studies*.
   record. The current analyses don't use them.
 - **`COMPUTATION.md`** explains how the SQL evaluates the integral that defines PiP (40 percentile classes), how
   `sql/25_pip_exact.sql` computes the exact integral, and how much the two differ.
+- **`lean/`** holds the Lean 4 + Mathlib (`v4.35.0`) formalization of the mathematical properties and integration
+  identities in Section 4, `COMPUTATION.md`, and Appendix C (`lake build` compiles all proofs and checks axioms).
 - **`sql/`** holds the analysis queries, numbered in run order. They write to the BigQuery dataset
   `scholar-version2.paper_rp`, which is kept separate from the app's `statistics` and `gs_statistics` datasets.
 - **`REVISION_PLAN.md`** lists the reviewer concerns from PLOS ONE (PONE-D-21-10383, 2021–2022) and how the revision
