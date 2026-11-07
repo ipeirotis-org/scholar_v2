@@ -1381,11 +1381,11 @@ $\theta \in [\tau, 1]$, so every count $n_b(\theta)$ on $[\tau, 1]$ is unchanged
 Proposition~C.2 holds fixed the assigned percentiles of other articles. When a paper instead gains raw citations and
 same-year percentiles are recomputed via $y_i = |\{\ell : c_\ell < c_i\}|/M_{\text{year}}$, a tie with another of the
 focal author's papers lowers that second paper's percentile and can reduce PiP. Consider a publication year with four
-papers and citation counts $c = (0, 1, 2, 2)$, giving strict percentiles $(0, 1/4, 2/4, 2/4)$. Let $\Peers = \{a, b\}$,
-where $a$ authored the second and third papers (percentiles $1/4$ and $1/2$) and $b$ authored the first (percentile
-$0$). At threshold $\theta = 1/2$, $n_a(1/2) = 1 > 0 = n_b(1/2)$, so $g_a(1/2) = 1/2$. When $a$'s second paper gains one
-citation, the year's citation counts become $c' = (0, 2, 2, 2)$ and the recomputed percentiles become $(0, 1/4, 1/4,
-1/4)$ as all three cited papers tie at two citations; $n_a(1/2)$ drops from $1$ to $0$, reducing $g_a(1/2)$ from $1/2$ to $0$.
+papers and citation counts $c = (0, 0, 1, 2)$, giving strict percentiles $(0, 0, 1/2, 3/4)$. Let $\Peers = \{a, b\}$,
+where $a$ authored the third and fourth papers (percentiles $1/2$ and $3/4$) and $b$ authored the first two (percentile
+$0$). On $(1/2, 3/4]$, $n_a(\theta) = 1 > 0 = n_b(\theta)$, so $g_a(\theta) = 1/2$ and $\PiP_{1/2}(a) = 1/4$. When $a$'s
+third paper gains one citation, $c' = (0, 0, 2, 2)$ and the recomputed percentiles become $(0, 0, 1/2, 1/2)$; on $(1/2,
+3/4]$, $n_a(\theta)$ drops from $1$ to $0$, reducing $g_a(\theta)$ from $1/2$ to $0$ and $\PiP_{1/2}(a)$ from $1/4$ to $0$.
 
 \paragraph{Proposition C.3 (Cohort-mean tie identity).}
 \emph{Let $p_{k,m} = N^{-1}|\{a \in \Peers : n_{a,k} = m\}|$ and $p_{\theta,m} = N^{-1}|\{a \in \Peers : n_a(\theta) =
