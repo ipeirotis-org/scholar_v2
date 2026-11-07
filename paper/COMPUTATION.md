@@ -127,3 +127,20 @@ on the 400-point midpoint grid:
 `checks/pip_properties.py` checks the earlier score, PiP-AUC: that its step form equals its threshold form, its bounds
 y_min × F(n) <= PiP-AUC <= y_max × F(n), its monotonicity when an article is added, and the gap between the trapezoid
 rule the website used before November 2026 and the step form.
+
+## Machine-checked proofs in Lean 4
+
+`lean/` contains a self-contained Lean 4 + Mathlib (`v4.35.0`) package (`PiP`) that formally proves the mathematical
+properties and computational identities above (also summarized in Appendix C of the manuscript):
+
+- **`PiP/Basic.lean`**: bounds `0 <= S(a) <= (N - 1)/N < 1`, zero contribution below the cutoff, conditional
+  monotonicity (updating the focal author inside the peer cohort), paper-level corollaries, the sawtooth constant-count
+  lemma, and an exact rational counterexample to raw-citation monotonicity.
+- **`PiP/CohortMean.lean`**: the ordered-pair cohort-mean tie identity `1/N × Σ_a S(a) = 1/(2K) × Σ_k (1 - Σ_m p_{k,m}^2)`
+  and its continuous-integral counterpart (Section 4 and Appendix C of the manuscript).
+- **`PiP/GridIntegral.lean`**: the cell equivalence `R_M(y) >= t <-> y >= k/M` for `t in (k/M, (k+1)/M]` under strict
+  upward rounding `R_M(y) = (⌊M y⌋ + 1)/M` and the exact equality between the finite grid average and the continuous
+  interval integral of rounded records.
+- **`PiP/ExactIntegral.lean`**: the order-statistics equivalence `n_b(t) < k <-> Y_k^b < t`, the interval integral
+  identity `∫_{(x0, x1]} G_t(k) dt = H_k(x1) - H_k(x0)`, and the running count-and-sum representation
+  `H_k(x) = (c_k(x) x - s_k(x)) / |peers|` used by the `asof` step in `sql/25_pip_exact.sql`.
