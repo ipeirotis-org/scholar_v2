@@ -3316,3 +3316,77 @@ updates: none
 verdict: supported
 evidence: The draft holds one file, the archive of paper/ at ac0eae2, which contains results/ (28 result tables), COMPUTATION.md and the SQL, figure data, checks and honors scripts; the record description names the result tables and the BigQuery datasets.
 notes: The authors' own deposit. The DOI is reserved and resolves only after the authors publish the record; re-check then, and replace the file if the manuscript changes before publication. Supersedes the entry for 74000c5: the file was replaced after the Numerical evaluation paragraph was added to Section 4.
+
+## [2026-11-06T20:20Z] cite:waltman2012inconsistency — paper/manuscript_qss/main.tex:449
+claim: "PiP is not consistent in the sense of \citet{waltman2012inconsistency}: adding the same article to two authors can reverse their order, because peer standings are not linear in article counts."
+claim-hash: cc58eb29fdbf
+source: doi:10.1002/asi.21678
+version-read: preprint (arXiv:1108.3901v1)
+archived: gs://scholar-version2-literature/sources/waltman2012inconsistency--10.1002_asi.21678-42823f3e.pdf sha256:8afcd8681c22f8267eb5442a4ca26783f88c7206b05a96133294a97a369198ca
+license: unknown (treated as restricted; private store)
+updates: none
+verdict: supported
+evidence: "If two scientists achieve the same absolute performance improvement, their ranking relative to each other should remain unchanged." (sec. 3.2, Example 2, p. 7); "Scientists X and Y have both achieved exactly the same performance improvement (i.e., two publications with six citations each), but despite of this their ranking has reversed." (sec. 3.2, Example 2, p. 7)
+notes: Re-verified on 2026-11-06 after replacing the internal symbol $G_\theta$ with 'peer standings are not linear in article counts'; the attribution to this source is unchanged.
+
+## [2026-11-06T20:35Z] cite:leydesdorff2011integrated — paper/manuscript_qss/main.tex:262
+claim: "The area under this step curve is the sum of the scholar's paper percentiles ($4.40$ in Figure~\ref{fig:construction}a), which is the I3 indicator of \citet{leydesdorff2011integrated}."
+claim-hash: d89ea5bdc57e
+source: doi:10.1002/asi.21609
+version-read: preprint (arXiv:1103.5241v2)
+archived: gs://scholar-version2-literature/sources/leydesdorff2011integrated--10.1002_asi.21609-cbbd6e66.pdf sha256:b50d95eee11710072a36fbee7e64ebdb3ba5b3dcb4c2f1e3fee5e7d630892d9b
+license: unknown (treated as restricted; private store)
+updates: none
+verdict: supported
+evidence: "Using the sum total of the frequencies (f) in each percentile, however, accounts for both the size and shape of the distribution." (p. 6-7, section on percentile rank classes (I3 definition)); "The integrals in this stepwise" (p. 5, percentile rank section)
+notes: Added in Section 4.2 when illustrating the step curve of paper percentiles against raw paper rank; the attribution to this source (defining I3 as the sum of paper percentiles) is identical to the existing entry at line 769.
+
+## [2026-11-06T20:35Z] cite:bornmann2013use — paper/manuscript_qss/main.tex:433
+claim: "They are a common choice for the percentile of a single paper \citep{bornmann2013use,waltman2013percentile}, but in $g(\theta)$ they would give credit to authors with nothing above a threshold: at high thresholds most peers have no article, and an author tied with them at zero would stand at half their share."
+claim-hash: 444f3426f82b
+source: doi:10.1016/j.joi.2012.10.001
+version-read: preprint (arXiv:1211.0381v1)
+archived: gs://scholar-version2-literature/sources/bornmann2013use--10.1016_j.joi.2012.10.001-681945bb.pdf sha256:3638ced7af5747f7fcc1e34f278c7ebcee3bea58c100951823931a3eab77e27c
+license: unknown (treated as restricted; private store)
+updates: none
+verdict: supported
+evidence: "In the case of publications with the same number of citations (tied ranks), the average rank is assigned." (sec. 2)
+notes: Re-verified on 2026-11-06 after replacing 'in the standing' with 'in $g(\theta)$' for line-break tightening; the attribution to this source is unchanged.
+
+## [2026-11-06T20:35Z] cite:waltman2013percentile — paper/manuscript_qss/main.tex:433
+claim: "They are a common choice for the percentile of a single paper \citep{bornmann2013use,waltman2013percentile}, but in $g(\theta)$ they would give credit to authors with nothing above a threshold: at high thresholds most peers have no article, and an author tied with them at zero would stand at half their share."
+claim-hash: 444f3426f82b
+source: doi:10.1002/asi.22775
+version-read: preprint (arXiv:1205.0646v1)
+archived: gs://scholar-version2-literature/sources/waltman2013percentile--10.1002_asi.22775-039024e8.pdf sha256:89e4c0756f18084062345454a5ad2dc5649cf29dec145615f2f19e2844310ac7
+license: unknown (treated as restricted; private store)
+updates: none
+verdict: partially supported
+evidence: "Pudovkin and Garfield put the tied publications in a random order and calculate their average percentile." (sec. 3)
+notes: Re-verified on 2026-11-06 after replacing 'in the standing' with 'in $g(\theta)$' for line-break tightening; the attribution to this source is unchanged.
+
+## [2026-11-06T20:35Z] cite:waltman2015field — paper/manuscript_qss/main.tex:1133
+claim: "A fractional version would weight each paper by the author's share when counting papers above each threshold \citep{waltman2015field}; we have not tested it."
+claim-hash: 9d228cddd00b
+source: doi:10.1016/j.joi.2015.08.001
+version-read: preprint (arXiv:1501.04431v1)
+archived: gs://scholar-version2-literature/sources/waltman2015field--10.1016_j.joi.2015.08.001-8988ca16.pdf sha256:acc87a4b752fbf52994b18aa703b1561c84124c780e9de46a66ff8a0341fc2a6
+license: unknown (treated as restricted; private store)
+updates: none
+verdict: supported
+evidence: "In the case of fractional counting, a publication co-authored by n researchers is assigned a weight of 1/n for each researcher." (sec. 2.2)
+notes: Re-verified on 2026-11-06 after replacing the removed notation $n_a(\theta)$ with 'when counting papers above each threshold'; the attribution to this source is unchanged.
+
+## [2026-11-06T20:35Z] cite:ipeirotis2026replication — paper/manuscript_qss/main.tex:1184
+claim: "Result tables and a snapshot of the replication package are archived on Zenodo \citep{ipeirotis2026replication}."
+claim-hash: f0adc4ad5444
+source: doi:10.5281/zenodo.23987119
+version-read: unpublished Zenodo draft (deposition 23987119), read through the deposit API on 2026-11-06
+archived: not copied; the deposited file is pip-replication-package-ac0eae2.zip (md5:9be541db21bc39357e78a6dea2d7dbe7, sha256:8f1d6eaf41c23f834c888cb80903f609e1dcb5eade64a42ccd73739a34119ed0), built by paper/make_zenodo_package.sh from commit ac0eae2
+license: CC BY 4.0 (record metadata)
+accessed: 2026-11-06
+updates: none
+verdict: supported
+evidence: The draft holds one file, the archive of paper/ at ac0eae2, which contains results/ (28 result tables), COMPUTATION.md and the SQL, figure data, checks and honors scripts; the record description names the result tables and the BigQuery datasets.
+notes: Re-verified on 2026-11-06 after dropping the leading 'The' for paragraph-ending line-break tightening; the attribution to this source is unchanged.
+

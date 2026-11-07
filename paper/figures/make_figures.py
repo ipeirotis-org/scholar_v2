@@ -99,10 +99,72 @@ def fig_standing_curves():
         ax.set_xticks([0, 0.25, 0.5, 0.75, 1])
         ax.set_xticklabels(["0", ".25", ".5", ".75", "1"])
         ax.set_xlabel("Paper percentile threshold θ")
-    axes[0].set_ylabel("Standing among peers gₐ(θ)")
+    axes[0].set_ylabel("Standing among peers g(θ)")
     axes[0].text(0.25, 0.10, "θ < τ: not counted", color=INK2, fontsize=6.6, ha="center", va="bottom")
     fig.tight_layout(w_pad=1.0)
     save(fig, "fig_standing_curves")
+
+
+def fig_pip_construction():
+    # Same median author of the 1995 cohort at career age 10 as in fig_standing_curves (7 articles).
+    # Paper percentiles (top of each 1/40 class): 0.975, 0.925, 0.725, 0.625, 0.500, 0.350, 0.300.
+    ys = [0.975, 0.925, 0.725, 0.625, 0.500, 0.350, 0.300]
+    # Cohort CDF F(k) = share of eligible peers (1995 cohort, age 10) with <= k articles.
+    # F(5)=0.3630, F(6)=0.4547, F(7)=0.5315, F(12)=0.7648, F(13)=0.7920 are directly in fig3_curves.csv.
+    F = [0.0, 0.0, 0.0, 0.1100, 0.2380, 0.3630, 0.4547, 0.5315]
+    fig, (a, b) = plt.subplots(1, 2, figsize=(7.0, 2.75), facecolor=SURFACE, sharey=True)
+
+    # Panel (a): Paper percentile vs. paper rank (width = 1 per paper; area = sum of percentiles = I3)
+    clean(a, "(a) Unnormalized x-axis: paper rank\n7 articles, area (I3) = 4.40 (unbounded)")
+    for k, y in enumerate(ys, start=1):
+        a.bar(k - 1, y, width=1.0, align="edge", color=BLUE_LIGHT, edgecolor=SURFACE, linewidth=0.9, zorder=1)
+    xs_a = list(range(len(ys) + 1))
+    ys_a = ys + [0.0]
+    a.step(xs_a, ys_a, where="post", color=BLUE, linewidth=1.6, zorder=3)
+    dots(a, [k - 0.5 for k in range(1, len(ys) + 1)], ys, BLUE, ms=4.3)
+    for k, y in enumerate(ys, start=1):
+        a.text(k - 0.5, y / 2, f"#{k}", color=INK2, fontsize=6.5, ha="center", va="center", zorder=4)
+    a.annotate("equal width = 1 per paper\n(x-axis grows without bound)", xy=(7.0, 0.30), xytext=(7.5, 0.58),
+               color=INK2, fontsize=6.6, ha="left", va="center",
+               arrowprops=dict(arrowstyle="->", color=INK3, linewidth=0.7, shrinkA=2, shrinkB=2))
+    a.set_xlim(0, 12)
+    a.set_ylim(0, 1.03)
+    a.set_xticks(range(0, 13, 2))
+    a.set_yticks([0, 0.25, 0.5, 0.75, 1.0])
+    a.set_yticklabels(["0", ".25", ".5", ".75", "1"])
+    a.set_xlabel("Paper rank k (sorted from highest to lowest percentile)")
+    a.set_ylabel("Paper citation percentile")
+
+    # Panel (b): Paper percentile vs. cohort productivity percentile
+    pip_auc = sum(y * (F[k] - F[k - 1]) for k, y in enumerate(ys, start=1))
+    clean(b, f"(b) Normalized x-axis: productivity percentile\n7 articles (53rd pct.), area = {pip_auc:.2f} (bounded)")
+    for k, y in enumerate(ys, start=1):
+        w = F[k] - F[k - 1]
+        if w > 0:
+            b.bar(F[k - 1], y, width=w, align="edge", color=BLUE_LIGHT, edgecolor=SURFACE, linewidth=0.9, zorder=1)
+            b.text((F[k - 1] + F[k]) / 2, y / 2, f"#{k}", color=INK2, fontsize=6.5, ha="center", va="center", zorder=4)
+    xs_b = [F[2], F[3], F[4], F[5], F[6], F[7], F[7]]
+    ys_b = [ys[2], ys[3], ys[4], ys[5], ys[6], ys[6], 0.0]
+    b.step(xs_b, ys_b, where="post", color=BLUE, linewidth=1.6, zorder=3)
+    # Papers #1 and #2 sit at x = 0 with zero bar width; papers #3..#7 sit at the midpoints of their bars
+    dots(b, [0.0, 0.0], [ys[0], ys[1]], ORANGE, ms=4.8)
+    dots(b, [(F[k - 1] + F[k]) / 2 for k in range(3, 8)], ys[2:], BLUE, ms=4.3)
+    b.annotate("papers #1 and #2 get width 0\n(no peer has < 3 papers)", xy=(0.01, 0.95), xytext=(0.14, 0.92),
+               color=INK, fontsize=6.5, ha="left", va="center",
+               arrowprops=dict(arrowstyle="->", color=ORANGE, linewidth=0.8, shrinkA=2, shrinkB=2))
+    b.annotate("widths widen to mode (#4–#5),\nthen shrink (#6, #7, ...)", xy=(0.30, 0.50), xytext=(0.48, 0.68),
+               color=INK2, fontsize=6.5, ha="left", va="center",
+               arrowprops=dict(arrowstyle="->", color=INK3, linewidth=0.7, shrinkA=2, shrinkB=2))
+    b.annotate("stops at 0.53\n(7 papers)", xy=(F[7], 0.18), xytext=(0.64, 0.22),
+               color=INK2, fontsize=6.5, ha="left", va="center",
+               arrowprops=dict(arrowstyle="->", color=INK3, linewidth=0.7, shrinkA=2, shrinkB=2))
+    b.set_xlim(0, 1.0)
+    b.set_xticks([0, 0.25, 0.5, 0.75, 1.0])
+    b.set_xticklabels(["0", ".25", ".5", ".75", "1"])
+    b.set_xlabel("Share of peers with at most k articles (productivity percentile)")
+
+    fig.tight_layout(w_pad=1.3)
+    save(fig, "fig_pip_construction")
 
 
 def fig_paper_stability():
@@ -117,8 +179,8 @@ def fig_paper_stability():
         dots(a, xs, ys, color)
         a.annotate(label, (xs[-1], ys[-1]), xytext=off, textcoords="offset points", ha="left" if t2 == 10 else "center",
                    color=INK2, fontsize=7.2)
-    a.set_xlabel("Age of the paper t₁ (years after publication)")
-    a.set_ylabel("Correlation of percentiles at t₁ and later")
+    a.set_xlabel("Age of the paper (years after publication)")
+    a.set_ylabel("Correlation with later percentile")
     a.set_ylim(0.6, 1.0)
     a.set_xlim(0, 27)
     clean(b, "(b) By field, papers from 1985–1995", grid_axis="x")
@@ -349,6 +411,7 @@ def fig_early():
 
 if __name__ == "__main__":
     setup()
+    fig_pip_construction()
     fig_standing_curves()
     fig_paper_stability()
     fig_cohorts()
