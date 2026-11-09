@@ -5,7 +5,7 @@
 --   n_less   papers with fewer citations
 --   n_total  all papers in the reference set observable at this age
 -- so any percentile convention can be derived without recomputing:
---   Hazen with average ranks (as in v3): (n_less + 0.5 * n_equal) / n_total  -> column `hazen`
+--   Hazen with average ranks:           (n_less + 0.5 * n_equal) / n_total  -> column `hazen`
 --   share strictly below:               n_less / n_total
 --   share at or below:                  (n_less + n_equal) / n_total
 -- A paper outside the reference set (e.g. an untyped paper scored against `article`) takes the row with the

@@ -5,7 +5,7 @@
 --   cites[t]  cumulative citations through p + t
 --   below[t]  share of same-year articles with strictly fewer citations (uncited articles score 0); this is the
 --             paper's percentile y in PiP-AUC
---   hazen[t]  Hazen percentile with average ranks for ties, (n_less + n_equal / 2) / n_total, as in v3
+--   hazen[t]  Hazen percentile with average ranks for ties, (n_less + n_equal / 2) / n_total
 -- So the percentile an evaluator would have seen in year Y is below[OFFSET(Y - p)], with no information after Y.
 CREATE OR REPLACE TABLE `scholar-version2.paper_rp.article_percentiles`
 PARTITION BY RANGE_BUCKET(pub_year, GENERATE_ARRAY(1950, 2026, 1))

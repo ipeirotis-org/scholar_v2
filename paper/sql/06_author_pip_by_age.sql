@@ -16,8 +16,8 @@
 --               p(k) = share of peers with exactly k articles. pip = prod_pct * (weighted mean of y), and
 --               y_min * prod_pct <= pip <= y_max * prod_pct.
 --   pip_hazen   the same with Hazen percentiles
---   mean_below, mean_hazen  plain means of the paper percentiles; sum_hazen  their sum (the v3 S_P5 aggregation,
---               applied to current percentiles)
+--   mean_below, mean_hazen  plain means of the paper percentiles; sum_hazen  their sum (applied to current
+--               percentiles)
 -- Only peers get a row.
 {MODE_PREFIX}
 WITH

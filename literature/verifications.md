@@ -3390,3 +3390,15 @@ verdict: supported
 evidence: The draft holds one file, the archive of paper/ at ac0eae2, which contains results/ (28 result tables), COMPUTATION.md and the SQL, figure data, checks and honors scripts; the record description names the result tables and the BigQuery datasets.
 notes: Re-verified on 2026-11-06 after dropping the leading 'The' for paragraph-ending line-break tightening; the attribution to this source is unchanged.
 
+## [2026-11-08T17:02Z] cite:ipeirotis2026replication — paper/manuscript_qss/main.tex:1184
+claim: "The replication package is archived on Zenodo \citep{ipeirotis2026replication}."
+claim-hash: 2b1458432a02
+source: doi:10.5281/zenodo.23987119
+version-read: unpublished Zenodo draft (deposition 23987119), read through the deposit API on 2026-11-06
+archived: not copied; the deposited file is pip-replication-package-ac0eae2.zip (md5:9be541db21bc39357e78a6dea2d7dbe7, sha256:8f1d6eaf41c23f834c888cb80903f609e1dcb5eade64a42ccd73739a34119ed0), built by paper/make_zenodo_package.sh from commit ac0eae2
+license: CC BY 4.0 (record metadata)
+accessed: 2026-11-06
+updates: none
+verdict: supported
+evidence: The draft holds one file, the archive of paper/ at ac0eae2, which contains results/ (28 result tables), COMPUTATION.md and the SQL, figure data, checks and honors scripts; the record description names the result tables and the BigQuery datasets.
+notes: Re-verified on 2026-11-08 after replacing the GitHub repository URL with the direct Zenodo reference at the start of Data and code availability; the attribution to this source is unchanged.

@@ -1,4 +1,4 @@
--- 03: Stability of paper citation percentiles with age (S2 version of v3 Figs. 4-6).
+-- 03: Stability of paper citation percentiles with age.
 --
 -- For every article, its Hazen percentile within (field, publication year) at ages [1, 2, 3, 4, 5, 6, 8, 10, 12, 15, 20, 25, 30],
 -- then for each pair of ages t1 < t2: number of papers observed at t2, Pearson correlation of the two percentiles

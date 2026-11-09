@@ -1,9 +1,9 @@
--- 08: Stability of scholar percentiles with career age (S2 version of v3 Fig. 7), for six indicators.
+-- 08: Stability of scholar percentiles with career age, for six indicators.
 --
 -- Uses the within-cohort percentiles from 07. For each (benchmark, start year) and each pair of career ages
 -- t1 < t2 in [1, 2, 3, 4, 5, 6, 8, 10, 12, 15, 20, 25, 30]: number of authors observed at both ages, Pearson correlation of the two percentiles (= Spearman
 -- correlation of the raw metric), OLS slope, and mean absolute change.
--- Metrics: pip (step-form PiP-AUC), h (h-index), citations, sum (v3's S_P5 aggregation: sum of paper percentiles),
+-- Metrics: pip (step-form PiP-AUC), h (h-index), citations, sum (sum of paper percentiles),
 -- mean (mean paper percentile), articles (article count).
 -- Peer membership cannot be lost (article counts and h-index never decrease), so every author in a peer group at t1
 -- is in it at t2 whenever t2 is observable: no conditioning on survival.

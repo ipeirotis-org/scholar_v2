@@ -37,7 +37,7 @@ for _ in range(2000):
     worst["trap_vs_step"] = max(worst["trap_vs_step"], abs(tr - s))
 print({k: round(v, 6) if isinstance(v, float) else v for k, v in worst.items()})
 
-# Reviewer example: A = 50 papers at the 1st percentile, B = 1 paper at the 25th
+# Illustrative example: A = 50 papers at the 1st percentile, B = 1 paper at the 25th
 F = make_F()
 print("A:", round(pip_trapezoid(np.full(50, 0.01), F), 4), " B:", round(pip_trapezoid(np.array([0.25]), F), 4),
       " F(1)=", F(np.array([1]))[0], " F(50)=", round(F(np.array([50]))[0], 3))
