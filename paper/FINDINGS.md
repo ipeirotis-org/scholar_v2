@@ -3,7 +3,7 @@
 These are results on Semantic Scholar (S2) data, release 2026-10-27, with citations through 2025. Table names refer to
 the BigQuery dataset `scholar-version2.paper_rp`.
 
-## 1. Paper percentiles settle within a few years (S2 version of v3 Figs. 4–6)
+## 1. Paper percentiles settle within a few years
 
 `paper_percentile_stability` comes from `sql/03_paper_percentile_stability.sql`. It uses the `article` reference set
 and Hazen percentiles within (field, publication year) at each age. A paper of age t has its citations counted through
@@ -53,10 +53,10 @@ checking.
 | History | 0.786 | 0.730 |
 | Art | 0.753 | 0.673 |
 
-What this means for the reviewers:
+Takeaways:
 
-- **A field-specific citation window.** This answers round 1, Reviewer 2 (Wang 2013 shows the window depends on the
-  field). A window of 3 years reaches r ≈ 0.9 against age 10 in the natural and life sciences. The humanities and law
+- **A field-specific citation window.** As Wang (2013) shows, the window depends on the
+  field. A window of 3 years reaches r ≈ 0.9 against age 10 in the natural and life sciences. The humanities and law
   need about 5 years for the same level.
 - **The bias toward the middle is mild.** The OLS slope is about 0.9 in every field, so early percentiles pull only
   slightly toward the middle.
@@ -75,7 +75,7 @@ These are random-simulation checks on 2,000–5,000 cases, with cohort count dis
   widely spread percentiles. **Open decision:** the identity and the decomposition hold exactly only for the step
   form. The paper should either define PiP-AUC as the step form and switch the app, or keep the trapezoid and state
   the decomposition as approximate.
-- **Reviewers' example (round 2).** A has 50 papers at the 1st percentile; B has one paper at the 25th. A scores 0.009
+- **Illustrative example.** A has 50 papers at the 1st percentile; B has one paper at the 25th. A scores 0.009
   and B scores 0, because F(1) = 0 among active authors. Both land at the bottom instead of A outranking B.
 
 ## 3. Author-level setup (`sql/04`–`07`)
@@ -111,7 +111,7 @@ Article counts and the h-index never decrease, so once an author is a peer, they
 form at work: a paper above threshold t counts only if the author has more papers above t than some peers have in
 total. Under `active`, every third-ranked paper is cited, so every score is positive.
 
-## 4. A raw PiP score means the same thing across cohorts (answers round 3, R1, on Fig. 3)
+## 4. A raw PiP score means the same thing across cohorts
 
 PiP-AUC quantiles at career age 10, `active` peers:
 
@@ -130,12 +130,12 @@ Over the same cohorts the raw h-index at age 10 drifts up by 40%.
 
 ## 5. Scholar indicators: stability, survivorship, and what PiP measures
 
-### Stability (`author_stability`, v3 Fig. 7)
+### Stability (`author_stability`)
 
 Correlation of within-cohort percentiles between career ages, `active` peers, start years 1975–1995. Pearson on
 percentiles equals Spearman on the raw metric.
 
-| Ages | Articles | v3 sum (S_P5) | PiP-AUC | Mean paper pct. | Citations | h-index |
+| Ages | Articles | Percentile sum (I3) | PiP-AUC | Mean paper pct. | Citations | h-index |
 |---|---|---|---|---|---|---|
 | 5 vs 10 | 0.847 | 0.829 | 0.772 | 0.703 | 0.798 | 0.604 |
 | 5 vs 30 | 0.642 | 0.628 | 0.565 | 0.545 | 0.451 | 0.370 |
@@ -145,7 +145,7 @@ percentiles equals Spearman on the raw metric.
 The 5-vs-30 row covers 434K authors. PiP is more stable over long horizons than citations or the h-index, and less
 stable than the article count. Part of the h-index's low stability early on comes from heavy ties at h = 3–4.
 
-### Survivorship (`survivorship_*`, the limitation v3 promised to study)
+### Survivorship (`survivorship_*`)
 
 Population: `active` authors at age 5, start years 1980–2005, 1.13M authors. The table gives the ROC AUC for still
 publishing at ages 11–15 and 16–20.
@@ -153,7 +153,7 @@ publishing at ages 11–15 and 16–20.
 | Indicator at age 5 | Publishing at 11–15 | Publishing at 16–20 |
 |---|---|---|
 | Articles | 0.683 | 0.663 |
-| v3 sum | 0.675 | 0.655 |
+| Percentile sum (I3) | 0.675 | 0.655 |
 | PiP-AUC | 0.647 | 0.630 |
 | h-index | 0.575 | 0.565 |
 | Citations | 0.540 | 0.537 |
@@ -176,7 +176,7 @@ percentiles:
 | PiP vs h-index | 0.924 |
 | PiP vs citations | 0.717 |
 | PiP vs plain mean paper percentile | 0.131 |
-| v3 sum vs articles | 0.941 |
+| Percentile sum (I3) vs articles | 0.941 |
 | Plain mean paper percentile vs articles | −0.271 |
 
 Variance of log PiP = var(log F(n)) + var(log weighted-mean y) + 2·cov:
@@ -192,8 +192,7 @@ The weighted-mean factor is not flat: its 10th / 50th / 90th percentiles are 0.3
 
 **Takeaway, and an open decision.** On S2, PiP-AUC behaves mostly like a productivity percentile, adjusted by a
 quality factor that explains about a quarter of its log variance. It sits close to the h-index (r = 0.92) and far from
-mean quality. This bears directly on the round 3 objection that "combining quality and quantity … has not been done
-successfully". The paper should report the decomposition openly. A further option is to vary the balance, for
+mean quality. The paper should report the decomposition openly. A further option is to vary the balance, for
 example F(n)^α · W^(1−α), and test which α predicts later outcomes best.
 
 ## 6. Variant: age-matched paper percentiles (`sql/10_age_matched_paper_percentiles.sql`)
@@ -485,15 +484,13 @@ gives extra weight to the low scores.
 - **Q > 1:** 24% of the simulated authors.
 - **Consistency in the sense of Waltman & van Eck:** adding the same paper to two authors reversed their order in 0.7%
   of 3,000 pairs, against 1.3% for the current PiP.
-- **v3's synthetic careers:**
+- **Synthetic careers:**
 
   | Career | sym_τ50 | Current PiP |
   |---|---|---|
   | One top paper (99th percentile) | 0.45 | 0 |
   | One average paper | 0 | 0 |
   | 40 weak papers | 0 | 0.10 |
-
-The draft theory section is `manuscript/theory.tex`. It is not yet included in `ms.tex`.
 
 ## 11. Self-citations (`sql/00_noself_citations.sql`, `sql/run_noself.sh`; dataset `paper_rp_noself`)
 
@@ -527,7 +524,7 @@ Prediction benchmarks, with self-citations / without:
 - **Predicting future quality drops by about 0.02 for every indicator.** Part of the persistence of quality runs
   through authors citing their own work.
 - **This rules out the most mechanical Matthew-effect channel, but not reputation in general.** Other people also
-  cite well-known names, and separating that needs an external design (see `REVISION_PLAN.md`).
+  cite well-known names, and separating that needs an external design.
 
 ## 12. Fields (`sql/17_fields.sql`, `sql/18_field_normalized.sql`)
 
@@ -602,7 +599,7 @@ profile is the same-surname S2 author holding the most matched works.
 - **Confident matches:** 14,511 of 16,218 GS profiles (89%), meaning at least 5 matched works and at least 30% of the
   profile's eligible titles.
 
-### S2 author disambiguation (the reviewers' question)
+### S2 author disambiguation
 
 - **Coverage:** for the median profile, 76% of the GS works are found in S2.
 - **Concentration:** 90% of the found works sit under the main S2 ID; the other 10% are scattered across other IDs.
@@ -884,8 +881,7 @@ only.
 
 ## 18. The 40-class grid against the exact integral (`sql/25_pip_exact.sql`, `sql/run_25.sh grid`, `sql/26_grid_convergence.sql`)
 
-Both pre-submission reviews (`feedback/`) noted that the paper defines PiP as an integral but computes it on the grid
-t_j = j/40, j = 0..39, and that the property checks used a 400-point midpoint grid instead.
+The paper defines PiP as an integral and computes it on the grid t_j = j/40, j = 0..39.
 
 ### What the grid computes
 
@@ -937,7 +933,7 @@ Exact integral, career age 10:
 | 0.9 | 2010 | 0.266 | 0 | 0.116 | 0.511 | 0.769 | 41.7% |
 
 At tau = 0.9 the drift comes from authors with no article in the top 10% of its year: 6% of the 1960 cohort, 42% of the
-2000 and 2010 cohorts. This is the opposite of Review A's guess that zero ties become rarer in later cohorts.
+2000 and 2010 cohorts.
 
 ### Property checks (`checks/sym_properties.py`, both grids)
 
@@ -954,12 +950,11 @@ instead of the strict rule, an author with five articles at the 30th percentile 
 
 ## 19. What the peer comparison adds (`sql/20_percentile_baselines.sql`, `sql/21_early_detection.sql`)
 
-**How the paper reports this (authors' decision, 2026-11-05).** T_tau appears only as *PiP-simple*, a variant of PiP
+**How the paper reports this.** T_tau appears only as *PiP-simple*, a variant of PiP
 that compares the scholar with peers once instead of at every threshold, used to show what the threshold-by-threshold
-comparison contributes. It is not presented as a competing indicator. The combo mixes are not in the paper; their
-results stay here in case a referee asks.
+comparison contributes. It is not presented as a competing indicator. The combo mixes are not in the paper.
 
-Review B asked for baselines that use the same information as PiP without its threshold-by-threshold peer comparison.
+Baselines that use the same information as PiP without its threshold-by-threshold peer comparison:
 
 - **T_tau** = 1/(1-tau) sum of (y' - tau)^+, on PiP's 40 classes: the same percentiles and cutoff, no G_t inside the
   integral. tau = 0 is I3.
@@ -1008,8 +1003,8 @@ T_0.5 0.1-0.2 / 0.0 / 0.1-0.3; combo50 1.9-4.5 / 1.7-4.0 / 1.7-4.1.
 
 ## 20. Eligibility without the h-index condition (`sql/run_25.sh min3`, `sql/27_eligibility.sql`, `sql/run_21.sh min3`)
 
-Both reviews asked whether the h >= 3 condition, which uses one of the compared indicators to select the population,
-drives PiP's lead. `min3` requires three articles and nothing else; PiP is recomputed with min3 peers (production grid).
+To check whether the h >= 3 condition, which uses one of the compared indicators to select the population,
+drives PiP's lead, `min3` requires three articles and nothing else; PiP is recomputed with min3 peers (production grid).
 
 ### Share of min3 authors without an h-index of three (start years 1975-2000)
 
@@ -1029,7 +1024,7 @@ drives PiP's lead. `min3` requires three articles and nothing else; PiP is recom
 | History | 99.9% | 99% | 97% |
 | Philosophy | 99.9% | 99% | 97% |
 
-The h >= 3 rule keeps a population tilted towards the life sciences, as Review A suspected.
+The h >= 3 rule keeps a population tilted towards the life sciences.
 
 ### Same-age prediction (raw, pooled over start years 1975 .. 2010 - age)
 
@@ -1065,7 +1060,7 @@ article.
 
 ## 21. Tie rule for top-decile precision (`sql/21_early_detection.sql`)
 
-Review B asked for an explicit tie rule at the top-decile boundary, which matters most for the h-index. `precision_top10`
+An explicit tie rule at the top-decile boundary matters most for the h-index. `precision_top10`
 picks the top 10% with ties broken by a hash of the author id (one random draw); `precision_top10_frac` gives authors
 tied at the boundary the weight (slots left) / (number tied), the expected precision under random tie-breaking. The
 two differ by at most 0.0013 in any cell. The paper reports `precision_top10_frac`; the lead times are the same at one

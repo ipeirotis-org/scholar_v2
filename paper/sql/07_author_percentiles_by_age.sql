@@ -4,10 +4,10 @@
 --   pip        step-form PiP-AUC
 --   h_index    h-index from citations through the evaluation year
 --   citations  total citations through the evaluation year
---   sum_hazen  sum of the author's paper percentiles (the v3 S_P5 aggregation, on current percentiles)
---   mean_below mean paper percentile (the aggregation reviewers suggested instead of the sum)
+--   sum_hazen  sum of the author's paper percentiles (on current percentiles)
+--   mean_below mean paper percentile
 --   n_articles articles published by the evaluation year
--- so the scholar indicators of v3 (S_c, S_h, S_P5) and PiP-AUC can be compared on the same footing.
+-- so all scholar indicators can be compared on the same footing.
 -- Hazen percentile = (peers with a lower value + half the peers with the same value) / peers
 --                  = (peers + rank ascending - rank descending) / (2 * peers), which avoids partitioning by FLOAT64.
 CREATE OR REPLACE TABLE `scholar-version2.paper_rp.author_percentiles_by_age`

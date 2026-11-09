@@ -1,11 +1,11 @@
--- 09: Does an early-career indicator predict who keeps publishing? (the survivorship question in v3's limitations)
+-- 09: Does an early-career indicator predict who keeps publishing?
 --
 -- Population: authors in the 'active' peer group at career age 5, start years 1980-2005 (so age 20 is observable).
 -- Outcomes, from article counts (S2 disambiguation can split a profile, which looks like stopping):
 --   pub_11_15  published at least one article at career ages 11-15, i.e. n_articles(15) > n_articles(10)
 --   pub_16_20  published at least one article at career ages 16-20
 -- Predictors: within-cohort percentiles at age 5 (from 07) of PiP-AUC, h-index, citations, article count, mean
--- paper percentile and v3's summed paper percentiles.
+-- paper percentile and summed paper percentiles.
 -- Output 1 (`survivorship_auc`): ROC AUC of each predictor for each outcome, by 5-year start cohort and pooled,
 --   computed as the Mann-Whitney statistic with average ranks for ties.
 -- Output 2 (`survivorship_deciles`): outcome rates by predictor decile at age 5, pooled over cohorts.

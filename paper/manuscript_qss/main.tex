@@ -1178,20 +1178,19 @@ and author-curated Google Scholar profiles, and a field-normalized version remov
 advantage.
 
 A single parameter, the cutoff, moves PiP between quantity and impact. The construction needs only each scholar's
-articles, with their publication years and citations by year; \url{https://www.pip-score.org} computes the score from
-Google Scholar profiles, and the replication code computes it in a database.
+articles, with their publication years and citations by year; \url{https://www.pip-score.org} provides an interactive
+demonstration of the metric on Google Scholar profiles, and the replication code computes it at scale in a database.
 \section*{Data and code availability}
-The replication package is the \texttt{paper/} directory of \url{https://github.com/ipeirotis-org/scholar_v2}. It holds
-the SQL that builds every table, the result tables that the SQL writes, the Lean~4 and numerical checks of the
-properties in Section~\ref{sec:pip}, the data behind every figure, the plotting scripts, and the scripts and curated
-honors of Section~\ref{sec:honors}. Its \texttt{COMPUTATION.md} explains how the SQL evaluates the integral that defines
-PiP. Semantic Scholar data are available under the ODC-BY license from the Semantic Scholar Datasets API
+The replication package is archived on Zenodo \citep{ipeirotis2026replication}. It holds the SQL that builds every
+table, the result tables that the SQL writes, the Lean~4 and numerical checks of the properties in
+Section~\ref{sec:pip}, the data behind every figure, the plotting scripts, and the scripts and curated honors of
+Section~\ref{sec:honors}. Its \texttt{COMPUTATION.md} explains how the SQL evaluates the integral that defines PiP.
+Semantic Scholar data are available under the ODC-BY license from the Semantic Scholar Datasets API
 \citep{s2datasets2026}; Wikidata is available under CC0 \citep{wikidata2026}. Author-level statistics for the Google
 Scholar profiles can be downloaded from \url{https://www.pip-score.org/data}; the per-article profile data used here are
 not redistributed. The derived tables, from the article-level reconstruction to the per-author scores, are in the
 BigQuery datasets \texttt{scholar-version2.paper\_rp} and \texttt{scholar-version2.paper\_rp\_noself} (without
-self-citations), which anyone signed in to Google Cloud can query; queries are billed to the reader's own project. Result
-tables and a snapshot of the replication package are archived on Zenodo \citep{ipeirotis2026replication}.
+self-citations), which anyone signed in to Google Cloud can query; queries are billed to the reader's own project.
 
 \section*{Competing interests}
 Panos Ipeirotis developed and maintains \url{https://www.pip-score.org}, a free, non-commercial website computing
@@ -1204,9 +1203,6 @@ No specific funding was received for this work.
 Panos Ipeirotis: Conceptualization, Methodology, Software, Formal analysis, Data curation, Visualization, Supervision,
 Writing -- original draft, Writing -- review \& editing. Sen Tian: Conceptualization, Methodology, Formal analysis,
 Writing -- review \& editing.
-
-\section*{Acknowledgments}
-We thank the reviewers of an earlier version of this work for comments that shaped this one.
 
 \bibliographystyle{apalike}
 \bibliography{references}

@@ -7,7 +7,7 @@ author's record changes (the score is relative to a reference cohort).
 Checks: bounds; monotonicity when adding a paper or raising a percentile; papers below tau change nothing;
 the factorization PiP = F(n) * Q with Q possibly above 1; consistency in the sense of Waltman & van Eck (2012)
 (does adding the same paper to two authors ever reverse their order?), compared with the step-form PiP of the app;
-and the synthetic careers of v3 (one hit, one average paper, many weak papers).
+and synthetic career records (one hit, one average paper, many weak papers).
 
 Each check runs on two grids of thresholds:
   production  t_j = j/40, j = 0..39, the left Riemann sum computed by the paper's SQL (12, 15). It equals the exact
@@ -95,7 +95,7 @@ def run(label, T):
             flips[name] += (fa - fb) * (ga - gb) < 0
     print("order reversals after adding the same paper to both, out of", pairs, "pairs:", flips)
 
-    # v3's synthetic careers, scored against the same cohort; single papers near the top show the grid's resolution
+    # Synthetic career records, scored against the same cohort; single papers near the top show the grid's resolution
     cases = {
         "one top paper (99th pct)": [0.99],
         "one paper at the 97.5th pct": [0.975],
