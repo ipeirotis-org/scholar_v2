@@ -234,17 +234,20 @@ Wikipedia article, using the website's monthly copy of Wikidata.
 \label{sec:pip}
 
 A standard way to visualize a scholar's record is the citation-rank graph: papers are sorted from most to least cited,
-with raw citations on the vertical axis and paper rank ($k = 1, 2, \ldots$) on the horizontal axis. The $h$-index
-summarizes this curve by finding the largest $h \times h$ square that fits beneath it. Summarizing a record by that
-single square has two drawbacks: geometrically, it ignores both the excess citations of landmark papers above $h$ and
-all papers ranked beyond $h$; dynamically, because raw citations take years to accumulate, a recent paper sits near the
-bottom of the vertical axis until it collects at least $h$ citations, even if it already leads its publication year.
+with raw citations on the vertical axis and paper rank ($k = 1, 2, \ldots$) on the horizontal axis
+(Figure~\ref{fig:construction}a). The $h$-index summarizes this curve by finding the largest $h \times h$ square that
+fits beneath it ($h = 4$ in Figure~\ref{fig:construction}a). Summarizing a record by that single square has two
+drawbacks: geometrically, it ignores both the excess citations of landmark papers above $h$ and all papers ranked beyond
+$h$; dynamically, because raw citations take years to accumulate, a recent paper sits near the bottom of the vertical
+axis until it collects at least $h$ citations, even if it already leads its publication year (such as article \#2 in
+Figure~\ref{fig:construction}a, a recent top-10\% paper with three citations, below $h = 4$).
 
 PiP addresses both drawbacks by transforming the two axes in turn: it first normalizes the vertical axis by ranking each
-paper against papers from the same publication year, and then normalizes the horizontal comparison against peers who
-started publishing in the same year. We build the score in steps, starting from paper percentiles plotted against paper
-rank, normalizing the horizontal axis by the typical productivity of peers of the same career age, and showing how the
-limitations of that normalization motivate comparing the scholar with peers at every impact threshold.
+paper against papers from the same year, and then normalizes the horizontal comparison against peers who started in the
+same year. We build the score in steps: starting from raw citations against paper rank (Figure~\ref{fig:construction}a),
+we replace raw citations with paper percentiles (Figure~\ref{fig:construction}b), normalize the horizontal axis by the
+productivity distribution of peers of the same career age (Figure~\ref{fig:construction}c), and show how the limitations
+of that normalization motivate comparing the scholar with peers at every impact threshold.
 
 \subsection{Paper percentiles}
 Replacing raw citations on the vertical axis with citation percentiles puts papers of different ages on a common
@@ -254,45 +257,48 @@ percentile $0.90$ has more citations than 90\% of articles published in the same
 $0$. Because the comparison stays within a publication year, paper percentiles need no correction for paper age or for
 citation growth over the decades.
 
-Normalizing citations to percentiles also yields much faster convergence. Whereas raw citation counts take many years to
-build, a paper's relative standing within its publication year settles quickly: as Section~\ref{sec:paperstability}
-shows, a paper's percentile two and three years after publication already correlates at $0.85$ and $0.91$ with its
-percentile at age ten. On the percentile scale, a promising recent paper immediately rises near the top of the vertical
-axis instead of waiting years to accumulate $h$ raw citations. The main analysis pools all fields;
-Section~\ref{sec:fields} computes percentiles within fields.
+Normalizing citations to percentiles also speeds convergence. Whereas raw citation counts take years to build, a paper's
+relative standing within its publication year settles quickly: as Section~\ref{sec:paperstability} shows, a paper's
+percentile two and three years after publication already correlates at $0.85$ and $0.91$ with its percentile at age ten.
+On the percentile scale, a promising recent paper immediately rises near the top of the vertical axis instead of waiting
+years to reach $h$ citations (article \#2 rises from rank 5 in Figure~\ref{fig:construction}a to rank 2 at percentile
+$0.925$ in Figure~\ref{fig:construction}b). The main analysis pools all fields; Section~\ref{sec:fields} computes
+percentiles within fields.
 
 \subsection{From paper rank to productivity-normalized area}
 \label{sec:auc}
 With the vertical axis normalized to paper percentiles, a scholar's record can be drawn by sorting their articles from
 highest to lowest percentile and plotting paper percentile on the vertical axis against paper rank
-($k = 1, 2, 3, \ldots$) on the horizontal axis (Figure~\ref{fig:construction}a). The median scholar of the 1995 cohort at
+($k = 1, 2, 3, \ldots$) on the horizontal axis (Figure~\ref{fig:construction}b). The median scholar of the 1995 cohort at
 career age 10, for example, has seven articles: two in the top 10\% of their publication year (ranks 1 and 2), three more
 at or above the median (ranks 3 to 5), and two below the median (ranks 6 and 7). Each article forms a bar of width $1$
 and height equal to its percentile. The area under this step curve is the sum of the scholar's paper percentiles ($4.40$
-in Figure~\ref{fig:construction}a), which is the I3 indicator of \citet{leydesdorff2011integrated}. Because every
+in Figure~\ref{fig:construction}b), which is the I3 indicator of \citet{leydesdorff2011integrated}. Because every
 additional article adds another bar of width $1$, this area is unbounded: it grows without limit as a scholar publishes
 more papers, and a given sum is not comparable across career ages or across cohorts with different publication rates.
 
 \begin{figure}[t]
   \centering
   \includegraphics[width=\textwidth]{fig_pip_construction.pdf}
-  \caption{Plotting a scholar's paper citation percentiles ($y$-axis) against (a) raw paper rank and (b) the
-  productivity percentile among peers of the same career age, for the median eligible author of the 1995 cohort evaluated
-  in 2005 (career age 10; seven articles). In panel (a), each article has bar width $1$, so the shaded area equals the
-  sum of paper percentiles (I3) and grows without bound with article count. In panel (b), replacing paper rank $k$ on
-  the $x$-axis with the share of peers who have at most $k$ articles in total bounds the area in $[0, 1]$, ending at the
-  scholar's productivity percentile ($0.53$). Because bar widths follow the cohort's article-count distribution,
-  however, articles \#1 and \#2 receive width zero (no eligible peer has fewer than three articles), bar widths widen
-  toward the cohort mode (\#4--\#5), and diminishing returns appear only at higher ranks (\#6, \#7, \ldots).}
+  \caption{From the $h$-index citation-rank graph to productivity-normalized percentile area, for the median eligible
+  author of the 1995 cohort evaluated in 2005 (career age 10; seven articles, numbered \#1--\#7 by citation percentile).
+  (a) Plotting raw citations against citation rank ($h = 4$): the $h \times h$ square ignores both the excess citations
+  above $h$ on top papers (\#1, \#3, \#4, \#5) and papers ranked beyond $h$, including a recent top-10\% article (\#2,
+  three citations $< h$) and tail articles (\#6, \#7). (b) Replacing raw citations on the $y$-axis with within-year
+  citation percentiles lifts recent article \#2 to $0.925$; each article has bar width $1$, so the shaded area equals
+  the sum of paper percentiles ($\mathrm{I3} = 4.40$) and grows without bound with article count. (c) Replacing paper
+  rank $k$ on the $x$-axis with the share of peers who have at most $k$ articles in total bounds the area in $[0, 1]$,
+  ending at the scholar's productivity percentile ($0.53$), but gives articles \#1 and \#2 width zero (no eligible peer
+  has fewer than three articles) and the widest bars to middle ranks (\#4--\#5).}
   \label{fig:construction}
 \end{figure}
 
 A natural way to bound the score and adjust for career stage is to normalize the horizontal axis by the typical
 productivity of scholars of the same career age. At the time of evaluation, an author's \emph{peers} are the eligible
 authors with the same start year, the author included. Replacing raw paper rank $k$ on the horizontal axis with the share
-of peers who have at most $k$ articles in total maps both axes onto $[0, 1]$ (Figure~\ref{fig:construction}b). The curve
+of peers who have at most $k$ articles in total maps both axes onto $[0, 1]$ (Figure~\ref{fig:construction}c). The curve
 now sits inside the unit square and stops horizontally at the author's own productivity percentile ($0.53$ for the
-seven-article scholar in Figure~\ref{fig:construction}b). The area under the curve is then a bounded metric in $[0, 1]$
+seven-article scholar in Figure~\ref{fig:construction}c). The area under the curve is then a bounded metric in $[0, 1]$
 that never falls when a paper is added, equaling the curve's horizontal width (the author's productivity percentile)
 times its average height (a weighted mean of the author's paper percentiles).
 
@@ -309,7 +315,7 @@ Normalizing the horizontal axis by peers' total paper counts has three drawbacks
   increasing: at any career age past the very beginning, few peers have only one or two articles, while many cluster
   around the typical (modal) article count for that age. Among the eligible authors of a cohort, nobody has fewer than
   three articles, so an author's first and second best articles receive a bar width of zero
-  (Figure~\ref{fig:construction}b); among Google Scholar faculty profiles, the median author's top four articles receive
+  (Figure~\ref{fig:construction}c); among Google Scholar faculty profiles, the median author's top four articles receive
   none. Even past that minimum, as $k$ rises toward the cohort's modal article count, the share of peers with $k$
   articles increases, giving wider bars to the fourth and fifth articles than to the third. Because articles are ordered
   from best to worst along the horizontal axis, this normalization gives zero or narrow bars to a scholar's strongest
@@ -318,7 +324,7 @@ Normalizing the horizontal axis by peers' total paper counts has three drawbacks
   percentile gets 0.10.
   \item \emph{Comparing high-impact counts against total counts makes a quality cutoff drift across cohorts.} Read
   horizontally at any impact threshold $\theta$ on the vertical axis, the width of the shaded region in
-  Figure~\ref{fig:construction}b is the share of peers whose \emph{total} article count is at most the number of
+  Figure~\ref{fig:construction}c is the share of peers whose \emph{total} article count is at most the number of
   articles the author has at or above $\theta$. This area thus compares an author's count of articles above $\theta$
   with peers' total article counts rather than with peers' counts above $\theta$. If we apply a cutoff $\tau$ on the
   vertical axis to ignore low-impact papers, the area compares partial counts above $\tau$ with total counts that grow
@@ -343,9 +349,11 @@ Plotted across all thresholds from $\theta = 0$ to $\theta = 1$, the standings t
 $g(\theta)$ (Figure~\ref{fig:curves}). The curve runs from the author's standing on total articles at the left
 ($\theta = 0$) to their standing on top articles at the right, and need not be monotone: an author can rank higher among
 peers on top-10\% articles than on all articles. Visually, the curve rises and falls like a sawtooth. Between two of
-the author's articles (marked by ticks on the horizontal axis in Figure~\ref{fig:curves}), raising $\theta$ leaves the
-number of the author's articles above the threshold unchanged while some peers' articles drop below it, so the author's
-standing can only rise. The curve can fall only at a tick where $\theta$ passes one of the author's own articles.
+the author's articles (marked by orange triangles and labels \#7 to \#1 along the horizontal axis in
+Figure~\ref{fig:curves}), raising $\theta$ leaves the number of the author's articles above the threshold unchanged
+while some peers' articles drop below it, so the author's standing can only rise. The curve can fall only at an orange
+marker where $\theta$ passes one of the author's own articles (with taller drops where multiple articles tie at the same
+percentile, as at \#8--10 and \#2--4 for the 90th-percentile author).
 
 \begin{figure}[t]
   \centering
@@ -355,10 +363,10 @@ standing can only rise. The curve can fall only at a tick where $\theta$ passes 
   (the median author is the same as in Figure~\ref{fig:construction}). Each curve gives, at every threshold $\theta$,
   the share of the 1995 cohort's eligible authors who have fewer articles at or above percentile $\theta$ of their
   publication year. PiP is the shaded area to the right of $\tau = 0.5$, rescaled by $1/(1-\tau)$, or equivalently the
-  average height of the curve there (dashed line). The ticks on the horizontal axis mark the author's articles; the
-  curve can fall only at these ticks. The median author has seven articles, two of them in the top 10\% of their year
-  and one in the top 5\%. At thresholds from 0.85 to 0.95 this author stands above 49\% to 63\% of the peers, who have
-  fewer articles cited that highly.}
+  average height of the curve there (dashed line). Orange triangles and article labels (\#1 = highest citation
+  percentile) along the horizontal axis mark each author's articles, and solid orange vertical segments mark the
+  downward steps: the curve can fall only where $\theta$ passes one of the author's own articles (with larger drops
+  where articles tie), and climbs between articles as peers' articles drop below $\theta$.}
   \label{fig:curves}
 \end{figure}
 
@@ -394,8 +402,8 @@ summing the amount by which each article exceeds $\tau$ (divided by $1-\tau$) an
 
 \subsection{Properties}
 \label{sec:properties}
-The properties below hold for a fixed peer group that contains the author; each follows directly from the definition
-(Appendix~\ref{app:proofs}), and we also checked them numerically on simulated cohorts (code in the replication package).
+The properties below hold for a fixed peer group containing the author; each follows from the definition
+(Appendix~\ref{app:proofs}), and we checked them numerically on simulated cohorts (code in the replication package).
 
 \paragraph{Range.} $0 \le \PiP < 1$. Because the peer group includes the author, no one can have more articles than
 every peer including themselves, so the standing $g(\theta)$ is strictly below $1$ at every threshold. The score is zero
@@ -436,8 +444,8 @@ articles at the 10th percentile.
 \paragraph{Credit for the best work.} A single highly cited article adds one to the author's count at every threshold up
 to its own percentile, including high thresholds where most peers have none. Scored against the simulated cohort of
 Section~\ref{sec:auc}, which it does not join, a record of one article at the 97.5th, 99th or 99.9th percentile scores
-0.42, 0.45 or 0.47, and one at the 50th percentile scores 0; the productivity-normalized area of Figure~\ref{fig:construction}b
-gives all four records zero, and the $h$-index cannot tell them apart (all have $h = 1$).
+0.42, 0.45 or 0.47, and one at the 50th percentile scores 0; the productivity-normalized area of
+Figure~\ref{fig:construction}c gives all four records zero, and the $h$-index cannot tell them apart (all have $h = 1$).
 
 \paragraph{Ties.} The standing counts peers with strictly fewer articles. Mid-ranks instead count half of the tied
 peers. They are a common choice for the percentile of a single paper \citep{bornmann2013use,waltman2013percentile}, but
@@ -447,7 +455,7 @@ five articles all fall below the median would score 0.22 with mid-ranks instead 
 articles from earning credit through ties; its price is that the mean score of a peer group depends on how common ties
 are (Section~\ref{sec:definition}).
 
-\paragraph{Balance of volume and impact.} In the productivity-normalized area of Figure~\ref{fig:construction}b, no
+\paragraph{Balance of volume and impact.} In the productivity-normalized area of Figure~\ref{fig:construction}c, no
 author's score can exceed their percentile on total article count (the horizontal width of their curve). In PiP, by
 contrast, comparing counts at each threshold $\theta \ge \tau$ allows an author with fewer, highly cited articles to
 outrank peers with more total articles: at $\tau = 0.5$, 30--36\% of eligible authors (depending on career age) achieve

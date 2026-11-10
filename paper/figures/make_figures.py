@@ -1,5 +1,6 @@
 """Paper figures (except the tau sweep, see make_tau_sweep.py), from the CSVs written by export_figure_data.sh.
 
+  fig_pip_construction from the h-index citation-rank graph to paper percentiles and productivity-normalized area
   fig_standing_curves  the definition: standing curves of three real authors (1995 cohort, career age 10)
   fig_paper_stability  paper percentiles settle early: by age, and by field
   fig_cohorts          the distribution of PiP is stable across cohorts; the raw h-index drifts
@@ -12,6 +13,7 @@ Run: python3 paper/figures/make_figures.py   (matplotlib; Inter if installed)
 """
 import csv
 import os
+import sys
 
 import matplotlib
 matplotlib.use("Agg")
@@ -22,7 +24,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 DATA = os.path.join(HERE, "data")
 
 BLUE, ORANGE, AQUA = "#2a78d6", "#eb6834", "#1baf7a"          # reference palette slots 1-3 (validated)
-BLUE_LIGHT = "#cfe0f6"                                         # lighter step of slot 1 for bands
+BLUE_LIGHT, ORANGE_LIGHT = "#cfe0f6", "#f9d8c8"               # lighter steps of slots 1-2 for bands/fills
 INK, INK2, INK3 = "#0b0b0b", "#52514e", "#8a8984"
 GRID, SHADE, SURFACE = "#e6e5e1", "#f1f0ec", "#ffffff"
 
@@ -71,7 +73,7 @@ def short_field(name):
 
 def fig_standing_curves():
     rows = read("fig3_curves.csv")
-    fig, axes = plt.subplots(1, 3, figsize=(7.0, 2.6), facecolor=SURFACE, sharey=True)
+    fig, axes = plt.subplots(1, 3, figsize=(7.2, 2.75), facecolor=SURFACE, sharey=True)
     for ax, q, name in zip(axes, ("25", "50", "90"), ("25th-percentile", "Median", "90th-percentile")):
         pts = [r for r in rows if r["sym_tau50_quantile"] == q]
         pip, n = float(pts[0]["sym_tau50"]), int(pts[0]["n_articles"])
@@ -83,87 +85,187 @@ def fig_standing_curves():
         ax.fill_between(xs, ys, step="post", where=[x >= 0.5 for x in xs], color=BLUE_LIGHT, linewidth=0, zorder=1)
         ax.step(xs, ys, where="post", color=BLUE, linewidth=1.5, zorder=3)
         ax.hlines(pip, 0.5, 1.0, color=INK, linewidth=1.0, linestyle=(0, (3, 2)), zorder=4)
-        if q == "50":
-            ax.annotate("average height = PiP", xy=(0.80, pip), xytext=(0.56, 0.80), color=INK, fontsize=6.4,
-                        ha="left", va="center", zorder=5,
-                        arrowprops=dict(arrowstyle="-", color=INK3, linewidth=0.7, shrinkA=2, shrinkB=0))
-        # one tick per article, where the count n_a drops: its percentile rounded up to the next multiple of 1/40
+
+        # Author's articles ordered by percentile (#1 = highest); each drop in n_j occurs at theta = (j + 1) / 40.
         n_at = {int(r["j"]): int(r["n_j"]) for r in pts}
+        g_at = {int(r["j"]): float(r["g_below"]) for r in pts}
+        drops = []
         for j in range(40):
-            drop = n_at[j] - n_at.get(j + 1, 0)
-            for k in range(drop):
-                ax.plot([(j + 1) / 40] * 2, [0.0 + 0.035 * k, 0.03 + 0.035 * k], color=INK, linewidth=1.1,
-                        solid_capstyle="butt", zorder=5, clip_on=False)
+            d = n_at[j] - n_at.get(j + 1, 0)
+            if d > 0:
+                hi_rank = n_at[j]
+                lo_rank = n_at.get(j + 1, 0) + 1
+                lab = f"#{lo_rank}" if d == 1 else f"#{lo_rank}–{hi_rank}"
+                y0 = g_at[j]
+                y1 = g_at[j + 1] if j + 1 < 40 else y0
+                drops.append(((j + 1) / 40, d, lab, y0, y1))
+
+        # Label subset & y-positions so crowded high-percentile drops stay legible without overlap
+        shown_labels = {
+            "25": {"#6", "#5", "#4", "#3", "#1–2"},
+            "50": {"#7", "#6", "#5", "#4", "#3", "#2", "#1"},
+            "90": {"#13", "#8–10", "#2–4", "#1"},
+        }[q]
+        for x_p, _, lab, y0, y1 in drops:
+            ax.plot([x_p], [0.0], linestyle="none", marker="^", markersize=5.2,
+                    markerfacecolor=ORANGE, markeredgecolor="none", zorder=6, clip_on=False)
+            if y1 < y0:
+                ax.plot([x_p, x_p], [y1, y0], color=ORANGE, linewidth=2.1, solid_capstyle="butt", zorder=5)
+            has_lab = lab in shown_labels
+            stagger_hi = (q == "50" and lab in ("#6", "#1")) or (q == "90" and lab == "#1")
+            y_lab = 0.115 if stagger_hi else 0.045
+            y_dash_lo = (y_lab + 0.042) if has_lab else 0.02
+            y_dash_hi = y1 if y1 < y0 else y0
+            if y_dash_hi > y_dash_lo:
+                ax.plot([x_p, x_p], [y_dash_lo, y_dash_hi], color=ORANGE, linewidth=0.75,
+                        linestyle=(0, (2.2, 2.0)), zorder=2)
+            if has_lab:
+                dx = 0.028 if x_p <= 0.03 else (-0.024 if x_p >= 0.99 else 0.0)
+                if q == "25" and lab == "#4":
+                    dx = -0.032
+                elif q == "25" and lab == "#1–2":
+                    dx = 0.062
+                elif q == "50" and lab == "#1":
+                    dx = -0.025
+                bg = BLUE_LIGHT if x_p >= 0.5 else SHADE
+                ax.text(x_p + dx, y_lab, lab, color=ORANGE, fontsize=5.8, fontweight="semibold",
+                        ha="center", va="bottom", zorder=6,
+                        bbox=dict(facecolor=bg, edgecolor="none", pad=0.3) if stagger_hi else None)
+
+        if q == "25":
+            ax.annotate("drops at each\nauthor paper", xy=(0.37, 0.29), xytext=(0.05, 0.56), color=ORANGE,
+                        fontsize=6.2, ha="left", va="center", zorder=6,
+                        arrowprops=dict(arrowstyle="->", color=ORANGE, linewidth=0.8, shrinkA=2, shrinkB=2))
+            ax.annotate("between papers:\nrises as peers drop out", xy=(0.76, 0.31), xytext=(0.38, 0.75),
+                        color=INK2, fontsize=6.2, ha="left", va="center", zorder=6,
+                        arrowprops=dict(arrowstyle="->", color=INK3, linewidth=0.75, shrinkA=2, shrinkB=2))
+            ax.text(0.20, 0.14, "θ < τ:\nnot counted", color=INK2, fontsize=6.2, ha="center", va="bottom")
+        elif q == "50":
+            ax.annotate("papers #7–#1 mark\neach downward step", xy=(0.35, 0.43), xytext=(0.04, 0.78),
+                        color=ORANGE, fontsize=6.2, ha="left", va="center", zorder=6,
+                        arrowprops=dict(arrowstyle="->", color=ORANGE, linewidth=0.8, shrinkA=2, shrinkB=2))
+            ax.annotate("no paper in (.725, .925):\nclimbs from .24 to .63", xy=(0.85, 0.50), xytext=(0.44, 0.85),
+                        color=INK2, fontsize=6.1, ha="left", va="center", zorder=6,
+                        arrowprops=dict(arrowstyle="->", color=BLUE, linewidth=0.85, shrinkA=2, shrinkB=2))
+            ax.annotate("average height = PiP", xy=(0.67, pip), xytext=(0.43, 0.54), color=INK, fontsize=6.1,
+                        ha="left", va="center", zorder=6,
+                        arrowprops=dict(arrowstyle="->", color=INK3, linewidth=0.7, shrinkA=2, shrinkB=2))
+        elif q == "90":
+            ax.annotate("larger drops where\npapers tie (#8–10, #2–4)", xy=(0.72, 0.83), xytext=(0.035, 0.58),
+                        color=ORANGE, fontsize=6.0, ha="left", va="center", zorder=6,
+                        arrowprops=dict(arrowstyle="->", color=ORANGE, linewidth=0.8, shrinkA=2, shrinkB=2))
+
         ax.set_xlim(0, 1)
         ax.set_ylim(0, 1)
         ax.set_xticks([0, 0.25, 0.5, 0.75, 1])
         ax.set_xticklabels(["0", ".25", ".5", ".75", "1"])
         ax.set_xlabel("Paper percentile threshold θ")
     axes[0].set_ylabel("Standing among peers g(θ)")
-    axes[0].text(0.25, 0.10, "θ < τ: not counted", color=INK2, fontsize=6.6, ha="center", va="bottom")
-    fig.tight_layout(w_pad=1.0)
+    fig.tight_layout(w_pad=0.9)
     save(fig, "fig_standing_curves")
 
 
 def fig_pip_construction():
-    # Same median author of the 1995 cohort at career age 10 as in fig_standing_curves (7 articles).
+    # Same median author of the 1995 cohort at career age 10 as in fig_standing_curves (7 articles, #1-#7 by percentile).
+    # Illustrative raw citations showing h = 4 and a recent top-10% paper (#2) with only 3 < h raw citations so far.
+    raw_papers = [("#1", 22), ("#3", 11), ("#4", 8), ("#5", 6), ("#2", 3), ("#6", 2), ("#7", 1)]
     # Paper percentiles (top of each 1/40 class): 0.975, 0.925, 0.725, 0.625, 0.500, 0.350, 0.300.
     ys = [0.975, 0.925, 0.725, 0.625, 0.500, 0.350, 0.300]
     # Cohort CDF F(k) = share of eligible peers (1995 cohort, age 10) with <= k articles.
     # F(5)=0.3630, F(6)=0.4547, F(7)=0.5315, F(12)=0.7648, F(13)=0.7920 are directly in fig3_curves.csv.
     F = [0.0, 0.0, 0.0, 0.1100, 0.2380, 0.3630, 0.4547, 0.5315]
-    fig, (a, b) = plt.subplots(1, 2, figsize=(7.0, 2.75), facecolor=SURFACE, sharey=True)
+    fig, (a, b, c) = plt.subplots(1, 3, figsize=(7.2, 2.65), facecolor=SURFACE)
 
-    # Panel (a): Paper percentile vs. paper rank (width = 1 per paper; area = sum of percentiles = I3)
-    clean(a, "(a) Unnormalized x-axis: paper rank\n7 articles, area (I3) = 4.40 (unbounded)")
-    for k, y in enumerate(ys, start=1):
-        a.bar(k - 1, y, width=1.0, align="edge", color=BLUE_LIGHT, edgecolor=SURFACE, linewidth=0.9, zorder=1)
-    xs_a = list(range(len(ys) + 1))
-    ys_a = ys + [0.0]
-    a.step(xs_a, ys_a, where="post", color=BLUE, linewidth=1.6, zorder=3)
-    dots(a, [k - 0.5 for k in range(1, len(ys) + 1)], ys, BLUE, ms=4.3)
-    for k, y in enumerate(ys, start=1):
-        a.text(k - 0.5, y / 2, f"#{k}", color=INK2, fontsize=6.5, ha="center", va="center", zorder=4)
-    a.annotate("equal width = 1 per paper\n(x-axis grows without bound)", xy=(7.0, 0.30), xytext=(7.5, 0.58),
-               color=INK2, fontsize=6.6, ha="left", va="center",
-               arrowprops=dict(arrowstyle="->", color=INK3, linewidth=0.7, shrinkA=2, shrinkB=2))
-    a.set_xlim(0, 12)
-    a.set_ylim(0, 1.03)
-    a.set_xticks(range(0, 13, 2))
-    a.set_yticks([0, 0.25, 0.5, 0.75, 1.0])
-    a.set_yticklabels(["0", ".25", ".5", ".75", "1"])
-    a.set_xlabel("Paper rank k (sorted from highest to lowest percentile)")
-    a.set_ylabel("Paper citation percentile")
+    # Panel (a): Raw citation-rank graph and the h x h square (h = 4)
+    clean(a, "(a) Raw citations vs. rank\n7 articles, h-index = 4")
+    a.title.set_fontsize(7.4)
+    for k, (lab, c_val) in enumerate(raw_papers, start=1):
+        a.bar(k - 1, c_val, width=1.0, align="edge", color=BLUE_LIGHT, edgecolor=SURFACE, linewidth=0.9, zorder=1)
+    a.fill_between([0, 4], [0, 0], [4, 4], color=ORANGE_LIGHT, linewidth=0, zorder=2)
+    a.plot([0, 4, 4], [4, 4, 0], color=ORANGE, linewidth=1.4, zorder=3)
+    a.text(2.0, 2.0, "h × h\n(h = 4)", color=INK, fontsize=6.5, fontweight="semibold", ha="center", va="center", zorder=4)
+    a.step(range(len(raw_papers) + 1), [v for _, v in raw_papers] + [0], where="post", color=BLUE, linewidth=1.6, zorder=3)
+    dots(a, [k - 0.5 for k, (lab, _) in enumerate(raw_papers, start=1) if lab != "#2"],
+         [v for lab, v in raw_papers if lab != "#2"], BLUE, ms=4.2)
+    dots(a, [4.5], [3], ORANGE, ms=4.8)
+    for k, (lab, v) in enumerate(raw_papers, start=1):
+        if k <= 4:
+            a.text(k - 0.5, (4.0 + v) / 2, lab, color=INK2, fontsize=6.2, ha="center", va="center", zorder=4)
+        elif lab == "#2":
+            a.text(k - 0.5, 1.45, lab, color=ORANGE, fontsize=6.3, fontweight="semibold", ha="center", va="center", zorder=4)
+        else:
+            a.text(k - 0.5, v + 1.15, lab, color=INK2, fontsize=6.2, ha="center", va="center", zorder=4)
+    a.annotate("excess citations\nabove h ignored", xy=(1.02, 15.6), xytext=(1.8, 18.8),
+               color=INK2, fontsize=6.2, ha="left", va="center",
+               arrowprops=dict(arrowstyle="->", color=INK3, linewidth=0.75, shrinkA=2, shrinkB=2))
+    a.annotate("recent top-10% paper (#2)\nhas 3 citations (< h)", xy=(4.5, 3.3), xytext=(3.05, 10.3),
+               color=ORANGE, fontsize=6.2, ha="left", va="center",
+               arrowprops=dict(arrowstyle="->", color=ORANGE, linewidth=0.85, shrinkA=2, shrinkB=2))
+    a.set_xlim(0, 9)
+    a.set_ylim(0, 24)
+    a.set_xticks([0, 2, 4, 6, 8])
+    a.set_yticks([0, 4, 10, 15, 20])
+    a.set_xlabel("Paper rank k (by raw citations)")
+    a.set_ylabel("Raw citations")
 
-    # Panel (b): Paper percentile vs. cohort productivity percentile
+    # Panel (b): Paper percentile vs. paper rank (width = 1 per paper; area = sum of percentiles = I3)
+    clean(b, "(b) Paper percentile vs. rank\n7 articles, I3 = 4.40 (unbounded)")
+    b.title.set_fontsize(7.4)
+    for k, y in enumerate(ys, start=1):
+        b.bar(k - 1, y, width=1.0, align="edge", color=BLUE_LIGHT, edgecolor=SURFACE, linewidth=0.9, zorder=1)
+    b.step(range(len(ys) + 1), ys + [0.0], where="post", color=BLUE, linewidth=1.6, zorder=3)
+    dots(b, [k - 0.5 for k in range(1, len(ys) + 1) if k != 2], [y for k, y in enumerate(ys, start=1) if k != 2], BLUE, ms=4.2)
+    dots(b, [1.5], [ys[1]], ORANGE, ms=4.8)
+    for k, y in enumerate(ys, start=1):
+        b.text(k - 0.5, y / 2, f"#{k}", color=ORANGE if k == 2 else INK2, fontsize=6.3 if k == 2 else 6.2,
+               fontweight="semibold" if k == 2 else "normal", ha="center", va="center", zorder=4)
+    b.annotate("recent paper #2\nrises to .925", xy=(1.62, ys[1]), xytext=(3.2, 0.93),
+               color=ORANGE, fontsize=6.2, ha="left", va="center",
+               arrowprops=dict(arrowstyle="->", color=ORANGE, linewidth=0.85, shrinkA=2, shrinkB=2))
+    b.annotate("width = 1 per paper\n(unbounded x-axis)", xy=(7.0, 0.305), xytext=(4.65, 0.58),
+               color=INK2, fontsize=6.2, ha="left", va="center",
+               arrowprops=dict(arrowstyle="->", color=INK3, linewidth=0.75, shrinkA=2, shrinkB=2))
+    b.set_xlim(0, 9)
+    b.set_ylim(0, 1.03)
+    b.set_xticks([0, 2, 4, 6, 8])
+    b.set_yticks([0, 0.25, 0.5, 0.75, 1.0])
+    b.set_yticklabels(["0", ".25", ".5", ".75", "1"])
+    b.set_xlabel("Paper rank k (by percentile)")
+    b.set_ylabel("Paper citation percentile")
+
+    # Panel (c): Paper percentile vs. cohort productivity percentile
     pip_auc = sum(y * (F[k] - F[k - 1]) for k, y in enumerate(ys, start=1))
-    clean(b, f"(b) Normalized x-axis: productivity percentile\n7 articles (53rd pct.), area = {pip_auc:.2f} (bounded)")
+    clean(c, f"(c) Percentile vs. peer productivity\n7 articles (53rd pct.), area = {pip_auc:.2f}")
+    c.title.set_fontsize(7.4)
     for k, y in enumerate(ys, start=1):
         w = F[k] - F[k - 1]
         if w > 0:
-            b.bar(F[k - 1], y, width=w, align="edge", color=BLUE_LIGHT, edgecolor=SURFACE, linewidth=0.9, zorder=1)
-            b.text((F[k - 1] + F[k]) / 2, y / 2, f"#{k}", color=INK2, fontsize=6.5, ha="center", va="center", zorder=4)
-    xs_b = [F[2], F[3], F[4], F[5], F[6], F[7], F[7]]
-    ys_b = [ys[2], ys[3], ys[4], ys[5], ys[6], ys[6], 0.0]
-    b.step(xs_b, ys_b, where="post", color=BLUE, linewidth=1.6, zorder=3)
+            c.bar(F[k - 1], y, width=w, align="edge", color=BLUE_LIGHT, edgecolor=SURFACE, linewidth=0.9, zorder=1)
+            c.text((F[k - 1] + F[k]) / 2, y / 2, f"#{k}", color=INK2, fontsize=6.2, ha="center", va="center", zorder=4)
+    xs_c = [F[2], F[3], F[4], F[5], F[6], F[7], F[7]]
+    ys_c = [ys[2], ys[3], ys[4], ys[5], ys[6], ys[6], 0.0]
+    c.step(xs_c, ys_c, where="post", color=BLUE, linewidth=1.6, zorder=3)
     # Papers #1 and #2 sit at x = 0 with zero bar width; papers #3..#7 sit at the midpoints of their bars
-    dots(b, [0.0, 0.0], [ys[0], ys[1]], ORANGE, ms=4.8)
-    dots(b, [(F[k - 1] + F[k]) / 2 for k in range(3, 8)], ys[2:], BLUE, ms=4.3)
-    b.annotate("papers #1 and #2 get width 0\n(no peer has < 3 papers)", xy=(0.01, 0.95), xytext=(0.14, 0.92),
-               color=INK, fontsize=6.5, ha="left", va="center",
+    dots(c, [0.0, 0.0], [ys[0], ys[1]], ORANGE, ms=4.6, clip_on=False)
+    dots(c, [(F[k - 1] + F[k]) / 2 for k in range(3, 8)], ys[2:], BLUE, ms=4.2)
+    c.annotate("#1, #2 get width 0\n(no peer has < 3 papers)", xy=(0.02, 0.95), xytext=(0.13, 0.92),
+               color=INK, fontsize=6.2, ha="left", va="center",
                arrowprops=dict(arrowstyle="->", color=ORANGE, linewidth=0.8, shrinkA=2, shrinkB=2))
-    b.annotate("widths widen to mode (#4–#5),\nthen shrink (#6, #7, ...)", xy=(0.30, 0.50), xytext=(0.48, 0.68),
-               color=INK2, fontsize=6.5, ha="left", va="center",
-               arrowprops=dict(arrowstyle="->", color=INK3, linewidth=0.7, shrinkA=2, shrinkB=2))
-    b.annotate("stops at 0.53\n(7 papers)", xy=(F[7], 0.18), xytext=(0.64, 0.22),
-               color=INK2, fontsize=6.5, ha="left", va="center",
-               arrowprops=dict(arrowstyle="->", color=INK3, linewidth=0.7, shrinkA=2, shrinkB=2))
-    b.set_xlim(0, 1.0)
-    b.set_xticks([0, 0.25, 0.5, 0.75, 1.0])
-    b.set_xticklabels(["0", ".25", ".5", ".75", "1"])
-    b.set_xlabel("Share of peers with at most k articles (productivity percentile)")
+    c.annotate("widest at mode\n(#4–#5)", xy=(0.31, 0.50), xytext=(0.48, 0.65),
+               color=INK2, fontsize=6.2, ha="left", va="center",
+               arrowprops=dict(arrowstyle="->", color=INK3, linewidth=0.75, shrinkA=2, shrinkB=2))
+    c.annotate("stops at 0.53", xy=(F[7], 0.18), xytext=(0.60, 0.18),
+               color=INK2, fontsize=6.2, ha="left", va="center",
+               arrowprops=dict(arrowstyle="->", color=INK3, linewidth=0.75, shrinkA=2, shrinkB=2))
+    c.set_xlim(0, 1.0)
+    c.set_ylim(0, 1.03)
+    c.set_xticks([0, 0.25, 0.5, 0.75, 1.0])
+    c.set_xticklabels(["0", ".25", ".5", ".75", "1"])
+    c.set_yticks([0, 0.25, 0.5, 0.75, 1.0])
+    c.set_yticklabels([])
+    c.set_xlabel("Productivity percentile (≤ k articles)")
 
-    fig.tight_layout(w_pad=1.3)
+    fig.tight_layout(rect=(0, 0, 0.988, 1), w_pad=0.9)
     save(fig, "fig_pip_construction")
 
 
@@ -411,11 +513,10 @@ def fig_early():
 
 if __name__ == "__main__":
     setup()
-    fig_pip_construction()
-    fig_standing_curves()
-    fig_paper_stability()
-    fig_cohorts()
-    fig_prediction()
-    fig_fields()
-    fig_frontier()
-    fig_early()
+    all_figs = [fig_pip_construction, fig_standing_curves, fig_paper_stability, fig_cohorts,
+                fig_prediction, fig_fields, fig_frontier, fig_early]
+    only = set(sys.argv[1:])
+    for fn in all_figs:
+        if not only or fn.__name__ in only:
+            fn()
+
