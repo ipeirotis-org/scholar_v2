@@ -447,18 +447,13 @@ five articles all fall below the median would score 0.22 with mid-ranks instead 
 articles from earning credit through ties; its price is that the mean score of a peer group depends on how common ties
 are (Section~\ref{sec:definition}).
 
-\paragraph{Balance of volume and impact.} Dividing an author's PiP score by their productivity percentile (the share of
-peers with at most as many total articles) gives an \emph{impact multiplier}, which compares the author's average
-standing above the cutoff with their percentile on total volume. At $\tau = 0.5$, this multiplier exceeds one for
-30--36\% of eligible authors, depending on career age. Across eligible authors with a positive score who started in
-1975--2005, at career ages 5, 10 and 20, decomposing the variance of $\log\PiP$ attributes 74--82\% to the log impact
-multiplier and about 30\% to the log productivity percentile (with a small negative covariance of $-0.04$ to $-0.11$).
-Most of the variation in PiP across authors thus comes from impact rather than total article count, reversing the
-imbalance of the productivity-normalized area in Section~\ref{sec:auc}.
-
-\paragraph{Consistency.} PiP is not consistent in the sense of \citet{waltman2012inconsistency}: adding the same
-article to two authors can reverse their order, because peer standings are not linear in article counts. In simulation,
-this happened in 0.7\% of 3,000 random pairs. The $h$-index shares the property.
+\paragraph{Balance of volume and impact.} In the productivity-normalized area of Figure~\ref{fig:construction}b, no
+author's score can exceed their percentile on total article count (the horizontal width of their curve). In PiP, by
+contrast, comparing counts at each threshold $\theta \ge \tau$ allows an author with fewer, highly cited articles to
+outrank peers with more total articles: at $\tau = 0.5$, 30--36\% of eligible authors (depending on career age) achieve
+a PiP score above their total-article percentile. At career age 10, whereas the productivity-normalized area correlates
+0.90 with total article count and 0.13 with mean paper percentile, PiP ($\tau = 0.5$) balances the two, correlating 0.64
+with total article count, 0.60 with top-2.5\% article count and 0.47 with mean paper percentile (Section~\ref{sec:tau}).
 
 \subsection{Relation to other indicators}
 \label{sec:relation}
