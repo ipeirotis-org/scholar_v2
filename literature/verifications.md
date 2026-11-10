@@ -3415,3 +3415,64 @@ updates: none
 verdict: supported
 evidence: The draft holds one file, the archive of paper/ at f416122, which contains results/ (28 result tables), lean/, COMPUTATION.md and the SQL, figure data, checks and honors scripts; the record title and description match the final QSS manuscript and name the result tables and BigQuery datasets.
 notes: Supersedes the entry for ac0eae2 after replacing the deposited archive and updating the Zenodo draft metadata from commit f416122.
+
+## [2026-11-10T05:01Z] cite:egghe2006theory — paper/manuscript_qss/main.tex:143
+claim: "The $g$-index \citep{egghe2006theory} credits citations above the corner; age-adjusted variants divide by career length or discount older papers \citep{hirsch2005index,sidiropoulos2007generalized,harzing2014hia}; and \citet{kaur2013universality} rescale the $h$-index by the field average."
+claim-hash: dcf9d3ae8baf
+source: doi:10.1007/s11192-006-0144-7
+version-read: version of record (author-supplied copy, identity checked against the registrar record)
+archived: gs://scholar-version2-literature/sources/egghe2006theory--10.1007_s11192-006-0144-7-c5ffc342--author-supplied.pdf sha256:6cbee1f21ba0279b2b76d5d8692a0c7a29e6a9be859436fceaa88adbc747b72d
+license: restricted — author-supplied copy, private store
+updates: none
+verdict: supported
+evidence: "the g-index is the (unique) largest number such that the top g articles received (together) at least g2 citations" (abstract); "it is insensitive to one or several outstandingly highly cited papers" (sec. 1, on the h-index)
+notes: Re-verified on 2026-11-10 against the same archived passage after commit ee56397 tightened the middle clause to 'age-adjusted variants divide by career length or discount older papers': the wording tightened, the attribution to this source did not change.
+
+## [2026-11-10T05:01Z] cite:hirsch2005index — paper/manuscript_qss/main.tex:143
+claim: "The $g$-index \citep{egghe2006theory} credits citations above the corner; age-adjusted variants divide by career length or discount older papers \citep{hirsch2005index,sidiropoulos2007generalized,harzing2014hia}; and \citet{kaur2013universality} rescale the $h$-index by the field average."
+claim-hash: dcf9d3ae8baf
+source: doi:10.1073/pnas.0507655102
+version-read: preprint (arXiv:physics/0508025v5)
+archived: gs://scholar-version2-literature/sources/hirsch2005index--10.1073_pnas.0507655102-f28ddc65.pdf sha256:ad20b4b792bde68eba06d00b944b47532aa26adefdabbabf6a649fa984481b96
+license: unknown (treated as restricted; private store)
+updates: none
+verdict: supported
+evidence: "of h versus n, the parameter m, should provide a useful yardstick to compare scientists of different seniority." (p. 3, after Eq. (6))
+notes: Re-verified on 2026-11-10 against the same archived passage after commit ee56397 tightened the middle clause to 'age-adjusted variants divide by career length or discount older papers': the wording tightened, the attribution to this source did not change.
+
+## [2026-11-10T05:01Z] cite:sidiropoulos2007generalized — paper/manuscript_qss/main.tex:143
+claim: "The $g$-index \citep{egghe2006theory} credits citations above the corner; age-adjusted variants divide by career length or discount older papers \citep{hirsch2005index,sidiropoulos2007generalized,harzing2014hia}; and \citet{kaur2013universality} rescale the $h$-index by the field average."
+claim-hash: dcf9d3ae8baf
+source: doi:10.1007/s11192-007-1722-z
+version-read: preprint (arXiv:cs/0607066v1)
+archived: gs://scholar-version2-literature/sources/sidiropoulos2007generalized--10.1007_s11192-007-1722-z-93dc68b1.pdf sha256:926776aa9e2f6d8a4f93cf91421b1c18070eba8be4192c44955d37ef2b6de9dc
+license: unknown (treated as restricted; private store)
+updates: none
+verdict: supported
+evidence: "This way, an old article gradually loses its “value”, even if it still gets citations." (p. 4, The contemporary h-index (after Eq. 2)); "If we set δ=1, then S c (i) is the number of citations that the article i has received, divided by the “age” of the article." (p. 4, The contemporary h-index (after Eq. 2))
+notes: Re-verified on 2026-11-10 against the same archived passage after commit ee56397 tightened the middle clause to 'age-adjusted variants divide by career length or discount older papers': the wording tightened, the attribution to this source did not change.
+
+## [2026-11-10T05:01Z] cite:harzing2014hia — paper/manuscript_qss/main.tex:143
+claim: "The $g$-index \citep{egghe2006theory} credits citations above the corner; age-adjusted variants divide by career length or discount older papers \citep{hirsch2005index,sidiropoulos2007generalized,harzing2014hia}; and \citet{kaur2013universality} rescale the $h$-index by the field average."
+claim-hash: dcf9d3ae8baf
+source: doi:10.1007/s11192-013-1208-0
+version-read: accepted manuscript (author version, December 2013)
+archived: gs://scholar-version2-literature/sources/harzing2014hia--10.1007_s11192-013-1208-0-17a20b4c.pdf sha256:c9490f3f542009fd086dc526c1de10836280b53afbf58252d29aafc5cdd44f1d
+license: unknown (treated as restricted; private store)
+updates: none
+verdict: supported
+evidence: "We therefore follow Hirsch’s original suggestion to correct for career length by dividing the h‐index by the number of years an academic has been publishing." (p. 5); "the hIa‐index is thus calculated by dividing Harzing’s Publish or Perish hI‐norm (Harzing, 2007) by the number of years that an academic has been publishing" (p. 5)
+notes: Re-verified on 2026-11-10 against the same archived passage after commit ee56397 tightened the middle clause to 'age-adjusted variants divide by career length or discount older papers': the wording tightened, the attribution to this source did not change.
+
+## [2026-11-10T05:01Z] cite:kaur2013universality — paper/manuscript_qss/main.tex:143
+claim: "The $g$-index \citep{egghe2006theory} credits citations above the corner; age-adjusted variants divide by career length or discount older papers \citep{hirsch2005index,sidiropoulos2007generalized,harzing2014hia}; and \citet{kaur2013universality} rescale the $h$-index by the field average."
+claim-hash: dcf9d3ae8baf
+source: doi:10.1016/j.joi.2013.09.002
+version-read: preprint (arXiv:1305.6339v2)
+archived: gs://scholar-version2-literature/sources/kaur2013universality--10.1016_j.joi.2013.09.002-74fa8e45.pdf sha256:784a714cf7633ff9623c1b53b56491fb53fa5b7d0ab70b1592b7b50a29317267
+license: unknown (treated as restricted; private store)
+updates: none
+verdict: supported
+evidence: "hs index is proposed here as a normalization of the h index by the average h of the authors in the same discipline." (sec. 2, metric definitions (hs index))
+notes: Re-verified on 2026-11-10 against the same archived passage after commit ee56397 tightened the middle clause to 'age-adjusted variants divide by career length or discount older papers': the wording tightened, the attribution to this source did not change.
+

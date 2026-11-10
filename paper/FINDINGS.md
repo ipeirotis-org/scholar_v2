@@ -27,7 +27,7 @@ mid-ranks.
 
 ### Stability over cohorts
 
-r(3, 10) is between 0.875 and 0.910 for every cohort from 1960 to 1995. For the 5-against-30 comparison, r is between
+r(3, 10) is between 0.875 and 0.912 for every publication year from 1960 to 1995 (0.875 to 0.910 across 5-year cohorts). For the 5-against-30 comparison, r is between
 0.880 and 0.905.
 
 The early ages have become more informative over time. r(1, 10) was 0.72 for cohorts before 1995, 0.76 in 2000, 0.79

@@ -22,7 +22,7 @@ def pip_trapezoid(y, F):  # mirrors stats_author_pip_scores_current.sql
 
 def pip_threshold(y, F, grid=20001):
     t = np.linspace(0, 1, grid); n_t = (np.asarray(y)[None, :] >= t[:, None]).sum(1)
-    return float(np.trapezoid(F(n_t), t))
+    return float(getattr(np, "trapezoid", getattr(np, "trapz", None))(F(n_t), t))
 
 worst = dict(identity=0, bound=0, step_drop=0, trap_drop=0, trap_vs_step=0)
 for _ in range(2000):

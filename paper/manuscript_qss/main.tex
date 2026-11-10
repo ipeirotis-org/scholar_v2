@@ -513,7 +513,7 @@ towards the middle. Individual papers still move: between ages 3 and 10 a paper'
 points (0.086) on average.
 
 The agreement between ages 3 and 10 holds in every publication year from 1960 to 1995: the correlation lies between
-0.875 and 0.910. Early percentiles have also become more informative: the correlation between ages 1 and 10 was 0.72
+0.875 and 0.912. Early percentiles have also become more informative: the correlation between ages 1 and 10 was 0.72
 for publication years 1980--1995 and 0.83 for 2015.
 
 \begin{table}[t]
@@ -634,8 +634,8 @@ Committees compare people who started in different years, and indicators are oft
 A fixed rule treats every start year alike only if the indicator's distribution does not change with the start year.
 Figure~\ref{fig:cohorts} shows the distributions of PiP and the raw $h$-index at career age 10 for every start year
 from 1960 to 2015. The cohorts grow nearly a hundredfold, from 4,031 eligible authors in 1960 to 392,360 in 2015. The
-PiP distribution changes little: the mean goes from 0.44 to 0.42, the lower quartile from 0.20 to 0.16, the upper
-quartile stays at 0.66--0.67 and the 90th percentile at 0.85. Over the same cohorts the mean $h$-index at age 10 rises
+PiP distribution changes little: the mean goes from 0.44 to 0.42, the lower quartile from 0.20 to 0.17, the upper
+quartile from 0.67 to 0.66 and the 90th percentile stays at 0.85. Over the same cohorts the mean $h$-index at age 10 rises
 by 40\%, from 4.4 in the 1960 cohort to 6.2 in 2010 (6.1 in 2015), and its 90th percentile from 7 to 11, following the
 growth of publication and citation rates.
 
@@ -884,7 +884,7 @@ PiP is the most accurate indicator at every measurement age on all three measure
 precision and the AUC for a future top-1\% paper; Table~\ref{tab:early}, lead times on all three). At career age 3,
 the top 10\% of a cohort by PiP contains 21\% future stars, twice the chance rate, against 18\% for the $h$-index; at
 age 5 the shares are 30\% and 25\%, and at age 10, 49\% and 42\%. The AUC for a future top-1\% paper is 0.63 against
-0.56 at age 3 and 0.71 against 0.66 at age 5.
+0.56 at age 3 and 0.70 against 0.66 at age 5.
 
 Because every indicator improves with age, the gaps translate into time (Table~\ref{tab:early}): across the three
 measures, PiP reaches the $h$-index's age-10 accuracy 1.6 to 1.9 years earlier (1.6 to 1.8 on the two measures for
@@ -1001,7 +1001,7 @@ fields. For the first, we assign each author a main field, the most frequent amo
 (an article with several fields counts in full for each), and repeat the analyses by field. Fifteen fields have at
 least 3,000 eligible authors with start years 1975--2000. In every one, PiP predicts better than the $h$-index on all
 three outcomes (future top-10\% count / top-1\% AUC / future mean percentile): for example, in economics PiP reaches
-0.39 / 0.74 / 0.27 against 0.31 / 0.67 / 0.17 for the $h$-index, and in mathematics 0.38 / 0.75 / 0.28 against
+0.39 / 0.74 / 0.27 against 0.31 / 0.66 / 0.17 for the $h$-index, and in mathematics 0.38 / 0.75 / 0.28 against
 0.29 / 0.68 / 0.19.
 
 Pooled paper percentiles favor fields with high citation rates. A field-neutral score would put 10\% of each field's
@@ -1355,7 +1355,7 @@ transitivity gives $n_b(\theta_2) < n_a(\theta_2)$, so $g_a(\theta_1) \le g_a(\t
 \emph{Let $a \in \Peers$, and let $n, n' : \Peers \times \{1, \dots, K\} \to \mathbb{N}_0$ be two qualifying-count
 profiles such that $n'_{b,k} = n_{b,k}$ for every peer $b \ne a$ and $n'_{a,k} \ge n_{a,k}$ for every threshold $k \in
 \{1, \dots, K\}$. Recomputing standings within the updated cohort $\Peers$ (with $a$ included in $\Peers$ under both
-profiles) gives $g'_a(t_k) \ge g_a(t_k)$ for all $k$ and $S'(a) \ge S(a)$. Consequently, with peers' article percentiles
+profiles) gives $g'_a(t_k) \ge g_a(t_k)$ for all $k$ and $S'(a) \ge S(a)$. Thus, with peers' article percentiles
 and the focal author's other article percentiles held fixed:}
 \begin{enumerate}
   \item[(i)] \emph{adding an article with assigned percentile $y$ to author $a$ cannot lower $S(a)$ or $\PiP_\tau(a)$;}
@@ -1429,7 +1429,7 @@ qualifies throughout $(\tau, (q+1)/M]$. \hfill$\square$
 \paragraph{Proposition C.5 (Exact integration via order statistics).}
 \emph{For each peer $b \in \Peers$, sort $b$'s article percentiles in non-increasing order $y_{b,(1)} \ge y_{b,(2)} \ge
 \cdots \ge y_{b,(n_b(0))}$ and set $y_{b,(k)} = 0$ for $k > n_b(0)$. Then for every integer $k \ge 1$ and threshold
-$\theta > 0$, $n_b(\theta) < k$ if and only if $y_{b,(k)} < \theta$. Consequently, on any interval $(x_0, x_1] \subseteq
+$\theta > 0$, $n_b(\theta) < k$ if and only if $y_{b,(k)} < \theta$. Therefore, on any interval $(x_0, x_1] \subseteq
 [\tau, 1]$ with $0 \le x_0 \le x_1$ on which the focal author has constant count $n_a(\theta) = k \ge 1$,}
 \begin{equation}
   \int_{x_0}^{x_1} g_a(\theta)\, d\theta = H_k(x_1) - H_k(x_0),
