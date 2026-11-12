@@ -304,10 +304,10 @@ times its average height (a weighted mean of the author's paper percentiles).
 
 Normalizing the horizontal axis by peers' total paper counts has three drawbacks:
 \begin{enumerate}
-  \item \emph{The area depends heavily on paper count and much less on quality.} Because the curve stops on the
-  horizontal axis at the scholar's productivity percentile, total article count governs how much of the unit square can
-  be filled. Across our cohorts, the productivity percentile accounts for 59--77\% of the variance of the log area,
-  while the average height accounts for only about a quarter.
+  \item \emph{The area is capped by total paper count and depends much less on quality.} Because the curve stops on the
+  horizontal axis at the scholar's productivity percentile and has height at most $1$, the area can never exceed the
+  scholar's percentile on total article count, however cited their papers are. At career age 10, it correlates $0.90$
+  with total article count and only $0.13$ with mean paper percentile.
   \item \emph{Bar widths on the horizontal axis are unequal, and early on they increase rather than decrease.} On the
   normalized horizontal axis, the width of the $k$-th article's bar is the share of peers of that career age who have
   \emph{exactly} $k$ articles in total. At high article counts, the right tail of the article-count distribution
@@ -1156,8 +1156,6 @@ three years, at the cost of ignoring the most recent work.
   different records.
   \item \emph{Reference set.} Each paper's reference set depends on Semantic Scholar's publication types, which are
   incomplete; untyped records are excluded from the reference sets, the paper counts and the $h$-index.
-  \item \emph{Consistency.} Like the $h$-index, PiP is not consistent in the sense of \citet{waltman2012inconsistency}:
-  adding the same article to two authors can reverse their order, though rarely in simulation.
 \end{itemize}
 
 \paragraph{Responsible use.} PiP is meant to inform comparisons among scholars at a similar career stage, alongside
