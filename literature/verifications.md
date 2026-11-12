@@ -3487,3 +3487,16 @@ updates: none
 verdict: supported
 evidence: "Using the sum total of the frequencies (f) in each percentile, however, accounts for both the size and shape of the distribution." (p. 6-7, section on percentile rank classes (I3 definition)); "The integrals in this stepwise" (p. 5, percentile rank section)
 notes: Re-verified on 2026-11-10 against the same archived passage after adding the h-index panel (a) to Figure 1 shifted the paper-percentile step curve to panel (b) ('Figure~\ref{fig:construction}a' -> 'Figure~\ref{fig:construction}b'); the attribution to this source is unchanged.
+
+## [2026-11-12T19:32Z] cite:ipeirotis2026replication — paper/manuscript_qss/main.tex:1185
+claim: "The replication package is archived on Zenodo \citep{ipeirotis2026replication}."
+claim-hash: 2b1458432a02
+source: doi:10.5281/zenodo.23987119
+version-read: unpublished Zenodo draft (deposition 23987119), read through the deposit API on 2026-11-12
+archived: not copied; the deposited file is pip-replication-package-ab73527.zip (md5:1e2a17c19ca524c887495ef1c155d0a3, sha256:32e063a3c297da1dca39bf2edf16ac91aefd2054bf261ec8ca47d0f22a089359), built by paper/make_zenodo_package.sh from commit ab73527
+license: CC BY 4.0 (record metadata)
+accessed: 2026-11-12
+updates: none
+verdict: supported
+evidence: The draft holds one file, the archive of paper/ at ab73527, which contains results/ (28 result tables), lean/, COMPUTATION.md and the SQL, figure data, checks and honors scripts; the record title and description match the final QSS manuscript and name the result tables and BigQuery datasets.
+notes: Supersedes the entry for f416122 after replacing the deposited archive and updating the Zenodo draft metadata from commit ab73527 (following PRs #194–#198).
