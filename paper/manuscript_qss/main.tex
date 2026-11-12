@@ -235,12 +235,12 @@ Wikipedia article, using the website's monthly copy of Wikidata.
 
 A standard way to visualize a scholar's record is the citation-rank graph: papers are sorted from most to least cited,
 with raw citations on the vertical axis and paper rank ($k = 1, 2, \ldots$) on the horizontal axis
-(Figure~\ref{fig:construction}a). The $h$-index summarizes this curve by finding the largest $h \times h$ square that
-fits beneath it ($h = 4$ in Figure~\ref{fig:construction}a). Summarizing a record by that single square has two
-drawbacks: geometrically, it ignores both the excess citations of landmark papers above $h$ and all papers ranked beyond
-$h$; dynamically, because raw citations take years to accumulate, a recent paper sits near the bottom of the vertical
-axis until it collects at least $h$ citations, even if it already leads its publication year (such as article \#2 in
-Figure~\ref{fig:construction}a, a recent top-10\% paper with three citations, below $h = 4$).
+(illustrated in Figure~\ref{fig:construction}a). The $h$-index summarizes this curve by the largest $h \times h$ square
+beneath it ($h = 4$ in Figure~\ref{fig:construction}a). Summarizing a record by that single square has two drawbacks:
+geometrically, it ignores both the excess citations of landmark papers above $h$ and all papers ranked beyond $h$;
+dynamically, because raw citations take years to accumulate, a recent paper sits near the bottom of the vertical axis
+until it collects at least $h$ citations, even if it already leads its publication year (illustrated by article \#2 in
+Figure~\ref{fig:construction}a, a hypothetical recent top-10\% paper with three citations, below $h = 4$).
 
 PiP addresses both drawbacks by transforming the two axes in turn: it first normalizes the vertical axis by ranking each
 paper against papers from the same year, and then normalizes the horizontal comparison against peers who started in the
@@ -261,8 +261,8 @@ Normalizing citations to percentiles also speeds convergence. Whereas raw citati
 relative standing within its publication year settles quickly: as Section~\ref{sec:paperstability} shows, a paper's
 percentile two and three years after publication already correlates at $0.85$ and $0.91$ with its percentile at age ten.
 On the percentile scale, a promising recent paper immediately rises near the top of the vertical axis instead of waiting
-years to reach $h$ citations (article \#2 rises from rank 5 in Figure~\ref{fig:construction}a to rank 2 at percentile
-$0.925$ in Figure~\ref{fig:construction}b). The main analysis pools all fields; Section~\ref{sec:fields} computes
+years to reach $h$ citations (illustrated by article \#2 rising from rank 5 in Figure~\ref{fig:construction}a to rank 2
+at $0.925$ in Figure~\ref{fig:construction}b). The main analysis pools fields; Section~\ref{sec:fields} computes
 percentiles within fields.
 
 \subsection{From paper rank to productivity-normalized area}
@@ -280,16 +280,16 @@ more papers, and a given sum is not comparable across career ages or across coho
 \begin{figure}[t]
   \centering
   \includegraphics[width=\textwidth]{fig_pip_construction.pdf}
-  \caption{From the $h$-index citation-rank graph to productivity-normalized percentile area, for the median eligible
-  author of the 1995 cohort evaluated in 2005 (career age 10; seven articles, numbered \#1--\#7 by citation percentile).
-  (a) Plotting raw citations against citation rank ($h = 4$): the $h \times h$ square ignores both the excess citations
-  above $h$ on top papers (\#1, \#3, \#4, \#5) and papers ranked beyond $h$, including a recent top-10\% article (\#2,
-  three citations $< h$) and tail articles (\#6, \#7). (b) Replacing raw citations on the $y$-axis with within-year
-  citation percentiles lifts recent article \#2 to $0.925$; each article has bar width $1$, so the shaded area equals
-  the sum of paper percentiles ($\mathrm{I3} = 4.40$) and grows without bound with article count. (c) Replacing paper
-  rank $k$ on the $x$-axis with the share of peers who have at most $k$ articles in total bounds the area in $[0, 1]$,
-  ending at the scholar's productivity percentile ($0.53$), but gives articles \#1 and \#2 width zero (no eligible peer
-  has fewer than three articles) and the widest bars to middle ranks (\#4--\#5).}
+  \caption{From the $h$-index citation-rank graph to productivity-normalized percentile area, based on the seven-article
+  percentile profile of the median eligible author of the 1995 cohort in 2005 (career age 10; articles \#1--\#7 ordered
+  by citation percentile). (a) Illustrative raw citations and publication recency against citation rank ($h = 4$): the
+  $h \times h$ square ignores excess citations above $h$ (\#1, \#3, \#4, \#5) and papers ranked beyond $h$, including a
+  hypothetical recent top-10\% paper (\#2, three citations $< h$) and tail articles (\#6, \#7). (b) Observed within-year
+  citation percentiles against paper rank lift article \#2 to $0.925$; each bar has width $1$, so the area equals the
+  sum of paper percentiles ($\mathrm{I3} = 4.40$, unbounded). (c) Replacing paper rank $k$ with the share of peers having
+  at most $k$ articles bounds the area in $[0, 1]$, ending at the scholar's productivity percentile ($0.53$), but gives
+  articles \#1 and \#2 width zero (no eligible peer has fewer than three articles) and the widest bars to middle ranks
+  (\#4--\#5).}
   \label{fig:construction}
 \end{figure}
 

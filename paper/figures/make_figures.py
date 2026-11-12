@@ -177,7 +177,7 @@ def fig_pip_construction():
     fig, (a, b, c) = plt.subplots(1, 3, figsize=(7.2, 2.65), facecolor=SURFACE)
 
     # Panel (a): Raw citation-rank graph and the h x h square (h = 4)
-    clean(a, "(a) Raw citations vs. rank\n7 articles, h-index = 4")
+    clean(a, "(a) Illustrative citations vs. rank\n7 articles, h-index = 4")
     a.title.set_fontsize(7.4)
     for k, (lab, c_val) in enumerate(raw_papers, start=1):
         a.bar(k - 1, c_val, width=1.0, align="edge", color=BLUE_LIGHT, edgecolor=SURFACE, linewidth=0.9, zorder=1)
@@ -219,7 +219,7 @@ def fig_pip_construction():
     for k, y in enumerate(ys, start=1):
         b.text(k - 0.5, y / 2, f"#{k}", color=ORANGE if k == 2 else INK2, fontsize=6.3 if k == 2 else 6.2,
                fontweight="semibold" if k == 2 else "normal", ha="center", va="center", zorder=4)
-    b.annotate("recent paper #2\nrises to .925", xy=(1.62, ys[1]), xytext=(3.2, 0.93),
+    b.annotate("paper #2\nrises to .925", xy=(1.62, ys[1]), xytext=(3.2, 0.93),
                color=ORANGE, fontsize=6.2, ha="left", va="center",
                arrowprops=dict(arrowstyle="->", color=ORANGE, linewidth=0.85, shrinkA=2, shrinkB=2))
     b.annotate("width = 1 per paper\n(unbounded x-axis)", xy=(7.0, 0.305), xytext=(4.65, 0.58),
