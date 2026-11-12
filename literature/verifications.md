@@ -3476,3 +3476,14 @@ verdict: supported
 evidence: "hs index is proposed here as a normalization of the h index by the average h of the authors in the same discipline." (sec. 2, metric definitions (hs index))
 notes: Re-verified on 2026-11-10 against the same archived passage after commit ee56397 tightened the middle clause to 'age-adjusted variants divide by career length or discount older papers': the wording tightened, the attribution to this source did not change.
 
+## [2026-11-10T22:30Z] cite:leydesdorff2011integrated — paper/manuscript_qss/main.tex:276
+claim: "The area under this step curve is the sum of the scholar's paper percentiles ($4.40$ in Figure~\ref{fig:construction}b), which is the I3 indicator of \citet{leydesdorff2011integrated}."
+claim-hash: b68670a36de7
+source: doi:10.1002/asi.21609
+version-read: preprint (arXiv:1103.5241v2)
+archived: gs://scholar-version2-literature/sources/leydesdorff2011integrated--10.1002_asi.21609-cbbd6e66.pdf sha256:b50d95eee11710072a36fbee7e64ebdb3ba5b3dcb4c2f1e3fee5e7d630892d9b
+license: unknown (treated as restricted; private store)
+updates: none
+verdict: supported
+evidence: "Using the sum total of the frequencies (f) in each percentile, however, accounts for both the size and shape of the distribution." (p. 6-7, section on percentile rank classes (I3 definition)); "The integrals in this stepwise" (p. 5, percentile rank section)
+notes: Re-verified on 2026-11-10 against the same archived passage after adding the h-index panel (a) to Figure 1 shifted the paper-percentile step curve to panel (b) ('Figure~\ref{fig:construction}a' -> 'Figure~\ref{fig:construction}b'); the attribution to this source is unchanged.
