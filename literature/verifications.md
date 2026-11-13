@@ -3526,3 +3526,16 @@ updates: none
 verdict: supported
 evidence: paper/checks/sym_properties.py and paper/checks/pip_properties.py numerically check boundedness (0 <= PiP < 1), monotonicity under adding a paper or raising a paper's percentile, and invariance below tau on simulated cohorts, and are included in the Zenodo archive built by paper/make_zenodo_package.sh.
 notes: Added in-text replication-package citation per Quantitative Science Studies submission guidelines where the manuscript refers to numerical checks on simulated cohorts.
+
+## [2026-11-13T17:49Z] cite:ipeirotis2026replication — paper/manuscript_qss/main.tex:1219
+claim: "The replication package is archived on Zenodo \citep{ipeirotis2026replication}."
+claim-hash: 2b1458432a02
+source: doi:10.5281/zenodo.23987119
+version-read: unpublished Zenodo draft (deposition 23987119), read through the deposit API on 2026-11-13
+archived: not copied; the deposited file is pip-replication-package-c6aeaa3.zip (md5:511ba6dc8e5f23741f0941e38e556407, sha256:74cd3b4d761e0d406e08bd33e0c3f6072e587d64c2176191e90d0eecff8f6087), built by paper/make_zenodo_package.sh from commit c6aeaa3
+license: CC BY 4.0 (record metadata)
+accessed: 2026-11-13
+updates: none
+verdict: supported
+evidence: The draft holds one file, the archive of paper/ at c6aeaa3 (8,238,558 bytes), which contains manuscript_qss/ (main.tex, references.bib, qss-apa.bst, build.sh), results/ (28 result tables), lean/, checks/, honors/, figures/, sql/, COMPUTATION.md and FINDINGS.md; the record title, version (c6aeaa3), creator ORCID, and description match the QSS submission manuscript and name the result tables and BigQuery datasets.
+notes: Supersedes the entry for ab73527 after replacing the deposited archive and updating the Zenodo draft metadata from commit c6aeaa3 (following PRs #200–#201 and the QSS submission preparation changes).
