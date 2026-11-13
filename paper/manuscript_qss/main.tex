@@ -301,8 +301,8 @@ authors with the same start year, the author included. Replacing raw paper rank 
 of peers who have at most $k$ articles in total maps both axes onto $[0, 1]$ (Figure~\ref{fig:construction}c). The curve
 now sits inside the unit square and stops horizontally at the author's own productivity percentile ($0.53$ for the
 seven-article scholar in Figure~\ref{fig:construction}c). The area under the curve is then a bounded metric in $[0, 1]$
-that never falls when a paper is added, equaling the curve's horizontal width (the author's productivity percentile)
-times its average height (a weighted mean of the author's paper percentiles).
+that, for fixed peers, never falls when a paper is added, equaling the curve's horizontal width (the author's
+productivity percentile) times its average height (a weighted mean of the author's paper percentiles).
 
 Normalizing the horizontal axis by peers' total paper counts has three drawbacks:
 \begin{enumerate}
@@ -453,7 +453,7 @@ Figure~\ref{fig:construction}c gives all four records zero, and the $h$-index ca
 peers. They are a common choice for the percentile of a single paper \citep{bornmann2013use,waltman2013percentile}, but
 in $g(\theta)$ they would give credit to authors with nothing above a threshold: at high thresholds most peers have no
 article, and an author tied with them at zero would stand at half their share. In the simulated cohort, an author whose
-five articles all fall below the median would score 0.22 with mid-ranks instead of 0. The strict rule keeps weak
+five articles all fall below the median would score 0.24 with mid-ranks instead of 0. The strict rule keeps weak
 articles from earning credit through ties; its price is that the mean score of a peer group depends on how common ties
 are (Section~\ref{sec:definition}).
 
@@ -802,9 +802,9 @@ and the mean percentile each serve one outcome, whereas PiP balances all three.
   counts and, in panel (b), the top-10\% count per year of career; the mean percentile and the article count lie off
   the chart, and their coordinates are printed in each panel. (a) Eligible authors at career age 10, raw values. (b) All
   eligible authors in 2005 at career ages 2--30, within-cohort percentiles (the top-10\% count per year of career is
-  raw). The open circle is PiP-simple ($\tau = 0.5$), which compares the scholar with peers only once. For the third
-  outcome, a future top-1\% paper, PiP at every cutoff from 0 to 0.75 has a higher AUC than every
-  grey indicator in both settings.}
+  raw). The dashed curve is PiP-simple from $\tau = 0$ (I3) to $0.75$, with the large open circle at $\tau = 0.5$. For
+  the third outcome, a future top-1\% paper, PiP at every cutoff from 0 to 0.75 has a higher AUC than every grey
+  indicator in both settings.}
   \label{fig:frontier}
 \end{figure}
 
@@ -837,10 +837,11 @@ $+0.04$.
 and cutoff as PiP but compares the scholar with peers only once, through the rank of its score in the cohort. The pair
 therefore shows what the comparison at every threshold contributes. In each of the 26 cohorts at career age 10, that
 comparison improves the AUC for a future top-1\% paper (by 0.004 to 0.011) and the prediction of future citation impact
-(by 0.023 to 0.036); the same holds in every cohort at career ages 5 and 15. On the number of future top-10\% papers PiP
-and PiP-simple are within 0.01 of each other. Varying $\tau$ in PiP-simple ($0$--$0.9$) or weighting cohort percentiles
-of article count and mean percentile ($25/75$, $50/50$, $75/25$) never beats PiP ($\tau = 0.5$) on more than one
-outcome or on top-1\% AUC (at age 10, $50/50$ matches 0.32 on impact but drops to 0.33 and 0.72 on the other two).
+(by 0.023 to 0.036); the same holds in every cohort at ages 5 and 15, while on future top-10\% papers the two stay
+within 0.01. Across $\tau = 0$ to $0.75$, PiP-simple stays inside PiP's frontier (Figure~\ref{fig:frontier}), trailing
+by 0.02--0.04 on future impact at $\tau \le 0.25$ and by 0.004--0.011 on top-1\% AUC up to $\tau = 0.5$ before
+converging near $\tau = 0.75$. Mixing cohort percentiles of article count and mean percentile also falls short (at age
+10: $0.33, 0.72, 0.32$ at $50/50$; $0.44, 0.75, 0.14$ at $75/25$; $0.10, 0.61, 0.40$ at $25/75$).
 
 \subsection{Early detection}
 \label{sec:early}

@@ -409,11 +409,21 @@ def fig_frontier():
     fig, axes = plt.subplots(1, 2, figsize=(7.2, 3.3), facecolor=SURFACE, sharey=True)
     for ax, (sc, st, form, title) in zip(axes, panels):
         clean(ax, title, grid_axis="both")
+        ax.title.set_fontsize(7.5)
         val = {r["predictor"]: (float(r["spearman_top10"]), float(r["spearman_mean_pct"]))
                for r in rows if r["scenario"] == sc and r["setting"] == st}
+        simple_keys = ["i3", "t25", "t50", "t75"]
+        sxs = [val[f"{k}{form}"][0] for k in simple_keys]
+        sys_ = [val[f"{k}{form}"][1] for k in simple_keys]
+        ax.plot(sxs, sys_, color=BLUE, linewidth=1.0, linestyle=(0, (3, 2.2)), alpha=0.8, zorder=2)
+        for k, sx, sy in zip(simple_keys, sxs, sys_):
+            if k in ("i3", "t50"):
+                continue
+            ax.plot([sx], [sy], linestyle="none", marker="o", markersize=3.6, markerfacecolor=SURFACE,
+                    markeredgecolor=BLUE, markeredgewidth=0.95, zorder=3)
         xs = [val[f"pip_sym{t}{form}"][0] for t, _ in taus]
         ys = [val[f"pip_sym{t}{form}"][1] for t, _ in taus]
-        ax.plot(xs, ys, color=BLUE, linewidth=1.6, zorder=3)
+        ax.plot(xs, ys, color=BLUE, linewidth=1.6, zorder=4)
         dots(ax, xs, ys, BLUE, ms=5)
         dots(ax, [val[f"pip_sym50{form}"][0]], [val[f"pip_sym50{form}"][1]], BLUE, ms=8.5)
         for (t, lab), x, y in zip(taus, xs, ys):
@@ -444,7 +454,7 @@ def fig_frontier():
         ax.set_xlim(0.22, 0.48)
         ax.set_ylim(0.14, 0.38)
     axes[0].set_ylabel("Predicts the mean percentile of future papers")
-    fig.tight_layout(w_pad=1.2)
+    fig.tight_layout(rect=(0, 0, 0.982, 1), w_pad=1.2)
     save(fig, "fig_frontier")
 
 

@@ -946,7 +946,8 @@ At tau = 0.9 the drift comes from authors with no article in the top 10% of its 
 | One article at the 50th percentile | 0.004 | 0 |
 
 Over the 2,000 simulated peers the two grids agree to rank correlation 0.9995 (top-10% overlap 97%). With mid-ranks
-instead of the strict rule, an author with five articles at the 30th percentile would score 0.22 instead of 0.
+instead of the strict rule, an author with five articles at the 30th percentile would score 0.24 on the fine grid (0.22
+on the production grid) instead of 0.
 
 ## 19. What the peer comparison adds (`sql/20_percentile_baselines.sql`, `sql/21_early_detection.sql`)
 
