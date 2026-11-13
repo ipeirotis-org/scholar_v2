@@ -5,9 +5,9 @@
 set -euo pipefail
 
 OUT="${1:-.}"
-ROOT="$(git -C "$(dirname "$0")" rev-parse --show-toplevel)"
-MS="$ROOT/paper/manuscript_qss"
-FIGS="$ROOT/paper/figures"
+PAPER_DIR="$(cd "$(dirname "$0")" && pwd)"
+MS="$PAPER_DIR/manuscript_qss"
+FIGS="$PAPER_DIR/figures"
 
 mkdir -p "$OUT"
 OUT_ABS="$(cd "$OUT" && pwd)"
@@ -18,13 +18,27 @@ trap 'rm -rf "$WORK"' EXIT
 mkdir -p "$WORK/source/figures" "$WORK/build/figures"
 cp "$MS/references.bib" "$MS/qss-apa.bst" "$WORK/source/"
 cp "$MS/references.bib" "$MS/qss-apa.bst" "$WORK/build/"
-cp "$FIGS"/*.pdf "$WORK/source/figures/"
-cp "$FIGS"/*.pdf "$WORK/build/figures/"
 
-python3 - "$MS/main.tex" "$WORK/source/main.tex" "$WORK/build/main.tex" <<'PY'
-import pathlib, sys
+python3 - "$MS/main.tex" "$FIGS" "$WORK/source" "$WORK/build" <<'PY'
+import pathlib, re, shutil, sys
 
-raw = pathlib.Path(sys.argv[1]).read_text(encoding="utf-8")
+tex_path = pathlib.Path(sys.argv[1])
+figs_dir = pathlib.Path(sys.argv[2])
+source_dir = pathlib.Path(sys.argv[3])
+build_dir = pathlib.Path(sys.argv[4])
+
+raw = tex_path.read_text(encoding="utf-8")
+
+# Copy only the vector PDF figures actually referenced in main.tex.
+referenced_figs = sorted(set(re.findall(r"\\includegraphics(?:\[[^\]]*\])?\{([^}]+)\}", raw)))
+if not referenced_figs:
+    raise SystemExit(f"No \\includegraphics directives found in {tex_path}")
+for fig_name in referenced_figs:
+    fig_src = figs_dir / fig_name
+    if not fig_src.is_file():
+        raise SystemExit(f"Referenced figure missing: {fig_src}")
+    shutil.copy2(fig_src, source_dir / "figures" / fig_name)
+    shutil.copy2(fig_src, build_dir / "figures" / fig_name)
 
 common_replacements = [
     (
@@ -58,17 +72,21 @@ common_replacements = [
 
 for old, new in common_replacements:
     if old not in raw:
-        raise SystemExit(f"Expected snippet not found in {sys.argv[1]}:\n{old}")
+        raise SystemExit(f"Expected snippet not found in {tex_path}:\n{old}")
     raw = raw.replace(old, new, 1)
+
+square_line = "\\providecommand{\\square}{\\mdlgwhtsquare}"
+if square_line not in raw:
+    raise SystemExit(f"Expected \\square fallback not found in {tex_path}")
 
 # Build copy retains the \ifPDFTeX ... \else ... \fi fallback in case local builds use LuaLaTeX.
 build_tex = raw.replace(
-    "\\providecommand{\\square}{\\mdlgwhtsquare}",
+    square_line,
     "\\ifPDFTeX\\providecommand{\\square}{\\leavevmode\\hbox{\\vrule\\vbox{\\hrule width 0.5em\\kern 0.5em\\hrule}\\vrule}}"
     "\\else\\providecommand{\\square}{\\mdlgwhtsquare}\\fi",
     1,
 )
-pathlib.Path(sys.argv[3]).write_text(build_tex, encoding="utf-8")
+(build_dir / "main.tex").write_text(build_tex, encoding="utf-8")
 
 # arXiv source copy removes the non-PDFTeX \setmainfont/\setsansfont/\setmonofont branch completely
 # so arXiv Submission 1.5's static file scanner does not flag OpenType font names as missing files.
@@ -97,11 +115,11 @@ if iftex_block not in raw:
     raise SystemExit("Expected \\ifPDFTeX font block not found in main.tex")
 
 arxiv_tex = raw.replace(iftex_block, pdftex_only, 1).replace(
-    "\\providecommand{\\square}{\\mdlgwhtsquare}",
+    square_line,
     "\\providecommand{\\square}{\\leavevmode\\hbox{\\vrule\\vbox{\\hrule width 0.5em\\kern 0.5em\\hrule}\\vrule}}",
     1,
 )
-pathlib.Path(sys.argv[2]).write_text(arxiv_tex, encoding="utf-8")
+(source_dir / "main.tex").write_text(arxiv_tex, encoding="utf-8")
 PY
 
 (
