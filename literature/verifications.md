@@ -3539,3 +3539,17 @@ updates: none
 verdict: supported
 evidence: The draft holds one file, the archive of paper/ at c6aeaa3 (8,238,558 bytes), which contains manuscript_qss/ (main.tex, references.bib, qss-apa.bst, build.sh), results/ (28 result tables), lean/, checks/, honors/, figures/, sql/, COMPUTATION.md and FINDINGS.md; the record title, version (c6aeaa3), creator ORCID, and description match the QSS submission manuscript and name the result tables and BigQuery datasets.
 notes: Supersedes the entry for ab73527 after replacing the deposited archive and updating the Zenodo draft metadata from commit c6aeaa3 (following PRs #200–#201 and the QSS submission preparation changes).
+
+## [2026-11-13T18:56Z] cite:ipeirotis2026replication — paper/manuscript_qss/main.tex:1219
+claim: "The replication package is archived on Zenodo \citep{ipeirotis2026replication}."
+claim-hash: 2b1458432a02
+source: doi:10.5281/zenodo.23987119
+version-read: version of record (Zenodo record 23987119, published 2026-11-13)
+archived: not copied; the published file is pip-replication-package-0933c87.zip (md5:d0cc3913437572838fa525a1077c4540, sha256:e9799481f0b0b27eda88261b4381543be0b03cf80f054dc1d0d65eb3c2e7327f), built by paper/make_zenodo_package.sh from merged main commit 0933c87
+license: CC BY 4.0 (record metadata)
+accessed: 2026-11-13
+updates: none
+verdict: supported
+evidence: Published Zenodo record 23987119 (concept DOI 10.5281/zenodo.23987118, version DOI 10.5281/zenodo.23987119, version 0933c87) holds pip-replication-package-0933c87.zip (8,238,558 bytes), containing manuscript_qss/, results/ (28 result tables), lean/, checks/, honors/, figures/, sql/, COMPUTATION.md and FINDINGS.md.
+notes: Supersedes the unpublished draft entry for c6aeaa3 after merging PR #202 into main (0933c87), replacing the archive with pip-replication-package-0933c87.zip, and publishing Zenodo record 23987119 alongside QSS initial submission snapshot qss-submitted-2026-11-13.
+
