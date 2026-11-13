@@ -15,16 +15,18 @@ OUT_ABS="$(cd "$OUT" && pwd)"
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 
-mkdir -p "$WORK/source/figures"
+mkdir -p "$WORK/source/figures" "$WORK/build/figures"
 cp "$MS/references.bib" "$MS/qss-apa.bst" "$WORK/source/"
+cp "$MS/references.bib" "$MS/qss-apa.bst" "$WORK/build/"
 cp "$FIGS"/*.pdf "$WORK/source/figures/"
+cp "$FIGS"/*.pdf "$WORK/build/figures/"
 
-python3 - "$MS/main.tex" "$WORK/source/main.tex" <<'PY'
+python3 - "$MS/main.tex" "$WORK/source/main.tex" "$WORK/build/main.tex" <<'PY'
 import pathlib, sys
 
-src = pathlib.Path(sys.argv[1]).read_text(encoding="utf-8")
+raw = pathlib.Path(sys.argv[1]).read_text(encoding="utf-8")
 
-replacements = [
+common_replacements = [
     (
         "% Manuscript for Quantitative Science Studies. Build: paper/manuscript_qss/build.sh.",
         "% arXiv preprint source (2103.16025v4). Built via paper/make_arxiv_package.sh.",
@@ -52,22 +54,56 @@ replacements = [
         "\\graphicspath{{../figures/}}",
         "\\graphicspath{{figures/}}",
     ),
-    (
-        "\\providecommand{\\square}{\\mdlgwhtsquare}",
-        "\\ifPDFTeX\\providecommand{\\square}{\\leavevmode\\hbox{\\vrule\\vbox{\\hrule width 0.5em\\kern 0.5em\\hrule}\\vrule}}"
-        "\\else\\providecommand{\\square}{\\mdlgwhtsquare}\\fi",
-    ),
 ]
 
-for old, new in replacements:
-    if old not in src:
+for old, new in common_replacements:
+    if old not in raw:
         raise SystemExit(f"Expected snippet not found in {sys.argv[1]}:\n{old}")
-    src = src.replace(old, new, 1)
+    raw = raw.replace(old, new, 1)
 
-pathlib.Path(sys.argv[2]).write_text(src, encoding="utf-8")
+# Build copy retains the \ifPDFTeX ... \else ... \fi fallback in case local builds use LuaLaTeX.
+build_tex = raw.replace(
+    "\\providecommand{\\square}{\\mdlgwhtsquare}",
+    "\\ifPDFTeX\\providecommand{\\square}{\\leavevmode\\hbox{\\vrule\\vbox{\\hrule width 0.5em\\kern 0.5em\\hrule}\\vrule}}"
+    "\\else\\providecommand{\\square}{\\mdlgwhtsquare}\\fi",
+    1,
+)
+pathlib.Path(sys.argv[3]).write_text(build_tex, encoding="utf-8")
+
+# arXiv source copy removes the non-PDFTeX \setmainfont/\setsansfont/\setmonofont branch completely
+# so arXiv Submission 1.5's static file scanner does not flag OpenType font names as missing files.
+iftex_block = (
+    "\\usepackage{iftex}\n"
+    "\\ifPDFTeX\n"
+    "  \\usepackage[T1]{fontenc}\n"
+    "  \\usepackage[utf8]{inputenc}\n"
+    "  \\usepackage{libertine}\n"
+    "  \\usepackage[libertine]{newtxmath}\n"
+    "\\else\n"
+    "  \\usepackage{unicode-math}\n"
+    "  \\setmainfont{Libertinus Serif}\n"
+    "  \\setsansfont{Libertinus Sans}\n"
+    "  \\setmonofont[Scale=MatchLowercase]{Libertinus Mono}\n"
+    "  \\setmathfont{Libertinus Math}\n"
+    "\\fi"
+)
+pdftex_only = (
+    "\\usepackage[T1]{fontenc}\n"
+    "\\usepackage[utf8]{inputenc}\n"
+    "\\usepackage{libertine}\n"
+    "\\usepackage[libertine]{newtxmath}"
+)
+if iftex_block not in raw:
+    raise SystemExit("Expected \\ifPDFTeX font block not found in main.tex")
+
+arxiv_tex = raw.replace(iftex_block, pdftex_only, 1).replace(
+    "\\providecommand{\\square}{\\mdlgwhtsquare}",
+    "\\providecommand{\\square}{\\leavevmode\\hbox{\\vrule\\vbox{\\hrule width 0.5em\\kern 0.5em\\hrule}\\vrule}}",
+    1,
+)
+pathlib.Path(sys.argv[2]).write_text(arxiv_tex, encoding="utf-8")
 PY
 
-cp -r "$WORK/source" "$WORK/build"
 (
   cd "$WORK/build"
   if kpsewhich libertine.sty > /dev/null 2>&1; then
