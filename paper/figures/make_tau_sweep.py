@@ -119,8 +119,14 @@ def main():
     fig.text(0.5, 0.005, "← lower τ: more weight on quantity          higher τ: more weight on impact →",
              ha="center", va="bottom", color=INK2, fontsize=7.5)
     fig.tight_layout(rect=(0, 0.03, 1, 1), h_pad=1.6, w_pad=1.4)
-    for ext, kw in (("pdf", {}), ("png", {"dpi": 220})):
+    for ext, kw in (("pdf", {}), ("png", {"dpi": 300})):
         fig.savefig(os.path.join(HERE, f"tau_sweep.{ext}"), facecolor=SURFACE, **kw)
+    if len(os.sys.argv) >= 3 and os.sys.argv[1] == "--export-separate":
+        out_dir = os.sys.argv[2]
+        os.makedirs(out_dir, exist_ok=True)
+        for ext, kw in (("eps", {}), ("jpg", {"dpi": 300}),
+                        ("tiff", {"dpi": 300, "pil_kwargs": {"compression": "tiff_lzw"}})):
+            fig.savefig(os.path.join(out_dir, f"tau_sweep.{ext}"), facecolor=SURFACE, **kw)
     print("wrote", os.path.join(HERE, "tau_sweep.pdf"), "and .png")
 
 

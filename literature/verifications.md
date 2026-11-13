@@ -3500,3 +3500,29 @@ updates: none
 verdict: supported
 evidence: The draft holds one file, the archive of paper/ at ab73527, which contains results/ (28 result tables), lean/, COMPUTATION.md and the SQL, figure data, checks and honors scripts; the record title and description match the final QSS manuscript and name the result tables and BigQuery datasets.
 notes: Supersedes the entry for f416122 after replacing the deposited archive and updating the Zenodo draft metadata from commit ab73527 (following PRs #194–#198).
+
+## [2026-11-13T05:59Z] cite:ipeirotis2026replication — paper/manuscript_qss/main.tex:243
+claim: "We queried Wikidata for honors on 5 November 2026; the curated list of 65 senior honors and matching scripts are archived in our replication package \citep{ipeirotis2026replication}."
+claim-hash: f216f746cab8
+source: doi:10.5281/zenodo.23987119
+version-read: unpublished Zenodo draft (deposition 23987119) and local source tree paper/honors/ archived by paper/make_zenodo_package.sh
+archived: not copied; paper/make_zenodo_package.sh archives paper/honors/ (fetch_wikidata_honors.py, analyze_honors.py, analyze_gs_honors.py, data/honors_curated.csv, data/gs_honors_dated.csv) into the Zenodo package for doi:10.5281/zenodo.23987119
+license: CC BY 4.0 (record metadata)
+accessed: 2026-11-13
+updates: none
+verdict: supported
+evidence: paper/honors/fetch_wikidata_honors.py defines the 65 curated senior honors and queries Wikidata (queried 5 November 2026), paper/honors/analyze_honors.py and analyze_gs_honors.py implement the Semantic Scholar and Google Scholar matching, and paper/honors/data/honors_curated.csv stores the resulting curated dataset included in the Zenodo archive built by paper/make_zenodo_package.sh.
+notes: Added in-text dataset citation per Quantitative Science Studies submission guidelines requiring formal in-text citation of own publicly archived datasets alongside the reference-list DOI entry.
+
+## [2026-11-13T06:16Z] cite:ipeirotis2026replication — paper/manuscript_qss/main.tex:419
+claim: "The properties below hold for a fixed peer group containing the author; each follows from the definition (Appendix~\ref{app:proofs}), and we checked them numerically on simulated cohorts \citep{ipeirotis2026replication}."
+claim-hash: 63082f2d4b1b
+source: doi:10.5281/zenodo.23987119
+version-read: unpublished Zenodo draft (deposition 23987119) and local source tree paper/checks/ archived by paper/make_zenodo_package.sh
+archived: not copied; paper/make_zenodo_package.sh archives paper/checks/pip_properties.py and paper/checks/sym_properties.py (plus paper/lean/) into the Zenodo package for doi:10.5281/zenodo.23987119
+license: CC BY 4.0 (record metadata)
+accessed: 2026-11-13
+updates: none
+verdict: supported
+evidence: paper/checks/sym_properties.py and paper/checks/pip_properties.py numerically check boundedness (0 <= PiP < 1), monotonicity under adding a paper or raising a paper's percentile, and invariance below tau on simulated cohorts, and are included in the Zenodo archive built by paper/make_zenodo_package.sh.
+notes: Added in-text replication-package citation per Quantitative Science Studies submission guidelines where the manuscript refers to numerical checks on simulated cohorts.

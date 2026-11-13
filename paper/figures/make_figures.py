@@ -44,7 +44,7 @@ def setup():
     })
 
 
-def clean(ax, title=None, grid_axis="y"):
+def clean(ax, title=None, grid_axis="y", titlesize=None):
     ax.set_facecolor(SURFACE)
     for side in ("top", "right"):
         ax.spines[side].set_visible(False)
@@ -52,7 +52,8 @@ def clean(ax, title=None, grid_axis="y"):
         ax.grid(axis=grid_axis, color=GRID, linewidth=0.6)
     ax.set_axisbelow(True)
     if title:
-        ax.set_title(title, loc="left", color=INK, fontweight="semibold", pad=6)
+        kw = {"fontsize": titlesize} if titlesize else {}
+        ax.set_title(title, loc="left", color=INK, fontweight="semibold", pad=6, **kw)
 
 
 def dots(ax, x, y, color, **kw):
@@ -60,9 +61,17 @@ def dots(ax, x, y, color, **kw):
             markerfacecolor=color, markeredgecolor=SURFACE, markeredgewidth=1.0, zorder=4, **kw)
 
 
+EXPORT_DIR = None
+
+
 def save(fig, name):
-    for ext, kw in (("pdf", {}), ("png", {"dpi": 220})):
+    for ext, kw in (("pdf", {}), ("png", {"dpi": 300})):
         fig.savefig(os.path.join(HERE, f"{name}.{ext}"), facecolor=SURFACE, **kw)
+    if EXPORT_DIR:
+        os.makedirs(EXPORT_DIR, exist_ok=True)
+        for ext, kw in (("eps", {}), ("jpg", {"dpi": 300}),
+                        ("tiff", {"dpi": 300, "pil_kwargs": {"compression": "tiff_lzw"}})):
+            fig.savefig(os.path.join(EXPORT_DIR, f"{name}.{ext}"), facecolor=SURFACE, **kw)
     plt.close(fig)
     print("wrote", name)
 
@@ -73,8 +82,9 @@ def short_field(name):
 
 def fig_standing_curves():
     rows = read("fig3_curves.csv")
-    fig, axes = plt.subplots(1, 3, figsize=(7.2, 2.75), facecolor=SURFACE, sharey=True)
-    for ax, q, name in zip(axes, ("25", "50", "90"), ("25th-percentile", "Median", "90th-percentile")):
+    fig, axes = plt.subplots(1, 3, figsize=(7.0, 2.75), facecolor=SURFACE, sharey=True)
+    panels = [("25", "(a) 25th-percentile"), ("50", "(b) Median"), ("90", "(c) 90th-percentile")]
+    for ax, (q, name) in zip(axes, panels):
         pts = [r for r in rows if r["sym_tau50_quantile"] == q]
         pip, n = float(pts[0]["sym_tau50"]), int(pts[0]["n_articles"])
         clean(ax, f"{name} author\n{n} articles, PiP = {pip:.2f}")
@@ -174,11 +184,10 @@ def fig_pip_construction():
     # Cohort CDF F(k) = share of eligible peers (1995 cohort, age 10) with <= k articles.
     # F(5)=0.3630, F(6)=0.4547, F(7)=0.5315, F(12)=0.7648, F(13)=0.7920 are directly in fig3_curves.csv.
     F = [0.0, 0.0, 0.0, 0.1100, 0.2380, 0.3630, 0.4547, 0.5315]
-    fig, (a, b, c) = plt.subplots(1, 3, figsize=(7.2, 2.65), facecolor=SURFACE)
+    fig, (a, b, c) = plt.subplots(1, 3, figsize=(7.0, 2.65), facecolor=SURFACE)
 
     # Panel (a): Raw citation-rank graph and the h x h square (h = 4)
-    clean(a, "(a) Illustrative citations vs. rank\n7 articles, h-index = 4")
-    a.title.set_fontsize(7.4)
+    clean(a, "(a) Illustrative citations vs. rank\n7 articles, h-index = 4", titlesize=7.6)
     for k, (lab, c_val) in enumerate(raw_papers, start=1):
         a.bar(k - 1, c_val, width=1.0, align="edge", color=BLUE_LIGHT, edgecolor=SURFACE, linewidth=0.9, zorder=1)
     a.fill_between([0, 4], [0, 0], [4, 4], color=ORANGE_LIGHT, linewidth=0, zorder=2)
@@ -209,8 +218,7 @@ def fig_pip_construction():
     a.set_ylabel("Raw citations")
 
     # Panel (b): Paper percentile vs. paper rank (width = 1 per paper; area = sum of percentiles = I3)
-    clean(b, "(b) Paper percentile vs. rank\n7 articles, I3 = 4.40 (unbounded)")
-    b.title.set_fontsize(7.4)
+    clean(b, "(b) Paper percentile vs. rank\n7 articles, I3 = 4.40 (unbounded)", titlesize=7.6)
     for k, y in enumerate(ys, start=1):
         b.bar(k - 1, y, width=1.0, align="edge", color=BLUE_LIGHT, edgecolor=SURFACE, linewidth=0.9, zorder=1)
     b.step(range(len(ys) + 1), ys + [0.0], where="post", color=BLUE, linewidth=1.6, zorder=3)
@@ -235,8 +243,7 @@ def fig_pip_construction():
 
     # Panel (c): Paper percentile vs. cohort productivity percentile
     pip_auc = sum(y * (F[k] - F[k - 1]) for k, y in enumerate(ys, start=1))
-    clean(c, f"(c) Percentile vs. peer productivity\n7 articles (53rd pct.), area = {pip_auc:.2f}")
-    c.title.set_fontsize(7.4)
+    clean(c, f"(c) Percentile vs. peer productivity\n7 articles (53rd pct.), area = {pip_auc:.2f}", titlesize=7.6)
     for k, y in enumerate(ys, start=1):
         w = F[k] - F[k - 1]
         if w > 0:
@@ -265,7 +272,7 @@ def fig_pip_construction():
     c.set_yticklabels([])
     c.set_xlabel("Productivity percentile (≤ k articles)")
 
-    fig.tight_layout(rect=(0, 0, 0.988, 1), w_pad=0.9)
+    fig.tight_layout(rect=(0, 0, 0.982, 1), w_pad=0.9)
     save(fig, "fig_pip_construction")
 
 
@@ -334,11 +341,10 @@ def fig_prediction():
     outcomes = [("spearman_top10", "(a) Future top-10% papers", "Spearman correlation"),
                 ("auc_any_top1", "(b) Any future top-1% paper", "ROC AUC"),
                 ("spearman_mean_pct", "(c) Mean future percentile", "Spearman correlation")]
-    fig, axes = plt.subplots(1, 3, figsize=(7.2, 3.1), facecolor=SURFACE)
+    fig, axes = plt.subplots(1, 3, figsize=(7.0, 3.1), facecolor=SURFACE)
     offsets = [0.0, 0.0, 0.2]
     for ax, (col, title, ylabel) in zip(axes, outcomes):
         clean(ax, title)
-        ax.title.set_fontsize(7.6)
         for i, (sc, st, _) in enumerate(settings):
             a, b = value.get((sc, st, "sym_tau50")), value.get((sc, st, "h_pct"))
             if a and b:
@@ -406,10 +412,9 @@ def fig_frontier():
     }
     taus = [("0", "τ = 0"), ("25", ".25"), ("50", ".5"), ("60", ".6"), ("75", ".75"), ("90", ".9")]
     ha = lambda dx: "left" if dx > 0 else ("right" if dx < 0 else "center")
-    fig, axes = plt.subplots(1, 2, figsize=(7.2, 3.3), facecolor=SURFACE, sharey=True)
+    fig, axes = plt.subplots(1, 2, figsize=(7.0, 3.3), facecolor=SURFACE, sharey=True)
     for ax, (sc, st, form, title) in zip(axes, panels):
         clean(ax, title, grid_axis="both")
-        ax.title.set_fontsize(7.5)
         val = {r["predictor"]: (float(r["spearman_top10"]), float(r["spearman_mean_pct"]))
                for r in rows if r["scenario"] == sc and r["setting"] == st}
         simple_keys = ["i3", "t25", "t50", "t75"]
@@ -454,7 +459,7 @@ def fig_frontier():
         ax.set_xlim(0.22, 0.48)
         ax.set_ylim(0.14, 0.38)
     axes[0].set_ylabel("Predicts the mean percentile of future papers")
-    fig.tight_layout(rect=(0, 0, 0.982, 1), w_pad=1.2)
+    fig.tight_layout(rect=(0, 0, 0.992, 1), w_pad=1.0)
     save(fig, "fig_frontier")
 
 
@@ -484,10 +489,9 @@ def fig_early():
     panels = [("precision_top10_frac", "(a) Finding future stars: precision of the top 10%", "Share of picks who become stars",
                0.10, 0.021),
               ("auc_any_top1", "(b) Any future top-1% paper", "ROC AUC", 0.5, 0.0175)]
-    fig, axes = plt.subplots(1, 2, figsize=(7.2, 3.2), facecolor=SURFACE)
+    fig, axes = plt.subplots(1, 2, figsize=(7.0, 3.2), facecolor=SURFACE)
     for ax, (col, title, ylabel, chance, gap) in zip(axes, panels):
         clean(ax, title)
-        ax.title.set_fontsize(7.8)
         curves = {}
         for key, label, color, lw in preds:
             c = {int(r["t"]): float(r[col]) for r in rows if r["predictor"] == key}
@@ -523,9 +527,14 @@ def fig_early():
 
 if __name__ == "__main__":
     setup()
+    args = list(sys.argv[1:])
+    if "--export-separate" in args:
+        idx = args.index("--export-separate")
+        EXPORT_DIR = args[idx + 1]
+        del args[idx:idx + 2]
     all_figs = [fig_pip_construction, fig_standing_curves, fig_paper_stability, fig_cohorts,
                 fig_prediction, fig_fields, fig_frontier, fig_early]
-    only = set(sys.argv[1:])
+    only = set(args)
     for fn in all_figs:
         if not only or fn.__name__ in only:
             fn()
