@@ -22,14 +22,23 @@
 \usepackage{threeparttable}
 \usepackage[font=small,labelfont=bf]{caption}
 \usepackage{setspace}
-\usepackage[round,authoryear]{natbib}
+\usepackage[round,authoryear,sort]{natbib}
+\makeatletter
+\DeclareRobustCommand{\harvardand}{\ifNAT@swa\&\else and\fi}
+\makeatother
+\usepackage{etoolbox}
 \usepackage{xcolor}
 \definecolor{linkcolor}{HTML}{8C2D19}
 \definecolor{citecolor}{HTML}{1B4F9C}
 \definecolor{urlcolor}{HTML}{0E6B50}
 \usepackage[colorlinks=true,linkcolor=linkcolor,citecolor=citecolor,urlcolor=urlcolor]{hyperref}
+\expandafter\def\expandafter\UrlNoBreaks\expandafter{\UrlNoBreaks\do\:}
+\AtBeginEnvironment{table}{\hypersetup{hidelinks}}
+\AtBeginEnvironment{thebibliography}{\emergencystretch=2em}
 
-\usepackage{lineno}
+\usepackage[mathlines]{lineno}
+\BeforeBeginEnvironment{equation}{\begin{linenomath*}}
+\AfterEndEnvironment{equation}{\end{linenomath*}}
 \linenumbers
 \onehalfspacing
 \graphicspath{{../figures/}}
@@ -37,8 +46,8 @@
 \newcommand{\PiP}{\mathrm{PiP}}
 
 \title{Percentile in Percentile: Evaluating Scholars Across Career Stages}
-\author{Panos Ipeirotis\thanks{Department of Technology, Operations, and Statistics, Stern School of Business, New York University.}\textsuperscript{\kern1pt,\kern1pt}\thanks{Corresponding author: \texttt{panos@stern.nyu.edu}}
-  \and Sen Tian\thanks{Ciphero.}}
+\author{Panos Ipeirotis\thanks{Department of Technology, Operations, and Statistics, Stern School of Business, New York University, New York, NY, USA. ORCID: \url{https://orcid.org/0000-0002-2966-7402}}\textsuperscript{\kern3pt,\kern1pt}\thanks{Corresponding author: \texttt{panos@stern.nyu.edu}}
+  \and Sen Tian\thanks{Ciphero, New York, NY, USA.}}
 \date{}
 
 \begin{document}
@@ -46,18 +55,18 @@
 
 \begin{abstract}
 \noindent
-Scholars are often evaluated early in their careers, before their papers accumulate citations. Standard metrics such
-as citation counts and the $h$-index are poorly suited for these comparisons: they grow with seniority, vary across
-fields and inflate over time. Although raw citation counts take years to build, a paper's citation percentile within
-its publication year settles quickly, correlating at 0.91 between ages 3 and 10. We introduce Percentile in Percentile
-(PiP), a score that rates scholars against their career cohort. At each impact threshold above a cutoff, PiP counts how
-many of a scholar's papers reach that citation percentile, ranks that count against peers who started in the same year,
-and averages these standings. Across 11.1 million Semantic Scholar authors, PiP's distribution stays stable from the
-1960 to the 2015 cohort, whereas the average $h$-index at career age 10 rose by about 40\%. In every setting and across
-all 15 fields, PiP outperforms the $h$-index at predicting a scholar's record in the next decade, including future top
-papers, exceptional papers and overall citation impact. It matches the age-10 accuracy of the $h$-index in identifying
-future high performers 1.6 to 1.8 years earlier in a career. Among all eligible authors, PiP also better anticipates
-later academy memberships, fellowships and prizes.
+Scholars are often evaluated early in their careers, before papers accumulate citations. Standard metrics such as
+citation counts and the $h$-index fit these comparisons poorly: they grow with seniority, vary across fields and
+inflate over time. Although citation counts take years to build, a paper's citation percentile within its publication
+year settles quickly, correlating at 0.91 between ages 3 and 10. We introduce Percentile in Percentile (PiP), a score
+rating scholars against their career cohort. At each impact threshold above a cutoff, PiP counts a scholar's papers
+reaching that citation percentile, ranks that count against peers who started in the same year, and averages these
+standings. Across 11.1 million Semantic Scholar authors, PiP's distribution stays stable across 1960 to 2015 cohorts,
+whereas the average $h$-index at career age 10 rose about 40\%. In every setting and across all 15 fields, PiP
+outperforms the $h$-index at predicting a scholar's record in the next decade, including future top papers, exceptional
+papers and overall citation impact, and reaches its age-10 accuracy in identifying future high performers 1.6 to 1.8
+years earlier. Among all eligible authors, PiP also better anticipates later academy memberships, fellowships and
+prizes.
 \end{abstract}
 
 \noindent\textbf{Keywords:} research evaluation; citation percentiles; $h$-index; career age; indicators; Semantic
@@ -105,8 +114,8 @@ of a record, PiP reads the whole curve above the cutoff.
 
 With the cutoff at the 50th percentile, used throughout, only papers in the top half of their year can earn credit, and
 recent papers can earn it as soon as they stand out among papers of their own age. A single paper in the top 1\% counts
-at every threshold up to the 99th percentile, where most peers have nothing. Lowering the cutoff moves weight towards the
-number of papers; raising it, towards their impact. The cutoff is a dial between quantity and impact.
+at every threshold up to the 99th percentile, where most peers have nothing. Lowering the cutoff moves weight toward the
+number of papers; raising it, toward their impact. The cutoff is a dial between quantity and impact.
 
 We compute PiP from the Semantic Scholar Academic Graph \citep{kinney2023semantic} for 11.1 million authors at career
 ages 1 to 30 (years since their first paper). Authors with at least three articles and an $h$-index of at least three
@@ -230,8 +239,10 @@ themselves \citep{googlescholarprofiles}, so they are a check on automatic disam
 \paragraph{Honors.} For the test of later recognition (Section~\ref{sec:honors}) we use Wikidata \citep{wikidata2026},
 a free, collaborative knowledge base whose structured data are released under CC0. Items describing people can record
 their honors, with dates, and their Semantic Scholar and Google Scholar identifiers. We queried Wikidata for honors on
-5 November 2026. For the Google Scholar profiles we also record whether the scholar's item links to an English
-Wikipedia article, using the website's monthly copy of Wikidata.
+5 November 2026; the curated list of 65 senior honors and matching scripts are archived in our replication package
+\citep{ipeirotis2026replication}. For the Google Scholar profiles we also record whether the item links to an English
+Wikipedia article, using the website's monthly Wikidata copy.
+
 \section{The PiP score}
 \label{sec:pip}
 
@@ -361,11 +372,11 @@ percentile, as at \#8--10 and \#2--4 for the 90th-percentile author).
   \centering
   \includegraphics[width=\textwidth]{fig_standing_curves.pdf}
   \caption{Standing curves of three authors who published their first article in 1995, evaluated in 2005 (career age
-  10). Each was chosen as the author whose PiP is closest to the 25th, 50th or 90th percentile of the cohort's scores
-  (the median author is the same as in Figure~\ref{fig:construction}). Each curve gives, at every threshold $\theta$,
-  the share of the 1995 cohort's eligible authors who have fewer articles at or above percentile $\theta$ of their
-  publication year. PiP is the shaded area to the right of $\tau = 0.5$, rescaled by $1/(1-\tau)$, or equivalently the
-  average height of the curve there (dashed line). Orange triangles and article labels (\#1 = highest citation
+  10), chosen as the author whose PiP is closest to the (a) 25th, (b) 50th (median; same author as in
+  Figure~\ref{fig:construction}) or (c) 90th percentile of the cohort's scores. Each curve gives, at every threshold
+  $\theta$, the share of the 1995 cohort's eligible authors who have fewer articles at or above percentile $\theta$ of
+  their publication year. PiP is the shaded area to the right of $\tau = 0.5$, rescaled by $1/(1-\tau)$, or equivalently
+  the average height of the curve there (dashed line). Orange triangles and article labels (\#1 = highest citation
   percentile) along the horizontal axis mark each author's articles, and solid orange vertical segments mark the
   downward steps: the curve can fall only where $\theta$ passes one of the author's own articles (with larger drops
   where articles tie), and climbs between articles as peers' articles drop below $\theta$.}
@@ -405,30 +416,11 @@ summing the amount by which each article exceeds $\tau$ (divided by $1-\tau$) an
 \subsection{Properties}
 \label{sec:properties}
 The properties below hold for a fixed peer group containing the author; each follows from the definition
-(Appendix~\ref{app:proofs}), and we checked them numerically on simulated cohorts (code in the replication package).
+(Appendix~\ref{app:proofs}), and we checked them numerically on simulated cohorts \citep{ipeirotis2026replication}.
 
 \paragraph{Range.} $0 \le \PiP < 1$. Because the peer group includes the author, no one can have more articles than
 every peer including themselves, so the standing $g(\theta)$ is strictly below $1$ at every threshold. The score is zero
 when every article of the author falls strictly below $\tau$.
-
-\begin{table}[t]
-  \centering
-  \small
-  \caption{Indicators as summaries of the count curve $n(\theta)$, the number of the author's articles at or above
-  percentile $\theta$, and of the standing curve $g(\theta)$.}
-  \label{tab:taxonomy}
-  \begin{tabular}{llll}
-    \toprule
-    Indicator & In terms of the curves & Thresholds used & Comparison with peers \\
-    \midrule
-    Article count & $n(0)$ & one ($\theta = 0$) & none, or once by rank \\
-    Top-10\% count & $n(0.90)$ & one ($\theta = 0.90$) & none, or once by rank \\
-    I3 & $\int_0^1 n(\theta)\,d\theta$ & all & none, or once by rank \\
-    PiP-simple & $\frac{1}{1-\tau}\int_\tau^1 n(\theta)\,d\theta$ & $\theta \ge \tau$ & once, by rank \\
-    PiP & $\frac{1}{1-\tau}\int_\tau^1 g(\theta)\,d\theta$ & $\theta \ge \tau$ & at every threshold \\
-    \bottomrule
-  \end{tabular}
-\end{table}
 
 \paragraph{Monotonicity.} With the peers and the percentiles of the author's other articles held fixed, adding an
 article or raising an existing article's percentile never lowers PiP: at every threshold either change raises or
@@ -476,6 +468,25 @@ $\frac{1}{1-\tau}\int_\tau^1 n(\theta)\,d\theta$, and compares with peers once b
 $n(\theta)$ with the peer standing $g(\theta)$ at every threshold before averaging. The $h$-index reads one corner of
 the analogous curve in citation space: the largest integer $h$ where at least $h$ articles have at least $h$ citations.
 
+\begin{table}[t]
+  \centering
+  \small
+  \caption{Indicators as summaries of the count curve $n(\theta)$, the number of the author's articles at or above
+  percentile $\theta$, and of the standing curve $g(\theta)$.}
+  \label{tab:taxonomy}
+  \begin{tabular}{llll}
+    \toprule
+    Indicator & In terms of the curves & Thresholds used & Comparison with peers \\
+    \midrule
+    Article count & $n(0)$ & one ($\theta = 0$) & none, or once by rank \\
+    Top-10\% count & $n(0.90)$ & one ($\theta = 0.90$) & none, or once by rank \\
+    I3 & $\int_0^1 n(\theta)\,d\theta$ & all & none, or once by rank \\
+    PiP-simple & $\frac{1}{1-\tau}\int_\tau^1 n(\theta)\,d\theta$ & $\theta \ge \tau$ & once, by rank \\
+    PiP & $\frac{1}{1-\tau}\int_\tau^1 g(\theta)\,d\theta$ & $\theta \ge \tau$ & at every threshold \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
 \paragraph{Numerical evaluation.} To compute PiP in our empirical analyses, we divide $[0, 1)$ into 40 percentile bins
 of width $0.025$. At the default cutoff $\tau = 0.5$, the reported score averages the author's standing $g(\theta)$ over
 the 20 thresholds $0.50, 0.525, \ldots, 0.975$ (which equals the exact integral in Eq.~\ref{eq:pip} when each paper
@@ -514,7 +525,7 @@ Percentiles settle quickly (Figure~\ref{fig:paperstability}a, Table~\ref{tab:pap
 10 is 0.72 after one year, 0.91 after three and 0.96 after five; with age 30 it is 0.84 after three and 0.89 after five.
 The ordinary least-squares slope of the later on the earlier percentile is close to one (0.94 for ages 3 and 10),
 so there is little regression to the mean: early high-percentile papers stay near the top rather than drifting
-towards the middle. Individual papers still move: between ages 3 and 10 a paper's percentile changes by 8.6
+toward the middle. Individual papers still move: between ages 3 and 10 a paper's percentile changes by 8.6
 points (0.086) on average.
 
 The agreement between ages 3 and 10 holds in every publication year from 1960 to 1995: the correlation lies between
@@ -563,7 +574,7 @@ percentile and top-2.5\% article count (Figure~\ref{fig:tau}a, Table~\ref{tab:ta
 \begin{figure}[t]
   \centering
   \includegraphics[width=\textwidth]{tau_sweep.pdf}
-  \caption{The cutoff $\tau$ moves PiP from quantity towards impact. Eligible authors at career age 10, start years
+  \caption{The cutoff $\tau$ moves PiP from quantity toward impact. Eligible authors at career age 10, start years
   1975--2010. (a) Within-cohort Spearman correlation of PiP with the author's number of articles, number of articles in
   the top 2.5\% of their year, and mean article percentile. (b--d) Prediction of the author's articles published in the
   next ten years, for start years 1975--2000 (Section~\ref{sec:prediction}): (b) Spearman correlation with the number of
@@ -700,7 +711,7 @@ The hardest test of an indicator for career decisions is whether it anticipates 
 eligible author, we score each article they publish in the ten years after the evaluation year by its percentile within
 its publication year at its own age 5 (at age 5 a paper's percentile already correlates at 0.96 with its age-10
 percentile; Section~\ref{sec:paperstability}). Indicators use only the author's articles and citations up to the
-evaluation year, so no article counts towards both predictor and outcome. We use three outcomes, each with its own
+evaluation year, so no article counts toward both predictor and outcome. We use three outcomes, each with its own
 accuracy measure: the number of future articles in the top 10\% (Spearman correlation); whether at least one future
 article is in the top 1\% (ROC AUC: here and below, the probability that a random author with the outcome outranks a
 random author without it, counting ties as one half, so 0.5 is chance); and the citation impact of the future
@@ -724,7 +735,7 @@ cohort-percentile form.
   eligible authors at career age 5, 10 or 15 (left of the vertical line), or all eligible authors in 2000 or 2005 at
   career ages 2--30 (right). Outcomes: (a) Spearman correlation with the number of future articles in the top 10\% of
   their year; (b) ROC AUC for at least one future top-1\% article; (c) Spearman correlation with the mean percentile
-  of future articles. Each future article is scored at age 5. Grey segments join raw PiP to the cohort percentile of
+  of future articles. Each future article is scored at age 5. Gray segments join raw PiP to the cohort percentile of
   the $h$-index.}
   \label{fig:prediction}
 \end{figure}
@@ -798,12 +809,12 @@ and the mean percentile each serve one outcome, whereas PiP balances all three.
   \includegraphics[width=\textwidth]{fig_frontier.pdf}
   \caption{Indicators placed by how well they predict the number of a scholar's future top-10\% papers (horizontal) and
   the mean percentile of their future papers (vertical), Spearman correlations. The blue curve is PiP at cutoffs from
-  $\tau = 0$ to $0.9$; the large dot is $\tau = 0.5$. Grey squares are the $h$-index, I3, the top-10\% and top-1\%
+  $\tau = 0$ to $0.9$; the large dot is $\tau = 0.5$. Gray squares are the $h$-index, I3, the top-10\% and top-1\%
   counts and, in panel (b), the top-10\% count per year of career; the mean percentile and the article count lie off
   the chart, and their coordinates are printed in each panel. (a) Eligible authors at career age 10, raw values. (b) All
   eligible authors in 2005 at career ages 2--30, within-cohort percentiles (the top-10\% count per year of career is
   raw). The dashed curve is PiP-simple from $\tau = 0$ (I3) to $0.75$, with the large open circle at $\tau = 0.5$. For
-  the third outcome, a future top-1\% paper, PiP at every cutoff from 0 to 0.75 has a higher AUC than every grey
+  the third outcome, a future top-1\% paper, PiP at every cutoff from 0 to 0.75 has a higher AUC than every gray
   indicator in both settings.}
   \label{fig:frontier}
 \end{figure}
@@ -979,7 +990,7 @@ top-10\% count ($+0.001$ [$-0.005$, 0.007] at age 10), and the impact end of the
 $\tau = 0.75$ the AUC is 0.76 and 0.84 ($+0.011$ [0.005, 0.017] and $+0.009$ [0.005, 0.013] over $\tau = 0.5$, with
 paired intervals also above zero in both notable groups at age 10). Recognition rewards highly cited work more than
 volume: the article count,
-which leans most towards volume, does worst apart from the mean percentile.
+which leans most toward volume, does worst apart from the mean percentile.
 
 Within the two notable groups, every indicator separates future honorees only weakly (AUC 0.54--0.66 at career age
 10). There, PiP is level with the $h$-index at age 5 ($-0.005$ [$-0.019$, 0.011] among people with a Wikidata item and
@@ -997,7 +1008,7 @@ and slightly better for having a Wikipedia article (by 0.005 and 0.004).
 The recognition test therefore supports PiP over the $h$-index with an outcome outside citation counts, most clearly for
 detecting future honorees among all scholars and early in their careers. In populations closer to faculty evaluation,
 the gain over the $h$-index is small, and the top-10\% count does as well. The test also shows that the default cutoff
-is not best for every purpose: to anticipate recognition, an evaluator should move the dial towards impact. Above $\tau
+is not best for every purpose: to anticipate recognition, an evaluator should move the dial toward impact. Above $\tau
 = 0.6$ the raw score drifts across cohorts (Section~\ref{sec:tau}), so such scores should be read as cohort percentiles,
 as they are here.
 
@@ -1192,31 +1203,33 @@ advantage.
 A single parameter, the cutoff, moves PiP between quantity and impact. The construction needs only each scholar's
 articles, with their publication years and citations by year; \url{https://www.pip-score.org} provides an interactive
 demonstration of the metric on Google Scholar profiles, and the replication code computes it at scale in a database.
-\section*{Data and code availability}
-The replication package is archived on Zenodo \citep{ipeirotis2026replication}. It holds the SQL that builds every
-table, the result tables that the SQL writes, the Lean~4 and numerical checks of the properties in
-Section~\ref{sec:pip}, the data behind every figure, the plotting scripts, and the scripts and curated honors of
-Section~\ref{sec:honors}. Its \texttt{COMPUTATION.md} explains how the SQL evaluates the integral that defines PiP.
-Semantic Scholar data are available under the ODC-BY license from the Semantic Scholar Datasets API
-\citep{s2datasets2026}; Wikidata is available under CC0 \citep{wikidata2026}. Author-level statistics for the Google
-Scholar profiles can be downloaded from \url{https://www.pip-score.org/data}; the per-article profile data used here are
-not redistributed. The derived tables, from the article-level reconstruction to the per-author scores, are in the
-BigQuery datasets \texttt{scholar-version2.paper\_rp} and \texttt{scholar-version2.paper\_rp\_noself} (without
-self-citations), which anyone signed in to Google Cloud can query; queries are billed to the reader's own project.
-
-\section*{Competing interests}
-Panos Ipeirotis developed and maintains \url{https://www.pip-score.org}, a free, non-commercial website computing
-scholar indicators from Google Scholar profiles. The authors have no other competing interests.
-
-\section*{Funding}
-No specific funding was received for this work.
-
 \section*{Author contributions}
 Panos Ipeirotis: Conceptualization, Methodology, Software, Formal analysis, Data curation, Visualization, Supervision,
 Writing -- original draft, Writing -- review \& editing. Sen Tian: Conceptualization, Methodology, Formal analysis,
 Writing -- review \& editing.
 
-\bibliographystyle{apalike}
+\section*{Competing interests}
+Panos Ipeirotis developed and maintains \url{https://www.pip-score.org}, a free, non-commercial website computing
+scholar indicators from Google Scholar profiles. The authors have no other competing interests.
+
+\section*{Funding information}
+No specific funding was received for this work.
+
+\section*{Data availability}
+The replication package is archived on Zenodo \citep{ipeirotis2026replication}. It holds the SQL that builds every
+table, the 28 aggregate result tables that reproduce every table and number in the paper, the Lean~4 and numerical
+checks of the properties in Section~\ref{sec:pip}, the data behind every figure, the plotting scripts, and the scripts
+and curated honors of Section~\ref{sec:honors}. Its \texttt{COMPUTATION.md} explains how the SQL evaluates the integral
+that defines PiP. Semantic Scholar data are available under the ODC-BY license from the Semantic Scholar Datasets API
+\citep{s2datasets2026}; Wikidata is available under CC0 \citep{wikidata2026}. For legal reasons (Google Scholar's terms
+of service), raw per-article data from Google Scholar profiles cannot be made openly available; aggregated author-level
+statistics for the profiles can be downloaded from \url{https://www.pip-score.org/data}, and the aggregate validation
+outputs are included in the Zenodo archive. Because the intermediate article-level reconstruction and per-author score
+tables ($\approx$527~GB) exceed Zenodo's per-record size limit, they are hosted in the publicly queryable BigQuery
+datasets \texttt{scholar-version2.paper\_rp} and \texttt{scholar-version2.paper\_rp\_noself} (without self-citations),
+which anyone signed in to Google Cloud can query (queries are billed to the reader's own project).
+
+\bibliographystyle{qss-apa}
 \bibliography{references}
 
 \appendix
