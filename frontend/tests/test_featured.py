@@ -110,13 +110,26 @@ def test_numbers_fit_one_line_each(make_client):
     assert html.count('class="col-name cell-text"') == 4  # three featured rows, one recent
 
 
-def test_legacy_featured_row_without_pip_score_falls_back_to_pip_auc(make_client):
+def test_legacy_featured_table_labels_column_pip_auc(make_client):
     legacy = {"scholar_id": "FEAT0001AAAJ", "name": "Legacy Author", "affiliation": "Univ",
               "hindex": 40, "citedby": 5000, "pip_auc_score": 0.4321, "pip_auc_percentile": 0.765}
     client, _ = make_client([legacy])
     html = client.get("/").get_data(as_text=True)
+    assert ">PiP-AUC</th>" in html
     assert '<td class="col-num">0.4321</td>' in html
     assert '<td class="col-num text-muted">76.5</td>' in html
+
+
+def test_mixed_table_does_not_mix_pip_auc_into_pip_column(make_client):
+    legacy = {"scholar_id": "FEAT0002AAAJ", "name": "Legacy Author", "affiliation": "Univ",
+              "hindex": 40, "citedby": 5000, "pip_auc_score": 0.4321, "pip_auc_percentile": 0.765}
+    client, _ = make_client([_author(1, pip_score=0.5812, pip_percentile=0.861), legacy])
+    html = client.get("/featured").get_data(as_text=True)
+    assert ">PiP</th>" in html
+    assert ">PiP-AUC</th>" not in html
+    assert '<td class="col-num">0.5812</td>' in html
+    assert "0.4321" not in html
+    assert '<td class="col-num text-muted">—</td>' in html
 
 
 def test_author_without_pip_score_does_not_break_the_homepage(make_client):

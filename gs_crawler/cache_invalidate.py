@@ -56,6 +56,27 @@ def invalidate_authors(scholar_ids, db=None):
     return deleted
 
 
+def _batch_delete_authors(scholar_ids, db):
+    """Delete author-keyed cache docs using Firestore WriteBatches (<= 400 ops/commit)."""
+    ops_per_batch = 400  # 100 authors * 4 collections, safely below Firestore's 500 limit
+    batch = db.batch()
+    pending = 0
+    deleted = 0
+    for scholar_id in scholar_ids:
+        for collection in AUTHOR_CACHE_COLLECTIONS:
+            batch.delete(db.collection(collection).document(scholar_id))
+            pending += 1
+            if pending >= ops_per_batch:
+                batch.commit()
+                deleted += pending
+                batch = db.batch()
+                pending = 0
+    if pending:
+        batch.commit()
+        deleted += pending
+    return deleted
+
+
 def invalidate_missing_pip(db=None):
     """Invalidate cached GS author profiles that predate the PiP (pip_score) migration."""
     try:
@@ -72,6 +93,6 @@ def invalidate_missing_pip(db=None):
         if not isinstance(payload, dict) or "pip_score" not in payload:
             stale_ids.append(sid)
     if stale_ids:
-        invalidate_authors(stale_ids, db=db)
+        _batch_delete_authors(stale_ids, db=db)
     logger.info("Invalidated %d pre-PiP GS author cache entries", len(stale_ids))
     return len(stale_ids)

@@ -54,10 +54,13 @@ def test_invalidate_missing_pip_targets_only_stale_gs_docs():
         _doc("123456789012", {"pip_auc_score": 0.5}),                   # 12-digit S2 ID -> keep
         _doc("2942126", {"pip_auc_score": 0.5}),                        # short S2 ID -> keep
     ]
-    with patch.object(cache_invalidate, "invalidate_authors") as inv:
-        count = cache_invalidate.invalidate_missing_pip(db=db)
+    count = cache_invalidate.invalidate_missing_pip(db=db)
     assert count == 1
-    inv.assert_called_once_with(["STALEGSAAAAJ"], db=db)
+    batch = db.batch.return_value
+    assert batch.delete.call_count == len(cache_invalidate.AUTHOR_CACHE_COLLECTIONS)
+    batch.commit.assert_called_once()
+    deleted_docs = [c.args[0] for c in db.collection.return_value.document.call_args_list]
+    assert deleted_docs == ["STALEGSAAAAJ"] * len(cache_invalidate.AUTHOR_CACHE_COLLECTIONS)
 
 
 def test_invalidate_legacy_pip_mode(monkeypatch):

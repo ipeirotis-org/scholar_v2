@@ -396,8 +396,8 @@ class TestHelpRoute:
         assert response.status_code == 200
         html = response.get_data(as_text=True)
         assert "Percentile-in-Percentile" in html
-        assert "0.50" in html
         assert "PiP-AUC" in html
+        assert "0.50" not in html
         assert "semanticscholar.org" in html
 
     def test_help_page_gs_mode(self, monkeypatch):
@@ -407,6 +407,7 @@ class TestHelpRoute:
         app = create_app(config={"TESTING": True, "SECRET_KEY": "test"})
         html = app.test_client().get("/help").get_data(as_text=True)
         assert "40 steps of 2.5 percentile points" in html
+        assert "0.50" in html
         assert "strictly fewer" in html
         assert "PiP-AUC" in html
 

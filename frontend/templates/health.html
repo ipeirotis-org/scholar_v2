@@ -18,19 +18,25 @@
                 </div>
                 <div class="card-body">
                     {% if data.recent_analyzed_authors %}
+                    {% set ns = namespace(has_pip=false, has_auc=false) %}
+                    {% for a in data.recent_analyzed_authors %}
+                        {% if 'pip_score' in a %}{% set ns.has_pip = true %}{% endif %}
+                        {% if 'pip_auc_score' in a %}{% set ns.has_auc = true %}{% endif %}
+                    {% endfor %}
+                    {% set show_pip = (data_source == 'gs') and (ns.has_pip or not ns.has_auc) %}
                     <table class="table table-sm">
                         <thead>
                             <tr>
                                 <th>Author ID</th>
                                 <th>Name</th>
-                                <th>PiP</th>
+                                <th>{{ 'PiP' if show_pip else 'PiP-AUC' }}</th>
                                 <th>When</th>
                             </tr>
                         </thead>
                         <tbody>
                             {% for author in data.recent_analyzed_authors %}
-                            {% set raw_score = author.get('pip_score') if 'pip_score' in author else author.get('pip_auc_score') %}
-                            {% set raw_pct = author.get('pip_percentile') if 'pip_score' in author else author.get('pip_auc_percentile') %}
+                            {% set raw_score = author.get('pip_score') if show_pip else author.get('pip_auc_score') %}
+                            {% set raw_pct = author.get('pip_percentile') if show_pip else author.get('pip_auc_percentile') %}
                             {% set score_str = raw_score|score %}
                             <tr>
                                 <td>

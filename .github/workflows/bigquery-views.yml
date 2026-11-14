@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - 'bigquery/**/*.sql'
+      - 'bigquery/**/deploy_order.txt'
 
   # Allow manual trigger for deploying all views on demand
   workflow_dispatch:

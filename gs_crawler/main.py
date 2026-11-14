@@ -9,7 +9,8 @@ Modes (CRAWL_MODE):
   - deploy: create/replace all gs_statistics views and tables.
   - wikidata: reload gs_data.wikidata_authors (GS IDs from Wikidata, for name search
     and ingestion priority), then the app's author search index and featured authors.
-  - featured: rebuild only the homepage's featured authors (most-read Wikipedia articles).
+  - featured: rebuild only the homepage's featured and recent authors.
+  - invalidate_legacy_pip: evict cached GS author profiles that predate pip_score.
 
 Profiles only: publication lists and per-paper totals, no per-paper citation
 histograms (see docs/google-scholar-data-sources.md).

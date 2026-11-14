@@ -6,6 +6,7 @@
 <div class="container mt-4">
     <h2>Help</h2>
 
+    {% if data_source == "gs" %}
     <h4>What is PiP?</h4>
     <p>
         <strong>PiP (Percentile-in-Percentile)</strong> measures research impact on a 0-to-1 scale by
@@ -37,10 +38,19 @@
         The explorer also includes a <strong>By publication year</strong> scatter view and the earlier
         <strong>PiP-AUC curve</strong> view for comparison.
     </p>
+    {% else %}
+    <h4>What is PiP-AUC?</h4>
+    <p>
+        PiP-AUC (Percentile-in-Percentile Area Under Curve) combines citation quality with
+        publication productivity into a single 0-to-1 score. Each paper is ranked against
+        all papers published in the same year, and an author's publication count is compared
+        to faculty at similar career stages.
+    </p>
+    {% endif %}
 
     <h4>How are percentiles calculated?</h4>
     <p>
-        All metrics (PiP, h-index, citations, i10-index, cited publication count) are percentile-ranked
+        All metrics ({% if data_source == "gs" %}PiP{% else %}PiP-AUC{% endif %}, h-index, citations, i10-index, cited publication count) are percentile-ranked
         {% if data_source == "gs" %}
         against active authors among the Google Scholar profiles we track
         {% else %}
