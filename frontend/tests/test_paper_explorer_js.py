@@ -100,6 +100,9 @@ function matches(node, sel) {
         while (p) { if (p.classList && p.classList.contains('view-toggle')) inToggle = true; p = p.parentNode; }
         return inToggle && matches(node, sel.slice('.view-toggle '.length));
     }
+    if (sel.startsWith('.') && !sel.includes(' ')) {
+        return Boolean(node.classList && node.classList.contains(sel.slice(1)));
+    }
     const m = sel.match(/^\[([a-zA-Z0-9_-]+)\]$/);
     if (m) return node.hasAttribute(m[1]);
     return false;
@@ -127,7 +130,7 @@ function buildDom(withStanding) {
         const readout = makeNode('strong', 'tauReadout'); byId.tauReadout = readout; tc.appendChild(readout);
         const pctNote = makeNode('span', 'tauPctNote'); byId.tauPctNote = pctNote; tc.appendChild(pctNote);
         const slider = makeNode('input', 'tauSlider'); slider.value = '0.5'; byId.tauSlider = slider; tc.appendChild(slider);
-        const scoreOut = makeNode('p', 'tauScoreReadout'); byId.tauScoreReadout = scoreOut; tc.appendChild(scoreOut);
+        const scoreOut = makeNode('div', 'tauScoreReadout'); byId.tauScoreReadout = scoreOut; tc.appendChild(scoreOut);
         [0, 0.25, 0.5, 0.75, 0.9].forEach(val => {
             const chip = makeNode('button');
             chip.setAttribute('data-tau-preset', String(val));
@@ -191,21 +194,45 @@ const papers = [
     assert.strictEqual(exp.state.view, 'standing');
     assert.strictEqual(byId.tauControls.hidden, false);
     assert.strictEqual(byId.tauReadout.textContent, '0.50');
-    assert(byId.tauScoreReadout.textContent.includes('PiP = 0.3100'));
-    assert(byId.tauScoreReadout.textContent.includes('2 works above the 50th percentile counted'));
+    assert.strictEqual(byId.tauPctNote.textContent, '(≥ 50.0%)');
+    assert(byId.tauScoreReadout.textContent.includes('Mean height:0.3100'));
+    assert(byId.tauScoreReadout.textContent.includes('2 / 3 cited works counted'));
+    assert(byId.tauScoreReadout.textContent.includes('Official PiP & rankings use τ = 0.50'));
+    const officialNote = byId.tauScoreReadout.querySelector('.tau-official-note');
+    assert.strictEqual(officialNote.classList.contains('is-custom'), false);
+
+    const initialFinding = byId.exploreFinding.textContent;
+    const initialCall = plotlyCalls[plotlyCalls.length - 1];
+    assert.strictEqual(initialCall.data.length, 8);
+    assert.strictEqual(initialCall.layout.shapes.length, 3);
+    assert.strictEqual(initialCall.layout.annotations.length, 0);
 
     // Escaped hover HTML (no raw <script>)
-    const allHover = JSON.stringify(plotlyCalls[plotlyCalls.length - 1].data);
+    const allHover = JSON.stringify(initialCall.data);
     assert(!allHover.includes('<script>'));
     assert(allHover.includes('&lt;script&gt;'));
 
     // Select mid paper (class 24 -> 60th pct) and shift tau above it (0.75 -> class 30)
     exp.select('a:2');
     assert(byId.paperPanel.textContent.includes('Counted in score'));
+    assert(byId.paperPanel.textContent.includes('Current cutoff'));
     exp.setTau(0.75);
     assert.strictEqual(byId.tauReadout.textContent, '0.75');
+    assert.strictEqual(byId.exploreFinding.textContent, initialFinding);
     assert(byId.paperPanel.textContent.includes('Below cutoff (not counted)'));
-    assert(byId.tauScoreReadout.textContent.includes('Cohort & field rankings use τ = 0.50'));
+    assert.strictEqual(officialNote.classList.contains('is-custom'), true);
+    assert(byId.tauScoreReadout.textContent.includes('1 / 3 cited works counted'));
+
+    // Shift tau all the way to 0 -> readout formats as '0.00' and trace/shape counts stay fixed
+    exp.setTau(0);
+    assert.strictEqual(byId.tauReadout.textContent, '0.00');
+    assert.strictEqual(byId.tauPctNote.textContent, '(≥ 0.0%)');
+    assert.strictEqual(byId.exploreFinding.textContent, initialFinding);
+    assert(byId.tauScoreReadout.textContent.includes('3 / 3 cited works counted'));
+    const zeroCall = plotlyCalls[plotlyCalls.length - 1];
+    assert.strictEqual(zeroCall.data.length, 8);
+    assert.strictEqual(zeroCall.layout.shapes.length, 3);
+    assert.strictEqual(zeroCall.layout.annotations.length, 0);
 
     // Switch to year and pip views -> tauControls hides, 3rd tab shows PiP-AUC
     exp.setView('year');

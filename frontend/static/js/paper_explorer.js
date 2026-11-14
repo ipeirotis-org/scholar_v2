@@ -65,7 +65,6 @@
     }
 
     function fmtTau(tau) {
-        if (tau === 0) return '0';
         var k = Math.round(tau * 40);
         return (k % 2 === 0) ? (k / 40).toFixed(2) : (k / 40).toFixed(3);
     }
@@ -220,6 +219,7 @@
         this.panel.setAttribute('tabindex', '-1');
         this._bindControls();
         this._syncTauUi();
+        this._renderFinding();
         this.renderChart();
         this.renderPanel();
         this.renderList();
@@ -233,6 +233,7 @@
                 var narrow = self._isNarrow();
                 if (narrow !== self.narrow) {
                     self.narrow = narrow;
+                    self._renderFinding();
                     self.renderChart();
                 }
             }, 150);
@@ -270,6 +271,36 @@
         return null;
     };
 
+    PaperExplorer.prototype._ensureTauReadoutDom = function () {
+        if (!this.tauScoreReadout || this._tauScoreNodes) return;
+        this.tauScoreReadout.textContent = '';
+
+        var primary = el('span', 'tau-score-primary');
+        var swatch = el('span', 'tau-mean-swatch');
+        swatch.setAttribute('aria-hidden', 'true');
+        primary.appendChild(swatch);
+        primary.appendChild(document.createTextNode('Mean height:'));
+        var scoreVal = el('strong', 'tau-num-score');
+        primary.appendChild(scoreVal);
+
+        var sep = el('span', 'tau-sep', '·');
+        sep.setAttribute('aria-hidden', 'true');
+        primary.appendChild(sep);
+
+        var countedWrap = el('span', 'tau-counted');
+        var countVal = el('span', 'tau-num-count');
+        countedWrap.appendChild(countVal);
+        countedWrap.appendChild(document.createTextNode(
+            ' / ' + fmtInt(this.papers.length) + ' cited works counted'));
+        primary.appendChild(countedWrap);
+
+        var note = el('span', 'tau-official-note', 'Official PiP & rankings use τ = 0.50');
+
+        this.tauScoreReadout.appendChild(primary);
+        this.tauScoreReadout.appendChild(note);
+        this._tauScoreNodes = { scoreVal: scoreVal, countVal: countVal, note: note };
+    };
+
     PaperExplorer.prototype._syncTauUi = function () {
         if (!this.tauControls) return;
         this.tauControls.hidden = (this.state.view !== 'standing');
@@ -282,13 +313,7 @@
         if (this.tauSlider) this.tauSlider.value = String(tau);
         if (this.tauReadout) this.tauReadout.textContent = fmtTau(tau);
         if (this.tauPctNote) {
-            if (k === 0) {
-                this.tauPctNote.textContent = '(all cited works counted)';
-            } else if (k === 20) {
-                this.tauPctNote.textContent = '(top 50% of works · default)';
-            } else {
-                this.tauPctNote.textContent = '(works ≥ ' + trim1(tauPct) + 'th percentile)';
-            }
+            this.tauPctNote.textContent = '(\u2265 ' + tauPct.toFixed(1) + '%)';
         }
         var chips = this.tauControls.querySelectorAll('[data-tau-preset]');
         Array.prototype.forEach.call(chips, function (chip) {
@@ -298,28 +323,24 @@
             chip.setAttribute('aria-pressed', active ? 'true' : 'false');
         });
         if (this.tauScoreReadout && pipTau !== null) {
-            this.tauScoreReadout.textContent = '';
-            var counted = this.countsByClass[k];
-            if (k === 20) {
-                this.tauScoreReadout.appendChild(el('strong', null, 'PiP = ' + pipTau.toFixed(4)));
-                this.tauScoreReadout.appendChild(document.createTextNode(
-                    ' · ' + plural(counted, 'work', 'works') + ' above the 50th percentile counted.'));
-            } else {
-                this.tauScoreReadout.appendChild(el('strong', null,
-                    'PiP (τ = ' + fmtTau(tau) + ') = ' + pipTau.toFixed(4)));
-                this.tauScoreReadout.appendChild(document.createTextNode(
-                    ' · ' + plural(counted, 'work', 'works') + ' counted · Cohort & field rankings use τ = 0.50.'));
-            }
+            this._ensureTauReadoutDom();
+            this._tauScoreNodes.scoreVal.textContent = pipTau.toFixed(4);
+            this._tauScoreNodes.countVal.textContent = fmtInt(this.countsByClass[k]);
+            this._tauScoreNodes.note.classList.toggle('is-custom', k !== 20);
         }
     };
 
     PaperExplorer.prototype.setTau = function (rawTau) {
         if (!this.hasStanding) return;
         var k = Math.min(38, Math.max(0, Math.round(Number(rawTau) * 40)));
+        var prevK = this._tauClass();
         this.state.tau = k / 40;
         this._syncTauUi();
+        if (k === prevK) return;
         this.renderChart();
-        this.renderPanel();
+        if (this.state.selectedId) {
+            this.renderPanel();
+        }
     };
 
     PaperExplorer.prototype._bindControls = function () {
@@ -378,6 +399,7 @@
             b.setAttribute('aria-pressed', on ? 'true' : 'false');
         });
         this._syncTauUi();
+        this._renderFinding();
         this.renderChart();
         this.renderPanel();
     };
@@ -580,15 +602,12 @@
             var t = tierIndex(p.pct);
             (t < 0 ? lowCounted : groups[t]).push(p);
         });
-        var traces = [];
-        if (uncounted.length) {
-            var tr = this._dotTrace(uncounted, COLOR.muted, 'Below cutoff τ');
-            tr.marker.opacity = 0.65;
-            traces.push(tr);
-        }
-        if (lowCounted.length) {
-            traces.push(this._dotTrace(lowCounted, COLOR.lowCounted, 'Counted (<50th percentile)'));
-        }
+        var uncountedTrace = this._dotTrace(uncounted, COLOR.muted, 'Below cutoff τ');
+        uncountedTrace.marker.opacity = 0.6;
+        var traces = [
+            uncountedTrace,
+            this._dotTrace(lowCounted, COLOR.lowCounted, 'Counted (<50th percentile)')
+        ];
         for (var i = TIERS.length - 1; i >= 0; i--) {
             traces.push(this._dotTrace(groups[i], TIERS[i].color, TIERS[i].label + ' for its year'));
         }
@@ -599,13 +618,13 @@
     PaperExplorer.prototype._standingFigure = function () {
         var g = this.standingCurve;
         var k = this._tauClass();
-        var tau = k / 40;
         var tauPct = k * 2.5;
         var pipTau = this._pipAtTau(k);
         var avgHeight = pipTau !== null ? 100 * pipTau : 0;
         var narrow = this.narrow;
 
         var layout = this._baseLayout();
+        layout.uirevision = 'standing';
         layout.xaxis = {
             title: {
                 text: narrow ? 'Paper percentile threshold θ'
@@ -613,6 +632,8 @@
                 standoff: 8
             },
             range: [0, 100],
+            autorange: false,
+            automargin: false,
             tickvals: [0, 25, 50, 75, 90, 100],
             gridcolor: COLOR.grid,
             gridwidth: 1,
@@ -627,6 +648,8 @@
                 standoff: 8
             },
             range: [0, 100],
+            autorange: false,
+            automargin: false,
             tickvals: [0, 25, 50, 75, 90, 100],
             gridcolor: COLOR.grid,
             gridwidth: 1,
@@ -635,42 +658,32 @@
             fixedrange: this.touch
         };
 
-        var traces = [];
+        // Fixed shape slots: muted curtain [0, tauPct], vertical cutoff line, and horizontal mean line.
+        layout.shapes.push({
+            type: 'rect', xref: 'x', x0: 0, x1: tauPct, yref: 'y', y0: 0, y1: 100,
+            fillcolor: COLOR.uncountedFill, line: { width: 0 }, layer: 'below'
+        });
+        layout.shapes.push({
+            type: 'line', xref: 'x', x0: tauPct, x1: tauPct, yref: 'y', y0: 0, y1: 100,
+            line: { color: COLOR.reference, width: k > 0 ? 1.25 : 0, dash: 'dot' }
+        });
+        if (pipTau !== null) {
+            layout.shapes.push({
+                type: 'line', xref: 'x', x0: tauPct, x1: 100, yref: 'y', y0: avgHeight, y1: avgHeight,
+                line: { color: COLOR.reference, width: 1.6, dash: 'dash' }
+            });
+        }
 
-        // Left of cutoff tau: muted background shade + uncounted portion of g(theta).
+        // Fixed curve trace slots: uncounted [0..tauPct] + counted [tauPct..100].
+        var ux = [], uy = [];
         if (k > 0) {
-            layout.shapes.push({
-                type: 'rect', xref: 'x', x0: 0, x1: tauPct, yref: 'y', y0: 0, y1: 100,
-                fillcolor: COLOR.uncountedFill, line: { width: 0 }, layer: 'below'
-            });
-            layout.shapes.push({
-                type: 'line', xref: 'x', x0: tauPct, x1: tauPct, yref: 'y', y0: 0, y1: 100,
-                line: { color: COLOR.reference, width: 1, dash: 'dot' }
-            });
-            var ux = [], uy = [];
             for (var j = 0; j < k; j++) {
                 ux.push(j * 2.5);
                 uy.push(100 * g[j]);
             }
             ux.push(tauPct);
             uy.push(100 * g[k - 1]);
-            traces.push({
-                type: 'scatter', mode: 'lines', x: ux, y: uy,
-                line: { color: COLOR.uncountedLine, width: 1.75, shape: 'hv' },
-                hoverinfo: 'skip', showlegend: false
-            });
-            if (!narrow && tauPct >= 20) {
-                layout.annotations.push({
-                    xref: 'x', x: tauPct / 2, yref: 'y', y: 95,
-                    showarrow: false,
-                    text: 'θ < ' + trim1(tauPct) + ': not counted',
-                    font: { size: 11, color: COLOR.inkMuted },
-                    bgcolor: 'rgba(255,255,255,0.75)', borderpad: 2
-                });
-            }
         }
-
-        // Right of cutoff tau: counted portion of g(theta) with shaded area.
         var cx = [], cy = [];
         for (var m = k; m < 40; m++) {
             cx.push(m * 2.5);
@@ -678,37 +691,20 @@
         }
         cx.push(100);
         cy.push(100 * g[39]);
-        traces.push({
-            type: 'scatter', mode: 'lines', x: cx, y: cy,
-            fill: 'tozeroy', fillcolor: COLOR.areaFill,
-            line: { color: COLOR.accent, width: 2.2, shape: 'hv' },
-            hoverinfo: 'skip', showlegend: false
-        });
 
-        // Horizontal dashed line across [tauPct, 100] at average height = 100 * PiP_tau.
-        if (pipTau !== null) {
-            layout.shapes.push({
-                type: 'line', xref: 'x', x0: tauPct, x1: 100, yref: 'y', y0: avgHeight, y1: avgHeight,
-                line: { color: COLOR.reference, width: 1.5, dash: 'dash' }
-            });
-            var scoreLabel = k === 20
-                ? (narrow ? 'PiP = ' : 'Average height = PiP ') + pipTau.toFixed(4)
-                : (narrow ? 'PiP = ' : 'Avg height (τ=' + fmtTau(tau) + ') = ') + pipTau.toFixed(4);
-            var aboveLine = avgHeight <= 88;
-            layout.annotations.push({
-                xref: 'x',
-                x: tauPct + (100 - tauPct) * 0.5,
-                yref: 'y',
-                y: avgHeight,
-                yanchor: aboveLine ? 'bottom' : 'top',
-                yshift: aboveLine ? 3 : -3,
-                showarrow: false,
-                text: scoreLabel,
-                font: { size: narrow ? 11 : 12, color: COLOR.reference },
-                bgcolor: 'rgba(255,255,255,0.88)',
-                borderpad: 2
-            });
-        }
+        var traces = [
+            {
+                type: 'scatter', mode: 'lines', x: ux, y: uy,
+                line: { color: COLOR.uncountedLine, width: 1.75, shape: 'hv' },
+                hoverinfo: 'skip', showlegend: false
+            },
+            {
+                type: 'scatter', mode: 'lines', x: cx, y: cy,
+                fill: 'tozeroy', fillcolor: COLOR.areaFill,
+                line: { color: COLOR.accent, width: 2.2, shape: 'hv' },
+                hoverinfo: 'skip', showlegend: false
+            }
+        ];
 
         return {
             data: traces.concat(this._standingDotTraces(this.papers, k), [this._ringTrace()]),
@@ -862,7 +858,6 @@
         };
         Plotly.react(this.chart, fig.data, fig.layout, config);
         this.chart.setAttribute('aria-label', ariaLabel);
-        this._renderFinding();
     };
 
     PaperExplorer.prototype._renderFinding = function () {
@@ -871,30 +866,17 @@
         var n = papers.length;
         this.finding.textContent = '';
         if (this.state.view === 'standing' && this.hasStanding) {
-            var k = this._tauClass();
-            var tau = k / 40;
-            var pipTau = this._pipAtTau(k);
-            var counted = this.countsByClass[k];
-            if (pipTau !== null) {
-                if (k === 20) {
-                    this.finding.appendChild(el('strong', null,
-                        'The average height above τ = 0.50 is the PiP score, ' + pipTau.toFixed(4) + '.'));
-                } else {
-                    var stdScore = this._pipAtTau(20);
-                    this.finding.appendChild(el('strong', null,
-                        'At cutoff τ = ' + fmtTau(tau) + ', the average height is ' + pipTau.toFixed(4) +
-                        (stdScore !== null ? ' (standard PiP at τ = 0.50 is ' + stdScore.toFixed(4) + ').' : '.')));
-                }
+            var stdScore = this._pipAtTau(20);
+            var counted50 = this.countsByClass[20];
+            if (stdScore !== null) {
+                this.finding.appendChild(el('strong', null,
+                    'The average height above τ = 0.50 (dashed line) is the PiP score, ' + stdScore.toFixed(4) + '.'));
                 this.finding.appendChild(document.createTextNode(' '));
             }
-            var thresholdDesc = k === 0
-                ? 'All ' + fmtInt(n) + ' cited works enter at τ = 0.'
-                : fmtInt(counted) + ' of ' + fmtInt(n) + ' cited works reach at least the ' +
-                  trim1(k * 2.5) + 'th percentile for their year and count above the cutoff.';
             this.finding.appendChild(document.createTextNode(
-                thresholdDesc + ' At each threshold θ, the curve shows the share of career-stage peers' +
-                ' with strictly fewer works at or above θ; between this author’s works the curve rises' +
-                ' as peers drop out, and at each work’s threshold it steps down.'));
+                fmtInt(counted50) + ' of ' + fmtInt(n) + ' cited works reach at least the 50th percentile for their year.' +
+                ' At each threshold θ, the curve shows the share of career-stage peers with strictly fewer works' +
+                ' at or above θ; between works it rises as peers drop out, and at each work’s threshold it steps down.'));
         } else if (this.state.view === 'year') {
             var lead = el('strong', null, countAtLeast(papers, TIERS[0].min) + ' of ' + n +
                 ' scored works reached the ' + ordinal(TIERS[0].min) + ' percentile for their publication year.');
@@ -1082,7 +1064,7 @@
             fact('Standing at its threshold',
                 plural(nAt, 'work', 'works') + ' ≥ ' + trim1(b * 2.5) + 'th pct · beats ' +
                 trim1(100 * this.standingCurve[b]) + '% of peers');
-            fact('At cutoff τ = ' + fmtTau(k / 40),
+            fact('Current cutoff',
                 b >= k ? 'Counted in score' : 'Below cutoff (not counted)');
         }
         if (this.state.view === 'pip' || !this.hasStanding) {
