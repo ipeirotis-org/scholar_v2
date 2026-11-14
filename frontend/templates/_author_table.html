@@ -7,6 +7,12 @@
    `ranked` adds a leading # column. With `initial`, only the first `initial`
    rows show; a `more_label` button expands the rest in place. #}
 {% macro author_table(authors, table_id, label, ranked=false, initial=none, more_label="See more") %}
+{% set ns = namespace(has_pip=false, has_auc=false) %}
+{% for a in authors %}
+    {% if 'pip_score' in a %}{% set ns.has_pip = true %}{% endif %}
+    {% if 'pip_auc_score' in a %}{% set ns.has_auc = true %}{% endif %}
+{% endfor %}
+{% set show_pip = (data_source | default('gs') == 'gs') and (ns.has_pip or not ns.has_auc) %}
 <table class="table table-hover table-sm author-table" id="{{ table_id }}" aria-label="{{ label }}">
     <thead>
         <tr>
@@ -15,22 +21,30 @@
             <th scope="col" class="col-affiliation d-none d-lg-table-cell">Affiliation</th>
             <th scope="col" class="col-num col-hindex d-none d-md-table-cell">H-Index</th>
             <th scope="col" class="col-num col-cites d-none d-sm-table-cell">Citations</th>
-            <th scope="col" class="col-num col-pip">PiP-AUC</th>
+            {% if show_pip %}
+            <th scope="col" class="col-num col-pip" title="Percentile-in-Percentile score (τ = 0.5)">PiP</th>
+            <th scope="col" class="col-num col-pct" title="PiP percentile within the author's career-start cohort">Percentile</th>
+            {% else %}
+            <th scope="col" class="col-num col-pip" title="Percentile-in-Percentile Area Under Curve">PiP-AUC</th>
             <th scope="col" class="col-num col-pct" title="PiP-AUC percentile within the author's career-start cohort">Percentile</th>
+            {% endif %}
         </tr>
     </thead>
     <tbody>
         {% for author in authors %}
         {% set href = url_for('results', author_id=author.scholar_id) %}
+        {% set raw_score = author.get('pip_score') if show_pip else author.get('pip_auc_score') %}
+        {% set raw_pct = author.get('pip_percentile') if show_pip else author.get('pip_auc_percentile') %}
+        {% set score_str = raw_score|score %}
         <tr data-href="{{ href }}"{% if initial and loop.index > initial %} data-extra hidden{% endif %}>
             {% if ranked %}<td class="col-rank text-muted">{{ loop.index }}</td>{% endif %}
             <td class="col-name cell-text"><a href="{{ href }}">{{ author.name }}</a></td>
             <td class="col-affiliation cell-text d-none d-lg-table-cell">{{ author.affiliation or '' }}</td>
             <td class="col-num d-none d-md-table-cell">{{ author.hindex if author.hindex is not none else '' }}</td>
             <td class="col-num d-none d-sm-table-cell">{{ '{:,}'.format(author.citedby|int) if author.citedby is not none else '' }}</td>
-            {% if author.pip_auc_score %}
-            <td class="col-num">{{ "%.4f"|format(author.pip_auc_score) }}</td>
-            <td class="col-num text-muted">{{ author.pip_auc_percentile|percentile }}</td>
+            {% if score_str %}
+            <td class="col-num">{{ score_str }}</td>
+            <td class="col-num text-muted">{{ raw_pct|percentile }}</td>
             {% else %}
             <td class="col-num text-muted">—</td>
             <td class="col-num"></td>

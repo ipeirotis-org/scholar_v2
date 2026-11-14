@@ -1,7 +1,7 @@
 {# The four conventional metrics on one 0-100 percentile scale, with a dashed line
-   at the PiP-AUC percentile. Shared by the results page (whole cohort) and the
+   at the PiP percentile. Shared by the results page (whole cohort) and the
    field page (field peers). rows: formatting._metric_rows. #}
-{% macro metric_scale(rows, pip_position, label) %}
+{% macro metric_scale(rows, pip_position, label, ref_label="PiP") %}
 <div class="metric-scale" role="table" aria-label="{{ label }}">
     <div class="metric-head" role="row">
         <span role="columnheader">Metric</span>
@@ -12,7 +12,7 @@
             <span class="metric-tick" style="left: {{ tick }}%" aria-hidden="true">{{ tick }}</span>
             {% endfor %}
             {% if pip_position is not none %}
-            <span class="metric-ref-label" style="left: {{ pip_position }}%" aria-hidden="true">PiP-AUC</span>
+            <span class="metric-ref-label" style="left: {{ pip_position }}%" aria-hidden="true">{{ ref_label }}</span>
             {% endif %}
         </span>
         <span role="columnheader" class="metric-pct"><span class="sr-only">Percentile</span></span>

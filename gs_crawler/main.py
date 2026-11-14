@@ -9,7 +9,8 @@ Modes (CRAWL_MODE):
   - deploy: create/replace all gs_statistics views and tables.
   - wikidata: reload gs_data.wikidata_authors (GS IDs from Wikidata, for name search
     and ingestion priority), then the app's author search index and featured authors.
-  - featured: rebuild only the homepage's featured authors (most-read Wikipedia articles).
+  - featured: rebuild only the homepage's featured and recent authors.
+  - invalidate_legacy_pip: evict cached GS author profiles that predate pip_score.
 
 Profiles only: publication lists and per-paper totals, no per-paper citation
 histograms (see docs/google-scholar-data-sources.md).
@@ -107,12 +108,17 @@ def refresh_search_index():
 
 
 def refresh_featured():
-    """Rebuild the homepage's featured authors (Firestore); failures are logged."""
+    """Rebuild the homepage's featured authors and refresh recent-author scores; failures are logged."""
+    count = 0
     try:
-        return featured.run()
+        count = featured.run()
     except Exception:
         logger.exception("Featured authors rebuild failed")
-        return 0
+    try:
+        featured.refresh_recent()
+    except Exception:
+        logger.exception("Recent authors score refresh failed")
+    return count
 
 
 def run_refresh():
@@ -155,8 +161,16 @@ def main():
         refresh_featured()
         return
     elif mode == "featured":
-        if not featured.run():
+        count = featured.run()
+        try:
+            featured.refresh_recent()
+        except Exception:
+            logger.exception("Recent authors score refresh failed")
+        if not count:
             sys.exit(1)
+        return
+    elif mode == "invalidate_legacy_pip":
+        logger.info("Invalidated pre-PiP GS profiles: %d", cache_invalidate.invalidate_missing_pip())
         return
     else:
         raise SystemExit(f"Unknown CRAWL_MODE: {mode}")

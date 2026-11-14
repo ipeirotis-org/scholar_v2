@@ -9,8 +9,10 @@ server passes structured JSON data to templates.
 import datetime
 import io
 import logging
+import math
 import os
 import re
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, wait as futures_wait
 from urllib.parse import quote
@@ -37,7 +39,7 @@ from frontend.cache import (
     is_legacy_s2_id,
 )
 from frontend.config import Config
-from frontend.formatting import build_standing, field_comparison, percentile_text
+from frontend.formatting import build_standing, field_comparison, percentile_text, score_text
 from frontend.queue_client import enqueue_cache_populate
 
 logger = logging.getLogger(__name__)
@@ -110,12 +112,21 @@ def _prepare_pub_chart_data(pub_stats, author_stats):
         citation = p.get("citation")
         citation = citation.strip() if isinstance(citation, str) else ""
         venue = re.sub(rf"[,\s]*\b{pub_year}\s*$", "", citation)
+        raw_cit_pct = p.get("num_citations_percentile")
+        cit_pct = 0.0 if raw_cit_pct is None else float(raw_cit_pct)
+        if math.isnan(cit_pct):
+            cit_pct = 0.0
+        raw_pap_pct = p.get("num_papers_percentile")
+        pap_pct = 0.0 if raw_pap_pct is None else float(raw_pap_pct)
+        if math.isnan(pap_pct):
+            pap_pct = 0.0
         result.append({
             "author_pub_id": p.get("author_pub_id"),
             "venue": venue,
             "publication_rank": p.get("publication_rank"),
-            "num_citations_percentile": round(100 * (p.get("num_citations_percentile") or 0), 2),
-            "num_papers_percentile": round(100 * (p.get("num_papers_percentile") or 0), 2),
+            "num_citations_percentile": round(100 * cit_pct, 2),
+            "num_papers_percentile": round(100 * pap_pct, 2),
+            "pip_class": min(39, max(0, math.floor(cit_pct * 40))),
             "age": current_year - pub_year + 1,
             "title": p.get("title", ""),
             "num_citations": p.get("num_citations", 0),
@@ -189,7 +200,38 @@ def _parallel_cache_reads(read_cache_fn, reads):
 def register_routes(app):
     cache = FirestoreCache()
     app.jinja_env.globals["gs_record_url"] = _gs_record_url
-    app.jinja_env.filters["percentile"] = percentile_text  # 0.753 -> "75" as on the results page; NaN -> ""
+    app.jinja_env.filters["percentile"] = percentile_text  # 0.753 -> "75.3" as on the results page; NaN -> ""
+    app.jinja_env.filters["score"] = score_text            # 0.595 -> "0.5950", 0.0 -> "0.0000", NaN -> ""
+
+    # Simple per-author rate limiting for background cache rebuilds.
+    # Tracks recent rebuild requests to prevent duplicate enqueues.
+    _rebuild_timestamps = {}  # author_id -> monotonic timestamp
+    _rebuild_lock = threading.Lock()
+    _REBUILD_COOLDOWN = 60  # seconds between rebuilds for the same author
+
+    def _enqueue_rebuild_with_cooldown(scholar_ids):
+        """Enqueue populate_author_profile for IDs not currently on cooldown."""
+        now = time.monotonic()
+        with _rebuild_lock:
+            expired = [k for k, v in _rebuild_timestamps.items() if now - v >= _REBUILD_COOLDOWN]
+            for k in expired:
+                del _rebuild_timestamps[k]
+            to_enqueue = []
+            for sid in scholar_ids:
+                if now - _rebuild_timestamps.get(sid, 0) >= _REBUILD_COOLDOWN:
+                    _rebuild_timestamps[sid] = now
+                    to_enqueue.append(sid)
+
+        enqueued = 0
+        skipped = len(scholar_ids) - len(to_enqueue)
+        for sid in to_enqueue:
+            if enqueue_cache_populate("populate_author_profile", {"scholar_id": sid}):
+                enqueued += 1
+            else:
+                # Enqueue failed — remove cooldown so retries aren't blocked
+                with _rebuild_lock:
+                    _rebuild_timestamps.pop(sid, None)
+        return enqueued, skipped
 
     def _read_cache(collection, doc_id):
         """Read from Firestore cache. Returns data or None."""
@@ -315,6 +357,13 @@ def register_routes(app):
                 "loading.html", author_id=author_id,
                 cache_enqueued=cache_enqueued,
             )
+
+        # Upgrade pre-PiP GS cache entries in the background so the next view has pip_score + standing curve.
+        if Config.DATA_SOURCE == "gs" and "pip_score" not in author_stats:
+            try:
+                _enqueue_rebuild_with_cooldown([author_id])
+            except Exception:
+                logger.debug("Failed to enqueue PiP upgrade for %s", author_id)
 
         # Prepare chart data for client-side Plotly rendering
         pub_chart_data = _prepare_pub_chart_data(pub_stats, author_stats)
@@ -542,13 +591,6 @@ def register_routes(app):
     # Existing API endpoints
     # ------------------------------------------------------------------
 
-    # Simple per-author rate limiting for state-changing endpoints.
-    # Tracks recent rebuild requests to prevent duplicate enqueues.
-    import threading
-    _rebuild_timestamps = {}  # author_id -> monotonic timestamp
-    _rebuild_lock = threading.Lock()
-    _REBUILD_COOLDOWN = 60  # seconds between rebuilds for the same author
-
     @app.route("/api/rebuild_statistics", methods=["POST"])
     def api_rebuild_statistics():
         """Enqueue cache rebuild from BigQuery for the given author IDs."""
@@ -558,29 +600,7 @@ def register_routes(app):
         if not scholar_ids:
             return jsonify({"error": "No valid author IDs provided"}), 400
 
-        now = time.monotonic()
-        with _rebuild_lock:
-            # Evict expired entries
-            expired = [k for k, v in _rebuild_timestamps.items() if now - v >= _REBUILD_COOLDOWN]
-            for k in expired:
-                del _rebuild_timestamps[k]
-            # Filter to authors not on cooldown, and optimistically
-            # mark them to prevent concurrent duplicate enqueues.
-            to_enqueue = []
-            for sid in scholar_ids:
-                if now - _rebuild_timestamps.get(sid, 0) >= _REBUILD_COOLDOWN:
-                    _rebuild_timestamps[sid] = now
-                    to_enqueue.append(sid)
-
-        enqueued = 0
-        skipped = len(scholar_ids) - len(to_enqueue)
-        for sid in to_enqueue:
-            if enqueue_cache_populate("populate_author_profile", {"scholar_id": sid}):
-                enqueued += 1
-            else:
-                # Enqueue failed — remove cooldown so retries aren't blocked
-                with _rebuild_lock:
-                    _rebuild_timestamps.pop(sid, None)
+        enqueued, skipped = _enqueue_rebuild_with_cooldown(scholar_ids)
         return jsonify({
             "status": "queued",
             "total_authors": len(scholar_ids),

@@ -48,9 +48,10 @@ class TestResultsRoute:
             mock_enqueue.assert_called()
 
     def test_results_with_cached_data_renders_chart_divs(self):
-        """When cache has data, render page with Plotly chart containers."""
+        """When cache has PiP data, render page with standing curve, tau controls, and 3-tab explorer."""
         from frontend.app import create_app
 
+        curve = [round(1.0 - j / 80, 6) for j in range(40)]
         with mock.patch("frontend.routes.FirestoreCache") as cache_cls, \
              mock.patch("frontend.routes.enqueue_cache_populate"):
             cache_instance = cache_cls.return_value
@@ -71,6 +72,9 @@ class TestResultsRoute:
                         "total_publications_with_citations_percentile": 0.6,
                         "i10index": 5,
                         "i10index_percentile": 0.5,
+                        "pip_score": 0.8125,
+                        "pip_score_percentile": 0.92,
+                        "pip_standing": curve,
                         "pip_auc_score": 0.75,
                         "pip_auc_score_percentile": 0.9,
                         "year_of_first_pub": 2010,
@@ -109,28 +113,87 @@ class TestResultsRoute:
             response = test_client.get("/results?author_id=123")
             assert response.status_code == 200
             html = response.data.decode()
-            # Headline leads with the comparison group, then the raw score
-            assert "ranks <span class=\"standing-share\">at the 90.0th percentile</span>" in html
+            # Headline leads with the comparison group, then the raw PiP score
+            assert "ranks <span class=\"standing-share\">at the 92.0th percentile</span>" in html
             assert "percentile in this cohort" not in html  # one scale: no second percentile line
             assert "whose career started in 2010" in html
             assert "Career start 2010" in html
-            assert "PiP-AUC 0.7500" in html
+            assert "PiP 0.8125" in html
             assert "Cited publications" in html
-            # One chart + pinned-work panel + list, rendered client-side by Plotly
+            # One chart + pinned-work panel + list + tau cutoff controls
             assert 'id="paperChart"' in html
             assert 'id="paperPanel"' in html
             assert 'id="paperList"' in html
+            assert 'id="tauControls"' in html
+            assert 'id="tauSlider"' in html
             assert "initPaperExplorer" in html
-            # The explorer opens on the PiP curve, listed first
+            # The explorer opens on the Standing curve, with By publication year and PiP-AUC curve tabs
             normalized = " ".join(html.split())
-            assert ('data-explorer-view="pip" aria-pressed="true">PiP curve</button> '
+            assert ('data-explorer-view="standing" aria-pressed="true">Standing curve</button> '
                     '<button type="button" class="btn btn-outline-violet" data-explorer-view="year" '
-                    'aria-pressed="false">By publication year') in normalized
+                    'aria-pressed="false">By publication year</button> '
+                    '<button type="button" class="btn btn-outline-violet" data-explorer-view="pip" '
+                    'aria-pressed="false">PiP-AUC curve') in normalized
             # The by-year view starts at the career-start year
             assert "startYear: 2010," in html
+            assert "pipAucScore: 0.75," in html
             assert "hIndexPlot" in html
             # Should NOT contain base64 PNG images
             assert "data:image/png;base64" not in html
+
+    def test_results_legacy_stats_without_pip_score_falls_back_and_enqueues_gs_refresh(self):
+        """Pre-PiP cached profiles show PiP-AUC with 2-tab explorer and trigger a background GS refresh."""
+        from frontend.app import create_app
+        from frontend.config import Config
+
+        with mock.patch("frontend.routes.FirestoreCache") as cache_cls, \
+             mock.patch("frontend.routes.enqueue_cache_populate") as mock_enqueue, \
+             mock.patch.object(Config, "DATA_SOURCE", "gs"):
+            cache_instance = cache_cls.return_value
+
+            def cache_get(collection, doc_id):
+                if collection == "v3_author_freshness":
+                    return {"exists": True, "last_updated": datetime.datetime(2025, 1, 1)}
+                if collection == "v3_author_stats":
+                    return {
+                        "scholar_id": "abc123def456",
+                        "name": "Legacy Author",
+                        "pip_auc_score": 0.75,
+                        "pip_auc_score_percentile": 0.9,
+                        "year_of_first_pub": 2010,
+                    }
+                if collection == "v3_author_pub_stats":
+                    return [{"publication_rank": 1, "num_citations_percentile": 0.9,
+                             "num_papers_percentile": 0.8, "pub_year": 2020,
+                             "title": "Paper", "num_citations": 50}]
+                return None
+
+            cache_instance.get.side_effect = cache_get
+            cache_instance.get_timestamp.return_value = None
+            cache_instance.set.return_value = True
+
+            app = create_app(config={"TESTING": True, "SECRET_KEY": "test"})
+            html = app.test_client().get("/results?author_id=abc123def456").get_data(as_text=True)
+            normalized = " ".join(html.split())
+            assert "PiP-AUC 0.7500" in html
+            assert 'id="tauControls"' not in html
+            assert ('data-explorer-view="pip" aria-pressed="true">PiP-AUC curve</button> '
+                    '<button type="button" class="btn btn-outline-violet" data-explorer-view="year" '
+                    'aria-pressed="false">By publication year') in normalized
+            mock_enqueue.assert_called_once_with(
+                "populate_author_profile", {"scholar_id": "abc123def456"}
+            )
+
+    def test_results_zero_pip_score_renders_zero_not_pending(self):
+        html = self._render_with_stats({
+            "name": "Early Author",
+            "pip_score": 0.0,
+            "pip_score_percentile": 0.08,
+            "year_of_first_pub": 2021,
+        })
+        assert "at the 8.0th percentile" in html
+        assert "PiP 0.0000" in html
+        assert "is pending" not in html
 
     def test_results_cited_count_comes_from_author_stats(self):
         """A failed publication-list read must not turn the note into '0 of 282'."""
@@ -147,6 +210,7 @@ class TestResultsRoute:
                     return {"name": "A", "total_publications": 282,
                             "total_publications_with_citations": 237,
                             "total_publications_with_citations_percentile": 0.682,
+                            "pip_score": 0.5123, "pip_score_percentile": 0.812,
                             "pip_auc_score": 0.4272, "pip_auc_score_percentile": 0.771,
                             "year_of_first_pub": 1990}
                 return None  # publication list unavailable
@@ -190,7 +254,9 @@ class TestResultsRoute:
         return cls._get(stats, "/results?author_id=123" + query)[2]
 
     PARKER = {
-        "name": "Jonathan A. Parker", "pip_auc_score": 0.0692, "pip_auc_score_percentile": 0.211,
+        "name": "Jonathan A. Parker",
+        "pip_score": 0.085, "pip_score_percentile": 0.211,
+        "pip_auc_score": 0.0692, "pip_auc_score_percentile": 0.211,
         "year_of_first_pub": 1994, "field_group": "Economics & Business", "field_source": "interests",
         "hindex": 40, "hindex_percentile": 0.31, "citedby": 12000, "citedby_percentile": 0.33,
         "field_percentiles": [
@@ -231,10 +297,12 @@ class TestResultsRoute:
                 "of the 151 tracked active authors in Economics &amp; Business whose career started 1992–1996.") in html
         assert '<option value="Economics &amp; Business" selected>Economics &amp; Business (from profile)</option>' in html
         assert '<option value="Physics &amp; Astronomy" disabled>Physics &amp; Astronomy (too few authors)</option>' in html
-        # Metric rows among the same peers, with the PiP-AUC line at the field percentile
+        # Metric rows among the same peers, with the PiP line at the field percentile
         assert '<span class="metric-pct" role="cell">48.0th</span>' in html
         assert '<span class="metric-pct" role="cell">60.0th</span>' in html
-        assert 'class="metric-ref-label" style="left: 34.0%"' in html
+        assert '<span class="metric-ref-label" style="left: 34.0%" aria-hidden="true">PiP</span>' in html
+        assert "PiP 0.0850" in html
+        assert "the PiP percentile (34.0th)." in html
         assert ('<a href="/results?author_id=uXulDDsAAAAJ">Across all fields: 21.1st percentile '
                 '(career start 1994)</a>') in html
         assert "their Google Scholar interests" in html
@@ -253,7 +321,7 @@ class TestResultsRoute:
 
     def test_field_page_falls_back_to_results(self):
         for stats, mode in [(None, "gs"),                                   # not cached yet
-                            ({"name": "A", "pip_auc_score": 0.4, "pip_auc_score_percentile": 0.7}, "gs"),
+                            ({"name": "A", "pip_score": 0.4, "pip_score_percentile": 0.7}, "gs"),
                             (self.PARKER, "s2")]:                           # S2 mode
             status, location, _ = self._get(stats, "/field?author_id=uXulDDsAAAAJ", mode)
             assert status == 302 and location.endswith("/results?author_id=uXulDDsAAAAJ"), (stats, mode)
@@ -270,6 +338,7 @@ class TestResultsRoute:
                     return {"exists": True}
                 if collection == "v3_author_stats":
                     return {"name": "New Author", "hindex": 3, "hindex_percentile": 0.2,
+                            "pip_score": float("nan"), "pip_score_percentile": None,
                             "pip_auc_score": float("nan"), "pip_auc_score_percentile": None,
                             "year_of_first_pub": 2020}
                 return None
@@ -281,7 +350,7 @@ class TestResultsRoute:
             response = app.test_client().get("/results?author_id=123")
             assert response.status_code == 200
             html = response.data.decode()
-            assert "PiP-AUC is pending" in html
+            assert "PiP is pending" in html
             assert "standing-share" not in html
             assert 'id="paperChart"' not in html
 
@@ -325,7 +394,22 @@ class TestHelpRoute:
     def test_help_page_returns_200(self, client):
         response = client.get("/help")
         assert response.status_code == 200
-        assert b"PiP-AUC" in response.data
+        html = response.get_data(as_text=True)
+        assert "Percentile-in-Percentile" in html
+        assert "PiP-AUC" in html
+        assert "0.50" not in html
+        assert "semanticscholar.org" in html
+
+    def test_help_page_gs_mode(self, monkeypatch):
+        from frontend.app import create_app
+        from frontend.config import Config
+        monkeypatch.setattr(Config, "DATA_SOURCE", "gs")
+        app = create_app(config={"TESTING": True, "SECRET_KEY": "test"})
+        html = app.test_client().get("/help").get_data(as_text=True)
+        assert "40 steps of 2.5 percentile points" in html
+        assert "0.50" in html
+        assert "strictly fewer" in html
+        assert "PiP-AUC" in html
 
 
 class TestSecurityHeaders:
@@ -514,8 +598,20 @@ class TestPrepareChartData:
         result = _prepare_pub_chart_data(pub_stats, {})
         assert len(result) == 1
         assert result[0]["num_citations_percentile"] == 90.0
+        assert result[0]["pip_class"] == 36
         assert result[0]["num_papers_percentile"] == 80.0
         assert result[0]["age"] > 0
+
+    def test_prepare_pub_chart_data_pip_class_uses_unrounded_percentile(self):
+        from frontend.routes import _prepare_pub_chart_data
+        # 0.4999 rounds to 50.00% for display, but belongs in class 19 (not >=20) in BigQuery.
+        rows = [
+            {"publication_rank": i + 1, "num_citations_percentile": y,
+             "num_papers_percentile": 0.5, "pub_year": 2020, "title": f"P{i}", "num_citations": 10}
+            for i, y in enumerate([0.0, 0.4999, 0.5, 0.975, 1.0])
+        ]
+        result = _prepare_pub_chart_data(rows, {})
+        assert [r["pip_class"] for r in result] == [0, 19, 20, 39, 39]
 
     def test_prepare_pub_chart_data_keeps_id_and_venue_without_year(self):
         from frontend.routes import _prepare_pub_chart_data

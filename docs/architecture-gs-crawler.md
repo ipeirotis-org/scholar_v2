@@ -3,7 +3,7 @@
 > Part of [System Architecture](ARCHITECTURE.md). Background and vendor choice:
 > [google-scholar-data-sources.md](google-scholar-data-sources.md).
 
-**Purpose:** keep Google Scholar (GS) profile snapshots in BigQuery and compute current PiP-AUC from them,
+**Purpose:** keep Google Scholar (GS) profile snapshots in BigQuery and compute current PiP ($\tau = 0.5$) and PiP-AUC from them,
 in parallel to the Semantic Scholar (S2) pipeline. The live app reads GS data only when `DATA_SOURCE=gs`.
 
 **Scope:** profile pages only: metrics table, author yearly chart, co-authors, and the full publication
@@ -44,10 +44,11 @@ gs-monthly-wikidata ──► gs-crawler job (CRAWL_MODE=wikidata): Wikidata GS 
 | `gs_crawler/scheduler.py` | Pick authors within the search budget: queued on-demand requests first, then stalest |
 | `gs_crawler/materialize.py` | Deploy `gs_statistics` views / rebuild its tables (`dist_*`, `author_coauthor_fields`) in `deploy_order.txt` order |
 | `gs_crawler/wikidata.py` | GS IDs from Wikidata (P1960) with sitelinks and English Wikipedia pageviews → `gs_data.wikidata_authors` |
-| `gs_crawler/featured.py` | Homepage featured authors: profiled authors with the most-read Wikipedia articles → Firestore `v3_featured_authors/featured_gs` |
-| `gs_crawler/main.py` | Job entry point: `CRAWL_MODE=refresh \| authors \| materialize \| deploy \| wikidata \| featured` |
+| `gs_crawler/featured.py` | Homepage featured authors: profiled authors with the most-read Wikipedia articles → Firestore `v3_featured_authors/featured_gs` (and refreshes `v3_recent_authors/recent_gs` scores) |
+| `gs_crawler/cache_invalidate.py` | Evicts Firestore `v3_author_*` cache entries after crawls or one-off schema migrations (`invalidate_missing_pip`) |
+| `gs_crawler/main.py` | Job entry point: `CRAWL_MODE=refresh \| authors \| materialize \| deploy \| wikidata \| featured \| invalidate_legacy_pip` |
 | `bigquery/gs_data/` | Snapshot tables, latest views (`authors_latest` leaves out `retired_profiles`: profiles Google Scholar no longer serves), one-off legacy seed |
-| `bigquery/gs_statistics/` | GS versions of the non-temporal analytics views (same output columns as `statistics`), plus field groups (`author_*fields`) and field-relative percentiles for the author field page (`dist_pip_auc_scores_field`; `field_*` columns on `ranked_author_pip_scores_current` and `ranked_author_current`) |
+| `bigquery/gs_statistics/` | GS versions of the non-temporal analytics views, PiP peer-standing tables (`dist_pip_thresholds`, `dist_pip_scores`, `pip_standing_json`), field groups (`author_*fields`), and field-relative percentiles (`dist_pip_auc_scores_field`; `field_*` columns on `ranked_author_pip_scores_current` and `ranked_author_current`) |
 
 ## Finding authors we have not crawled (Wikidata)
 

@@ -1,5 +1,9 @@
 """Tests for the plain-language percentile formatting on the results page."""
 
+import bisect
+import math
+
+from jinja2 import Undefined
 import pytest
 
 from frontend.formatting import (
@@ -8,6 +12,7 @@ from frontend.formatting import (
     ordinal_percentile,
     percentile_text,
     percentile_value,
+    score_text,
     standing_phrase,
 )
 
@@ -49,7 +54,18 @@ def test_percentile_text_keeps_one_decimal_for_table_columns():
     assert percentile_text(0.753) == "75.3"
     assert percentile_text(0.86) == "86.0"
     assert percentile_text(float("nan")) == "" and percentile_text(None) == ""
+    assert percentile_text(Undefined()) == ""
     assert ordinal_percentile(float("nan")) == ""
+
+
+def test_score_text_formats_zero_and_rejects_missing():
+    assert score_text(0.595) == "0.5950"
+    assert score_text(0.0) == "0.0000"
+    assert score_text(0) == "0.0000"
+    assert score_text(None) == ""
+    assert score_text(float("nan")) == ""
+    assert score_text(float("inf")) == ""
+    assert score_text(Undefined()) == ""
 
 
 def test_standing_phrase_is_a_percentile_on_both_sides_of_the_median():
@@ -60,6 +76,8 @@ def test_standing_phrase_is_a_percentile_on_both_sides_of_the_median():
     assert ordinal_percentile(None) == ""
 
 
+CURVE_40 = [round(1.0 - j / 50, 6) for j in range(40)]
+
 MILANFAR = {
     "name": "Peyman Milanfar",
     "citedby": 38080, "citedby_percentile": 0.799,
@@ -68,6 +86,8 @@ MILANFAR = {
     "total_publications": 282,
     "total_publications_with_citations": 237,
     "total_publications_with_citations_percentile": 0.682,
+    "pip_score": 0.5123, "pip_score_percentile": 0.812,
+    "pip_standing": CURVE_40,
     "pip_auc_score": 0.4272, "pip_auc_score_percentile": 0.771,
     "year_of_first_pub": 1990,
 }
@@ -75,16 +95,39 @@ MILANFAR = {
 
 def test_build_standing_gs_wording_and_metric_order():
     s = build_standing(MILANFAR, "gs")
-    assert s["phrase"] == "at the 77.1st percentile"
+    assert s["phrase"] == "at the 81.2nd percentile"
     assert s["group"] == "tracked active authors"
     assert s["cohort"] == "whose career started in 1990"
-    assert s["pip_ordinal"] == "77.1st"
-    assert s["pip_score"] == 0.4272
+    assert s["pip_ordinal"] == "81.2nd"
+    assert s["score_label"] == "PiP"
+    assert s["pip_score"] == 0.5123
+    assert s["pip_auc_score"] == 0.4272
+    assert s["standing_curve"] == CURVE_40
     assert [m["label"] for m in s["metrics"]] == [
         "h-index", "Total citations", "i10-index", "Cited publications"]
     assert s["metrics"][0]["ordinal"] == "86.0th"
     assert s["metrics"][3]["value"] == 237
     assert (s["num_cited"], s["num_records"]) == (237, 282)
+
+
+def test_build_standing_zero_pip_score_is_valid():
+    stats = dict(MILANFAR, pip_score=0.0, pip_score_percentile=0.052)
+    s = build_standing(stats, "gs")
+    assert s["has_pip"] is True
+    assert s["score_label"] == "PiP"
+    assert s["pip_score"] == 0.0
+    assert s["phrase"] == "at the 5.2nd percentile"
+
+
+def test_build_standing_legacy_fallback_without_pip_score():
+    legacy = {k: v for k, v in MILANFAR.items()
+              if k not in ("pip_score", "pip_score_percentile", "pip_standing")}
+    s = build_standing(legacy, "s2")
+    assert s["has_pip"] is True
+    assert s["score_label"] == "PiP-AUC"
+    assert s["pip_score"] == 0.4272
+    assert s["pip_ordinal"] == "77.1st"
+    assert s["standing_curve"] is None
 
 
 def test_build_standing_s2_wording():
@@ -159,14 +202,96 @@ def test_field_link_on_the_results_page():
     assert build_standing(MILANFAR, "gs")["field_link"] is None  # cached before field percentiles
     assert field_comparison(dict(FIELDS, field_percentiles=[])) is None
     # No overall PiP score: no field link either
-    assert build_standing(dict(MILANFAR, **FIELDS, pip_auc_score=None), "gs")["field_link"] is None
+    assert build_standing(dict(MILANFAR, **FIELDS, pip_score=None), "gs")["field_link"] is None
 
 
 def test_build_standing_treats_nan_as_missing():
-    stats = dict(MILANFAR, pip_auc_score=float("nan"), hindex_percentile=float("nan"),
-                 year_of_first_pub=None)
+    # When pip_score is present as NaN, do NOT silently fall back to pip_auc_score.
+    stats = dict(MILANFAR, pip_score=float("nan"), pip_score_percentile=float("nan"),
+                 hindex_percentile=float("nan"), year_of_first_pub=None)
     s = build_standing(stats, "gs")
     assert s["has_pip"] is False
+    assert s["score_label"] == "PiP"
     assert s["phrase"] is None and s["pip_score"] is None
     assert s["cohort"] is None
     assert "h-index" not in [m["label"] for m in s["metrics"]]
+
+
+def test_pip_sql_lookup_matches_paper_sym_tau50_formula():
+    """Verify dist_pip_thresholds + RANGE_BUCKET(n_j - 1, m_arr) matches 14_gs_variant_impact.sql."""
+    # Active peers in cohort 2010: each entry is a list of paper citation percentiles in [0, 1].
+    cohort_peers = {
+        "peer_zero_high": [0.10, 0.22, 0.49],               # all below 0.50 -> PiP = 0.0
+        "peer_tie_a": [0.20, 0.50, 0.75, 0.99],
+        "peer_tie_b": [0.30, 0.51, 0.76, 0.98],             # ties peer_tie_a at j=20, 30, 39
+        "peer_prolific": [0.55, 0.60, 0.70, 0.80, 0.92, 1.0],
+        "peer_modest": [0.05, 0.40, 0.52],
+    }
+    # Include a non-cohort author (e.g. hindex < 3) whose papers exceed every peer at j=39.
+    all_authors = dict(cohort_peers, outsider=[0.99, 0.995, 1.0])
+
+    def paper_class(y):
+        return min(39, int(math.floor(40.0 * y)))
+
+    # Build dist_pip_thresholds arrays exactly as bigquery/gs_statistics/dist_pip_thresholds.sql
+    cohort_size = len(cohort_peers)
+    dist = {}
+    for j in range(40):
+        counts = {}
+        for papers in cohort_peers.values():
+            m = sum(1 for y in papers if paper_class(y) >= j)
+            counts[m] = counts.get(m, 0) + 1
+        m_arr = sorted(counts)
+        cum_arr = []
+        running = 0
+        for m in m_arr:
+            running += counts[m]
+            cum_arr.append(running)
+        dist[j] = (m_arr, cum_arr)
+
+    # BigQuery RANGE_BUCKET(x, arr) == bisect.bisect_right(arr, x)
+    def sql_lookup(papers):
+        curve = []
+        for j in range(40):
+            n_j = sum(1 for y in papers if paper_class(y) >= j)
+            if n_j <= 0:
+                g_j = 0.0
+            else:
+                m_arr, cum_arr = dist[j]
+                idx = bisect.bisect_right(m_arr, n_j - 1)  # 1-based SAFE_ORDINAL index
+                strictly_below = cum_arr[idx - 1] if idx >= 1 else 0
+                g_j = strictly_below / cohort_size
+            curve.append(g_j)
+        pip_50 = round(sum(curve[20:]) / 20.0, 4)
+        return curve, pip_50
+
+    # Reference formula from paper/sql/14_gs_variant_impact.sql (sym_tau50):
+    # g_below(n_j) = fraction of cohort peers with count < n_j (0 when n_j == 0).
+    def paper_direct(papers):
+        curve = []
+        for j in range(40):
+            n_j = sum(1 for y in papers if paper_class(y) >= j)
+            if n_j == 0:
+                g_j = 0.0
+            else:
+                below = sum(
+                    1 for peer_papers in cohort_peers.values()
+                    if sum(1 for y in peer_papers if paper_class(y) >= j) < n_j
+                )
+                g_j = below / cohort_size
+            curve.append(g_j)
+        pip_50 = round(sum(curve[20:]) / 20.0, 4)
+        return curve, pip_50
+
+    for author_id, papers in all_authors.items():
+        got_curve, got_pip = sql_lookup(papers)
+        exp_curve, exp_pip = paper_direct(papers)
+        assert got_curve == pytest.approx(exp_curve), author_id
+        assert got_pip == exp_pip, author_id
+    # Author with no papers >= 0.50 gets exact 0.0
+    assert sql_lookup(cohort_peers["peer_zero_high"])[1] == 0.0
+    # Peers tied across all classes >= 20 receive identical high-half standing and PiP score
+    assert sql_lookup(cohort_peers["peer_tie_a"])[0][20:] == sql_lookup(cohort_peers["peer_tie_b"])[0][20:]
+    assert sql_lookup(cohort_peers["peer_tie_a"])[1] == sql_lookup(cohort_peers["peer_tie_b"])[1]
+    # Outsider exceeding every peer at j=39 gets g_39 == 1.0
+    assert sql_lookup(all_authors["outsider"])[0][39] == 1.0

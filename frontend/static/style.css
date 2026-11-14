@@ -647,6 +647,106 @@ footer .footer-source {
     border-color: var(--nyu-violet);
 }
 
+.tau-controls {
+    background: var(--background-light);
+    border: 1px solid var(--hairline);
+    border-radius: var(--border-radius);
+    padding: 0.7rem 0.95rem;
+    margin: 0 0 1rem;
+}
+
+.tau-controls[hidden] {
+    display: none !important;
+}
+
+.tau-controls-main {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.55rem 1.1rem;
+}
+
+.tau-label {
+    margin: 0;
+    font-size: 0.88rem;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+}
+
+.tau-pct-note {
+    color: var(--ink-muted);
+    font-size: 0.82rem;
+    margin-left: 0.25rem;
+}
+
+.tau-slider-wrap {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex: 1 1 13rem;
+    min-width: 11rem;
+    max-width: 20rem;
+}
+
+.tau-slider {
+    flex: 1 1 auto;
+    accent-color: var(--nyu-violet);
+    cursor: pointer;
+}
+
+.tau-axis-hint {
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--ink-muted);
+    user-select: none;
+}
+
+.tau-presets {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.3rem;
+}
+
+.tau-chip {
+    border: 1px solid var(--nyu-violet-50);
+    background: #fff;
+    color: var(--nyu-violet);
+    border-radius: 999px;
+    padding: 0.15rem 0.55rem;
+    font-size: 0.78rem;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.35;
+    cursor: pointer;
+}
+
+.tau-chip:hover,
+.tau-chip:focus {
+    color: var(--nyu-deep-violet);
+    background: var(--nyu-violet-10);
+    border-color: var(--nyu-violet-70);
+}
+
+.tau-chip:focus-visible {
+    outline: 2px solid var(--nyu-violet-50);
+    outline-offset: 2px;
+}
+
+.tau-chip.is-active {
+    background: var(--nyu-violet);
+    border-color: var(--nyu-violet);
+    color: #fff;
+}
+
+.tau-score-readout {
+    margin: 0.4rem 0 0;
+    font-size: 0.84rem;
+    color: var(--ink-muted);
+    font-variant-numeric: tabular-nums;
+}
+
 .paper-chart {
     width: 100%;
     height: 460px;
@@ -1043,15 +1143,26 @@ footer .footer-source {
         grid-area: track;
     }
 
+    .explore-head .view-toggle,
     .paper-list-toolbar .btn-group {
         width: 100%;
     }
 
+    .explore-head .view-toggle .btn,
     .paper-list-toolbar .btn-group .btn {
         flex: 1 1 auto;
         font-size: 0.78rem;
         padding-left: 0.3rem;
         padding-right: 0.3rem;
+    }
+
+    .tau-controls {
+        padding: 0.65rem 0.75rem;
+    }
+
+    .tau-slider-wrap {
+        flex-basis: 100%;
+        max-width: none;
     }
 
     .paper-chart {

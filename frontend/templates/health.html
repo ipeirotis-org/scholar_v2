@@ -18,17 +18,26 @@
                 </div>
                 <div class="card-body">
                     {% if data.recent_analyzed_authors %}
+                    {% set ns = namespace(has_pip=false, has_auc=false) %}
+                    {% for a in data.recent_analyzed_authors %}
+                        {% if 'pip_score' in a %}{% set ns.has_pip = true %}{% endif %}
+                        {% if 'pip_auc_score' in a %}{% set ns.has_auc = true %}{% endif %}
+                    {% endfor %}
+                    {% set show_pip = (data_source == 'gs') and (ns.has_pip or not ns.has_auc) %}
                     <table class="table table-sm">
                         <thead>
                             <tr>
                                 <th>Author ID</th>
                                 <th>Name</th>
-                                <th>PiP-AUC</th>
+                                <th>{{ 'PiP' if show_pip else 'PiP-AUC' }}</th>
                                 <th>When</th>
                             </tr>
                         </thead>
                         <tbody>
                             {% for author in data.recent_analyzed_authors %}
+                            {% set raw_score = author.get('pip_score') if show_pip else author.get('pip_auc_score') %}
+                            {% set raw_pct = author.get('pip_percentile') if show_pip else author.get('pip_auc_percentile') %}
+                            {% set score_str = raw_score|score %}
                             <tr>
                                 <td>
                                     <a href="{{ url_for('results', author_id=author.scholar_id) }}">
@@ -37,10 +46,10 @@
                                 </td>
                                 <td><small>{{ author.name or '-' }}</small></td>
                                 <td>
-                                    {% if author.pip_auc_score is not none %}
-                                    <small>{{ "%.4f"|format(author.pip_auc_score) }}
-                                    {% if author.pip_auc_percentile is not none %}
-                                    <span class="text-muted">({{ "%.1f"|format(author.pip_auc_percentile * 100) }}%ile)</span>
+                                    {% if score_str %}
+                                    <small>{{ score_str }}
+                                    {% if raw_pct|percentile %}
+                                    <span class="text-muted">({{ raw_pct|percentile }}%ile)</span>
                                     {% endif %}
                                     </small>
                                     {% else %}

@@ -9,11 +9,11 @@ from gs_crawler import featured, main
 
 ROWS = [
     dict(scholar_id="6-e-ZBEAAAAJ", name="Dario Amodei", affiliation="Anthropic", hindex=69, citedby=207728,
-         pip_auc_score=0.5051, pip_auc_percentile=0.843, wikipedia_title="Dario Amodei",
-         wikipedia_views_60d=902369),
+         pip_score=0.5812, pip_percentile=0.861, pip_auc_score=0.5051, pip_auc_percentile=0.843,
+         wikipedia_title="Dario Amodei", wikipedia_views_60d=902369),
     dict(scholar_id="WhhC4LwAAAAJ", name="Karl Deisseroth", affiliation="Stanford", hindex=180, citedby=140003,
-         pip_auc_score=0.8197, pip_auc_percentile=0.987, wikipedia_title="Karl Deisseroth",
-         wikipedia_views_60d=402095),
+         pip_score=0.8920, pip_percentile=0.991, pip_auc_score=0.8197, pip_auc_percentile=0.987,
+         wikipedia_title="Karl Deisseroth", wikipedia_views_60d=402095),
 ]
 
 
@@ -28,6 +28,8 @@ def test_query_leaves_out_deceased_and_stub_profiles():
     assert "NOT COALESCE(w.died, FALSE)" in sql
     assert "a.hindex >= @min_hindex" in sql
     assert "ORDER BY w.enwiki_views_60d DESC" in sql
+    assert "p.pip_score" in sql
+    assert "p.pip_score_percentile AS pip_percentile" in sql
     assert "`scholar-version2.gs_statistics.ranked_author_current`" in sql
     assert "`scholar-version2.gs_data.wikidata_authors`" in sql
 
@@ -48,7 +50,7 @@ def test_run_stores_list_in_firestore():
     stored = db.collection.return_value.document.return_value.set.call_args.args[0]
     assert stored["data"][0]["scholar_id"] == "6-e-ZBEAAAAJ"
     assert set(stored["data"][0]) >= {"scholar_id", "name", "affiliation", "hindex", "citedby",
-                                      "pip_auc_score", "pip_auc_percentile"}
+                                      "pip_score", "pip_percentile", "pip_auc_score", "pip_auc_percentile"}
     assert "timestamp" in stored
 
 
@@ -64,10 +66,40 @@ def test_collection_names_match_frontend():
     source = open(path).read()
     assert f'FEATURED_AUTHORS_COLLECTION = "{featured.FEATURED_COLLECTION}"' in source
     assert f'FEATURED_AUTHORS_DOC_ID = "{featured.FEATURED_DOC_ID}"' in source
+    assert f'RECENT_AUTHORS_COLLECTION = "{featured.RECENT_COLLECTION}"' in source
+    assert f'RECENT_AUTHORS_DOC_ID = "{featured.RECENT_DOC_ID}"' in source
+
+
+def test_refresh_recent_updates_scores_in_place():
+    db = MagicMock()
+    doc_ref = db.collection.return_value.document.return_value
+    snap = MagicMock()
+    snap.exists = True
+    snap.to_dict.return_value = {
+        "data": [
+            {"scholar_id": "6-e-ZBEAAAAJ", "name": "Dario Amodei", "pip_auc_score": 0.5051},
+            {"scholar_id": "UNKNOWNAUTHR", "name": "Kept As Is", "pip_auc_score": 0.2},
+        ]
+    }
+    doc_ref.get.return_value = snap
+    tx = MagicMock()
+    db.transaction.return_value = tx
+
+    with patch.object(featured.firestore, "transactional", side_effect=lambda fn: fn):
+        refreshed = featured.refresh_recent(bq=_bq([ROWS[0]]), db=db)
+
+    assert refreshed == 1
+    tx.set.assert_called_once()
+    written = tx.set.call_args.args[1]["data"]
+    assert written[0]["scholar_id"] == "6-e-ZBEAAAAJ"
+    assert written[0]["pip_score"] == 0.5812
+    assert written[0]["pip_percentile"] == 0.861
+    assert written[1] == {"scholar_id": "UNKNOWNAUTHR", "name": "Kept As Is", "pip_auc_score": 0.2}
 
 
 def test_refresh_featured_logs_failures():
-    with patch.object(main.featured, "run", side_effect=RuntimeError("boom")):
+    with patch.object(main.featured, "run", side_effect=RuntimeError("boom")), \
+         patch.object(main.featured, "refresh_recent", side_effect=RuntimeError("boom")):
         assert main.refresh_featured() == 0
 
 
@@ -84,7 +116,10 @@ def test_scheduled_modes_rebuild_featured(monkeypatch, mode):
 
 def test_featured_mode_fails_when_nothing_stored(monkeypatch):
     monkeypatch.setenv("CRAWL_MODE", "featured")
-    with patch.object(main.featured, "run", return_value=0), pytest.raises(SystemExit):
+    with patch.object(main.featured, "run", return_value=0), \
+         patch.object(main.featured, "refresh_recent", return_value=0), \
+         pytest.raises(SystemExit):
         main.main()
-    with patch.object(main.featured, "run", return_value=2):
+    with patch.object(main.featured, "run", return_value=2), \
+         patch.object(main.featured, "refresh_recent", return_value=1):
         main.main()

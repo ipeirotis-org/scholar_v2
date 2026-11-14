@@ -8,10 +8,12 @@ form everywhere: percentiles with one decimal, always ("77.1st percentile",
 
 import math
 
+from jinja2 import Undefined
+
 
 def _number(value):
     """Return value as a float, or None when missing or NaN (pandas fills gaps with NaN)."""
-    if value is None:
+    if value is None or isinstance(value, Undefined):
         return None
     try:
         value = float(value)
@@ -45,6 +47,27 @@ def percentile_text(fraction):
     """Template filter for table columns: '77.1' for 0.771, '86.0' for 0.86, '' when missing."""
     value = percentile_value(fraction)
     return "" if value is None else f"{value:.1f}"
+
+
+def score_text(value):
+    """Template filter for 0-to-1 scores: '0.5950', '0.0000', '' when missing or NaN."""
+    num = _number(value)
+    if num is None or math.isinf(num):
+        return ""
+    return f"{num:.4f}"
+
+
+def _standing_curve(raw):
+    """40-point standing curve [g_0, ..., g_39] as floats in [0, 1], or None when absent."""
+    if not isinstance(raw, list) or len(raw) != 40:
+        return None
+    curve = []
+    for item in raw:
+        val = _number(item)
+        if val is None or math.isinf(val):
+            return None
+        curve.append(max(0.0, min(1.0, val)))
+    return curve
 
 
 def ordinal_percentile(fraction):
@@ -107,7 +130,7 @@ def field_comparison(stats, requested=None):
     stats["field_percentiles"] (GS mode; see
     bigquery/gs_statistics/ranked_author_pip_scores_current.sql and
     ranked_author_current.sql) lists every field group with the career-start window
-    of its peers, their count, and the author's PiP-AUC and metric percentiles among
+    of its peers, their count, and the author's PiP and metric percentiles among
     them. The page starts on `requested` (the ?field= URL parameter) when that group
     can be ranked, else on the author's own group (field_group), else on nothing,
     so the viewer picks.
@@ -160,7 +183,11 @@ def build_standing(stats, data_source):
     """Collect what the results page headline and metric scale need.
 
     Everything comes from the author stats document, so the page stays
-    consistent even when the publication list failed to load.
+    consistent even when the publication list failed to load. Uses `pip_score`
+    and `pip_score_percentile` when present, falling back to `pip_auc_score`
+    and `pip_auc_score_percentile` only for S2 mode or legacy cache entries
+    not yet refreshed after the PiP migration (labeled `PiP-AUC` so the two
+    metrics are never confused).
 
     Args:
         stats: cached author stats (percentiles as 0-1 fractions).
@@ -176,9 +203,17 @@ def build_standing(stats, data_source):
     # items), matching the "Career start" label in the page header.
     cohort = f"whose career started in {first_year}" if first_year else None
 
-    pip_score = _number(stats.get("pip_auc_score"))
-    pip_pct = _number(stats.get("pip_auc_score_percentile"))
-    has_pip = pip_score is not None and pip_pct is not None
+    pip_auc_score = _number(stats.get("pip_auc_score"))
+    if "pip_score" in stats:
+        pip_score = _number(stats.get("pip_score"))
+        pip_pct = _number(stats.get("pip_score_percentile"))
+        has_pip = pip_score is not None and pip_pct is not None
+        score_label = "PiP"
+    else:
+        pip_score = pip_auc_score
+        pip_pct = _number(stats.get("pip_auc_score_percentile"))
+        has_pip = pip_score is not None and pip_pct is not None
+        score_label = "PiP-AUC" if has_pip else "PiP"
 
     metrics = _metric_rows(stats, stats)
     # The field comparison lives on its own page; the results page links to it,
@@ -190,7 +225,10 @@ def build_standing(stats, data_source):
         "group": group,
         "cohort": cohort,
         "has_pip": has_pip,
+        "score_label": score_label,
         "pip_score": pip_score if has_pip else None,
+        "pip_auc_score": pip_auc_score,
+        "standing_curve": _standing_curve(stats.get("pip_standing")),
         "phrase": standing_phrase(pip_pct) if has_pip else None,
         "pip_position": round(100 * float(pip_pct), 1) if has_pip else None,
         "pip_ordinal": ordinal_percentile(pip_pct) if has_pip else None,

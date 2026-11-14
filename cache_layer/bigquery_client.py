@@ -102,16 +102,17 @@ class BigQueryClient:
         return df.drop_duplicates(subset=["author_pub_id"], keep="first").to_dict("records")
 
     def get_author_stats(self, scholar_id):
-        """Get author metrics with percentiles and PiP-AUC score.
+        """Get author metrics with percentiles and PiP score.
 
-        P.* carries pip_auc_score and pip_auc_score_percentile, plus in GS mode
+        P.* carries pip_score, pip_score_percentile, pip_standing_json, and
+        legacy pip_auc_score / pip_auc_score_percentile, plus in GS mode
         the field columns: field_group and field_source (the author's own field)
-        and field_percentiles_json (the PiP-AUC percentile among peers in each
+        and field_percentiles_json (the PiP percentile among peers in each
         of the field groups); S.* carries field_metric_percentiles_json (the
         four metrics among the same peers). Selecting them through S.* and P.*
-        keeps the query valid against views deployed before or after the field
-        columns were added. Both JSON columns become field_percentiles, one plain
-        dict per field group, which Firestore stores as an array of maps.
+        keeps the query valid against views deployed before or after new columns
+        were added. JSON columns are decoded into plain Python lists so Firestore
+        stores them cleanly.
         """
         sql = f"""
             SELECT S.*, P.* EXCEPT (scholar_id, year_of_first_pub)
@@ -125,6 +126,8 @@ class BigQueryClient:
         if df is None or df.empty:
             return None
         stats = df.iloc[0].to_dict()
+        if "pip_standing_json" in stats:
+            stats["pip_standing"] = _json_list(stats.pop("pip_standing_json"))
         if "field_percentiles_json" in stats:
             stats["field_percentiles"] = _json_list(stats.pop("field_percentiles_json"))
         if "field_metric_percentiles_json" in stats:
