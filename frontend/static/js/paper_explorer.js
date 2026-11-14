@@ -1,13 +1,16 @@
 /**
  * PiP Score — paper explorer for the author results page.
  *
- * One chart with two views that share a selection (the page opens on "pip"):
+ * One chart with up to three views that share a selection (opens on "standing" when available):
+ *   - "standing": the 40-class peer standing curve g(theta) across citation-percentile
+ *     thresholds theta, shaded above cutoff tau (default 0.50) whose average height is
+ *     the PiP score, with an interactive tau cutoff control.
  *   - "year": each work at (publication year, citation percentile for that year),
  *     with reference lines at the 90th, 75th and 50th percentiles. The axis
  *     starts at the author's career-start year (opts.startYear); works dated
  *     earlier (in GS, stray misdated items or namesakes' papers) are left off
  *     this view only, and the finding text says how many.
- *   - "pip":  the PiP curve (works in percentile order against the author's
+ *   - "pip":  the legacy PiP-AUC curve (works in percentile order against the author's
  *     cited-publication count percentile), with the PiP-AUC area shaded.
  * Hover previews a work; click/tap pins it in the side panel. Clicking a spot
  * where several works overlap lists them. A sortable list below the chart is
@@ -22,16 +25,19 @@
     // Dots are shaded by tier: one violet getting lighter as the tier widens
     // (OKLab L 0.37 / 0.55 / 0.71), then a light neutral gray below the 50th percentile.
     var COLOR = {
-        accent: '#57068c',      // works at the 90th percentile or above for their year; PiP curve
+        accent: '#57068c',      // works at the 90th percentile or above for their year; standing/PiP curves
         top25: '#8a55b8',       // 75th-89th percentile
         top50: '#b48fd4',       // 50th-74th percentile
-        muted: '#bdb8c4',       // below the 50th percentile
+        lowCounted: '#9b86b3',  // counted works below 50th percentile when tau < 0.5
+        muted: '#bdb8c4',       // below the 50th percentile / uncounted works
+        uncountedLine: '#9e97a8',
+        uncountedFill: 'rgba(189, 184, 196, 0.14)',
         selected: '#007a6d',    // selection ring
         ink: '#333333',
         inkMuted: '#6c6675',
         reference: '#330662',
         grid: '#ececec',
-        areaFill: 'rgba(87, 6, 140, 0.10)',
+        areaFill: 'rgba(87, 6, 140, 0.12)',
         surface: '#ffffff'
     };
     // Highest first. A work belongs to the first tier whose min it reaches;
@@ -56,6 +62,12 @@
     function trim1(v) {
         var t = Number(v).toFixed(1);
         return t.slice(-2) === '.0' ? t.slice(0, -2) : t;
+    }
+
+    function fmtTau(tau) {
+        if (tau === 0) return '0';
+        var k = Math.round(tau * 40);
+        return (k % 2 === 0) ? (k / 40).toFixed(2) : (k / 40).toFixed(3);
     }
 
     // Percentile with one decimal (0-100 in), clamped to 0.1..99.9, as in
@@ -135,8 +147,22 @@
         this.listMore = document.getElementById(opts.listMoreId);
         this.listNote = document.getElementById(opts.listNoteId);
         this.finding = document.getElementById(opts.findingId);
+        this.tauControls = opts.tauControlsId ? document.getElementById(opts.tauControlsId) : null;
+        this.tauSlider = document.getElementById('tauSlider');
+        this.tauReadout = document.getElementById('tauReadout');
+        this.tauPctNote = document.getElementById('tauPctNote');
+        this.tauScoreReadout = document.getElementById('tauScoreReadout');
+
+        this.standingCurve = (Array.isArray(opts.standingCurve) && opts.standingCurve.length === 40)
+            ? opts.standingCurve.map(function (v) { return Math.max(0, Math.min(1, Number(v) || 0)); })
+            : null;
+        this.hasStanding = Boolean(this.standingCurve);
 
         var papers = rawPapers.map(function (p, i) {
+            var pct = Number(p.num_citations_percentile) || 0;
+            var pipClass = (p.pip_class !== undefined && p.pip_class !== null)
+                ? Math.min(39, Math.max(0, Number(p.pip_class) | 0))
+                : Math.min(39, Math.max(0, Math.floor(pct / 2.5)));
             return {
                 id: p.author_pub_id || ('pub-' + i),
                 pubId: p.author_pub_id || null,
@@ -144,18 +170,29 @@
                 venue: p.venue || '',
                 year: p.pub_year,
                 citations: Number(p.num_citations) || 0,
-                pct: Number(p.num_citations_percentile) || 0,
+                pct: pct,
+                pipClass: pipClass,
                 x: Number(p.num_papers_percentile) || 0,
                 sourceRank: Number(p.publication_rank) || (i + 1)
             };
         });
-        // Percentile order (the order of the PiP curve); rank = position in it.
+        // Percentile order (the order of the PiP-AUC curve); rank = position in it.
         papers.sort(function (a, b) { return a.sourceRank - b.sourceRank; });
         papers.forEach(function (p, i) { p.rank = i + 1; });
 
         this.papers = papers;
         this.byId = {};
         for (var i = 0; i < papers.length; i++) this.byId[papers[i].id] = papers[i];
+
+        // Count of author's cited works in class >= j, for j = 0..39.
+        this.countsByClass = [];
+        for (var j = 0; j < 40; j++) {
+            var c = 0;
+            for (var m = 0; m < papers.length; m++) {
+                if (papers[m].pipClass >= j) c++;
+            }
+            this.countsByClass.push(c);
+        }
 
         // Career start (stats.year_of_first_pub). It only ever cuts the by-year
         // view; ignored when missing or when no work would be left to plot.
@@ -165,8 +202,15 @@
         this.yearPapers = onAxis.length ? onAxis : papers;
         this.earlierCount = papers.length - this.yearPapers.length;
 
-        // Opens on the PiP curve, the chart the score comes from; the by-year view is one click away.
-        this.state = { view: 'pip', selectedId: null, group: null, sort: 'percentile', expanded: false };
+        // Opens on the standing curve when available (else the legacy PiP-AUC curve).
+        this.state = {
+            view: this.hasStanding ? 'standing' : 'pip',
+            tau: 0.5,
+            selectedId: null,
+            group: null,
+            sort: 'percentile',
+            expanded: false
+        };
         this.narrow = this._isNarrow();
         this.touch = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
     }
@@ -175,6 +219,7 @@
         var self = this;
         this.panel.setAttribute('tabindex', '-1');
         this._bindControls();
+        this._syncTauUi();
         this.renderChart();
         this.renderPanel();
         this.renderList();
@@ -198,6 +243,85 @@
         return (this.chart && this.chart.clientWidth || window.innerWidth) < 560;
     };
 
+    PaperExplorer.prototype._tauClass = function () {
+        return Math.min(38, Math.max(0, Math.round(this.state.tau * 40)));
+    };
+
+    PaperExplorer.prototype._pipAtTau = function (k) {
+        if (!this.hasStanding) return null;
+        if (k === 20 && this.opts.pipScore !== null && this.opts.pipScore !== undefined &&
+            isFinite(Number(this.opts.pipScore))) {
+            return Number(this.opts.pipScore);
+        }
+        var sum = 0;
+        for (var j = k; j < 40; j++) sum += this.standingCurve[j];
+        return sum / (40 - k);
+    };
+
+    PaperExplorer.prototype._aucScoreValue = function () {
+        if (this.opts.pipAucScore !== null && this.opts.pipAucScore !== undefined &&
+            isFinite(Number(this.opts.pipAucScore))) {
+            return Number(this.opts.pipAucScore);
+        }
+        if (!this.hasStanding && this.opts.pipScore !== null && this.opts.pipScore !== undefined &&
+            isFinite(Number(this.opts.pipScore))) {
+            return Number(this.opts.pipScore);
+        }
+        return null;
+    };
+
+    PaperExplorer.prototype._syncTauUi = function () {
+        if (!this.tauControls) return;
+        this.tauControls.hidden = (this.state.view !== 'standing');
+        if (!this.hasStanding) return;
+        var k = this._tauClass();
+        var tau = k / 40;
+        var tauPct = k * 2.5;
+        var pipTau = this._pipAtTau(k);
+
+        if (this.tauSlider) this.tauSlider.value = String(tau);
+        if (this.tauReadout) this.tauReadout.textContent = fmtTau(tau);
+        if (this.tauPctNote) {
+            if (k === 0) {
+                this.tauPctNote.textContent = '(all cited works counted)';
+            } else if (k === 20) {
+                this.tauPctNote.textContent = '(top 50% of works · default)';
+            } else {
+                this.tauPctNote.textContent = '(works ≥ ' + trim1(tauPct) + 'th percentile)';
+            }
+        }
+        var chips = this.tauControls.querySelectorAll('[data-tau-preset]');
+        Array.prototype.forEach.call(chips, function (chip) {
+            var presetK = Math.round(Number(chip.getAttribute('data-tau-preset')) * 40);
+            var active = presetK === k;
+            chip.classList.toggle('is-active', active);
+            chip.setAttribute('aria-pressed', active ? 'true' : 'false');
+        });
+        if (this.tauScoreReadout && pipTau !== null) {
+            this.tauScoreReadout.textContent = '';
+            var counted = this.countsByClass[k];
+            if (k === 20) {
+                this.tauScoreReadout.appendChild(el('strong', null, 'PiP = ' + pipTau.toFixed(4)));
+                this.tauScoreReadout.appendChild(document.createTextNode(
+                    ' · ' + plural(counted, 'work', 'works') + ' above the 50th percentile counted.'));
+            } else {
+                this.tauScoreReadout.appendChild(el('strong', null,
+                    'PiP (τ = ' + fmtTau(tau) + ') = ' + pipTau.toFixed(4)));
+                this.tauScoreReadout.appendChild(document.createTextNode(
+                    ' · ' + plural(counted, 'work', 'works') + ' counted · Cohort & field rankings use τ = 0.50.'));
+            }
+        }
+    };
+
+    PaperExplorer.prototype.setTau = function (rawTau) {
+        if (!this.hasStanding) return;
+        var k = Math.min(38, Math.max(0, Math.round(Number(rawTau) * 40)));
+        this.state.tau = k / 40;
+        this._syncTauUi();
+        this.renderChart();
+        this.renderPanel();
+    };
+
     PaperExplorer.prototype._bindControls = function () {
         var self = this;
         var viewButtons = document.querySelectorAll('[data-explorer-view]');
@@ -210,6 +334,19 @@
                 }
             });
         });
+        if (this.tauSlider) {
+            this.tauSlider.addEventListener('input', function () {
+                self.setTau(self.tauSlider.value);
+            });
+        }
+        if (this.tauControls) {
+            var chips = this.tauControls.querySelectorAll('[data-tau-preset]');
+            Array.prototype.forEach.call(chips, function (chip) {
+                chip.addEventListener('click', function () {
+                    self.setTau(chip.getAttribute('data-tau-preset'));
+                });
+            });
+        }
         var sortButtons = document.querySelectorAll('[data-explorer-sort]');
         Array.prototype.forEach.call(sortButtons, function (btn) {
             btn.addEventListener('click', function () {
@@ -231,7 +368,8 @@
     };
 
     PaperExplorer.prototype.setView = function (view) {
-        if (view !== 'year' && view !== 'pip') return;
+        if (view === 'standing' && !this.hasStanding) view = 'pip';
+        if (view !== 'standing' && view !== 'year' && view !== 'pip') return;
         this.state.view = view;
         var buttons = document.querySelectorAll('.view-toggle [data-explorer-view]');
         Array.prototype.forEach.call(buttons, function (b) {
@@ -239,6 +377,7 @@
             b.classList.toggle('active', on);
             b.setAttribute('aria-pressed', on ? 'true' : 'false');
         });
+        this._syncTauUi();
         this.renderChart();
         this.renderPanel();
     };
@@ -264,7 +403,13 @@
     // ------------------------------------------------------------------
 
     PaperExplorer.prototype._coords = function (p) {
-        return this.state.view === 'year' ? { x: p.year, y: p.pct } : { x: p.x, y: p.pct };
+        if (this.state.view === 'year') return { x: p.year, y: p.pct };
+        if (this.state.view === 'standing' && this.hasStanding) {
+            var b = p.pipClass;
+            var x = Math.min(2.5 * (b + 1) - 0.05, Math.max(2.5 * b + 0.05, p.pct));
+            return { x: x, y: 100 * this.standingCurve[b] };
+        }
+        return { x: p.x, y: p.pct };
     };
 
     // Before the career start: kept everywhere except the by-year view.
@@ -279,7 +424,13 @@
     PaperExplorer.prototype._hoverText = function (p) {
         var lines = '<b>' + escapeHtml(shortTitle(p.title, 60)) + '</b><br>' +
             p.year + ' · ' + plural(p.citations, 'citation', 'citations');
-        if (this.state.view === 'pip') lines += ' · #' + p.rank;
+        if (this.state.view === 'standing' && this.hasStanding) {
+            var b = p.pipClass;
+            lines += '<br>' + ordinal(p.pct) + ' pct for its year · peer standing ' +
+                trim1(100 * this.standingCurve[b]) + '%';
+        } else if (this.state.view === 'pip') {
+            lines += ' · #' + p.rank;
+        }
         return lines;
     };
 
@@ -417,7 +568,155 @@
         };
     };
 
-    // The PiP curve exactly as stats_author_pip_scores_current integrates it (step form):
+    PaperExplorer.prototype._standingDotTraces = function (papers, k) {
+        var uncounted = [];
+        var lowCounted = [];
+        var groups = TIERS.map(function () { return []; });
+        papers.forEach(function (p) {
+            if (p.pipClass < k) {
+                uncounted.push(p);
+                return;
+            }
+            var t = tierIndex(p.pct);
+            (t < 0 ? lowCounted : groups[t]).push(p);
+        });
+        var traces = [];
+        if (uncounted.length) {
+            var tr = this._dotTrace(uncounted, COLOR.muted, 'Below cutoff τ');
+            tr.marker.opacity = 0.65;
+            traces.push(tr);
+        }
+        if (lowCounted.length) {
+            traces.push(this._dotTrace(lowCounted, COLOR.lowCounted, 'Counted (<50th percentile)'));
+        }
+        for (var i = TIERS.length - 1; i >= 0; i--) {
+            traces.push(this._dotTrace(groups[i], TIERS[i].color, TIERS[i].label + ' for its year'));
+        }
+        return traces;
+    };
+
+    // Standing curve g(theta) across the 40 citation-percentile classes (Figure 2 of the QSS paper).
+    PaperExplorer.prototype._standingFigure = function () {
+        var g = this.standingCurve;
+        var k = this._tauClass();
+        var tau = k / 40;
+        var tauPct = k * 2.5;
+        var pipTau = this._pipAtTau(k);
+        var avgHeight = pipTau !== null ? 100 * pipTau : 0;
+        var narrow = this.narrow;
+
+        var layout = this._baseLayout();
+        layout.xaxis = {
+            title: {
+                text: narrow ? 'Paper percentile threshold θ'
+                             : 'Paper citation percentile threshold θ (among works from the same year)',
+                standoff: 8
+            },
+            range: [0, 100],
+            tickvals: [0, 25, 50, 75, 90, 100],
+            gridcolor: COLOR.grid,
+            gridwidth: 1,
+            zeroline: false,
+            linecolor: '#d6d0de',
+            fixedrange: this.touch
+        };
+        layout.yaxis = {
+            title: {
+                text: narrow ? 'Peer standing g(θ)'
+                             : 'Standing among cohort peers g(θ) (% with fewer works ≥ θ)',
+                standoff: 8
+            },
+            range: [0, 100],
+            tickvals: [0, 25, 50, 75, 90, 100],
+            gridcolor: COLOR.grid,
+            gridwidth: 1,
+            zeroline: false,
+            linecolor: '#d6d0de',
+            fixedrange: this.touch
+        };
+
+        var traces = [];
+
+        // Left of cutoff tau: muted background shade + uncounted portion of g(theta).
+        if (k > 0) {
+            layout.shapes.push({
+                type: 'rect', xref: 'x', x0: 0, x1: tauPct, yref: 'y', y0: 0, y1: 100,
+                fillcolor: COLOR.uncountedFill, line: { width: 0 }, layer: 'below'
+            });
+            layout.shapes.push({
+                type: 'line', xref: 'x', x0: tauPct, x1: tauPct, yref: 'y', y0: 0, y1: 100,
+                line: { color: COLOR.reference, width: 1, dash: 'dot' }
+            });
+            var ux = [], uy = [];
+            for (var j = 0; j < k; j++) {
+                ux.push(j * 2.5);
+                uy.push(100 * g[j]);
+            }
+            ux.push(tauPct);
+            uy.push(100 * g[k - 1]);
+            traces.push({
+                type: 'scatter', mode: 'lines', x: ux, y: uy,
+                line: { color: COLOR.uncountedLine, width: 1.75, shape: 'hv' },
+                hoverinfo: 'skip', showlegend: false
+            });
+            if (!narrow && tauPct >= 20) {
+                layout.annotations.push({
+                    xref: 'x', x: tauPct / 2, yref: 'y', y: 95,
+                    showarrow: false,
+                    text: 'θ < ' + trim1(tauPct) + ': not counted',
+                    font: { size: 11, color: COLOR.inkMuted },
+                    bgcolor: 'rgba(255,255,255,0.75)', borderpad: 2
+                });
+            }
+        }
+
+        // Right of cutoff tau: counted portion of g(theta) with shaded area.
+        var cx = [], cy = [];
+        for (var m = k; m < 40; m++) {
+            cx.push(m * 2.5);
+            cy.push(100 * g[m]);
+        }
+        cx.push(100);
+        cy.push(100 * g[39]);
+        traces.push({
+            type: 'scatter', mode: 'lines', x: cx, y: cy,
+            fill: 'tozeroy', fillcolor: COLOR.areaFill,
+            line: { color: COLOR.accent, width: 2.2, shape: 'hv' },
+            hoverinfo: 'skip', showlegend: false
+        });
+
+        // Horizontal dashed line across [tauPct, 100] at average height = 100 * PiP_tau.
+        if (pipTau !== null) {
+            layout.shapes.push({
+                type: 'line', xref: 'x', x0: tauPct, x1: 100, yref: 'y', y0: avgHeight, y1: avgHeight,
+                line: { color: COLOR.reference, width: 1.5, dash: 'dash' }
+            });
+            var scoreLabel = k === 20
+                ? (narrow ? 'PiP = ' : 'Average height = PiP ') + pipTau.toFixed(4)
+                : (narrow ? 'PiP = ' : 'Avg height (τ=' + fmtTau(tau) + ') = ') + pipTau.toFixed(4);
+            var aboveLine = avgHeight <= 88;
+            layout.annotations.push({
+                xref: 'x',
+                x: tauPct + (100 - tauPct) * 0.5,
+                yref: 'y',
+                y: avgHeight,
+                yanchor: aboveLine ? 'bottom' : 'top',
+                yshift: aboveLine ? 3 : -3,
+                showarrow: false,
+                text: scoreLabel,
+                font: { size: narrow ? 11 : 12, color: COLOR.reference },
+                bgcolor: 'rgba(255,255,255,0.88)',
+                borderpad: 2
+            });
+        }
+
+        return {
+            data: traces.concat(this._standingDotTraces(this.papers, k), [this._ringTrace()]),
+            layout: layout
+        };
+    };
+
+    // The legacy PiP-AUC curve as stats_author_pip_scores_current integrates it (step form):
     // works in percentile order, work k held at its percentile from the previous work's x to its own,
     // starting at (0, first work's percentile). Drawn with line shape 'vh'.
     PaperExplorer.prototype._curve = function () {
@@ -448,6 +747,7 @@
         var last = papers[papers.length - 1];
         var xEnd = last ? last.x : 0;
         var narrow = this.narrow;
+        var aucScore = this._aucScoreValue();
 
         var layout = this._baseLayout();
         layout.xaxis = {
@@ -515,8 +815,8 @@
         }
 
         // Label the shaded area: inside it when there is room, else just right of the end line.
-        if (this.opts.pipScore !== null && this.opts.pipScore !== undefined && last) {
-            var scoreText = Number(this.opts.pipScore).toFixed(4);
+        if (aucScore !== null && last) {
+            var scoreText = aucScore.toFixed(4);
             var label = (narrow ? 'Area = ' : 'Shaded area = PiP-AUC ') + scoreText;
             if (xEnd >= 45) {
                 var midY = this._curveYAt(curve, xEnd / 2);
@@ -541,7 +841,18 @@
     };
 
     PaperExplorer.prototype.renderChart = function () {
-        var fig = this.state.view === 'year' ? this._yearFigure() : this._pipFigure();
+        var fig;
+        var ariaLabel;
+        if (this.state.view === 'standing' && this.hasStanding) {
+            fig = this._standingFigure();
+            ariaLabel = 'Standing curve: peer standing across paper citation-percentile thresholds, shaded above cutoff tau';
+        } else if (this.state.view === 'year') {
+            fig = this._yearFigure();
+            ariaLabel = 'Scatter plot of each work by publication year and citation percentile for that year';
+        } else {
+            fig = this._pipFigure();
+            ariaLabel = 'PiP-AUC curve: works in percentile order against cited-publication count percentile, with the area shaded';
+        }
         var config = {
             responsive: true,
             displaylogo: false,
@@ -550,9 +861,7 @@
                                      'hoverClosestCartesian', 'hoverCompareCartesian']
         };
         Plotly.react(this.chart, fig.data, fig.layout, config);
-        this.chart.setAttribute('aria-label', this.state.view === 'year'
-            ? 'Scatter plot of each work by publication year and citation percentile for that year'
-            : 'PiP curve: works in percentile order against cited-publication count percentile, with the area shaded');
+        this.chart.setAttribute('aria-label', ariaLabel);
         this._renderFinding();
     };
 
@@ -561,7 +870,32 @@
         var papers = this.papers;
         var n = papers.length;
         this.finding.textContent = '';
-        if (this.state.view === 'year') {
+        if (this.state.view === 'standing' && this.hasStanding) {
+            var k = this._tauClass();
+            var tau = k / 40;
+            var pipTau = this._pipAtTau(k);
+            var counted = this.countsByClass[k];
+            if (pipTau !== null) {
+                if (k === 20) {
+                    this.finding.appendChild(el('strong', null,
+                        'The average height above τ = 0.50 is the PiP score, ' + pipTau.toFixed(4) + '.'));
+                } else {
+                    var stdScore = this._pipAtTau(20);
+                    this.finding.appendChild(el('strong', null,
+                        'At cutoff τ = ' + fmtTau(tau) + ', the average height is ' + pipTau.toFixed(4) +
+                        (stdScore !== null ? ' (standard PiP at τ = 0.50 is ' + stdScore.toFixed(4) + ').' : '.')));
+                }
+                this.finding.appendChild(document.createTextNode(' '));
+            }
+            var thresholdDesc = k === 0
+                ? 'All ' + fmtInt(n) + ' cited works enter at τ = 0.'
+                : fmtInt(counted) + ' of ' + fmtInt(n) + ' cited works reach at least the ' +
+                  trim1(k * 2.5) + 'th percentile for their year and count above the cutoff.';
+            this.finding.appendChild(document.createTextNode(
+                thresholdDesc + ' At each threshold θ, the curve shows the share of career-stage peers' +
+                ' with strictly fewer works at or above θ; between this author’s works the curve rises' +
+                ' as peers drop out, and at each work’s threshold it steps down.'));
+        } else if (this.state.view === 'year') {
             var lead = el('strong', null, countAtLeast(papers, TIERS[0].min) + ' of ' + n +
                 ' scored works reached the ' + ordinal(TIERS[0].min) + ' percentile for their publication year.');
             this.finding.appendChild(lead);
@@ -579,8 +913,8 @@
             }
         } else {
             var last = papers[n - 1];
-            var score = this.opts.pipScore;
-            if (score !== null && score !== undefined) {
+            var score = this._aucScoreValue();
+            if (score !== null) {
                 this.finding.appendChild(el('strong', null, 'The shaded area is the PiP-AUC score, ' + Number(score).toFixed(4) + '.'));
                 this.finding.appendChild(document.createTextNode(' '));
             }
@@ -741,7 +1075,19 @@
         };
         fact('Percentile for its year', ordinal(p.pct));
         fact('Rank among scored works', '#' + p.rank + ' of ' + this.papers.length);
-        fact('Place on the PiP curve', 'x = ' + trim1(p.x) + ', y = ' + trim1(p.pct));
+        if (this.hasStanding) {
+            var b = p.pipClass;
+            var k = this._tauClass();
+            var nAt = this.countsByClass[b];
+            fact('Standing at its threshold',
+                plural(nAt, 'work', 'works') + ' ≥ ' + trim1(b * 2.5) + 'th pct · beats ' +
+                trim1(100 * this.standingCurve[b]) + '% of peers');
+            fact('At cutoff τ = ' + fmtTau(k / 40),
+                b >= k ? 'Counted in score' : 'Below cutoff (not counted)');
+        }
+        if (this.state.view === 'pip' || !this.hasStanding) {
+            fact('Place on PiP-AUC curve', 'x = ' + trim1(p.x) + ', y = ' + trim1(p.pct));
+        }
         this.panel.appendChild(dl);
 
         var earlier = this._isEarlier(p);
@@ -752,13 +1098,20 @@
         }
 
         var actions = el('div', 'paper-panel-actions');
-        var other = this.state.view === 'year' ? 'pip' : 'year';
-        if (!(earlier && other === 'year')) {
-            var swap = el('button', 'btn btn-sm btn-outline-violet',
-                other === 'pip' ? 'Show it on the PiP curve' : 'Show it by publication year');
+        var nextView = this.hasStanding
+            ? (this.state.view === 'standing' ? 'year' : 'standing')
+            : (this.state.view === 'year' ? 'pip' : 'year');
+        if (earlier && nextView === 'year') {
+            nextView = 'pip';
+        }
+        if (nextView !== this.state.view) {
+            var swapLabel = nextView === 'standing'
+                ? 'Show it on the standing curve'
+                : (nextView === 'year' ? 'Show it by publication year' : 'Show it on the PiP-AUC curve');
+            var swap = el('button', 'btn btn-sm btn-outline-violet', swapLabel);
             swap.type = 'button';
             swap.setAttribute('data-focus-key', 'swap');
-            swap.addEventListener('click', function () { self.setView(other); });
+            swap.addEventListener('click', function () { self.setView(nextView); });
             actions.appendChild(swap);
         }
 
@@ -789,9 +1142,15 @@
         var papers = ids.map(function (id) { return self.byId[id]; }).filter(Boolean);
         this._panelHeader(papers.length + ' works at this spot');
         var first = papers[0];
-        var where = this.state.view === 'year'
-            ? first.year + ', near the ' + ordinal(first.pct) + ' percentile'
-            : 'near x = ' + trim1(first.x) + ', ' + ordinal(first.pct) + ' percentile';
+        var where;
+        if (this.state.view === 'year') {
+            where = first.year + ', near the ' + ordinal(first.pct) + ' percentile';
+        } else if (this.state.view === 'standing' && this.hasStanding) {
+            where = 'near θ = ' + trim1(first.pct) + ', peer standing ' +
+                trim1(100 * this.standingCurve[first.pipClass]) + '%';
+        } else {
+            where = 'near x = ' + trim1(first.x) + ', ' + ordinal(first.pct) + ' percentile';
+        }
         this.panel.appendChild(el('p', 'paper-panel-hint', 'These works overlap ' + where + '. Pick one:'));
         var ul = el('ul', 'paper-panel-group');
         papers.forEach(function (p) {

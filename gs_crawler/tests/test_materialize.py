@@ -45,6 +45,7 @@ def test_run_tables_only():
     client = _Client()
     done = materialize.run(kinds=("table",), client=client)
     assert done == ["author_coauthor_fields.sql", "dist_publication_citations.sql",
-                    "dist_author_metrics.sql", "dist_pip_auc_scores.sql",
+                    "dist_author_metrics.sql", "dist_pip_thresholds.sql",
+                    "dist_pip_scores.sql", "dist_pip_auc_scores.sql",
                     "dist_pip_auc_scores_field.sql"]
     assert all("CREATE OR REPLACE TABLE" in s for s in client.sql)

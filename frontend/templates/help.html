@@ -6,17 +6,41 @@
 <div class="container mt-4">
     <h2>Help</h2>
 
-    <h4>What is PiP-AUC?</h4>
+    <h4>What is PiP?</h4>
     <p>
-        PiP-AUC (Paper-in-Percentile Area Under Curve) combines citation quality with
-        publication productivity into a single 0-to-1 score. Each paper is ranked against
-        all papers published in the same year, and an author's publication count is compared
-        to faculty at similar career stages.
+        <strong>PiP (Percentile-in-Percentile)</strong> measures research impact on a 0-to-1 scale by
+        comparing like with like at both the paper level and the author level:
+    </p>
+    <ol>
+        <li>
+            <strong>Paper citation percentile:</strong> Each cited work is assigned its citation
+            percentile among cited works published in the same year, putting older and newer papers
+            on equal footing.
+        </li>
+        <li>
+            <strong>Peer standing at each threshold:</strong> At each citation-percentile threshold
+            &theta; (in 40 steps of 2.5 percentile points), we count how many works the author has
+            at or above &theta; and compute <em>g</em>(&theta;), the share of active peers who
+            started publishing in the same year and have strictly fewer such works.
+        </li>
+        <li>
+            <strong>Averaging above the cutoff (&tau; = 0.5):</strong> The <strong>PiP</strong>
+            score is the average height of the standing curve <em>g</em>(&theta;) across thresholds
+            at or above the 50th percentile (&tau; = 0.5). Only works in the top half of their
+            publication year earn credit, so uncited or low-cited entries cannot pad the score.
+        </li>
+    </ol>
+    <p>
+        On an author's profile, you can adjust the cutoff &tau; on the <strong>Standing curve</strong>
+        chart to see how shifting &tau; moves the score between publication quantity (lower &tau;) and
+        top-end impact (higher &tau;). Cohort and field rankings use the standard &tau; = 0.50 cutoff.
+        The explorer also includes a <strong>By publication year</strong> scatter view and the earlier
+        <strong>PiP-AUC curve</strong> view for comparison.
     </p>
 
     <h4>How are percentiles calculated?</h4>
     <p>
-        All metrics (h-index, citations, i10-index, publication count) are percentile-ranked
+        All metrics (PiP, h-index, citations, i10-index, cited publication count) are percentile-ranked
         {% if data_source == "gs" %}
         against active authors among the Google Scholar profiles we track
         {% else %}
@@ -30,7 +54,7 @@
     <h4>How does the field comparison work?</h4>
     <p>
         Fields differ in how much people publish and how often they cite, so each author also has a
-        field page, linked from the results page, that ranks the PiP-AUC score and the four
+        field page, linked from the results page, that ranks the PiP score and the four
         conventional metrics among active authors in one field whose career started within a few
         years of the author's (the window widens until it holds at least 100 authors). It starts on
         the author's field, taken from their Google Scholar interests or, when those name no field,

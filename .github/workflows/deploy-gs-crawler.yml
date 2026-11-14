@@ -138,3 +138,11 @@ jobs:
         # Monthly reload of GS IDs from Wikidata (+ Wikipedia pageviews), 3rd of the month.
         upsert gs-monthly-wikidata "41 3 3 * *" \
           '{"overrides":{"containerOverrides":[{"env":[{"name":"CRAWL_MODE","value":"wikidata"}]}]}}'
+
+    - name: Execute Cloud Run Job (if crawl_mode requested)
+      if: ${{ inputs.crawl_mode != '' }}
+      run: |-
+        gcloud run jobs execute ${{ env.JOB_NAME }} \
+          --region=${{ env.GCP_REGION }} \
+          --update-env-vars="CRAWL_MODE=${{ inputs.crawl_mode }}" \
+          --wait

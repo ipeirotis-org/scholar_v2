@@ -1,17 +1,17 @@
--- PiP-AUC scores and metrics of each author's field peers, for field-relative percentiles.
+-- PiP scores and metrics of each author's field peers, for field-relative percentiles.
 --
--- One row per (field_group, year_of_first_pub): the sorted PiP-AUC scores (and,
--- for the author's field page, sorted h-index, citations, i10-index and cited
--- publication counts) of active authors (hindex >= 3 AND total_publications >= 3, the same benchmark as
--- dist_pip_auc_scores) in that field whose career started within +/- half_width
--- years. Exact career-start years are too thin per field (the 11 groups hold
--- ~500-2,700 profiles each), so the window widens from +/-2 (a 5-year cohort)
--- through 3, 4, 5, 7 to 10 years until it holds at least 100 peers; if even
--- +/-10 holds fewer, it keeps +/-10 and ranked_author_pip_scores_current hides
--- percentiles of windows under 30 peers. cohort_start / cohort_end are the
--- earliest and latest career-start years among the peers actually included.
--- ranked_author_pip_scores_current reads the PiP-AUC scores and
--- ranked_author_current the metric arrays; both see the same peers.
+-- One row per (field_group, year_of_first_pub): the sorted PiP scores (plus legacy
+-- PiP-AUC scores and, for the author's field page, sorted h-index, citations,
+-- i10-index and cited publication counts) of active authors (hindex >= 3 AND
+-- total_publications >= 3, the same benchmark as dist_pip_scores) in that field
+-- whose career started within +/- half_width years. Exact career-start years are
+-- too thin per field (the 11 groups hold ~500-2,700 profiles each), so the window
+-- widens from +/-2 (a 5-year cohort) through 3, 4, 5, 7 to 10 years until it holds
+-- at least 100 peers; if even +/-10 holds fewer, it keeps +/-10 and
+-- ranked_author_pip_scores_current hides percentiles of windows under 30 peers.
+-- cohort_start / cohort_end are the earliest and latest career-start years among
+-- the peers actually included. ranked_author_pip_scores_current reads pip_scores
+-- and ranked_author_current the metric arrays; both see the same peers.
 --
 -- PREREQUISITE: author_fields, stats_author_current and
 -- stats_author_pip_scores_current views must exist.
@@ -21,13 +21,13 @@ CLUSTER BY field_group, year_of_first_pub
 AS
 WITH
   Peers AS (
-    SELECT f.field_group, p.year_of_first_pub, p.pip_auc_score,
+    SELECT f.field_group, p.year_of_first_pub, p.pip_score, p.pip_auc_score,
            s.hindex, s.citedby, COALESCE(s.i10index, 0) AS i10index, s.total_publications_with_citations
     FROM `scholar-version2.gs_statistics.stats_author_pip_scores_current` p
     JOIN `scholar-version2.gs_statistics.stats_author_current` s USING (scholar_id)
     JOIN `scholar-version2.gs_statistics.author_fields` f USING (scholar_id)
     WHERE s.hindex >= 3 AND s.total_publications >= 3
-      AND p.year_of_first_pub IS NOT NULL AND p.pip_auc_score IS NOT NULL
+      AND p.year_of_first_pub IS NOT NULL AND p.pip_score IS NOT NULL
   ),
   -- Every career-start year any scored author has, for every group, so authors
   -- outside the benchmark (and years with no peers) still find their row.
@@ -60,7 +60,8 @@ SELECT
   c.half_width,
   MIN(p.year_of_first_pub) AS cohort_start,
   MAX(p.year_of_first_pub) AS cohort_end,
-  COUNT(p.pip_auc_score) AS peer_count,
+  COUNT(p.pip_score) AS peer_count,
+  ARRAY_AGG(p.pip_score IGNORE NULLS ORDER BY p.pip_score) AS pip_scores,
   ARRAY_AGG(p.pip_auc_score IGNORE NULLS ORDER BY p.pip_auc_score) AS scores,
   ARRAY_AGG(p.hindex IGNORE NULLS ORDER BY p.hindex) AS hindex_values,
   ARRAY_AGG(p.citedby IGNORE NULLS ORDER BY p.citedby) AS citedby_values,

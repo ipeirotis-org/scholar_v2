@@ -15,10 +15,10 @@
             of {{ standing.group }}{% if standing.cohort %} {{ standing.cohort }}{% endif %}.
         </h2>
         <p class="standing-score">
-            <span class="standing-score-value">PiP-AUC {{ "%.4f"|format(standing.pip_score) }}</span>
+            <span class="standing-score-value">{{ standing.score_label }} {{ "%.4f"|format(standing.pip_score) }}</span>
             {% if pub_chart_data %}
             <span class="standing-score-sep" aria-hidden="true">&middot;</span>
-            <a href="#explore" data-explorer-view="pip" data-explorer-scroll>How the score is computed</a>
+            <a href="#explore" data-explorer-view="{{ 'standing' if standing.standing_curve else 'pip' }}" data-explorer-scroll>How the score is computed</a>
             {% endif %}
         </p>
         {% if standing.field_link %}
@@ -29,15 +29,16 @@
         {% endif %}
         {% else %}
         <h2 class="standing-headline" id="standingHeadline">{{ standing.name }}</h2>
-        <p class="standing-score text-muted">PiP-AUC is pending: publication data is still being processed.</p>
+        <p class="standing-score text-muted">{{ standing.score_label }} is pending: publication data is still being processed.</p>
         {% endif %}
 
         {% if standing.metrics %}
         {{ metric_scale(standing.metrics, standing.pip_position,
-                        "Conventional metrics as percentiles of the same cohort") }}
+                        "Conventional metrics as percentiles of the same cohort",
+                        standing.score_label) }}
         <p class="standing-note">
             Each row places a conventional metric on the same 0&ndash;100 percentile scale
-            {%- if standing.has_pip %}; the dashed line is the PiP-AUC percentile ({{ standing.pip_ordinal }}){% endif %}.
+            {%- if standing.has_pip %}; the dashed line is the {{ standing.score_label }} percentile ({{ standing.pip_ordinal }}){% endif %}.
             {% if data_source == "gs" %}
             Tracked active authors are the Google Scholar profiles we crawl with an h-index of at
             least 3 and at least 3 publications.
@@ -58,13 +59,47 @@
         <div class="explore-head">
             <h3 id="exploreTitle">Which works explain this standing</h3>
             <div class="btn-group btn-group-sm view-toggle" role="group" aria-label="Chart view">
-                <button type="button" class="btn btn-outline-violet active" data-explorer-view="pip"
-                        aria-pressed="true">PiP curve</button>
+                {% if standing.standing_curve %}
+                <button type="button" class="btn btn-outline-violet active" data-explorer-view="standing"
+                        aria-pressed="true">Standing curve</button>
                 <button type="button" class="btn btn-outline-violet" data-explorer-view="year"
                         aria-pressed="false">By publication year</button>
+                <button type="button" class="btn btn-outline-violet" data-explorer-view="pip"
+                        aria-pressed="false">PiP-AUC curve</button>
+                {% else %}
+                <button type="button" class="btn btn-outline-violet active" data-explorer-view="pip"
+                        aria-pressed="true">PiP-AUC curve</button>
+                <button type="button" class="btn btn-outline-violet" data-explorer-view="year"
+                        aria-pressed="false">By publication year</button>
+                {% endif %}
             </div>
         </div>
         <p class="explore-finding" id="exploreFinding"></p>
+        {% if standing.standing_curve %}
+        <div class="tau-controls" id="tauControls" role="region" aria-label="Citation percentile cutoff selector">
+            <div class="tau-controls-main">
+                <label class="tau-label" for="tauSlider">
+                    Cutoff &tau; = <strong id="tauReadout">0.50</strong>
+                    <span class="tau-pct-note" id="tauPctNote">(top 50% of works &middot; default)</span>
+                </label>
+                <div class="tau-slider-wrap">
+                    <span class="tau-axis-hint" aria-hidden="true">Quantity</span>
+                    <input type="range" class="tau-slider" id="tauSlider"
+                           min="0" max="0.95" step="0.025" value="0.5"
+                           aria-describedby="tauScoreReadout">
+                    <span class="tau-axis-hint" aria-hidden="true">Impact</span>
+                </div>
+                <div class="tau-presets" role="group" aria-label="Preset cutoff values">
+                    <button type="button" class="tau-chip" data-tau-preset="0" aria-pressed="false">0</button>
+                    <button type="button" class="tau-chip" data-tau-preset="0.25" aria-pressed="false">0.25</button>
+                    <button type="button" class="tau-chip is-active" data-tau-preset="0.5" aria-pressed="true">0.50</button>
+                    <button type="button" class="tau-chip" data-tau-preset="0.75" aria-pressed="false">0.75</button>
+                    <button type="button" class="tau-chip" data-tau-preset="0.9" aria-pressed="false">0.90</button>
+                </div>
+            </div>
+            <p class="tau-score-readout" id="tauScoreReadout" aria-live="polite"></p>
+        </div>
+        {% endif %}
         <div class="row">
             <div class="col-lg-8">
                 <div id="paperChart" class="paper-chart" role="img"></div>
@@ -133,7 +168,7 @@
                 data-author-id="{{ author_id }}"
                 role="button" aria-label="Rebuild author statistics">Rebuild</a>).
             {% endif %}
-            <a href="{{ url_for('help_page') }}">How PiP-AUC works</a>.
+            <a href="{{ url_for('help_page') }}">How PiP works</a>.
         </p>
     </section>
 </div>
@@ -182,9 +217,12 @@ if (pubChartData && pubChartData.length > 0) {
         listMoreId: 'paperListMore',
         listNoteId: 'paperListNote',
         findingId: 'exploreFinding',
+        tauControlsId: 'tauControls',
         authorId: {{ author_id | tojson }},
         authorName: {{ standing.name | tojson }},
         pipScore: {{ standing.pip_score | tojson }},
+        pipAucScore: {{ standing.pip_auc_score | tojson }},
+        standingCurve: {{ standing.standing_curve | tojson }},
         startYear: {{ stats.get('year_of_first_pub') | tojson }},
         dataSource: {{ data_source | tojson }}
     });

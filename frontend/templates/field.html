@@ -36,7 +36,7 @@
             {%- if cur.cohort %} {{ cur.cohort }}{% endif %}.
         </h2>
         <p class="standing-score">
-            <span class="standing-score-value">PiP-AUC {{ "%.4f"|format(standing.pip_score) }}</span>
+            <span class="standing-score-value">{{ standing.score_label }} {{ "%.4f"|format(standing.pip_score) }}</span>
             <span class="standing-score-sep" aria-hidden="true">&middot;</span>
             <a href="{{ url_for('results', author_id=author_id) }}">Across all fields: {{ standing.pip_ordinal }}
                 percentile{% if stats.year_of_first_pub %} (career start {{ stats.year_of_first_pub }}){% endif %}</a>
@@ -44,7 +44,8 @@
 
         {% if cur.metrics %}
         {{ metric_scale(cur.metrics, cur.position,
-                        "Conventional metrics as percentiles among the same field peers") }}
+                        "Conventional metrics as percentiles among the same field peers",
+                        standing.score_label) }}
         {% endif %}
         <p class="standing-note">
             Fields differ in how much people publish and how often they cite, so this page compares
@@ -52,7 +53,7 @@
             crawl with an h-index of at least 3 and at least 3 publications) whose career started
             within a few years of theirs; the window widens until it holds at least 100 authors.
             {%- if cur.metrics %} Each row places a metric among the same authors; the dashed line is
-            the PiP-AUC percentile ({{ cur.ordinal }}).{% endif %}
+            the {{ standing.score_label }} percentile ({{ cur.ordinal }}).{% endif %}
             {% if fc.own %}
             {{ fc.own }} is this author's field from
             {% if fc.own_from_coauthors %}the Google Scholar interests of their co-authors{% else %}their

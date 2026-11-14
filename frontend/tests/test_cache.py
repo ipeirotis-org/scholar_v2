@@ -178,3 +178,26 @@ class TestRecordRecentAuthor:
         cache.record_recent_author(_author("a2", "Bob"))
 
         assert client.transaction.call_count == 2
+
+    def test_records_pip_score_and_percentile_when_present(self):
+        cache, client = _make_cache()
+        transaction, _ = self._setup_transaction(client, existing=None)
+
+        stats = dict(_author("a1", "Alice"), pip_score=0.0, pip_score_percentile=0.05)
+        cache.record_recent_author(stats)
+
+        entry = transaction.set.call_args[0][1]["data"][0]
+        assert entry["pip_score"] == 0.0
+        assert entry["pip_percentile"] == 0.05
+        assert entry["pip_auc_score"] == 0.5
+
+    def test_omits_pip_score_for_legacy_stats_without_pip_score(self):
+        cache, client = _make_cache()
+        transaction, _ = self._setup_transaction(client, existing=None)
+
+        cache.record_recent_author(_author("a1", "Alice"))
+
+        entry = transaction.set.call_args[0][1]["data"][0]
+        assert "pip_score" not in entry
+        assert entry["pip_auc_score"] == 0.5
+        assert entry["pip_auc_percentile"] == 0.75

@@ -38,3 +38,30 @@ def test_crawl_and_store_invalidates_only_stored_authors():
     assert summary["crawled"] == 1 and summary["failed"] == 1
     load.assert_called_once()
     inv.assert_called_once_with(["GOODAAAAAAAJ"])
+
+
+def test_invalidate_missing_pip_targets_only_stale_gs_docs():
+    def _doc(doc_id, data):
+        d = MagicMock()
+        d.id = doc_id
+        d.to_dict.return_value = {"data": data}
+        return d
+
+    db = MagicMock()
+    db.collection.return_value.stream.return_value = [
+        _doc("STALEGSAAAAJ", {"pip_auc_score": 0.42}),                  # stale GS -> invalidate
+        _doc("FRESHGSAAAAJ", {"pip_score": 0.51, "pip_auc_score": 0.4}),  # already has pip_score -> keep
+        _doc("123456789012", {"pip_auc_score": 0.5}),                   # 12-digit S2 ID -> keep
+        _doc("2942126", {"pip_auc_score": 0.5}),                        # short S2 ID -> keep
+    ]
+    with patch.object(cache_invalidate, "invalidate_authors") as inv:
+        count = cache_invalidate.invalidate_missing_pip(db=db)
+    assert count == 1
+    inv.assert_called_once_with(["STALEGSAAAAJ"], db=db)
+
+
+def test_invalidate_legacy_pip_mode(monkeypatch):
+    monkeypatch.setenv("CRAWL_MODE", "invalidate_legacy_pip")
+    with patch.object(main.cache_invalidate, "invalidate_missing_pip", return_value=3) as inv:
+        main.main()
+    inv.assert_called_once()

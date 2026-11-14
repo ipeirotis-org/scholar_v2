@@ -123,6 +123,29 @@ class TestGetAuthorStats:
         client, _ = _make_client(pd.DataFrame([{"scholar_id": "a", "pip_auc_score": 0.5}]))
         assert "field_percentiles" not in client.get_author_stats("a")
 
+    def test_pip_standing_json_becomes_a_plain_float_list(self):
+        import json
+        import pandas as pd
+        curve = [round(1.0 - j / 40, 6) for j in range(40)]
+        df = pd.DataFrame([{
+            "scholar_id": "abc123",
+            "pip_score": 0.2375,
+            "pip_standing_json": json.dumps(curve),
+        }])
+        client, _ = _make_client(df)
+        result = client.get_author_stats("abc123")
+        assert "pip_standing_json" not in result
+        assert isinstance(result["pip_standing"], list)
+        assert result["pip_standing"] == curve
+
+    def test_missing_or_null_pip_standing_json(self):
+        import pandas as pd
+        for raw in ("null", float("nan"), None):
+            client, _ = _make_client(pd.DataFrame([{"scholar_id": "a", "pip_standing_json": raw}]))
+            assert client.get_author_stats("a")["pip_standing"] == []
+        client, _ = _make_client(pd.DataFrame([{"scholar_id": "a", "pip_auc_score": 0.5}]))
+        assert "pip_standing" not in client.get_author_stats("a")
+
 
 class TestGetPublicationStats:
     def test_returns_records(self):

@@ -11,7 +11,8 @@ from frontend.routes import HOMEPAGE_FEATURED
 
 def _author(i, **extra):
     return {"scholar_id": f"FEAT{i:04d}AAAJ", "name": f"Featured Author {i}", "affiliation": f"Univ {i}",
-            "hindex": 50 + i, "citedby": 10000 + i, "pip_auc_score": 0.5, "pip_auc_percentile": 0.8, **extra}
+            "hindex": 50 + i, "citedby": 10000 + i, "pip_score": 0.55, "pip_percentile": 0.82,
+            "pip_auc_score": 0.5, "pip_auc_percentile": 0.8, **extra}
 
 
 RECENT = [{"scholar_id": "RECENTAAAAAJ", "name": "Recent Author", "hindex": 20, "citedby": 999}]
@@ -93,22 +94,34 @@ def test_rows_link_to_results(make_client):
 
 
 def test_numbers_fit_one_line_each(make_client):
-    client, _ = make_client([_author(1, pip_auc_score=0.595, pip_auc_percentile=0.8953, citedby=756277),
-                             _author(2, pip_auc_score=None)])
+    client, _ = make_client([_author(1, pip_score=0.595, pip_percentile=0.8953, citedby=756277),
+                             _author(2, pip_score=0.0, pip_percentile=0.05, citedby=120),
+                             _author(3, pip_score=None)])
     html = client.get("/").get_data(as_text=True)
-    # PiP-AUC with four decimals and its percentile in a column of its own, both right-aligned.
+    # PiP with four decimals (including 0.0000) and its percentile in a column of its own, both right-aligned.
     assert '<td class="col-num">0.5950</td>' in html
     assert '<td class="col-num text-muted">89.5</td>' in html  # one decimal, as on results pages
+    assert '<td class="col-num">0.0000</td>' in html
+    assert '<td class="col-num text-muted">5.0</td>' in html
     assert '<td class="col-num d-none d-sm-table-cell">756,277</td>' in html
     assert "% percentile" not in html
     # Missing scores leave a dash and an empty percentile cell.
     assert '<td class="col-num text-muted">—</td>' in html
-    assert html.count('class="col-name cell-text"') == 3  # two featured rows, one recent
+    assert html.count('class="col-name cell-text"') == 4  # three featured rows, one recent
+
+
+def test_legacy_featured_row_without_pip_score_falls_back_to_pip_auc(make_client):
+    legacy = {"scholar_id": "FEAT0001AAAJ", "name": "Legacy Author", "affiliation": "Univ",
+              "hindex": 40, "citedby": 5000, "pip_auc_score": 0.4321, "pip_auc_percentile": 0.765}
+    client, _ = make_client([legacy])
+    html = client.get("/").get_data(as_text=True)
+    assert '<td class="col-num">0.4321</td>' in html
+    assert '<td class="col-num text-muted">76.5</td>' in html
 
 
 def test_author_without_pip_score_does_not_break_the_homepage(make_client):
     # Authors without scored publications are cached with NaN score and percentile.
-    client, _ = make_client([_author(1, pip_auc_score=float("nan"), pip_auc_percentile=float("nan")),
+    client, _ = make_client([_author(1, pip_score=float("nan"), pip_percentile=float("nan")),
                              _author(2)])
     response = client.get("/")
     assert response.status_code == 200

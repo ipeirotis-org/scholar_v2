@@ -173,6 +173,9 @@ class FirestoreCache:
             "pip_auc_score": author_stats.get("pip_auc_score"),
             "pip_auc_percentile": author_stats.get("pip_auc_score_percentile"),
         }
+        if "pip_score" in author_stats:
+            entry["pip_score"] = author_stats.get("pip_score")
+            entry["pip_percentile"] = author_stats.get("pip_score_percentile")
 
         if not entry["scholar_id"] or is_legacy_s2_id(entry["scholar_id"]):
             return

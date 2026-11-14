@@ -107,12 +107,17 @@ def refresh_search_index():
 
 
 def refresh_featured():
-    """Rebuild the homepage's featured authors (Firestore); failures are logged."""
+    """Rebuild the homepage's featured authors and refresh recent-author scores; failures are logged."""
+    count = 0
     try:
-        return featured.run()
+        count = featured.run()
     except Exception:
         logger.exception("Featured authors rebuild failed")
-        return 0
+    try:
+        featured.refresh_recent()
+    except Exception:
+        logger.exception("Recent authors score refresh failed")
+    return count
 
 
 def run_refresh():
@@ -155,8 +160,16 @@ def main():
         refresh_featured()
         return
     elif mode == "featured":
-        if not featured.run():
+        count = featured.run()
+        try:
+            featured.refresh_recent()
+        except Exception:
+            logger.exception("Recent authors score refresh failed")
+        if not count:
             sys.exit(1)
+        return
+    elif mode == "invalidate_legacy_pip":
+        logger.info("Invalidated pre-PiP GS profiles: %d", cache_invalidate.invalidate_missing_pip())
         return
     else:
         raise SystemExit(f"Unknown CRAWL_MODE: {mode}")
