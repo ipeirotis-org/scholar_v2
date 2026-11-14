@@ -65,8 +65,7 @@
     }
 
     function fmtTau(tau) {
-        var k = Math.round(tau * 40);
-        return (k % 2 === 0) ? (k / 40).toFixed(2) : (k / 40).toFixed(3);
+        return (Math.round(tau * 40) / 40).toFixed(3);
     }
 
     // Percentile with one decimal (0-100 in), clamped to 0.1..99.9, as in
@@ -149,7 +148,6 @@
         this.tauControls = opts.tauControlsId ? document.getElementById(opts.tauControlsId) : null;
         this.tauSlider = document.getElementById('tauSlider');
         this.tauReadout = document.getElementById('tauReadout');
-        this.tauPctNote = document.getElementById('tauPctNote');
         this.tauScoreReadout = document.getElementById('tauScoreReadout');
 
         this.standingCurve = (Array.isArray(opts.standingCurve) && opts.standingCurve.length === 40)
@@ -276,32 +274,32 @@
         this.tauScoreReadout.textContent = '';
 
         var totalStr = fmtInt(this.papers.length);
-        var worksNoun = this.papers.length === 1 ? 'cited work counted' : 'cited works counted';
+        var countSizer = totalStr.replace(/\d/g, '8');
+        var worksNoun = this.papers.length === 1 ? 'work' : 'works';
 
-        var primary = el('span', 'tau-score-primary');
         var swatch = el('span', 'tau-mean-swatch');
         swatch.setAttribute('aria-hidden', 'true');
-        primary.appendChild(swatch);
-        primary.appendChild(document.createTextNode('Mean height: '));
-        var scoreVal = el('strong', 'tau-num-score');
-        primary.appendChild(scoreVal);
+        this.tauScoreReadout.appendChild(swatch);
+        this.tauScoreReadout.appendChild(document.createTextNode('Mean: '));
 
-        var sep = el('span', 'tau-sep', ' · ');
-        primary.appendChild(sep);
+        var scoreSlot = el('strong', 'tau-slot tau-num-score');
+        scoreSlot.setAttribute('data-sizer', '0.8888');
+        var scoreVal = el('span', 'tau-slot-val');
+        scoreSlot.appendChild(scoreVal);
+        this.tauScoreReadout.appendChild(scoreSlot);
+
+        this.tauScoreReadout.appendChild(el('span', 'tau-sep', ' · '));
 
         var countedWrap = el('span', 'tau-counted');
-        var countVal = el('span', 'tau-num-count');
-        countVal.style.minWidth = totalStr.length + 'ch';
-        countedWrap.appendChild(countVal);
+        var countSlot = el('span', 'tau-slot tau-slot-right tau-num-count');
+        countSlot.setAttribute('data-sizer', countSizer);
+        var countVal = el('span', 'tau-slot-val');
+        countSlot.appendChild(countVal);
+        countedWrap.appendChild(countSlot);
         countedWrap.appendChild(document.createTextNode(' / ' + totalStr + ' ' + worksNoun));
-        primary.appendChild(countedWrap);
+        this.tauScoreReadout.appendChild(countedWrap);
 
-        var note = el('span', 'tau-official-note', 'Official PiP & rankings use τ = 0.50');
-
-        this.tauScoreReadout.appendChild(primary);
-        this.tauScoreReadout.appendChild(document.createTextNode(' '));
-        this.tauScoreReadout.appendChild(note);
-        this._tauScoreNodes = { scoreVal: scoreVal, countVal: countVal, note: note };
+        this._tauScoreNodes = { scoreVal: scoreVal, countVal: countVal };
     };
 
     PaperExplorer.prototype._syncTauUi = function () {
@@ -310,14 +308,10 @@
         if (!this.hasStanding) return;
         var k = this._tauClass();
         var tau = k / 40;
-        var tauPct = k * 2.5;
         var pipTau = this._pipAtTau(k);
 
         if (this.tauSlider) this.tauSlider.value = String(tau);
         if (this.tauReadout) this.tauReadout.textContent = fmtTau(tau);
-        if (this.tauPctNote) {
-            this.tauPctNote.textContent = '(\u2265 ' + tauPct.toFixed(1) + '%)';
-        }
         var chips = this.tauControls.querySelectorAll('[data-tau-preset]');
         Array.prototype.forEach.call(chips, function (chip) {
             var presetK = Math.round(Number(chip.getAttribute('data-tau-preset')) * 40);
@@ -329,7 +323,6 @@
             this._ensureTauReadoutDom();
             this._tauScoreNodes.scoreVal.textContent = pipTau.toFixed(4);
             this._tauScoreNodes.countVal.textContent = fmtInt(this.countsByClass[k]);
-            this._tauScoreNodes.note.classList.toggle('is-custom', k !== 20);
         }
     };
 
@@ -341,8 +334,12 @@
         this._syncTauUi();
         if (k === prevK) return;
         this.renderChart();
-        if (this.state.selectedId) {
-            this.renderPanel();
+        if (this.state.selectedId && this.byId[this.state.selectedId] && this._panelCutoffVal) {
+            var sel = this.byId[this.state.selectedId];
+            var nextTxt = sel.pipClass >= k ? 'Counted' : 'Not counted';
+            if (this._panelCutoffVal.textContent !== nextTxt) {
+                this._panelCutoffVal.textContent = nextTxt;
+            }
         }
     };
 
@@ -972,6 +969,7 @@
         var key = this._focusKeyOverride || (hadFocus ? active.getAttribute('data-focus-key') : null);
         this._focusKeyOverride = null;
 
+        this._panelCutoffVal = null;
         this.panel.textContent = '';
         if (this.state.selectedId && this.byId[this.state.selectedId]) {
             this._panelPaper(this.byId[this.state.selectedId]);
@@ -1068,8 +1066,15 @@
             fact('Standing at its threshold',
                 plural(nAt, 'work', 'works') + ' ≥ ' + trim1(b * 2.5) + 'th pct · beats ' +
                 trim1(100 * this.standingCurve[b]) + '% of peers');
-            fact('Current cutoff',
-                b >= k ? 'Counted' : 'Not counted');
+            dl.appendChild(el('dt', null, 'Current cutoff'));
+            var cutoffDd = el('dd');
+            var cutoffSlot = el('span', 'tau-slot');
+            cutoffSlot.setAttribute('data-sizer', 'Not counted');
+            var cutoffVal = el('span', 'tau-slot-val', b >= k ? 'Counted' : 'Not counted');
+            cutoffSlot.appendChild(cutoffVal);
+            cutoffDd.appendChild(cutoffSlot);
+            dl.appendChild(cutoffDd);
+            this._panelCutoffVal = cutoffVal;
         }
         if (this.state.view === 'pip' || !this.hasStanding) {
             fact('Place on PiP-AUC curve', 'x = ' + trim1(p.x) + ', y = ' + trim1(p.pct));

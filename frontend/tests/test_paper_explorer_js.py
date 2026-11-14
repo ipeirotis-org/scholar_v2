@@ -127,8 +127,7 @@ function buildDom(withStanding) {
     register(makeNode('p', 'exploreFinding'));
     if (withStanding) {
         const tc = register(makeNode('div', 'tauControls'));
-        const readout = makeNode('strong', 'tauReadout'); byId.tauReadout = readout; tc.appendChild(readout);
-        const pctNote = makeNode('span', 'tauPctNote'); byId.tauPctNote = pctNote; tc.appendChild(pctNote);
+        const readout = makeNode('span', 'tauReadout'); byId.tauReadout = readout; tc.appendChild(readout);
         const slider = makeNode('input', 'tauSlider'); slider.value = '0.5'; byId.tauSlider = slider; tc.appendChild(slider);
         const scoreOut = makeNode('div', 'tauScoreReadout'); byId.tauScoreReadout = scoreOut; tc.appendChild(scoreOut);
         [0, 0.25, 0.5, 0.75, 0.9].forEach(val => {
@@ -193,16 +192,12 @@ const papers = [
     });
     assert.strictEqual(exp.state.view, 'standing');
     assert.strictEqual(byId.tauControls.hidden, false);
-    assert.strictEqual(byId.tauReadout.textContent, '0.50');
-    assert.strictEqual(byId.tauPctNote.textContent, '(≥ 50.0%)');
-    assert.strictEqual(
-        byId.tauScoreReadout.textContent,
-        'Mean height: 0.3100 · 2 / 3 cited works counted Official PiP & rankings use τ = 0.50'
-    );
+    assert.strictEqual(byId.tauReadout.textContent, '0.500');
+    assert.strictEqual(byId.tauScoreReadout.textContent, 'Mean: 0.3100 · 2 / 3 works');
+    const scoreSlot = byId.tauScoreReadout.querySelector('.tau-num-score');
     const countSlot = byId.tauScoreReadout.querySelector('.tau-num-count');
-    assert.strictEqual(countSlot.style.minWidth, '1ch');
-    const officialNote = byId.tauScoreReadout.querySelector('.tau-official-note');
-    assert.strictEqual(officialNote.classList.contains('is-custom'), false);
+    assert.strictEqual(scoreSlot.getAttribute('data-sizer'), '0.8888');
+    assert.strictEqual(countSlot.getAttribute('data-sizer'), '8');
 
     const initialFinding = byId.exploreFinding.textContent;
     assert(initialFinding.includes('Official PiP (at τ = 0.50) is 0.3100.'));
@@ -219,20 +214,23 @@ const papers = [
 
     // Select mid paper (class 24 -> 60th pct) and shift tau above it (0.75 -> class 30)
     exp.select('a:2');
+    const panelFirstChild = byId.paperPanel.children[0];
     assert(byId.paperPanel.textContent.includes('Current cutoffCounted'));
     exp.setTau(0.75);
-    assert.strictEqual(byId.tauReadout.textContent, '0.75');
+    assert.strictEqual(byId.tauReadout.textContent, '0.750');
     assert.strictEqual(byId.exploreFinding.textContent, initialFinding);
+    // Panel DOM was updated in place without tearing down #paperPanel
+    assert.strictEqual(byId.paperPanel.children[0], panelFirstChild);
     assert(byId.paperPanel.textContent.includes('Current cutoffNot counted'));
-    assert.strictEqual(officialNote.classList.contains('is-custom'), true);
-    assert(byId.tauScoreReadout.textContent.includes(' · 1 / 3 cited works counted '));
+    assert.strictEqual(byId.tauScoreReadout.textContent, 'Mean: 0.2100 · 1 / 3 works');
 
-    // Shift tau all the way to 0 -> readout formats as '0.00' and trace/shape counts stay fixed
+    // Odd step (0.525) and zero step (0.000) keep constant 5-char tauReadout and fixed trace/shape counts
+    exp.setTau(0.525);
+    assert.strictEqual(byId.tauReadout.textContent, '0.525');
     exp.setTau(0);
-    assert.strictEqual(byId.tauReadout.textContent, '0.00');
-    assert.strictEqual(byId.tauPctNote.textContent, '(≥ 0.0%)');
+    assert.strictEqual(byId.tauReadout.textContent, '0.000');
     assert.strictEqual(byId.exploreFinding.textContent, initialFinding);
-    assert(byId.tauScoreReadout.textContent.includes('3 / 3 cited works counted'));
+    assert(byId.tauScoreReadout.textContent.includes(' · 3 / 3 works'));
     const zeroCall = plotlyCalls[plotlyCalls.length - 1];
     assert.strictEqual(zeroCall.data.length, 8);
     assert.strictEqual(zeroCall.layout.shapes.length, 3);
