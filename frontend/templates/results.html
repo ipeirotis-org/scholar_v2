@@ -97,7 +97,7 @@
                     <button type="button" class="tau-chip" data-tau-preset="0.9" aria-pressed="false">0.90</button>
                 </div>
             </div>
-            <div class="tau-score-readout" id="tauScoreReadout" aria-live="polite"></div>
+            <div class="tau-score-readout" id="tauScoreReadout" aria-live="polite" aria-atomic="true"></div>
         </div>
         {% endif %}
         <div class="row">
@@ -111,7 +111,7 @@
 
         <div class="paper-list-wrap">
             <div class="paper-list-toolbar">
-                <span class="paper-list-count">{{ "{:,}".format(pub_chart_data|length) }} scored works</span>
+                <span class="paper-list-count">{{ "{:,}".format(pub_chart_data|length) }} scored work{{ "" if pub_chart_data|length == 1 else "s" }}</span>
                 <div class="btn-group btn-group-sm" role="group" aria-label="Sort works by">
                     <button type="button" class="btn btn-outline-violet active" data-explorer-sort="percentile"
                             aria-pressed="true">Percentile for its year</button>

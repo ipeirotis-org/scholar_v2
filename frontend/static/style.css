@@ -786,11 +786,10 @@ footer .footer-source {
 .tau-num-score {
     display: inline-block;
     min-width: 6ch;
-    margin-left: 0.25rem;
 }
 
 .tau-sep {
-    margin: 0 0.5rem;
+    margin: 0 0.3rem;
     color: var(--ink-muted);
 }
 
@@ -800,7 +799,7 @@ footer .footer-source {
 
 .tau-num-count {
     display: inline-block;
-    min-width: 3ch;
+    min-width: 1ch;
     text-align: right;
     font-weight: 600;
     color: var(--ink);
@@ -816,7 +815,7 @@ footer .footer-source {
     color: var(--nyu-violet);
 }
 
-@media (max-width: 991.98px) and (min-width: 576px) {
+@media (max-width: 991.98px) {
     .tau-controls-main {
         grid-template-columns: 13.75rem minmax(0, 1fr);
     }

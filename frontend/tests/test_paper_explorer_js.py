@@ -195,13 +195,18 @@ const papers = [
     assert.strictEqual(byId.tauControls.hidden, false);
     assert.strictEqual(byId.tauReadout.textContent, '0.50');
     assert.strictEqual(byId.tauPctNote.textContent, '(≥ 50.0%)');
-    assert(byId.tauScoreReadout.textContent.includes('Mean height:0.3100'));
-    assert(byId.tauScoreReadout.textContent.includes('2 / 3 cited works counted'));
-    assert(byId.tauScoreReadout.textContent.includes('Official PiP & rankings use τ = 0.50'));
+    assert.strictEqual(
+        byId.tauScoreReadout.textContent,
+        'Mean height: 0.3100 · 2 / 3 cited works counted Official PiP & rankings use τ = 0.50'
+    );
+    const countSlot = byId.tauScoreReadout.querySelector('.tau-num-count');
+    assert.strictEqual(countSlot.style.minWidth, '1ch');
     const officialNote = byId.tauScoreReadout.querySelector('.tau-official-note');
     assert.strictEqual(officialNote.classList.contains('is-custom'), false);
 
     const initialFinding = byId.exploreFinding.textContent;
+    assert(initialFinding.includes('Official PiP (at τ = 0.50) is 0.3100.'));
+    assert(initialFinding.includes('The dashed line marks the curve’s mean height above the selected cutoff τ'));
     const initialCall = plotlyCalls[plotlyCalls.length - 1];
     assert.strictEqual(initialCall.data.length, 8);
     assert.strictEqual(initialCall.layout.shapes.length, 3);
@@ -214,14 +219,13 @@ const papers = [
 
     // Select mid paper (class 24 -> 60th pct) and shift tau above it (0.75 -> class 30)
     exp.select('a:2');
-    assert(byId.paperPanel.textContent.includes('Counted in score'));
-    assert(byId.paperPanel.textContent.includes('Current cutoff'));
+    assert(byId.paperPanel.textContent.includes('Current cutoffCounted'));
     exp.setTau(0.75);
     assert.strictEqual(byId.tauReadout.textContent, '0.75');
     assert.strictEqual(byId.exploreFinding.textContent, initialFinding);
-    assert(byId.paperPanel.textContent.includes('Below cutoff (not counted)'));
+    assert(byId.paperPanel.textContent.includes('Current cutoffNot counted'));
     assert.strictEqual(officialNote.classList.contains('is-custom'), true);
-    assert(byId.tauScoreReadout.textContent.includes('1 / 3 cited works counted'));
+    assert(byId.tauScoreReadout.textContent.includes(' · 1 / 3 cited works counted '));
 
     // Shift tau all the way to 0 -> readout formats as '0.00' and trace/shape counts stay fixed
     exp.setTau(0);

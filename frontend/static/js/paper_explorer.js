@@ -275,28 +275,31 @@
         if (!this.tauScoreReadout || this._tauScoreNodes) return;
         this.tauScoreReadout.textContent = '';
 
+        var totalStr = fmtInt(this.papers.length);
+        var worksNoun = this.papers.length === 1 ? 'cited work counted' : 'cited works counted';
+
         var primary = el('span', 'tau-score-primary');
         var swatch = el('span', 'tau-mean-swatch');
         swatch.setAttribute('aria-hidden', 'true');
         primary.appendChild(swatch);
-        primary.appendChild(document.createTextNode('Mean height:'));
+        primary.appendChild(document.createTextNode('Mean height: '));
         var scoreVal = el('strong', 'tau-num-score');
         primary.appendChild(scoreVal);
 
-        var sep = el('span', 'tau-sep', '·');
-        sep.setAttribute('aria-hidden', 'true');
+        var sep = el('span', 'tau-sep', ' · ');
         primary.appendChild(sep);
 
         var countedWrap = el('span', 'tau-counted');
         var countVal = el('span', 'tau-num-count');
+        countVal.style.minWidth = totalStr.length + 'ch';
         countedWrap.appendChild(countVal);
-        countedWrap.appendChild(document.createTextNode(
-            ' / ' + fmtInt(this.papers.length) + ' cited works counted'));
+        countedWrap.appendChild(document.createTextNode(' / ' + totalStr + ' ' + worksNoun));
         primary.appendChild(countedWrap);
 
         var note = el('span', 'tau-official-note', 'Official PiP & rankings use τ = 0.50');
 
         this.tauScoreReadout.appendChild(primary);
+        this.tauScoreReadout.appendChild(document.createTextNode(' '));
         this.tauScoreReadout.appendChild(note);
         this._tauScoreNodes = { scoreVal: scoreVal, countVal: countVal, note: note };
     };
@@ -870,11 +873,12 @@
             var counted50 = this.countsByClass[20];
             if (stdScore !== null) {
                 this.finding.appendChild(el('strong', null,
-                    'The average height above τ = 0.50 (dashed line) is the PiP score, ' + stdScore.toFixed(4) + '.'));
+                    'Official PiP (at τ = 0.50) is ' + stdScore.toFixed(4) + '.'));
                 this.finding.appendChild(document.createTextNode(' '));
             }
             this.finding.appendChild(document.createTextNode(
-                fmtInt(counted50) + ' of ' + fmtInt(n) + ' cited works reach at least the 50th percentile for their year.' +
+                'The dashed line marks the curve’s mean height above the selected cutoff τ (matching official PiP at τ = 0.50, where ' +
+                fmtInt(counted50) + ' of ' + fmtInt(n) + ' cited works are counted).' +
                 ' At each threshold θ, the curve shows the share of career-stage peers with strictly fewer works' +
                 ' at or above θ; between works it rises as peers drop out, and at each work’s threshold it steps down.'));
         } else if (this.state.view === 'year') {
@@ -1065,7 +1069,7 @@
                 plural(nAt, 'work', 'works') + ' ≥ ' + trim1(b * 2.5) + 'th pct · beats ' +
                 trim1(100 * this.standingCurve[b]) + '% of peers');
             fact('Current cutoff',
-                b >= k ? 'Counted in score' : 'Below cutoff (not counted)');
+                b >= k ? 'Counted' : 'Not counted');
         }
         if (this.state.view === 'pip' || !this.hasStanding) {
             fact('Place on PiP-AUC curve', 'x = ' + trim1(p.x) + ', y = ' + trim1(p.pct));
