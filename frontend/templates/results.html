@@ -79,8 +79,8 @@
         <div class="tau-controls" id="tauControls" role="region" aria-label="Citation percentile cutoff selector">
             <div class="tau-controls-main">
                 <label class="tau-label" for="tauSlider">
-                    Cutoff &tau; = <strong id="tauReadout">0.50</strong>
-                    <span class="tau-pct-note" id="tauPctNote">(top 50% of works &middot; default)</span>
+                    Cutoff &tau; = <strong class="tau-readout-val" id="tauReadout">0.50</strong>
+                    <span class="tau-pct-note" id="tauPctNote">(&ge; 50.0%)</span>
                 </label>
                 <div class="tau-slider-wrap">
                     <span class="tau-axis-hint" aria-hidden="true">Quantity</span>
@@ -97,7 +97,7 @@
                     <button type="button" class="tau-chip" data-tau-preset="0.9" aria-pressed="false">0.90</button>
                 </div>
             </div>
-            <p class="tau-score-readout" id="tauScoreReadout" aria-live="polite"></p>
+            <div class="tau-score-readout" id="tauScoreReadout" aria-live="polite" aria-atomic="true"></div>
         </div>
         {% endif %}
         <div class="row">
@@ -111,7 +111,7 @@
 
         <div class="paper-list-wrap">
             <div class="paper-list-toolbar">
-                <span class="paper-list-count">{{ "{:,}".format(pub_chart_data|length) }} scored works</span>
+                <span class="paper-list-count">{{ "{:,}".format(pub_chart_data|length) }} scored work{{ "" if pub_chart_data|length == 1 else "s" }}</span>
                 <div class="btn-group btn-group-sm" role="group" aria-label="Sort works by">
                     <button type="button" class="btn btn-outline-violet active" data-explorer-sort="percentile"
                             aria-pressed="true">Percentile for its year</button>
