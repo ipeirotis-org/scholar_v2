@@ -1,7 +1,9 @@
 """Flask application factory with security headers and CSRF protection."""
 
 import datetime
+import hashlib
 import logging
+import os
 
 from flask import Flask, redirect, request
 
@@ -51,6 +53,25 @@ def create_app(config=None):
             "data_source": Config.DATA_SOURCE,
             "s2_search_fallback": _s2_search_fallback(),
         }
+
+    static_hashes = {}
+
+    @app.url_defaults
+    def add_static_version(endpoint, values):
+        if endpoint != "static" or "v" in values or not app.static_folder:
+            return
+        filename = values.get("filename")
+        if not filename:
+            return
+        if filename not in static_hashes:
+            filepath = os.path.join(app.static_folder, filename)
+            try:
+                with open(filepath, "rb") as fh:
+                    static_hashes[filename] = hashlib.sha256(fh.read()).hexdigest()[:8]
+            except OSError:
+                static_hashes[filename] = None
+        if static_hashes[filename]:
+            values["v"] = static_hashes[filename]
 
     from frontend.routes import register_routes
 

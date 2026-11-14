@@ -651,7 +651,7 @@ footer .footer-source {
     background: var(--background-light);
     border: 1px solid var(--hairline);
     border-radius: var(--border-radius);
-    padding: 0.65rem 0.95rem;
+    padding: 0.6rem 0.95rem;
     margin: 0 0 1rem;
 }
 
@@ -659,12 +659,37 @@ footer .footer-source {
     display: none !important;
 }
 
-.tau-controls-main {
+.tau-controls-bar {
     display: grid;
-    grid-template-columns: 13.75rem minmax(11rem, 17rem) auto;
+    grid-template-columns: auto minmax(8.5rem, 14rem) auto 1fr;
     align-items: center;
-    column-gap: 1.1rem;
+    column-gap: 1rem;
     row-gap: 0.45rem;
+}
+
+/* Inline-grid overlay locks dynamic numbers to the exact subpixel width of data-sizer */
+.tau-slot {
+    display: inline-grid;
+    vertical-align: baseline;
+    font-variant-numeric: tabular-nums;
+}
+
+.tau-slot::before {
+    content: attr(data-sizer);
+    grid-area: 1 / 1;
+    visibility: hidden;
+    pointer-events: none;
+    user-select: none;
+    white-space: nowrap;
+}
+
+.tau-slot > .tau-slot-val {
+    grid-area: 1 / 1;
+    white-space: nowrap;
+}
+
+.tau-slot-right > .tau-slot-val {
+    text-align: right;
 }
 
 .tau-label {
@@ -675,43 +700,12 @@ footer .footer-source {
     white-space: nowrap;
 }
 
-.tau-readout-val {
-    display: inline-block;
-    min-width: 4.8ch;
-    text-align: left;
-}
-
-.tau-pct-note {
-    display: inline-block;
-    min-width: 8.4ch;
-    color: var(--ink-muted);
-    font-size: 0.82rem;
-    margin-left: 0.1rem;
-}
-
-.tau-slider-wrap {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    min-width: 0;
-}
-
 .tau-slider {
-    flex: 1 1 auto;
+    width: 100%;
     min-width: 0;
     margin: 0;
     accent-color: var(--nyu-violet);
     cursor: pointer;
-}
-
-.tau-axis-hint {
-    font-size: 0.7rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: var(--ink-muted);
-    user-select: none;
-    flex: 0 0 auto;
 }
 
 .tau-presets {
@@ -752,31 +746,21 @@ footer .footer-source {
 }
 
 .tau-score-readout {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.2rem 1rem;
-    margin: 0.45rem 0 0;
-    padding-top: 0.4rem;
-    border-top: 1px solid var(--hairline);
-    font-size: 0.83rem;
-    line-height: 1.35;
-    color: var(--ink-muted);
-    font-variant-numeric: tabular-nums;
-}
-
-.tau-score-primary {
+    justify-self: end;
     display: inline-flex;
     align-items: center;
     flex-wrap: nowrap;
     white-space: nowrap;
+    margin: 0;
+    font-size: 0.84rem;
+    line-height: 1.35;
     color: var(--ink);
+    font-variant-numeric: tabular-nums;
 }
 
 .tau-mean-swatch {
     display: inline-block;
-    width: 1.15rem;
+    width: 1.1rem;
     height: 0;
     border-top: 2px dashed #330662;
     margin-right: 0.45rem;
@@ -784,13 +768,11 @@ footer .footer-source {
 }
 
 .tau-num-score {
-    display: inline-block;
-    min-width: 6ch;
     margin-left: 0.25rem;
 }
 
 .tau-sep {
-    margin: 0 0.3rem;
+    margin: 0 0.35rem;
     color: var(--ink-muted);
 }
 
@@ -799,30 +781,21 @@ footer .footer-source {
 }
 
 .tau-num-count {
-    display: inline-block;
-    min-width: 1ch;
-    text-align: right;
     font-weight: 600;
     color: var(--ink);
 }
 
-.tau-official-note {
-    font-size: 0.78rem;
-    color: var(--ink-muted);
-    white-space: nowrap;
-}
-
-.tau-official-note.is-custom {
-    color: var(--nyu-violet);
-}
-
 @media (max-width: 991.98px) {
-    .tau-controls-main {
-        grid-template-columns: 13.75rem minmax(0, 1fr);
+    .tau-controls-bar {
+        grid-template-columns: auto minmax(0, 1fr);
     }
 
     .tau-presets {
-        grid-column: 1 / -1;
+        justify-self: start;
+    }
+
+    .tau-score-readout {
+        justify-self: end;
     }
 }
 
@@ -1239,32 +1212,14 @@ footer .footer-source {
         padding: 0.6rem 0.75rem;
     }
 
-    .tau-controls-main {
+    .tau-controls-bar {
         grid-template-columns: minmax(0, 1fr);
         row-gap: 0.45rem;
     }
 
     .tau-score-readout {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 0.2rem;
-    }
-
-    .tau-score-primary {
-        display: flex;
-        flex-wrap: wrap;
-        white-space: normal;
-        font-size: 0.81rem;
-        row-gap: 0.15rem;
-    }
-
-    .tau-sep {
-        display: none;
-    }
-
-    .tau-counted {
-        flex-basis: 100%;
-        white-space: nowrap;
+        justify-self: start;
+        font-size: 0.82rem;
     }
 
     .paper-chart {
