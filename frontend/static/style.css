@@ -786,6 +786,7 @@ footer .footer-source {
 .tau-num-score {
     display: inline-block;
     min-width: 6ch;
+    margin-left: 0.25rem;
 }
 
 .tau-sep {
