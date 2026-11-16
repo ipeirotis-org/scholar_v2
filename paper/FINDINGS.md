@@ -503,16 +503,16 @@ Prediction benchmarks, with self-citations / without:
 
 | Setting | Indicator | Future top-10% count | Future top-1% (AUC) | Future quality |
 |---|---|---|---|---|
-| Age 5 | sym_τ50 | .378 / .378 | .715 / .712 | .264 / .234 |
+| Age 5 | sym_τ50 | .377 / .377 | .714 / .711 | .262 / .234 |
 | | current PiP | .354 / .355 | .683 / .681 | .108 / .093 |
 | | h-index | .268 / .257 | .646 / .640 | .155 / .148 |
-| Age 10 | sym_τ50 | .427 / .427 | .772 / .771 | .321 / .298 |
+| Age 10 | sym_τ50 | .427 / .427 | .771 / .770 | .318 / .295 |
 | | current PiP | .434 / .435 | .756 / .755 | .190 / .171 |
 | | h-index | .352 / .340 | .719 / .714 | .230 / .221 |
-| Age 15 | sym_τ50 | .436 / .437 | .799 / .799 | .343 / .325 |
+| Age 15 | sym_τ50 | .436 / .437 | .799 / .798 | .341 / .322 |
 | | current PiP | .453 / .454 | .792 / .790 | .236 / .219 |
 | | h-index | .384 / .374 | .758 / .754 | .270 / .261 |
-| 2005 | sym_τ50 | .407 / .407 | .776 / .777 | .310 / .291 |
+| 2005 | sym_τ50 | .417 / .417 | .780 / .781 | .316 / .297 |
 | | current PiP | .434 / .437 | .770 / .771 | .201 / .188 |
 | | h-index | .284 / .277 | .691 / .689 | .174 / .169 |
 
@@ -651,7 +651,7 @@ raw values; 2005 uses within-cohort percentiles.
 
 | Indicator | Age 10 | 2005 |
 |---|---|---|
-| PiP (τ = 0.5) | .427 / **.772** / .321 | .416 / **.781** / .318 |
+| PiP (τ = 0.5) | .427 / **.771** / .318 | .417 / **.781** / .316 |
 | Original PiP-AUC | .434 / .756 / .190 | .433 / .770 / .201 |
 | h-index | .352 / .719 / .230 | .363 / .737 / .241 |
 | Articles | .437 / .740 / .000 | **.439** / .757 / .019 |
@@ -667,7 +667,7 @@ raw values; 2005 uses within-cohort percentiles.
   top-1% AUC.
 - **The mean percentile** is the best predictor of future quality, but it carries no information about quantity.
 - **I3 and the article count** match PiP on the future count but are weak on quality.
-- **The top-10% count** is the closest competitor. It is better on quality (.338 against .321 at age 10) and worse on
+- **The top-10% count** is the closest competitor. It is better on quality (.338 against .318 at age 10) and worse on
   the count (.360 against .427) and on the top-1% AUC.
 - **The τ family forms a frontier.**
   - τ = 0 matches or beats I3 and the original PiP-AUC on all three outcomes in every setting.
@@ -675,25 +675,25 @@ raw values; 2005 uses within-cohort percentiles.
   - τ from 0.25 to 0.75 beats the h-index on all three outcomes.
   - The mean percentile lies beyond the frontier, at the pure-quality end. The article count lies just beyond it at
     age 15 and in 2000. The top-10% count per year lies on the frontier next to τ = 0.75.
-- **The knee of the frontier is at τ = 0.5.** From τ = 0.25 to 0.5, quality gains 0.056 and the count loses 0.016.
+- **The knee of the frontier is at τ = 0.5.** From τ = 0.25 to 0.5, quality gains 0.056 and the count loses 0.015.
   Past 0.5, quality gains less for each unit of count lost.
 
 ### Raw against percentile PiP
 
-In the same-year settings, PiP's cohort percentile predicts slightly better than the raw score (2005: .416 / .781 /
-.318 against .407 / .776 / .310). The manuscript previously said no conversion was needed; that sentence is
-corrected. The gain is much smaller than for the h-index (+0.08).
+In the same-year settings, PiP's cohort percentile and the raw score predict within 0.001 of each other (2005: .417 /
+.781 / .316 against .417 / .780 / .316). The manuscript says PiP gains almost nothing from conversion. The h-index
+gains +0.08.
 
 ### Replication across 26 cohorts (age 10, start years 1975–2000, 17,867 to 122,114 authors)
 
 Sampling error is below 0.001 with more than a million authors per setting, so the check that matters is whether the
 results hold cohort by cohort.
 
-- **Against the h-index,** PiP wins on all three outcomes in all 26 cohorts. On the count it leads by 0.055–0.102.
-- **Against the top-10% count,** PiP wins on the count (by 0.050–0.076) and on the top-1% AUC in all 26 cohorts. It
-  loses on quality in 20 cohorts (by −0.074 to +0.009). At τ = 0.6 it loses on quality in 15.
+- **Against the h-index,** PiP wins on all three outcomes in all 26 cohorts. On the count it leads by 0.056–0.101.
+- **Against the top-10% count,** PiP wins on the count (by 0.049–0.076) and on the top-1% AUC in all 26 cohorts. It
+  loses on quality in 21 cohorts (by −0.075 to +0.007). At τ = 0.6 it loses on quality in 16.
 - **Against I3, the article count and the original PiP-AUC,** PiP wins on the top-1% AUC and on quality in all 26
-  cohorts. On the count it wins in 11–14 cohorts, with differences between −0.033 and +0.044.
+  cohorts. On the count it wins in 11–14 cohorts, with differences between −0.032 and +0.043.
 
 ## 15. Early detection (`sql/21_early_detection.sql`)
 
@@ -759,12 +759,12 @@ Values are future top-10% count / any future top-1% (AUC) / future mean percenti
 
 | τ | Choice (550K) | Test (905K) |
 |---|---|---|
-| 0 | .403 / .737 / .195 | .470 / .783 / .242 |
-| 0.25 | .405 / .743 / .234 | .465 / .786 / .286 |
-| 0.5 | .401 / .750 / .294 | .443 / .785 / .339 |
-| 0.6 | .392 / **.751** / .320 | .429 / .783 / .353 |
-| 0.75 | .371 / .750 / .347 | .398 / .775 / .362 |
-| 0.9 | .332 / .740 / .340 | .356 / .756 / .336 |
+| 0 | .402 / .736 / .192 | .470 / .781 / .239 |
+| 0.25 | .404 / .742 / .231 | .465 / .784 / .284 |
+| 0.5 | .399 / .748 / .292 | .444 / .784 / .337 |
+| 0.6 | .391 / **.750** / .317 | .430 / .782 / .352 |
+| 0.75 | .371 / .749 / .346 | .399 / .776 / .361 |
+| 0.9 | .328 / .740 / .339 | .347 / .758 / .325 |
 | h-index | .311 / .695 / .232 | .380 / .733 / .237 |
 | Top-10% count | .342 / .733 / .335 | .371 / .758 / .339 |
 
@@ -781,15 +781,15 @@ Both τ = 0.5 and τ = 0.6 keep every comparison at ages 5, 10 and 15:
 - no baseline beats them on more than one outcome;
 - they have the best top-1% AUC.
 
-Across τ from 0.25 to 0.6, the test-sample top-1% AUC varies by less than 0.01 (0.008 / 0.003 / 0.005 at ages 5 / 10 /
+Across τ from 0.25 to 0.6, the test-sample top-1% AUC varies by less than 0.01 (0.008 / 0.002 / 0.004 at ages 5 / 10 /
 15).
 
 ### Differences between the samples
 
 - **The knee of the quantity–quality trade-off moves.** In the older cohorts it sits between 0.6 and 0.75; in the test
   cohorts it sits at 0.5.
-- **One exception at age 5 in the choice sample.** There the top-10% count ties τ = 0.5 on the top-1% AUC (.686 each)
-  and beats it on quality (.296 against .195). τ = 0.6 keeps its lead in that setting.
+- **One exception at age 5 in the choice sample.** There the top-10% count edges τ = 0.5 on the top-1% AUC (.686 against
+  .685) and beats it on quality (.296 against .197). τ = 0.6 keeps its lead in that setting.
 
 ## 17. Later recognition: Wikidata honors, Google Scholar IDs and Wikipedia (`sql/22_honors.sql`, `sql/24_gs_honors.sql`, `honors/`)
 
@@ -967,38 +967,38 @@ Adding them left every existing predictor's results unchanged (largest differenc
 
 | Setting | PiP tau = 0.5 | T_0.5 | T_0.25 | T_0.75 | T_0.9 | combo50 | combo25 | combo75 |
 |---|---|---|---|---|---|---|---|---|
-| Age 5 | .378 / .715 / .264 | .370 / .705 / .255 | .373 / .697 / .170 | .340 / .707 / .322 | .304 / .700 / .320 | .289 / .669 / .253 | .083 / .584 / .355 | .368 / .684 / .035 |
-| Age 10 | .427 / .772 / .321 | .430 / .765 / .296 | .440 / .760 / .224 | .396 / .763 / .349 | .355 / .751 / .342 | .331 / .717 / .323 | .103 / .607 / .402 | .440 / .754 / .136 |
-| Age 15 | .436 / .799 / .343 | .443 / .794 / .317 | .455 / .792 / .255 | .410 / .791 / .361 | .371 / .779 / .352 | .335 / .738 / .352 | .106 / .617 / .412 | .455 / .788 / .196 |
-| 2000 | .387 / .765 / .298 | .388 / .759 / .274 | .396 / .754 / .208 | .363 / .762 / .327 | .330 / .755 / .327 | .286 / .706 / .299 | .070 / .596 / .367 | .398 / .746 / .137 |
-| 2005 | .416 / .781 / .318 | .422 / .778 / .296 | .435 / .774 / .229 | .384 / .773 / .338 | .346 / .762 / .325 | .325 / .726 / .333 | .104 / .613 / .411 | .436 / .766 / .155 |
+| Age 5 | .377 / .714 / .262 | .370 / .705 / .255 | .373 / .697 / .170 | .340 / .707 / .322 | .304 / .700 / .320 | .289 / .669 / .253 | .083 / .584 / .355 | .368 / .684 / .035 |
+| Age 10 | .427 / .771 / .318 | .430 / .765 / .296 | .440 / .760 / .224 | .396 / .763 / .349 | .355 / .751 / .342 | .331 / .717 / .323 | .103 / .607 / .402 | .440 / .754 / .136 |
+| Age 15 | .436 / .799 / .341 | .443 / .794 / .317 | .455 / .792 / .255 | .410 / .791 / .361 | .371 / .779 / .352 | .335 / .738 / .352 | .106 / .617 / .412 | .455 / .788 / .196 |
+| 2000 | .387 / .764 / .296 | .388 / .759 / .274 | .396 / .754 / .208 | .363 / .762 / .327 | .330 / .755 / .327 | .286 / .706 / .299 | .070 / .596 / .367 | .398 / .746 / .137 |
+| 2005 | .417 / .781 / .316 | .422 / .778 / .296 | .435 / .774 / .229 | .384 / .773 / .338 | .346 / .762 / .325 | .325 / .726 / .333 | .104 / .613 / .411 | .436 / .766 / .155 |
 
 ### PiP against T_0.5, cohort by cohort (same age, raw)
 
 | Age | Cohorts | PiP ahead on count | on top-1% AUC | on future impact | Count diff | Top-1% diff | Impact diff |
 |---|---|---|---|---|---|---|---|
-| 5 | 31 | 29 | 31 | 31 | -0.001 to +0.009 | +0.004 to +0.009 | +0.015 to +0.024 |
-| 10 | 26 | 16 | 26 | 26 | -0.007 to +0.008 | +0.004 to +0.011 | +0.023 to +0.036 |
-| 15 | 21 | 6 | 21 | 21 | -0.009 to +0.003 | +0.002 to +0.009 | +0.021 to +0.036 |
+| 5 | 31 | 27 | 31 | 31 | -0.002 to +0.009 | +0.003 to +0.009 | +0.017 to +0.027 |
+| 10 | 26 | 14 | 26 | 26 | -0.006 to +0.007 | +0.003 to +0.010 | +0.021 to +0.034 |
+| 15 | 21 | 5 | 21 | 21 | -0.008 to +0.003 | +0.002 to +0.008 | +0.019 to +0.033 |
 
 ### Early detection (population eligible at age 3)
 
-T_0.5 is below PiP at every age on all three measures, by at most 0.0066 (precision at age 6). Under min3 it is
-within 0.005 and slightly ahead of PiP on precision from age 7 and on the star AUC from age 6. Lead of PiP in years
+T_0.5 is below PiP at every age on all three measures, by at most 0.0073 (precision at age 10). Under min3 it is
+within 0.005 and slightly ahead of PiP on the star AUC from age 6. Lead of PiP in years
 (targets 5-10):
-T_0.5 0.1-0.2 / 0.0 / 0.1-0.3; combo50 1.9-4.5 / 1.7-4.0 / 1.7-4.1.
+T_0.5 0.1-0.2 / 0.0-0.1 / 0.1-0.3; combo50 1.9-4.5 / 1.7-4.0 / 1.7-4.1.
 
 ### Reading
 
-- **The peer comparison adds to future citation impact and to the top-1% outcome**, in every cohort, by about 0.02-0.04
-  and 0.002-0.011.
+- **The peer comparison adds to future citation impact and to the top-1% outcome**, in every cohort, by about 0.02-0.03
+  and 0.002-0.010.
 - **It adds nothing to predicting the count** of future top-10% papers: T_0.5 is as good, sometimes slightly better.
 - **It adds little to early detection:** most of PiP's lead over the h-index there comes from year-normalized
   percentiles with a cutoff.
 - **"At most one of three outcomes" still holds** against every T_tau and combo in all five settings, and no new
   baseline beats PiP's top-1% AUC.
 - **The plain quantity-impact mix is dominated:** combo50 matches PiP on future impact but trails by about 0.10 on the
-  count and 0.055 on the top-1% AUC at age 10.
+  count and 0.054 on the top-1% AUC at age 10.
 - **The tau check of §16 still holds** with the new baselines (23 rerun; existing rows unchanged to 1e-9): in the test
   cohorts no T_tau or mix beats tau = 0.5 or 0.6 on more than one outcome, and none matches their top-1% AUC.
 

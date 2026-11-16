@@ -467,10 +467,10 @@ floor is high (Section~\ref{sec:tau}). The two rules rank authors almost identic
 \paragraph{Balance of volume and impact.} In the productivity-normalized area of Figure~\ref{fig:construction}c, no
 author's score can exceed their percentile on total article count (the horizontal width of their curve). In PiP, by
 contrast, comparing counts at each threshold $\theta \ge \tau$ allows an author with fewer, highly cited articles to
-outrank peers with more total articles: at $\tau = 0.5$, 30--36\% of eligible authors (depending on career age) achieve
+outrank peers with more total articles: at $\tau = 0.5$, 46--50\% of eligible authors (depending on career age) achieve
 a PiP score above their total-article percentile. At career age 10, whereas the productivity-normalized area correlates
 0.90 with total article count and 0.13 with mean paper percentile, PiP ($\tau = 0.5$) balances the two, correlating 0.64
-with total article count, 0.60 with top-2.5\% article count and 0.47 with mean paper percentile (Section~\ref{sec:tau}).
+with total article count, 0.58 with top-2.5\% article count and 0.46 with mean paper percentile (Section~\ref{sec:tau}).
 
 \subsection{Relation to other indicators}
 \label{sec:relation}
@@ -506,8 +506,8 @@ the analogous curve in citation space: the largest integer $h$ where at least $h
 of width $0.025$. At the default cutoff $\tau = 0.5$, the reported score averages the author's standing $g(\theta)$ over
 the 20 thresholds $0.50, 0.525, \ldots, 0.975$ (which equals the exact integral in Eq.~\ref{eq:pip} when each paper
 percentile is rounded up to the top of its bin; Appendix~\ref{app:proofs}). Against the unrounded integral at career
-age 10, the within-cohort rank correlation is 0.9994 and top-decile overlap is approximately 96\%; predictive statistics
-differ by at most 0.004 in the tested comparisons. The replication package documents the computation, convergence
+age 10, the within-cohort rank correlation is 0.9996 and top-decile overlap is approximately 97\%; predictive statistics
+differ by at most 0.005 in the tested comparisons. The replication package documents the computation, convergence
 checks, and finer-grid calculations used for the illustrative examples.
 
 \section{Results}
@@ -614,12 +614,12 @@ percentile and top-2.5\% article count (Figure~\ref{fig:tau}a, Table~\ref{tab:ta
     \cmidrule(lr){2-4}\cmidrule(lr){5-7}
     $\tau$ & Articles & Mean pct. & Top 2.5\% & Top-10\% count & Top-1\% AUC & Mean pct. & Median \\
     \midrule
-    0 & 0.856 & 0.214 & 0.491 & \textbf{0.445} & 0.766 & 0.223 & 0.44 $\to$ 0.40 \\
-    0.25 & 0.776 & 0.329 & 0.537 & 0.443 & 0.770 & 0.265 & 0.43 $\to$ 0.39 \\
-    \textbf{0.5} & 0.637 & 0.466 & 0.602 & 0.427 & \textbf{0.772} & 0.321 & 0.41 $\to$ 0.38 \\
-    0.6 & 0.573 & 0.506 & 0.633 & 0.415 & 0.771 & 0.340 & 0.41 $\to$ 0.37 \\
-    0.75 & 0.473 & \textbf{0.536} & 0.688 & 0.388 & 0.766 & \textbf{0.356} & 0.38 $\to$ 0.33 \\
-    0.9 & 0.370 & 0.486 & \textbf{0.781} & 0.347 & 0.750 & 0.338 & 0.37 $\to$ 0.16 \\
+    0 & 0.858 & 0.211 & 0.477 & \textbf{0.444} & 0.765 & 0.219 & 0.49 $\to$ 0.47 \\
+    0.25 & 0.778 & 0.327 & 0.522 & 0.442 & 0.769 & 0.262 & 0.49 $\to$ 0.47 \\
+    \textbf{0.5} & 0.643 & 0.463 & 0.585 & 0.427 & \textbf{0.771} & 0.318 & 0.48 $\to$ 0.48 \\
+    0.6 & 0.581 & 0.504 & 0.616 & 0.415 & 0.771 & 0.337 & 0.48 $\to$ 0.48 \\
+    0.75 & 0.481 & \textbf{0.535} & 0.672 & 0.389 & 0.766 & \textbf{0.354} & 0.47 $\to$ 0.47 \\
+    0.9 & 0.374 & 0.488 & \textbf{0.773} & 0.339 & 0.751 & 0.331 & 0.48 $\to$ 0.41 \\
     \midrule
     $h$-index & -- & -- & -- & 0.352 & 0.719 & 0.230 & -- \\
     \bottomrule
@@ -628,7 +628,7 @@ percentile and top-2.5\% article count (Figure~\ref{fig:tau}a, Table~\ref{tab:ta
 \end{table}
 
 As $\tau$ rises, the correlation with the number of articles falls from 0.86 to 0.37, that with the number of
-top-2.5\% articles rises from 0.49 to 0.78 and that with the mean percentile peaks at $\tau = 0.75$. The same dial
+top-2.5\% articles rises from 0.48 to 0.77 and that with the mean percentile peaks at $\tau = 0.75$. The same dial
 trades quantity for impact when PiP predicts the author's future articles (Section~\ref{sec:prediction}): the
 \emph{number} of future top-10\% papers is best predicted at low $\tau$, and the \emph{citation impact} of future
 articles (their mean percentile) at $\tau = 0.75$; the chance of a future top-1\% paper is predicted about equally well
@@ -637,11 +637,11 @@ from $\tau = 0.25$ to $0.6$.
 The mean of the score is $0.5$ at every cutoff, but above $\tau = 0.6$ the rest of its distribution still changes
 across cohorts, because more authors share the floor (Section~\ref{sec:properties}): from 1960 to 2010, the share of
 eligible authors with nothing above the cutoff rises from under 0.1\% to 15\% at $\tau = 0.75$, where the lower quartile
-moves from 0.29 to 0.26, and from 6\% to 42\% at $\tau = 0.9$, where all these authors score 0.29 in the 2010 cohort and
+moves from 0.29 to 0.26, and from 6\% to 42\% at $\tau = 0.9$, where all these authors score 0.28 in the 2010 cohort and
 the median falls from 0.48 to 0.41 (Table~\ref{tab:tau}).
 
 We use $\tau = 0.5$ as the default: it has a one-line explanation (only papers in the top half of their year count),
-balances the correlations with quantity (0.64) and with top papers (0.60), best predicts a future top-1\% paper and
+balances the correlations with quantity (0.64) and with top papers (0.58), best predicts a future top-1\% paper and
 keeps the score's distribution stable across cohorts. Users who favor volume can lower it, and those who favor impact
 can raise it up to about 0.6, chosen and stated in advance.
 
@@ -652,8 +652,8 @@ and later). Stated as a rule, our criterion picks the cutoff with the highest AU
 cutoffs whose distribution is stable across cohorts ($\tau \le 0.6$). Applied to the choice sample alone, that rule
 selects $\tau = 0.6$ at career age 10, with $\tau = 0.5$ within 0.001. The choice cohorts differ slightly from the test
 cohorts: the knee of their quantity--impact frontier (Figure~\ref{fig:frontier}) lies between 0.6 and 0.75 rather than
-at 0.5, and at career age 5 the top-10\% count ties $\tau = 0.5$ on the top-1\% outcome and beats it on future citation
-impact, whereas $\tau = 0.6$ keeps its lead.
+at 0.5, and at career age 5 the top-10\% count beats $\tau = 0.5$ on the top-1\% outcome (by 0.001) and on future
+citation impact, whereas $\tau = 0.6$ keeps its lead.
 
 In the test cohorts both cutoffs keep every comparison reported in Sections~\ref{sec:prediction}--\ref{sec:early} at
 career ages 5, 10 and 15: they beat the $h$-index on all three outcomes, no other indicator beats either of them on more
@@ -715,7 +715,7 @@ continue to re-rank existing work.
     Indicator & 5 vs.\ 10 & 5 vs.\ 15 & 5 vs.\ 30 & 10 vs.\ 30 & 20 vs.\ 30 \\
     \midrule
     Articles & 0.847 & 0.754 & 0.642 & 0.800 & 0.946 \\
-    \textbf{PiP} ($\tau = 0.5$) & 0.781 & 0.687 & 0.563 & 0.726 & 0.911 \\
+    \textbf{PiP} ($\tau = 0.5$) & 0.781 & 0.686 & 0.561 & 0.724 & 0.911 \\
     Citations & 0.798 & 0.659 & 0.451 & 0.620 & 0.886 \\
     $h$-index & 0.604 & 0.496 & 0.370 & 0.599 & 0.877 \\
     \bottomrule
@@ -774,7 +774,7 @@ cohort-percentile form.
     \cmidrule(lr){2-4}\cmidrule(lr){5-7}
     Indicator & Top-10\% & Top-1\% & Mean pct. & Top-10\% & Top-1\% & Mean pct. \\
     \midrule
-    \textbf{PiP} ($\tau = 0.5$) & 0.427 & \textbf{0.772} & 0.321 & 0.416 & \textbf{0.781} & 0.318 \\
+    \textbf{PiP} ($\tau = 0.5$) & 0.427 & \textbf{0.771} & 0.318 & 0.417 & \textbf{0.781} & 0.316 \\
     \quad PiP-simple ($\tau = 0.5$) & 0.430 & 0.765 & 0.296 & 0.422 & 0.778 & 0.296 \\
     \addlinespace
     $h$-index & 0.352 & 0.719 & 0.230 & 0.363 & 0.737 & 0.241 \\
@@ -796,10 +796,10 @@ PiP beats the $h$-index on all three outcomes, in all five settings (Figure~\ref
 Table~\ref{tab:prediction}). At career age 10, its correlation with the number of future top-10\% papers is 0.43 against
 0.35, its AUC for a future top-1\% paper 0.77 against 0.72, and its correlation with future citation impact 0.32
 against 0.23. The gap is larger when seniority differs: in 2005 the raw $h$-index reaches 0.28, 0.69 and 0.17, against
-0.41, 0.78 and 0.31 for raw PiP. Converting the $h$-index into a cohort percentile helps (0.36, 0.74, 0.24) but does
-not close the gap. PiP gains much less from conversion: in 2005 its cohort percentile reaches 0.42, 0.78 and 0.32,
-because each raw score is already computed within the author's start-year cohort and its scale shifts little across
-career ages. Table~\ref{tab:prediction} and Figure~\ref{fig:frontier}b report cohort percentiles for every indicator in
+0.42, 0.78 and 0.32 for raw PiP. Converting the $h$-index into a cohort percentile helps (0.36, 0.74, 0.24) but does
+not close the gap. PiP gains almost nothing from conversion: in 2005 its cohort percentile reaches the same 0.42, 0.78
+and 0.32, because each raw score is already computed within the author's start-year cohort and its scale shifts little
+across career ages. Table~\ref{tab:prediction} and Figure~\ref{fig:frontier}b report cohort percentiles for every indicator in
 the same-year settings; in the same-career-age settings the two forms nearly agree, and Table~\ref{tab:predictionall}
 in the appendix gives raw PiP and both $h$-index forms in all five settings and under the three-article rule.
 
@@ -847,7 +847,7 @@ all information about quantity), the article count just beyond the pure-quantity
 2000), and the top-10\% count per year of career, which differs from the plain count only when seniorities are mixed
 and sits on the curve next to $\tau = 0.75$. From $\tau = 0$ to $0.75$, choosing $\tau$ picks a point on this frontier
 (at $\tau = 0.9$, ties at the floor pull both predictions down), and $\tau = 0.5$ sits near its knee: raising $\tau$ from
-$0.25$ to $0.5$ gains 0.056 in future citation impact at a cost of 0.016 in quantity, whereas raising $\tau$ past $0.5$
+$0.25$ to $0.5$ gains 0.056 in future citation impact at a cost of 0.015 in quantity, whereas raising $\tau$ past $0.5$
 costs much more in quantity for each gain in impact.
 
 \paragraph{Replication across cohorts.} With more than a million authors per setting, sampling error is small: the
@@ -857,17 +857,17 @@ whether the differences hold in different populations. We repeated the age-10 co
 year from 1975 to 2000, 26 cohorts of 17,867 to 122,114 authors. PiP beats the $h$-index on all three outcomes in all
 26 cohorts, by 0.06--0.10 on the number of future top papers. It beats the top-10\% count on the number of future top
 papers (by 0.05--0.08) and on the top-1\% outcome in all 26 cohorts, and falls behind it on future citation impact in
-20 (by up to 0.07). Against I3 and the article count, PiP wins on the top-1\% outcome and on future citation impact in
+21 (by up to 0.08). Against I3 and the article count, PiP wins on the top-1\% outcome and on future citation impact in
 every cohort, and on the number of future top papers in 12 and 11 of the 26, with differences between $-0.03$ and
 $+0.04$.
 
 \paragraph{Comparing with peers at every threshold.} PiP-simple (Section~\ref{sec:definition}) uses the same percentiles
 and cutoff as PiP but compares the scholar with peers only once, through the rank of its score in the cohort. The pair
 therefore shows what the comparison at every threshold contributes. In each of the 26 cohorts at career age 10, that
-comparison improves the AUC for a future top-1\% paper (by 0.004 to 0.011) and the prediction of future citation impact
-(by 0.023 to 0.036); the same holds in every cohort at ages 5 and 15, while on future top-10\% papers the two stay
+comparison improves the AUC for a future top-1\% paper (by 0.003 to 0.010) and the prediction of future citation impact
+(by 0.021 to 0.034); the same holds in every cohort at ages 5 and 15, while on future top-10\% papers the two stay
 within 0.01. Across $\tau = 0$ to $0.75$, PiP-simple stays inside PiP's frontier (Figure~\ref{fig:frontier}), trailing
-by 0.02--0.04 on future impact at $\tau \le 0.25$ and by 0.004--0.011 on top-1\% AUC up to $\tau = 0.5$ before
+by 0.02--0.04 on future impact at $\tau \le 0.25$ and by 0.003--0.010 on top-1\% AUC up to $\tau = 0.5$ before
 converging near $\tau = 0.75$. Mixing cohort percentiles of article count and mean percentile also falls short (at age
 10: $0.33, 0.72, 0.32$ at $50/50$; $0.44, 0.75, 0.14$ at $75/25$; $0.10, 0.61, 0.40$ at $25/75$).
 
@@ -1085,8 +1085,8 @@ citation counts as a self-citation when the citing and cited papers share at lea
 We removed them and reran the whole pipeline (percentiles, the $h$-index condition for eligibility, peer groups,
 scores and outcomes; Table~\ref{tab:selfcites} in the appendix). PiP's predictions of the number of future top-10\%
 papers and of a future top-1\% paper move by at most 0.003. The $h$-index loses slightly more (0.352 to 0.340 at age
-10). The prediction of future citation impact drops more, and unevenly: by 0.018 to 0.030 for PiP and by 0.005 to
-0.009 for the $h$-index. PiP's lead on this outcome therefore shrinks but remains (0.298 against 0.221 at career age
+10). The prediction of future citation impact drops more, and unevenly: by 0.019 to 0.028 for PiP and by 0.005 to
+0.009 for the $h$-index. PiP's lead on this outcome therefore shrinks but remains (0.295 against 0.221 at career age
 10), and PiP stays ahead of the $h$-index on all three outcomes in every setting. Removing self-citations changes
 paper percentiles, eligibility, peer groups and outcomes at once, so the drop does not isolate the effect of authors
 citing their own work.
@@ -1275,16 +1275,16 @@ which anyone signed in to Google Cloud can query (queries are billed to the read
     \toprule
     Setting & Indicator & Top-10\% count & Top-1\% AUC & Mean pct. \\
     \midrule
-    Age 5 & PiP & .378 / .378 & .715 / .712 & .264 / .234 \\
+    Age 5 & PiP & .377 / .377 & .714 / .711 & .262 / .234 \\
           & $h$-index & .268 / .257 & .646 / .640 & .155 / .148 \\
     \addlinespace
-    Age 10 & PiP & .427 / .427 & .772 / .771 & .321 / .298 \\
+    Age 10 & PiP & .427 / .427 & .771 / .770 & .318 / .295 \\
            & $h$-index & .352 / .340 & .719 / .714 & .230 / .221 \\
     \addlinespace
-    Age 15 & PiP & .436 / .437 & .799 / .799 & .343 / .325 \\
+    Age 15 & PiP & .436 / .437 & .799 / .798 & .341 / .322 \\
            & $h$-index & .384 / .374 & .758 / .754 & .270 / .261 \\
     \addlinespace
-    Year 2005 & PiP & .407 / .407 & .776 / .777 & .310 / .291 \\
+    Year 2005 & PiP & .417 / .417 & .780 / .781 & .316 / .297 \\
               & $h$-index & .284 / .277 & .691 / .689 & .174 / .169 \\
     \bottomrule
   \end{tabular}
@@ -1310,16 +1310,16 @@ which anyone signed in to Google Cloud can query (queries are billed to the read
     \cmidrule(lr){2-4}\cmidrule(lr){5-7}\cmidrule(lr){8-10}
     Setting & Top-10\% & Top-1\% & Mean pct. & Top-10\% & Top-1\% & Mean pct. & Top-10\% & Top-1\% & Mean pct. \\
     \midrule
-    Age 5 & .378 & .715 & .264 & .268 & .646 & .155 & .256 & .647 & .178 \\
-    Age 10 & .427 & .772 & .321 & .352 & .719 & .230 & .352 & .721 & .238 \\
-    Age 15 & .436 & .799 & .343 & .384 & .758 & .270 & .385 & .760 & .272 \\
-    Year 2000 & .381 & .761 & .288 & .269 & .682 & .152 & .328 & .721 & .232 \\
-    Year 2005 & .407 & .776 & .310 & .284 & .691 & .174 & .363 & .737 & .241 \\
+    Age 5 & .377 & .714 & .262 & .268 & .646 & .155 & .256 & .647 & .178 \\
+    Age 10 & .427 & .771 & .318 & .352 & .719 & .230 & .352 & .721 & .238 \\
+    Age 15 & .436 & .799 & .341 & .384 & .758 & .270 & .385 & .760 & .272 \\
+    Year 2000 & .388 & .764 & .296 & .269 & .682 & .152 & .328 & .721 & .232 \\
+    Year 2005 & .417 & .780 & .316 & .284 & .691 & .174 & .363 & .737 & .241 \\
     \addlinespace
     \multicolumn{10}{l}{\emph{Three-article rule}} \\
-    Age 5 & .394 & .761 & .512 & .338 & .719 & .452 & -- & -- & -- \\
-    Age 10 & .420 & .805 & .493 & .376 & .770 & .443 & -- & -- & -- \\
-    Age 15 & .423 & .830 & .475 & .393 & .802 & .432 & -- & -- & -- \\
+    Age 5 & .391 & .759 & .505 & .338 & .719 & .452 & -- & -- & -- \\
+    Age 10 & .418 & .803 & .487 & .376 & .770 & .443 & -- & -- & -- \\
+    Age 15 & .423 & .829 & .470 & .393 & .802 & .432 & -- & -- & -- \\
     \bottomrule
   \end{tabular}
 \end{table}
