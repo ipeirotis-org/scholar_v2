@@ -1058,17 +1058,17 @@ and no indicator beats it on more than one outcome.
 
 | Measured at | PiP | T_0.5 | I3 | Original | h-index | Citations |
 |---|---|---|---|---|---|---|
-| Age 3 | .237 / .685 / .676 | .234 / .682 / .671 | .230 / .676 / .662 | .232 / .640 / .622 | .204 / .656 / .643 | .212 / .669 / .662 |
+| Age 3 | .236 / .685 / .674 | .234 / .682 / .671 | .230 / .676 / .662 | .232 / .640 / .622 | .204 / .656 / .643 | .212 / .669 / .662 |
 | Age 5 | .310 / .750 / .733 | .308 / .750 / .730 | .302 / .749 / .726 | .307 / .741 / .719 | .269 / .719 / .700 | .256 / .719 / .707 |
-| Age 10 | .476 / .860 / .830 | .477 / .864 / .828 | .463 / .864 / .825 | .481 / .867 / .829 | .422 / .838 / .804 | .385 / .819 / .796 |
+| Age 10 | .479 / .862 / .830 | .477 / .864 / .828 | .463 / .864 / .825 | .481 / .867 / .829 | .422 / .838 / .804 | .385 / .819 / .796 |
 
 Cells: precision of the cohort top 10% (expected under random tie-breaking) / AUC for stars / AUC for a future top-1%
 article.
 
-- **PiP leads the h-index at every age** and reaches its age-10 accuracy 1.7 / 1.2 / 1.6 years earlier (ranges over
-  targets 5-10: 1.1-1.7 / 1.0-1.2 / 1.2-1.6; under 'active': 1.2-1.8 / 1.1-1.6 / 1.3-1.9).
+- **PiP leads the h-index at every age** and reaches its age-10 accuracy 1.7 / 1.3 / 1.6 years earlier (ranges over
+  targets 5-10: 1.1-1.7 / 1.0-1.3 / 1.2-1.6; under 'active': 1.2-1.8 / 1.1-1.6 / 1.3-1.9).
 - **Against the closest indicators the lead is early only:** I3, T_0.5 and the original PiP-AUC match or exceed PiP on
-  the star AUC from about age 6, and T_0.5 and the original on precision from about age 7. PiP keeps the highest top-1%
+  the star AUC from about age 6, and the original on precision from about age 7. PiP keeps the highest top-1%
   AUC at every age.
 
 ## 21. Tie rule for top-decile precision (`sql/21_early_detection.sql`)
