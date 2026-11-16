@@ -107,3 +107,8 @@ class TestDescribeVisitor:
     def test_crawler_with_a_long_user_agent(self, app):
         info = self._describe(app, **{"User-Agent": "SomeBot/1.0 " + "x" * 500})
         assert info["bot"] is True and len(info["user_agent"]) == 300
+
+    @pytest.mark.parametrize("referrer", ["http://[", "https://[::1", "http://a]b/"])
+    def test_malformed_referrer_is_dropped(self, app, referrer):
+        info = self._describe(app, **{"User-Agent": CHROME, "Referer": referrer})
+        assert info["referrer"] == "" and info["bot"] is False

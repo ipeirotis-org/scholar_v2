@@ -11,7 +11,7 @@ import re
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 
-from google.api_core.exceptions import GoogleAPICallError, RetryError
+from google.api_core.exceptions import Aborted, GoogleAPICallError, RetryError
 from google.cloud import firestore
 
 from frontend.config import Config
@@ -222,5 +222,13 @@ class FirestoreCache:
 
         try:
             _update(self.db.transaction())
-        except (GoogleAPICallError, RetryError, ValueError):
+        except (Aborted, ValueError) as exc:
+            # Concurrent profile views contend for the one list document: Firestore aborts the
+            # transaction, and after its retries the client raises ValueError ("Failed to commit
+            # transaction in 5 attempts"). Losing one update of the list is harmless.
+            logger.warning(
+                "Recent author not recorded (transaction contention): %s: %s",
+                entry.get("scholar_id"), exc,
+            )
+        except (GoogleAPICallError, RetryError):
             logger.exception("Failed to record recent author: %s", entry.get("scholar_id"))

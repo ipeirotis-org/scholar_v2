@@ -777,3 +777,68 @@ class TestSearchLogging:
         page = client.get("/admin/query-log").get_data(as_text=True)
         assert "viral acharaya" in page
         assert "0123456789abcdef" not in page and "Chrome/156" not in page and "google.com" not in page
+
+
+class TestRecentAuthorsSkipCrawlers:
+    """The homepage "Recently Analyzed Authors" list counts visits by people, not crawlers.
+
+    A crawler opening many profiles within a second also made the transactions on
+    the one list document abort each other.
+    """
+
+    AUTHOR_ID = "WLN3QrAAAAAJ"
+    CLAUDEBOT = "Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko; compatible; ClaudeBot/1.0; +claudebot@anthropic.com)"
+
+    @pytest.fixture(autouse=True)
+    def _salt(self, monkeypatch):
+        from frontend import visitor
+        monkeypatch.setattr(visitor, "_salt", b"test-salt")
+
+    def _view_profile(self, user_agent, **headers):
+        from frontend.config import Config
+
+        app, cache, _ = _search_app()
+
+        def cache_get(collection, doc_id):
+            if collection == Config.CACHE_AUTHOR_FRESHNESS:
+                return {"exists": True}
+            if collection == Config.CACHE_AUTHOR_STATS:
+                return {"scholar_id": doc_id, "name": "Yann LeCun", "pip_auc_score": 0.987}
+            return None
+
+        cache.get.side_effect = cache_get
+        cache.get_timestamp.return_value = None
+        with mock.patch("frontend.routes.enqueue_cache_populate"):
+            response = app.test_client().get(f"/results?author_id={self.AUTHOR_ID}",
+                                             headers={"User-Agent": user_agent, **headers})
+        assert response.status_code == 200
+        assert "Yann LeCun" in response.get_data(as_text=True)
+        return cache
+
+    def test_browser_view_records_recent_author(self):
+        cache = self._view_profile(BROWSER)
+        cache.record_recent_author.assert_called_once()
+        assert cache.record_recent_author.call_args.args[0]["scholar_id"] == self.AUTHOR_ID
+        assert cache.log_query.call_args.kwargs["visitor"]["bot"] is False
+
+    @pytest.mark.parametrize("user_agent", [
+        CLAUDEBOT,
+        "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)",
+        "python-requests/2.32.3",
+        "",
+    ])
+    def test_crawler_view_does_not_record_recent_author(self, user_agent):
+        cache = self._view_profile(user_agent)
+        cache.record_recent_author.assert_not_called()
+
+    def test_crawler_view_is_still_logged_with_bot_flag(self):
+        cache = self._view_profile(self.CLAUDEBOT)
+        assert cache.log_query.call_args.args == ("profile_view", "Yann LeCun")
+        kwargs = cache.log_query.call_args.kwargs
+        assert kwargs["author_id"] == self.AUTHOR_ID
+        assert kwargs["visitor"]["bot"] is True and "ClaudeBot" in kwargs["visitor"]["user_agent"]
+
+    def test_malformed_referrer_does_not_break_the_page(self):
+        cache = self._view_profile(BROWSER, Referer="http://[")
+        cache.record_recent_author.assert_called_once()
+        assert cache.log_query.call_args.kwargs["visitor"]["referrer"] == ""

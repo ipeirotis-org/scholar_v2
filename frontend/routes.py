@@ -377,19 +377,24 @@ def register_routes(app):
         # Read statistics cache timestamp (when stats were last computed)
         stats_cached_at = cache.get_timestamp(Config.CACHE_AUTHOR_STATS, author_id)
 
-        # Record this author as recently queried (fire-and-forget)
-        try:
-            cache.record_recent_author(author_stats)
-        except Exception:
-            logger.debug("Failed to record recent author %s", author_id)
+        visitor = describe_visitor(request)
 
-        # Log profile view
+        # Record this author as recently queried (fire-and-forget). Declared crawlers are left out:
+        # the homepage list is for what people looked up, and a crawler opening many profiles within
+        # a second makes the transactions on the one list document abort each other.
+        if not visitor["bot"]:
+            try:
+                cache.record_recent_author(author_stats)
+            except Exception:
+                logger.debug("Failed to record recent author %s", author_id)
+
+        # Log profile view (crawlers included: the entry carries the bot flag)
         try:
             cache.log_query(
                 "profile_view",
                 author_stats.get("name", author_id),
                 author_id=author_id,
-                visitor=describe_visitor(request),
+                visitor=visitor,
             )
         except Exception:
             logger.debug("Failed to log profile view for %s", author_id)
