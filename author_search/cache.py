@@ -97,17 +97,24 @@ class SearchCache:
         """Count one live lookup against today's allowance (UTC day).
 
         Returns False when the allowance is used up, and also when the counter
-        cannot be read: lookups cost money, so an unknown count means no.
+        cannot be read: lookups cost money, so an unknown count means no. The
+        check and the increment run in one transaction, so requests arriving
+        together cannot both take the last lookup.
         """
         today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
         doc = self.db.collection(LIVE_SEARCH_USAGE_COLLECTION).document(today)
-        try:
-            snapshot = doc.get()
+
+        @firestore.transactional
+        def _reserve(transaction):
+            snapshot = doc.get(transaction=transaction)
             used = (snapshot.to_dict() or {}).get("count", 0) if snapshot.exists else 0
             if used >= daily_limit:
                 return False
-            doc.set({"count": firestore.Increment(1), "updated": datetime.now(timezone.utc)}, merge=True)
+            transaction.set(doc, {"count": used + 1, "updated": datetime.now(timezone.utc)}, merge=True)
             return True
+
+        try:
+            return _reserve(self.db.transaction()) is True
         except Exception:
             logger.exception("Live search counter failed")
             return False

@@ -343,6 +343,29 @@ class TestIndexStorage:
         assert store.docs["meta"]["version"] == first
         assert ss._load_index(store) == (AUTHORS[:10], first)
 
+    def test_failed_meta_write_keeps_the_previous_index(self):
+        """The parts are written but the switch is not: the old parts must survive."""
+        store = FakeIndexStore()
+        first = ss._save_index_to_firestore(store, AUTHORS[:10])
+        store.fail_writes.add("meta")
+        with mock.patch("time.time", return_value=4102444800.0):
+            assert ss._save_index_to_firestore(store, AUTHORS[:20]) is None
+        assert ss._load_index(store) == (AUTHORS[:10], first)
+
+    def test_failed_first_migration_keeps_the_legacy_chunks(self):
+        chunks = {f"chunk_{i}": [{"scholar_id": f"c{i}", "name": f"Name {i}"}] for i in range(3)}
+        store = FakeIndexStore(chunks)
+        store.fail_writes.add("meta")
+        assert ss._save_index_to_firestore(store, AUTHORS[:20]) is None
+        assert [a["scholar_id"] for a in ss._load_index(store)[0]] == ["c0", "c1", "c2"]
+
+    def test_unpublished_refresh_reports_no_authors(self, clean_index):
+        store = FakeIndexStore()
+        store.fail_writes.add("meta")
+        bq = mock.MagicMock()
+        bq.get_all_author_names.return_value = [dict(a) for a in AUTHORS[:5]]
+        assert ss.refresh_author_index(bq=bq, cache=store) == 0
+
     def test_failed_delete_does_not_loop(self):
         cache = mock.MagicMock()
         cache.get_index_chunk.return_value = ["old"]

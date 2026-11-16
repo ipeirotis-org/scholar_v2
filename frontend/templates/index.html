@@ -80,9 +80,10 @@
     // Typeahead: search as user types (debounced, 3+ chars)
     authorInput.addEventListener("input", function() {
         cancelTypeahead();
+        // The text changed: no reply to an earlier request may be shown or acted on.
+        requestSeq++;
         const name = authorInput.value.trim();
         if (name.length < 3) {
-            requestSeq++;
             hideDropdown();
             return;
         }
@@ -303,12 +304,13 @@
             .finally(function() {
                 isSearching = false;
                 searchBtn.disabled = false;
-                if (continueLive) searchScholar();
+                // The name that was submitted, not whatever the box holds by now.
+                if (continueLive) searchScholar(name);
             });
     }
 
-    function searchScholar() {
-        var name = authorInput.value.trim();
+    function searchScholar(submitted) {
+        var name = submitted || authorInput.value.trim();
         if (!name || isSearching) return;
 
         cancelTypeahead();

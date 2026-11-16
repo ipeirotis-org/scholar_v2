@@ -192,7 +192,10 @@ def _save_index_to_firestore(cache, authors):
     fetches and unpacks in about a second. The parts are written under a new
     version, then the meta document is switched to it, so a reader sees either
     the old index or the new one, never a mix. The previous version's parts and
-    any legacy chunk_N documents are deleted afterwards.
+    any legacy chunk_N documents are deleted only once the new parts and the
+    switched meta document have been read back: the cache's writes log their
+    failures instead of raising. Returns None, leaving the previous index
+    untouched, when either check fails.
     """
     entries = [{k: v for k, v in a.items() if k != "name_lower" and v is not None} for a in authors]
     payload = gzip.compress(
@@ -209,6 +212,12 @@ def _save_index_to_firestore(cache, authors):
         logger.error("Author index %s could not be read back; keeping the previous one", version)
         return None
     cache.set_index_chunk(_INDEX_COLLECTION, _META_DOC, meta)
+    current = _read_index_meta(cache)
+    if not current or current["version"] != version:
+        # Readers still follow the previous meta document (or the legacy chunks),
+        # so nothing they need may be deleted. The new parts stay behind unused.
+        logger.error("Author index %s: meta document was not switched; keeping the previous index", version)
+        return None
 
     if previous and previous["version"] != version:
         _delete_docs(cache, lambda n: _part_id(previous["version"], n))

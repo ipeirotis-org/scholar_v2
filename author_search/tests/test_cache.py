@@ -81,10 +81,15 @@ class TestSafeDocId:
 
 
 class TestLiveSearchAllowance:
-    """reserve_live_search counts paid lookups per UTC day."""
+    """reserve_live_search counts paid lookups per UTC day, in a transaction."""
+
+    @pytest.fixture(autouse=True)
+    def _passthrough_transactional(self):
+        # The real decorator needs a real Transaction; run the wrapped function directly.
+        with mock.patch("author_search.cache.firestore.transactional", side_effect=lambda fn: fn):
+            yield
 
     def _cache(self, used=None):
-        from author_search.cache import SearchCache
         db = mock.MagicMock()
         doc = db.collection.return_value.document.return_value
         doc.get.return_value = mock.MagicMock(exists=used is not None,
@@ -96,22 +101,36 @@ class TestLiveSearchAllowance:
         assert cache.reserve_live_search(25) is True
         db.collection.assert_called_with("v3_gs_live_search_usage")
         assert len(db.collection.return_value.document.call_args[0][0]) == 10  # YYYY-MM-DD
-        assert doc.set.call_args.kwargs == {"merge": True}
+        transaction = db.transaction.return_value
+        written = transaction.set.call_args
+        assert written.args[0] is doc and written.args[1]["count"] == 1
+        assert written.kwargs == {"merge": True}
 
-    def test_below_the_limit(self):
-        cache, _, doc = self._cache(used=24)
+    def test_check_and_increment_share_one_transaction(self):
+        """Two requests reading 24 of 25 must not both proceed: the read is transactional."""
+        cache, db, doc = self._cache(used=24)
         assert cache.reserve_live_search(25) is True
-        doc.set.assert_called_once()
-
-    def test_at_the_limit(self):
-        cache, _, doc = self._cache(used=25)
-        assert cache.reserve_live_search(25) is False
+        transaction = db.transaction.return_value
+        doc.get.assert_called_once_with(transaction=transaction)
+        assert transaction.set.call_args.args[1]["count"] == 25
         doc.set.assert_not_called()
 
+    def test_at_the_limit(self):
+        cache, db, doc = self._cache(used=25)
+        assert cache.reserve_live_search(25) is False
+        db.transaction.return_value.set.assert_not_called()
+
     def test_unreadable_counter_means_no(self):
-        cache, _, doc = self._cache()
+        cache, db, doc = self._cache()
         doc.get.side_effect = RuntimeError("firestore down")
         assert cache.reserve_live_search(25) is False
+
+    def test_failed_commit_means_no(self):
+        """A transaction that cannot commit (contention, outage) grants nothing."""
+        cache, db, doc = self._cache(used=3)
+        with mock.patch("author_search.cache.firestore.transactional",
+                        side_effect=lambda fn: mock.MagicMock(side_effect=RuntimeError("aborted"))):
+            assert cache.reserve_live_search(25) is False
 
 
 class TestCacheTtl:
