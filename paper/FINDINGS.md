@@ -1130,3 +1130,7 @@ Career age 10, start years 1960–2015, 5,279,295 authors, 56 cohorts:
 - **Live website** (Google Scholar profiles, 16,179 active authors, 16 November 2026): mean score 0.475 → 0.500, mean
   absolute gap to the cohort percentile 0.027 → 0.018, share within 0.05 of the percentile 87% → 98%, rank correlation
   between the rules 0.997. The 87 authors who scored exactly 0 now score 0.01–0.20 (median 0.06).
+- **Honors intervals.** `honors/export_honors_samples.sh` now fixes the sample (authors whose ID hash ends in 0, which
+  reproduces the earlier sample exactly) and its row order. With the earlier scores and the new row order the AUCs are
+  identical and the bootstrap bounds move by up to 0.004, so differences of that size in the intervals of §17 are
+  resampling noise, not an effect of the tie rule.
