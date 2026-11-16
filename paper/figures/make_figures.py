@@ -83,13 +83,13 @@ def short_field(name):
 def fig_standing_curves():
     rows = read("fig3_curves.csv")
     fig, axes = plt.subplots(1, 3, figsize=(7.0, 2.75), facecolor=SURFACE, sharey=True)
-    panels = [("25", "(a) 25th-percentile"), ("50", "(b) Median"), ("90", "(c) 90th-percentile")]
+    panels = [("25", "(a) 27th-percentile"), ("50", "(b) Median"), ("90", "(c) 90th-percentile")]
     for ax, (q, name) in zip(axes, panels):
         pts = [r for r in rows if r["sym_tau50_quantile"] == q]
         pip, n = float(pts[0]["sym_tau50"]), int(pts[0]["n_articles"])
         clean(ax, f"{name} author\n{n} articles, PiP = {pip:.2f}")
         xs = [float(r["theta"]) for r in pts] + [1.0]
-        ys = [float(r["g_below"]) for r in pts]
+        ys = [float(r["g_mid"]) for r in pts]
         ys = ys + [ys[-1]]
         ax.axvspan(0, 0.5, color=SHADE, zorder=0, linewidth=0)
         ax.fill_between(xs, ys, step="post", where=[x >= 0.5 for x in xs], color=BLUE_LIGHT, linewidth=0, zorder=1)
@@ -98,7 +98,7 @@ def fig_standing_curves():
 
         # Author's articles ordered by percentile (#1 = highest); each drop in n_j occurs at theta = (j + 1) / 40.
         n_at = {int(r["j"]): int(r["n_j"]) for r in pts}
-        g_at = {int(r["j"]): float(r["g_below"]) for r in pts}
+        g_at = {int(r["j"]): float(r["g_mid"]) for r in pts}
         drops = []
         for j in range(40):
             d = n_at[j] - n_at.get(j + 1, 0)
@@ -143,10 +143,10 @@ def fig_standing_curves():
                         bbox=dict(facecolor=bg, edgecolor="none", pad=0.3) if stagger_hi else None)
 
         if q == "25":
-            ax.annotate("drops at each\nauthor paper", xy=(0.37, 0.29), xytext=(0.05, 0.56), color=ORANGE,
+            ax.annotate("drops at each\nauthor paper", xy=(0.40, 0.37), xytext=(0.05, 0.62), color=ORANGE,
                         fontsize=6.2, ha="left", va="center", zorder=6,
                         arrowprops=dict(arrowstyle="->", color=ORANGE, linewidth=0.8, shrinkA=2, shrinkB=2))
-            ax.annotate("between papers:\nrises as peers drop out", xy=(0.76, 0.31), xytext=(0.38, 0.75),
+            ax.annotate("between papers:\nrises as peers drop out", xy=(0.77, 0.41), xytext=(0.38, 0.78),
                         color=INK2, fontsize=6.2, ha="left", va="center", zorder=6,
                         arrowprops=dict(arrowstyle="->", color=INK3, linewidth=0.75, shrinkA=2, shrinkB=2))
             ax.text(0.20, 0.14, "θ < τ:\nnot counted", color=INK2, fontsize=6.2, ha="center", va="bottom")
@@ -154,14 +154,14 @@ def fig_standing_curves():
             ax.annotate("papers #7–#1 mark\neach downward step", xy=(0.35, 0.43), xytext=(0.04, 0.78),
                         color=ORANGE, fontsize=6.2, ha="left", va="center", zorder=6,
                         arrowprops=dict(arrowstyle="->", color=ORANGE, linewidth=0.8, shrinkA=2, shrinkB=2))
-            ax.annotate("no paper in (.725, .925):\nclimbs from .24 to .63", xy=(0.85, 0.50), xytext=(0.44, 0.85),
+            ax.annotate("no paper in (.725, .925):\nclimbs from .33 to .70", xy=(0.85, 0.58), xytext=(0.40, 0.88),
                         color=INK2, fontsize=6.1, ha="left", va="center", zorder=6,
                         arrowprops=dict(arrowstyle="->", color=BLUE, linewidth=0.85, shrinkA=2, shrinkB=2))
-            ax.annotate("average height = PiP", xy=(0.67, pip), xytext=(0.43, 0.54), color=INK, fontsize=6.1,
+            ax.annotate("average height = PiP", xy=(0.67, pip), xytext=(0.52, 0.19), color=INK, fontsize=6.1,
                         ha="left", va="center", zorder=6,
                         arrowprops=dict(arrowstyle="->", color=INK3, linewidth=0.7, shrinkA=2, shrinkB=2))
         elif q == "90":
-            ax.annotate("larger drops where\npapers tie (#8–10, #2–4)", xy=(0.72, 0.83), xytext=(0.035, 0.58),
+            ax.annotate("larger drops where\npapers tie (#8–10, #2–4)", xy=(0.74, 0.86), xytext=(0.035, 0.58),
                         color=ORANGE, fontsize=6.0, ha="left", va="center", zorder=6,
                         arrowprops=dict(arrowstyle="->", color=ORANGE, linewidth=0.8, shrinkA=2, shrinkB=2))
 

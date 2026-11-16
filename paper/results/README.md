@@ -2,7 +2,9 @@
 
 These CSV files are exports of the result tables that the queries in `../sql/` write to BigQuery. They hold the
 aggregates behind the numbers in the manuscript: one row per setting, start year, field, age pair or predictor, never
-one row per author or article. They were exported on 5 November 2026.
+one row per author or article. The tables of steps 01-11 were exported on 5 November 2026; the tables of the steps
+that depend on the peer standing (12-28) were re-exported by `export_results.sh` on 16 November 2026, after the
+standing changed to count a tie as one half.
 
 The per-author and per-article tables (about 312 GB in `paper_rp` and 215 GB in `paper_rp_noself`) are not copied
 here. They stay in the BigQuery datasets `scholar-version2.paper_rp` and `scholar-version2.paper_rp_noself`, which
@@ -29,6 +31,7 @@ Columns that hold arrays or records in BigQuery are written as JSON strings.
 | `tau_holdout` | `23_tau_holdout.sql` | Prediction by choice (1975-1990) and test (1991 and later) cohorts |
 | `grid_cohorts`, `grid_prediction`, `grid_convergence`, `grid_validation` | `26_grid_convergence.sql` | The 40-class grid against the exact integral |
 | `eligibility_excluded`, `eligibility_prediction` | `27_eligibility.sql` | Exclusions by the h-index condition; prediction under the main and three-article rules |
+| `tie_rule_comparison` | `28_tie_rule.sql` | PiP with a tie counted one half against a tie counted zero, career age 10: level, distance from the cohort percentile, floor, agreement and prediction |
 
 ## `paper_rp_noself/` (without self-citations)
 

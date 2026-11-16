@@ -49,12 +49,12 @@ WITH
   ),
   dist_j AS (
     SELECT main_field, start_year, j, m,
-      (SUM(cnt) OVER (PARTITION BY main_field, start_year, j ORDER BY m) - cnt)
-        / SUM(cnt) OVER (PARTITION BY main_field, start_year, j) AS g_below
+      (SUM(cnt) OVER (PARTITION BY main_field, start_year, j ORDER BY m) - cnt / 2)
+        / SUM(cnt) OVER (PARTITION BY main_field, start_year, j) AS g_mid
     FROM (SELECT main_field, start_year, j, n_j AS m, COUNT(*) AS cnt FROM nj GROUP BY main_field, start_year, j, n_j)
   ),
   scores AS (
-    SELECT n.authorid, n.start_year, SUM(IF(n.j >= 20, g.g_below, 0)) / 20 AS fn_sym50
+    SELECT n.authorid, n.start_year, SUM(IF(n.j >= 20, g.g_mid, 0)) / 20 AS fn_sym50
     FROM nj AS n
     JOIN dist_j AS g ON g.main_field = n.main_field AND g.start_year = n.start_year AND g.j = n.j AND g.m = n.n_j
     GROUP BY n.authorid, n.start_year

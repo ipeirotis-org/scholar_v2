@@ -1,9 +1,14 @@
 #!/usr/bin/env bash
 # Exports the data behind the paper's figures from BigQuery (dataset paper_rp) to paper/figures/data/*.csv.
 # Run from anywhere with bq authenticated: paper/figures/export_figure_data.sh
+#   DATASET=<name>  read another dataset (default paper_rp)
 set -euo pipefail
 cd "$(dirname "$0")/data"
-q() { bq query --use_legacy_sql=false --format=csv --max_rows=100000 --quiet "$1" | grep -v -E "WARNING|Waiting"; }
+DATASET="${DATASET:-paper_rp}"
+q() {
+  bq query --use_legacy_sql=false --format=csv --max_rows=100000 --quiet \
+    "${1//scholar-version2.paper_rp./scholar-version2.$DATASET.}" | grep -v -E "WARNING|Waiting"
+}
 
 # Fig. 1: paper percentile stability (pooled fields, cohorts 1980-1995) and by field (r between ages 3 and 10)
 q 'SELECT t1, t2, SUM(n) AS papers, AVG(pearson) AS r, AVG(slope) AS slope
@@ -28,26 +33,31 @@ q 'SELECT start_year, COUNT(*) AS authors, AVG(sym_tau50) AS sym_mean,
      WINDOW w AS (PARTITION BY start_year))
    GROUP BY start_year ORDER BY start_year' > fig2_cohorts.csv
 
-# Fig. 3: standing curves g(theta) for three real authors at career age 10 (start year 1995) chosen at the 25th, 50th
-# and 90th percentile of sym_tau50, plus their scores. Curves are recomputed here on the 40-point grid.
+# Fig. 3: standing curves g(theta) for three real authors at career age 10 (start year 1995), plus their scores.
+# They are the authors the first version of the figure picked as closest to the 25th, 50th and 90th percentile of
+# sym_tau50 when a tie counted zero; they are kept (by a hash of their ID) so that Figures 1 and 2 show the same
+# records, and sit at the 27th, 49th and 90th percentile of the scores with ties at one half (score_pct, Hazen).
+# Curves are recomputed here on the 40-point grid.
 q 'WITH
-  cohort AS (SELECT authorid, sym_tau50, n_articles, prod_pct FROM `scholar-version2.paper_rp.sym_by_age`
-             WHERE start_year = 1995 AND age = 10),
-  qs AS (SELECT q, qa[OFFSET(q)] AS qv
-         FROM (SELECT APPROX_QUANTILES(sym_tau50, 100) AS qa FROM cohort), UNNEST([25, 50, 90]) AS q),
+  cohort AS (SELECT authorid, sym_tau50, n_articles, prod_pct,
+               (COUNT(*) OVER () + RANK() OVER (ORDER BY sym_tau50) - RANK() OVER (ORDER BY sym_tau50 DESC))
+                 / (2 * COUNT(*) OVER ()) AS score_pct
+             FROM `scholar-version2.paper_rp.sym_by_age` WHERE start_year = 1995 AND age = 10),
   picks AS (
-    SELECT q, authorid FROM (
-      SELECT qs.q, c.authorid, ROW_NUMBER() OVER (PARTITION BY qs.q ORDER BY ABS(c.sym_tau50 - qs.qv), c.authorid) AS rn
-      FROM cohort AS c CROSS JOIN qs)
-    WHERE rn = 1),
+    SELECT q, authorid FROM cohort
+    JOIN UNNEST([STRUCT(25 AS q, "c4a5a3" AS h), (50, "413ad2"), (90, "537553")])
+      ON SUBSTR(TO_HEX(SHA256(CAST(authorid AS STRING))), 1, 6) = h),
   papers AS (
     SELECT a.authorid, a.below[OFFSET(1995 + 10 - a.pub_year)] AS y
     FROM `scholar-version2.paper_rp.author_articles` a JOIN cohort USING (authorid)
     WHERE a.start_year = 1995 AND a.pub_year <= 2005),
   nj AS (SELECT p.authorid, j, COUNTIF(p.y >= j / 40) AS n_j FROM papers p, UNNEST(GENERATE_ARRAY(0, 39)) j GROUP BY p.authorid, j),
   dist AS (SELECT j, n_j AS m, COUNT(*) AS cnt FROM nj GROUP BY j, n_j),
-  g AS (SELECT j, m, (SUM(cnt) OVER (PARTITION BY j ORDER BY m) - cnt) / SUM(cnt) OVER (PARTITION BY j) AS g_below FROM dist)
-  SELECT p.q AS sym_tau50_quantile, nj.j, nj.j / 40 AS theta, nj.n_j, g.g_below, c.sym_tau50, c.n_articles, c.prod_pct
+  g AS (SELECT j, m, (SUM(cnt) OVER (PARTITION BY j ORDER BY m) - cnt / 2) / SUM(cnt) OVER (PARTITION BY j) AS g_mid,
+          (SUM(cnt) OVER (PARTITION BY j ORDER BY m) - cnt) / SUM(cnt) OVER (PARTITION BY j) AS share_fewer,
+          cnt / SUM(cnt) OVER (PARTITION BY j) AS share_tied FROM dist)
+  SELECT p.q AS sym_tau50_quantile, nj.j, nj.j / 40 AS theta, nj.n_j, g.g_mid, g.share_fewer, g.share_tied,
+    c.sym_tau50, c.n_articles, c.prod_pct, c.score_pct
   FROM picks p JOIN nj USING (authorid) JOIN g ON g.j = nj.j AND g.m = nj.n_j JOIN cohort c USING (authorid)
   ORDER BY p.q, nj.j' > fig3_curves.csv
 
@@ -83,4 +93,14 @@ q 'SELECT pop_age, t, predictor, n, spearman_top10, auc_any_top1, auc_star, prec
 q 'SELECT pop_age, t, predictor, n, spearman_top10, auc_any_top1, auc_star, precision_top10, precision_top10_frac,
      spearman_mean_pct
    FROM `scholar-version2.paper_rp.early_detection_results_min3` ORDER BY pop_age, t, predictor' > fig8_early_min3.csv
+# tau sweep (make_tau_sweep.py): what each cutoff tracks, how it predicts, and cohort medians at career age 10
+q 'SELECT * FROM `scholar-version2.paper_rp.variant_profile` ORDER BY variant' > tau_sweep_profile.csv
+q 'SELECT * FROM `scholar-version2.paper_rp.variant_prediction` ORDER BY scenario, setting, variant' > tau_sweep_prediction.csv
+q 'SELECT DISTINCT start_year,
+     PERCENTILE_CONT(pip, 0.5) OVER w AS pip, PERCENTILE_CONT(sym, 0.5) OVER w AS sym,
+     PERCENTILE_CONT(sym_tau25, 0.5) OVER w AS sym_tau25, PERCENTILE_CONT(sym_tau50, 0.5) OVER w AS sym_tau50,
+     PERCENTILE_CONT(sym_tau60, 0.5) OVER w AS sym_tau60, PERCENTILE_CONT(sym_tau75, 0.5) OVER w AS sym_tau75,
+     PERCENTILE_CONT(sym_tau90, 0.5) OVER w AS sym_tau90
+   FROM `scholar-version2.paper_rp.pip_variants` WHERE age = 10 AND start_year BETWEEN 1960 AND 2015
+   WINDOW w AS (PARTITION BY start_year) ORDER BY start_year' > tau_sweep_cohort_medians.csv
 ls -la

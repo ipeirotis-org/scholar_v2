@@ -15,6 +15,18 @@ PiP-AUC combines citation quality with publication productivity into a single 0-
 
 All author metrics (h-index, citations, i10-index) are also percentile-ranked by cohort (year of first publication).
 
+### PiP (primary score since 2026-11-14)
+
+In GS mode the headline score is **PiP** (`pip_score`, tau = 0.5), the indicator of the paper in `paper/`; PiP-AUC
+stays as a legacy chart tab. Each cited work falls into one of 40 citation-percentile classes (thresholds
+theta_j = j/40). At each threshold, the author's *standing* g_j is the share of active peers with the same career
+start who have fewer works at or above it, plus half the share with exactly as many (a tie counts one half, also when
+the author has none; since 2026-11-16, it counted zero before). PiP averages g_j over the top half of the thresholds
+(j = 20..39). With ties at one half the peers' standings average 0.5 at every threshold, so the mean PiP of a cohort
+is 0.5 and a score sits close to its own cohort percentile (within 0.05 for 98% of active GS authors).
+`gs_statistics.dist_pip_thresholds` holds the peers' count distributions, `stats_author_pip_scores_current` the
+scores and the 40-point standing curve (`pip_standing_json`), `dist_pip_scores` the score percentiles.
+
 In GS mode each author also gets one of 11 field groups (from their GS interests, else their co-authors'), and an
 author field page (`/field?author_id=...&field=...`, linked from the results page) ranks the PiP-AUC score and the
 four conventional metrics among active authors in one field with a similar career start, starting on the author's

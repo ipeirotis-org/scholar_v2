@@ -1,13 +1,16 @@
 """Numerical checks of the symmetric PiP used in the paper (theory section).
 
 PiP_tau(a) = 1/(1-tau) * integral_tau^1 G_t(n_a(t)) dt, where n_a(t) = number of a's papers with percentile >= t and
-G_t(m) = share of peers with strictly fewer than m papers at or above t. The peer distribution is held fixed when one
-author's record changes (the score is relative to a reference cohort).
+G_t(m) = share of peers with fewer than m papers at or above t plus half the share with exactly m (a tie counts one
+half; mid-rank). The peer distribution is held fixed when one author's record changes (the score is relative to a
+reference cohort).
 
 Checks: bounds; monotonicity when adding a paper or raising a percentile; papers below tau change nothing;
 the factorization PiP = F(n) * Q with Q possibly above 1; consistency in the sense of Waltman & van Eck (2012)
 (does adding the same paper to two authors ever reverse their order?), compared with the step-form PiP of the app;
-and synthetic career records (one hit, one average paper, many weak papers).
+synthetic career records (one hit, one average paper, many weak papers, nothing above the cutoff); the mean score of
+the cohort (exactly 1/2 at every cutoff); and how far each peer's score lies from its percentile in the cohort.
+The last block scores the same records with the strict rule (a tie counts zero) the paper used before, for comparison.
 
 Each check runs on two grids of thresholds:
   production  t_j = j/40, j = 0..39, the left Riemann sum computed by the paper's SQL (12, 15). It equals the exact
@@ -44,16 +47,18 @@ class Reference:
         ys = np.sort(y)
         return len(ys) - np.searchsorted(ys, self.T, side="left")
 
-    def G(self, n_t):
-        """Share of peers with strictly fewer papers above each t."""
-        return np.array([np.searchsorted(self.matrix[:, j], n_t[j], side="left") for j in range(len(self.T))]) / self.n
+    def G(self, n_t, tie=0.5):
+        """Share of peers with fewer papers above each t, plus `tie` times the share with exactly as many."""
+        below = np.array([np.searchsorted(self.matrix[:, j], n_t[j], side="left") for j in range(len(self.T))])
+        at_most = np.array([np.searchsorted(self.matrix[:, j], n_t[j], side="right") for j in range(len(self.T))])
+        return (below + tie * (at_most - below)) / self.n
 
     def F(self, m):
         """Share of peers with at most m papers in total."""
         return np.searchsorted(self.totals, m, side="right") / self.n
 
-    def sym(self, y, tau=0.5):
-        g = self.G(self.counts_above(np.asarray(y)))
+    def sym(self, y, tau=0.5, tie=0.5):
+        g = self.G(self.counts_above(np.asarray(y)), tie)
         return g[self.T >= tau].mean()
 
     def step_pip(self, y):
@@ -102,10 +107,23 @@ def run(label, T):
         "one paper at the 99.9th pct": [0.999],
         "one average paper (50th pct)": [0.50],
         "40 weak papers (10th pct)": [0.10] * 40,
+        "five papers below the median": [0.45, 0.40, 0.30, 0.20, 0.10],
         "median peer": peers[int(np.argsort([len(p) for p in peers])[len(peers) // 2])],
     }
     for name, y in cases.items():
-        print(f"{name:32s} sym_tau50 = {ref.sym(y):.3f}   step PiP = {ref.step_pip(y):.3f}   F(n) = {ref.F(len(y)):.3f}")
+        print(f"{name:32s} sym_tau50 = {ref.sym(y):.3f}   strict rule = {ref.sym(y, tie=0):.3f}   "
+              f"step PiP = {ref.step_pip(y):.3f}   F(n) = {ref.F(len(y)):.3f}")
+
+    # Cohort mean and calibration: with ties at one half the peers' standings average 1/2 at every threshold, so the
+    # mean score is 1/2 at every cutoff; the strict rule falls short of 1/2 by half the share of tied pairs.
+    hazen = lambda x: (np.searchsorted(np.sort(x), x, side="left") + np.searchsorted(np.sort(x), x, side="right")) / (2 * len(x))
+    for tau in (0.0, 0.5, 0.75, 0.9):
+        mid = np.array([ref.sym(p, tau) for p in peers])
+        strict = np.array([ref.sym(p, tau, tie=0) for p in peers])
+        print(f"tau = {tau:4.2f}: cohort mean {mid.mean():.4f} (strict {strict.mean():.4f}); "
+              f"mean |score - cohort percentile| {np.abs(mid - hazen(mid)).mean():.4f} "
+              f"(strict {np.abs(strict - hazen(strict)).mean():.4f}); lowest score {mid.min():.4f}; "
+              f"share of peers with nothing above tau {np.mean([np.max(p) < tau for p in peers]):.4f}")
     return ref, peers
 
 

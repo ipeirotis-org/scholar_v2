@@ -108,7 +108,8 @@ strong paper. Means ignore volume altogether. Counts of papers in the top 10\%
 We propose PiP, short for \emph{percentile in percentile}, which places a scholar's papers in percentiles of their
 publication year and then places the scholar in percentiles of their career cohort: the peers whose first paper appeared
 in the same year. At each impact threshold, we count the scholar's papers at or above that percentile; the share of peers
-with fewer such papers is the scholar's standing at that threshold. Across all thresholds, these standings form a curve
+with fewer such papers, counting a tie as one half, is the scholar's standing at that threshold. Across all thresholds,
+these standings form a curve
 (Figure~\ref{fig:curves}). PiP is the average height of this curve above a cutoff. Where the $h$-index reads one corner
 of a record, PiP reads the whole curve above the cutoff.
 
@@ -123,9 +124,10 @@ are \emph{eligible} and enter the comparison. In each evaluation year, we recons
 publications and citations up to that year. We make six contributions:
 \begin{enumerate}
   \item \textbf{Definition and properties.} At any given impact threshold, a scholar's standing is the share of peers
-  with strictly fewer papers above that threshold; PiP averages this standing across all thresholds above the cutoff. It
-  is bounded between zero and one, gives nothing to papers strictly below the cutoff, and never decreases when a paper
-  is added or its percentile rises (Section~\ref{sec:pip}).
+  with fewer papers above that threshold plus half the share with exactly as many; PiP averages this standing across
+  all thresholds above the cutoff. It lies between zero and one, averages exactly one half in every peer group, is
+  unaffected by papers strictly below the cutoff, and never decreases when a paper is added or its percentile rises
+  (Section~\ref{sec:pip}).
   \item \textbf{Measurement over time.} Paper percentiles settle within three to five years
   (Section~\ref{sec:paperstability}). PiP's distribution changes little across career cohorts from 1960 to 2015
   (Section~\ref{sec:cohorts}). Over a career, a scholar's PiP is more stable than their $h$-index and, over ten-year or
@@ -161,9 +163,9 @@ year and field \citep{bornmann2013use,leydesdorff2011turning,waltman2013percenti
 less sensitive to outliers \citep{bornmann2013use,bornmann2020evaluation} than mean normalization, which compares a
 paper's citations with the average of comparable papers \citep{schubert1986relative,Radicchi2008}. The Leiden
 Manifesto recommends them \citep{hicks2015bibliometrics}. Ties and the definition of the percentile need care
-\citep{waltman2013percentile}. For scoring we use the share of the reference set with strictly fewer citations, so that
-uncited papers have percentile zero; for correlations, Hazen's mid-rank \citep{hazen1914storage}
-(Section~\ref{sec:properties}).
+\citep{waltman2013percentile}. For a paper's percentile we use the share of the reference set with strictly fewer
+citations, so that uncited papers have percentile zero; for a scholar's standing among peers and for correlations we
+use Hazen's mid-rank \citep{hazen1914storage}, which counts a tie as one half (Section~\ref{sec:properties}).
 
 \paragraph{From papers to scholars.} \citet{bornmann2014individual} propose counting a scholar's papers in the top 10\%
 and dividing by career age, and I3 \citep{leydesdorff2011integrated,rousseau2012basic} sums percentiles over a set of
@@ -282,8 +284,8 @@ percentiles within fields.
 \label{sec:auc}
 With the vertical axis normalized to paper percentiles, a scholar's record can be drawn by sorting their articles from
 highest to lowest percentile and plotting paper percentile on the vertical axis against paper rank
-($k = 1, 2, 3, \ldots$) on the horizontal axis (Figure~\ref{fig:construction}b). The median scholar of the 1995 cohort at
-career age 10, for example, has seven articles: two in the top 10\% of their publication year (ranks 1 and 2), three more
+($k = 1, 2, 3, \ldots$) on the horizontal axis (Figure~\ref{fig:construction}b). A scholar near the median of the 1995
+cohort at career age 10 (at the 49th percentile of the cohort's PiP scores), for example, has seven articles: two in the top 10\% of their publication year (ranks 1 and 2), three more
 at or above the median (ranks 3 to 5), and two below the median (ranks 6 and 7). Each article forms a bar of width $1$
 and height equal to its percentile. The area under this step curve is the sum of the scholar's paper percentiles ($4.40$
 in Figure~\ref{fig:construction}b), which is the I3 indicator of \citet{leydesdorff2011integrated}. Because every
@@ -294,8 +296,8 @@ more papers, and a given sum is not comparable across career ages or across coho
   \centering
   \includegraphics[width=\textwidth]{fig_pip_construction.pdf}
   \caption{From the $h$-index citation-rank graph to productivity-normalized percentile area, based on the seven-article
-  percentile profile of the median eligible author of the 1995 cohort in 2005 (career age 10; articles \#1--\#7 ordered
-  by citation percentile). (a) Illustrative raw citations and publication recency against citation rank ($h = 4$): the
+  percentile profile of an eligible author near the median of the 1995 cohort in 2005 (career age 10; articles
+  \#1--\#7 ordered by citation percentile). (a) Illustrative raw citations and publication recency against citation rank ($h = 4$): the
   $h \times h$ square ignores excess citations above $h$ (\#1, \#3, \#4, \#5) and papers ranked beyond $h$, including a
   hypothetical recent top-10\% paper (\#2, three citations $< h$) and tail articles (\#6, \#7). (b) Observed within-year
   citation percentiles against paper rank lift article \#2 to $0.925$; each bar has width $1$, so the area equals the
@@ -352,11 +354,13 @@ $\theta = 0$ this is the total number of articles, and at $\theta = 0.90$ it is 
 of their year. Instead of comparing that count with peers' total articles, we compare it with how many articles peers
 have \emph{at or above the same threshold $\theta$}.
 
-The author's \emph{standing} at threshold $\theta$, written $g(\theta)$, is the share of peers who have strictly fewer
-articles at or above $\theta$. For the median author of Figures~\ref{fig:construction} and~\ref{fig:curves}, who has two
-articles in the top 10\% ($\theta = 0.90$) and one in the top 5\% ($\theta = 0.95$), 63\% of peers have fewer than two
-articles in the top 10\%, so $g(0.90) = 0.63$. An author with no article at or above $\theta$ has $g(\theta) = 0$,
-however many peers also have none (Section~\ref{sec:properties}).
+The author's \emph{standing} at threshold $\theta$, written $g(\theta)$, is the share of peers who have fewer articles
+at or above $\theta$ plus half the share who have exactly as many. A tie counts one half, so $g(\theta)$ is the author's
+mid-rank percentile \citep{hazen1914storage} among peers on the number of articles at or above $\theta$. For the median
+author of Figures~\ref{fig:construction} and~\ref{fig:curves}, who has two articles in the top 10\% ($\theta = 0.90$)
+and one in the top 5\% ($\theta = 0.95$), 63\% of peers have fewer than two articles in the top 10\% and 14\% have
+exactly two, so $g(0.90) = 0.63 + 0.14/2 = 0.70$. An author with no article at or above $\theta$ ties with every peer
+who has none and stands at half their share (Section~\ref{sec:properties}).
 
 Plotted across all thresholds from $\theta = 0$ to $\theta = 1$, the standings trace the author's \emph{standing curve}
 $g(\theta)$ (Figure~\ref{fig:curves}). The curve runs from the author's standing on total articles at the left
@@ -372,10 +376,10 @@ percentile, as at \#8--10 and \#2--4 for the 90th-percentile author).
   \centering
   \includegraphics[width=\textwidth]{fig_standing_curves.pdf}
   \caption{Standing curves of three authors who published their first article in 1995, evaluated in 2005 (career age
-  10), chosen as the author whose PiP is closest to the (a) 25th, (b) 50th (median; same author as in
-  Figure~\ref{fig:construction}) or (c) 90th percentile of the cohort's scores. Each curve gives, at every threshold
-  $\theta$, the share of the 1995 cohort's eligible authors who have fewer articles at or above percentile $\theta$ of
-  their publication year. PiP is the shaded area to the right of $\tau = 0.5$, rescaled by $1/(1-\tau)$, or equivalently
+  10), near the lower quartile, the median and the top decile of the cohort's scores: at the (a) 27th, (b) 49th (the
+  author of Figure~\ref{fig:construction}) and (c) 90th percentile. Each curve gives, at every threshold $\theta$, the
+  share of the 1995 cohort's eligible authors who have fewer articles at or above percentile $\theta$ of their
+  publication year, plus half the share who have as many. PiP is the shaded area to the right of $\tau = 0.5$, rescaled by $1/(1-\tau)$, or equivalently
   the average height of the curve there (dashed line). Orange triangles and article labels (\#1 = highest citation
   percentile) along the horizontal axis mark each author's articles, and solid orange vertical segments mark the
   downward steps: the curve can fall only where $\theta$ passes one of the author's own articles (with larger drops
@@ -392,22 +396,24 @@ It is the area under the standing curve to the right of $\tau$, rescaled to $[0,
 between quantity and impact (Section~\ref{sec:tau}). We use $\tau = 0.5$ throughout unless stated otherwise; with this
 cutoff, only articles in the top half of their publication year can earn credit.
 
-The score has a direct head-to-head interpretation. At any given impact threshold $\theta$, $g(\theta)$ is the share of
-peers with strictly fewer articles at or above that threshold than the author (a tie is not a win), and PiP averages
-that win rate across all thresholds between $\tau$ and $1$. The median author of Figure~\ref{fig:curves} outranks 63\%
-of peers when the threshold is at the 90th percentile (the author has two articles there and most peers have fewer),
-28\% at the 75th percentile, and none at the 97.5th percentile. Averaged across all thresholds above the cutoff, the
-author outranks 37\% of peers ($\PiP = 0.37$), even though their score is near the cohort median. A score of 0.60
-therefore means an average win rate of 60\% across thresholds above $\tau$, not being at the 60th percentile of scores.
-At career age 10, across cohorts from 1960 to 2015, the lower quartile of PiP lies between 0.16 and 0.20, the median
-between 0.37 and 0.41, the upper quartile between 0.64 and 0.68 and the 90th percentile between 0.84 and 0.86
-(Section~\ref{sec:cohorts}), so a score of 0.60 lies between the median and the upper quartile of its cohort.
+The score has a direct head-to-head interpretation. At any given impact threshold $\theta$, $g(\theta)$ is the author's
+expected result against a peer drawn at random from the cohort, when a win counts one and a tie one half, and PiP
+averages that result across all thresholds between $\tau$ and $1$. The median author of Figure~\ref{fig:curves} stands
+at 0.70 when the threshold is at the 90th percentile (the author has two articles there and most peers have fewer), at
+0.37 at the 75th percentile, and at 0.38 at the 97.5th percentile, where the author has no article and neither do three
+quarters of the peers. Averaged across all thresholds above the cutoff, the author's standing is 0.47 ($\PiP = 0.47$).
 
-Not counting ties as wins also determines a peer group's mean score. In a head-to-head comparison between any two peers
-at a given threshold, either they tie (and neither wins) or one has strictly more articles than the other. Across all
-pairs of peers at that threshold, the average win rate is therefore half the share of pairs that do not tie; averaged
-over thresholds above $\tau$, the cohort mean of PiP is always below $0.5$ and falls as ties become more common, as at
-high cutoffs (Section~\ref{sec:tau}).
+Counting a tie as one half fixes a peer group's mean score. In a head-to-head comparison between any two peers at a
+given threshold, the two results sum to one: a win and a loss, or two halves. The standings of a peer group therefore
+average exactly $0.5$ at every threshold, and the mean of PiP is $0.5$ in every cohort, at every career age and for
+every cutoff (Appendix~\ref{app:proofs}). A score above $0.5$ means that, across the thresholds above $\tau$, the author
+outranks peers more often than peers outrank the author.
+
+With the mean fixed, the score stays close to the author's percentile in the cohort. At career age 10, across cohorts
+from 1960 to 2015, PiP differs from the author's cohort percentile by 0.04 on average and never by more than 0.10; the
+lower quartile of PiP lies between 0.28 and 0.29, the median between 0.47 and 0.48, the upper quartile between 0.70 and
+0.71 and the 90th percentile at 0.87 (Section~\ref{sec:cohorts}). A score of 0.60 sits near the 64th percentile of its
+cohort.
 
 To measure what the comparison at every threshold adds, Sections~\ref{sec:prediction} and~\ref{sec:early} also report
 \emph{PiP-simple}. It keeps the paper percentiles and the cutoff $\tau$ but compares the scholar with peers only once, by
@@ -418,36 +424,45 @@ summing the amount by which each article exceeds $\tau$ (divided by $1-\tau$) an
 The properties below hold for a fixed peer group containing the author; each follows from the definition
 (Appendix~\ref{app:proofs}), and we checked them numerically on simulated cohorts \citep{ipeirotis2026replication}.
 
-\paragraph{Range.} $0 \le \PiP < 1$. Because the peer group includes the author, no one can have more articles than
-every peer including themselves, so the standing $g(\theta)$ is strictly below $1$ at every threshold. The score is zero
-when every article of the author falls strictly below $\tau$.
+\paragraph{Range.} $0 < \PiP < 1$. Because the peer group includes the author, who ties with themselves, the standing
+$g(\theta)$ lies between $1/(2N)$ and $1 - 1/(2N)$ at every threshold in a group of $N$ peers. The lowest score in a
+peer group goes to the authors whose articles all fall strictly below $\tau$: at every threshold above the cutoff they
+tie with the peers who have nothing there and stand at half those peers' share. At career age 10 and $\tau = 0.5$ this
+floor lies between 0.07 and 0.11 across cohorts, and at most 1.3\% of a cohort sits on it.
 
 \paragraph{Monotonicity.} With the peers and the percentiles of the author's other articles held fixed, adding an
 article or raising an existing article's percentile never lowers PiP: at every threshold either change raises or
 maintains the author's article count at or above $\theta$, which can only raise or maintain the standing $g(\theta)$.
-The gain can be zero: one more article at or above $\theta$ raises $g(\theta)$ only if some peer had the author's
-previous count. An article whose percentile stays strictly below $\tau$ affects counts only for $\theta < \tau$ and
+The gain can be zero: one more article at or above $\theta$ raises $g(\theta)$ only if some other peer has the author's
+previous or new count. An article whose percentile stays strictly below $\tau$ affects counts only for $\theta < \tau$ and
 leaves the score unchanged. This property holds for paper percentiles rather than raw citations: when a paper gains
 citations, its year's percentiles are recomputed, and if a paper ties or overtakes another of the author's own papers
 from the same year, it lowers that paper's percentile and can slightly lower the score.
 
-\paragraph{No reward for volume alone.} At $\tau = 0.5$, an author whose articles all fall below the median of their
-year scores zero, however many they publish, whereas the productivity-normalized area without a cutoff gives 0.10 to 40
-articles at the 10th percentile.
+\paragraph{No reward for volume alone.} At $\tau = 0.5$, articles below the median of their year add nothing: an author
+whose articles all fall below it gets the lowest score of the peer group, however many they publish. Against the
+simulated cohort of Section~\ref{sec:auc}, 40 articles at the 10th percentile score the same as five articles below the
+median (0.24, that cohort's floor), whereas the productivity-normalized area without a cutoff gives 0.10 to the 40
+articles and 0.06 to the five.
 
 \paragraph{Credit for the best work.} A single highly cited article adds one to the author's count at every threshold up
 to its own percentile, including high thresholds where most peers have none. Scored against the simulated cohort of
 Section~\ref{sec:auc}, which it does not join, a record of one article at the 97.5th, 99th or 99.9th percentile scores
-0.42, 0.45 or 0.47, and one at the 50th percentile scores 0; the productivity-normalized area of
+0.52, 0.54 or 0.55, and one at the 50th percentile scores 0.24, the floor; the productivity-normalized area of
 Figure~\ref{fig:construction}c gives all four records zero, and the $h$-index cannot tell them apart (all have $h = 1$).
 
-\paragraph{Ties.} The standing counts peers with strictly fewer articles. Mid-ranks instead count half of the tied
-peers. They are a common choice for the percentile of a single paper \citep{bornmann2013use,waltman2013percentile}, but
-in $g(\theta)$ they would give credit to authors with nothing above a threshold: at high thresholds most peers have no
-article, and an author tied with them at zero would stand at half their share. In the simulated cohort, an author whose
-five articles all fall below the median would score 0.24 with mid-ranks instead of 0. The strict rule keeps weak
-articles from earning credit through ties; its price is that the mean score of a peer group depends on how common ties
-are (Section~\ref{sec:definition}).
+\paragraph{Ties.} Peers often have the same number of articles above a threshold, above all at high thresholds, where
+most have none. The standing counts a tie as one half, the mid-rank convention for percentiles
+\citep{hazen1914storage,bornmann2013use,waltman2013percentile}. Counting only the peers with strictly fewer articles
+would instead give exactly zero to an author with nothing above a threshold, but it ties the scale of the score to how
+common ties are: a peer group's mean becomes half the share of peer pairs that do not tie. At career age 10 that mean is
+TIEMEAN50 at $\tau = 0.5$ and TIEMEAN90 at $\tau = 0.9$, scores run below the author's cohort percentile by TIEGAP50 on
+average at $\tau = 0.5$, and at $\tau = 0.9$ the median falls from TIEMED1960 in the 1960 cohort to TIEMED2010 in 2010 as
+more authors tie at zero. With ties at one half the mean is $0.5$ everywhere and the score follows the author's cohort
+percentile (Section~\ref{sec:definition}). The price is a floor above zero: an author with nothing above the cutoff
+shares the lowest standing with every peer in the same position, and at high cutoffs, where such authors are many, the
+floor is high (Section~\ref{sec:tau}). The two rules rank authors almost identically (within-cohort rank correlation
+TIECORR50 at $\tau = 0.5$) and predict future work equally well (Section~\ref{sec:robustness}).
 
 \paragraph{Balance of volume and impact.} In the productivity-normalized area of Figure~\ref{fig:construction}c, no
 author's score can exceed their percentile on total article count (the horizontal width of their curve). In PiP, by
@@ -619,10 +634,11 @@ trades quantity for impact when PiP predicts the author's future articles (Secti
 articles (their mean percentile) at $\tau = 0.75$; the chance of a future top-1\% paper is predicted about equally well
 from $\tau = 0.25$ to $0.6$.
 
-Above $\tau = 0.6$ the score's distribution drifts across cohorts through ties at zero (Section~\ref{sec:definition}):
-from 1960 to 2010, the share of eligible authors scoring zero rises from under 0.1\% to 15\% at $\tau = 0.75$ (halving
-the lower quartile from 0.19 to 0.08) and from 6\% to 42\% at $\tau = 0.9$, pulling the median from 0.37 to 0.16
-(Table~\ref{tab:tau}).
+The mean of the score is $0.5$ at every cutoff, but above $\tau = 0.6$ the rest of its distribution still changes
+across cohorts, because more authors share the floor (Section~\ref{sec:properties}): from 1960 to 2010, the share of
+eligible authors with nothing above the cutoff rises from under 0.1\% to 15\% at $\tau = 0.75$, where the lower quartile
+moves from 0.29 to 0.26, and from 6\% to 42\% at $\tau = 0.9$, where all these authors score 0.29 in the 2010 cohort and
+the median falls from 0.48 to 0.41 (Table~\ref{tab:tau}).
 
 We use $\tau = 0.5$ as the default: it has a one-line explanation (only papers in the top half of their year count),
 balances the correlations with quantity (0.64) and with top papers (0.60), best predicts a future top-1\% paper and
@@ -651,8 +667,9 @@ Committees compare people who started in different years, and indicators are oft
 A fixed rule treats every start year alike only if the indicator's distribution does not change with the start year.
 Figure~\ref{fig:cohorts} shows the distributions of PiP and the raw $h$-index at career age 10 for every start year
 from 1960 to 2015. The cohorts grow nearly a hundredfold, from 4,031 eligible authors in 1960 to 392,360 in 2015. The
-PiP distribution changes little: the mean goes from 0.44 to 0.42, the lower quartile from 0.20 to 0.17, the upper
-quartile from 0.67 to 0.66 and the 90th percentile stays at 0.85. Over the same cohorts the mean $h$-index at age 10 rises
+PiP distribution changes little: the mean is 0.5 in every cohort, the lower quartile stays between 0.28 and 0.29, the
+median between 0.47 and 0.48, the upper quartile between 0.70 and 0.71, and the 90th percentile at 0.87. Over the same
+cohorts the mean $h$-index at age 10 rises
 by 40\%, from 4.4 in the 1960 cohort to 6.2 in 2010 (6.1 in 2015), and its 90th percentile from 7 to 11, following the
 growth of publication and citation rates.
 
@@ -660,13 +677,13 @@ growth of publication and citation rates.
   \centering
   \includegraphics[width=\textwidth]{fig_cohorts.pdf}
   \caption{Distribution of (a) PiP ($\tau = 0.5$) and (b) the raw $h$-index of eligible authors at career age 10, by
-  start year. The PiP distribution changes little over 56 cohorts; the mean $h$-index grows by about 40\%.}
+  start year. The PiP distribution changes little over 56 cohorts (its mean is 0.5 in each); the mean $h$-index grows
+  by about 40\%.}
   \label{fig:cohorts}
 \end{figure}
 
-Part of this stability is built in: because a peer group's mean score equals half the share of peer pairs that do not
-tie above $\tau$ (Section~\ref{sec:definition}), the mean can move only as far as tie rates change. The rest of
-the distribution can still drift when ties at zero become common, as happens above $\tau = 0.6$
+Part of this stability is built in: a peer group's mean score is exactly $0.5$ (Section~\ref{sec:definition}). The
+rest of the distribution is free to move, and it does when many authors share the floor, as happens above $\tau = 0.6$
 (Section~\ref{sec:tau}).
 
 Because the distribution is stable across cohorts, a PiP of 0.6 at career age 10 was about equally rare in the 1970 and
@@ -829,7 +846,7 @@ indicators touch or cross the curve: the mean percentile in the direction of pur
 all information about quantity), the article count just beyond the pure-quantity end in two settings (at age 15 and in
 2000), and the top-10\% count per year of career, which differs from the plain count only when seniorities are mixed
 and sits on the curve next to $\tau = 0.75$. From $\tau = 0$ to $0.75$, choosing $\tau$ picks a point on this frontier
-(at $\tau = 0.9$, ties at zero pull both predictions down), and $\tau = 0.5$ sits near its knee: raising $\tau$ from
+(at $\tau = 0.9$, ties at the floor pull both predictions down), and $\tau = 0.5$ sits near its knee: raising $\tau$ from
 $0.25$ to $0.5$ gains 0.056 in future citation impact at a cost of 0.016 in quantity, whereas raising $\tau$ past $0.5$
 costs much more in quantity for each gain in impact.
 
@@ -1040,7 +1057,7 @@ fields, a choice that a rule based on the paper's own fields would avoid.
 Among eligible authors at career age 10 with start years 1975--2010 (Figure~\ref{fig:fields}), the field-normalized
 score puts every field's share of the cohort top 10\% between 6.9\% and 11.6\%. We have not separated the sources of the
 remaining spread. Two candidates are that papers outside the author's main field keep their pooled percentile, and that
-fields differ in how often peers tie, which also shapes the distribution of the score. Within each field, pooled and
+fields differ in how often peers tie, which also shapes the distribution of the score around its fixed mean. Within each field, pooled and
 field-normalized scores correlate at 0.91--0.99.
 
 \begin{figure}[t]
@@ -1303,44 +1320,54 @@ which anyone signed in to Google Cloud can query (queries are billed to the read
 \providecommand{\square}{\mdlgwhtsquare}
 
 This appendix states and proves the mathematical properties of the standing curve, the grid and integral forms of PiP,
-the cohort-mean identity, the upward-rounding equivalence, and the order-statistics formula for exact integration in
+the cohort mean, the upward-rounding equivalence, and the order-statistics formula for exact integration in
 Section~\ref{sec:pip} and \texttt{COMPUTATION.md}. Every proposition is formally verified in Lean~4 with Mathlib
 (\texttt{paper/lean/} in the replication package; Table~\ref{tab:lean}).
 
 Let $\Peers$ be a finite peer cohort of size $N = |\Peers| \ge 1$. Each author $b \in \Peers$ has a finite list of
 article percentiles $(y_{b,1}, \dots, y_{b,n_b(0)})$ in $[0, 1)$, and at any threshold $\theta \in [0, 1]$ has qualifying
 count $n_b(\theta) = |\{j : y_{b,j} \ge \theta\}| \in \mathbb{N}_0$. For a focal author $a \in \Peers$, the standing at
-$\theta$ is $g_a(\theta) = N^{-1}\sum_{b \in \Peers} \mathbf{1}\{n_b(\theta) < n_a(\theta)\}$, and the continuous score
-with cutoff $\tau \in [0, 1)$ is $\PiP_\tau(a) = (1-\tau)^{-1}\int_\tau^1 g_a(\theta)\,d\theta$. Given a non-empty finite
+$\theta$ is $g_a(\theta) = N^{-1}\sum_{b \in \Peers} \bigl(\mathbf{1}\{n_b(\theta) < n_a(\theta)\} + \tfrac12
+\mathbf{1}\{n_b(\theta) = n_a(\theta)\}\bigr)$, where the sum includes $b = a$, and the continuous score with cutoff
+$\tau \in [0, 1)$ is $\PiP_\tau(a) = (1-\tau)^{-1}\int_\tau^1 g_a(\theta)\,d\theta$. Given a non-empty finite
 threshold grid $\mathcal{T} = \{t_1, \dots, t_K\} \subset [\tau, 1]$ of size $K \ge 1$ and counts $n_{b,k} = n_b(t_k)$,
 the finite-grid score is
 \begin{equation}
   S(a) = \frac{1}{K}\sum_{k=1}^{K} g_a(t_k)
-  = \frac{1}{NK}\sum_{k=1}^{K}\sum_{b \in \Peers} \mathbf{1}\{n_{b,k} < n_{a,k}\}.
+  = \frac{1}{NK}\sum_{k=1}^{K}\sum_{b \in \Peers} \Bigl(\mathbf{1}\{n_{b,k} < n_{a,k}\} + \tfrac12
+  \mathbf{1}\{n_{b,k} = n_{a,k}\}\Bigr).
   \label{eq:gridscore}
 \end{equation}
+Writing $L_\theta(m) = N^{-1}|\{b \in \Peers : n_b(\theta) < m\}|$ for the share of peers with fewer than $m$ qualifying
+articles, the standing is the mean of two such shares, $g_a(\theta) = \tfrac12\bigl(L_\theta(n_a(\theta)) +
+L_\theta(n_a(\theta) + 1)\bigr)$, because a peer has at most $m$ articles exactly when it has fewer than $m + 1$.
 
-\paragraph{Proposition C.1 (Bounds, zero score below cutoff, and sawtooth step).}
+\paragraph{Proposition C.1 (Bounds, floor below the cutoff, and sawtooth step).}
 \emph{Let $a \in \Peers$ ($N = |\Peers| \ge 1$).}
 \begin{enumerate}
-  \item[(i)] \emph{At every threshold $\theta$, $0 \le g_a(\theta) \le (N-1)/N < 1$, and thus both $S(a)$ and
-  $\PiP_\tau(a)$ lie in $[0, (N-1)/N]$.}
-  \item[(ii)] \emph{If $n_a(\theta) = 0$, then $g_a(\theta) = 0$. If every article of $a$ has $y_{a,j} < \tau$, then
-  $S(a) = 0$ and $\PiP_\tau(a) = 0$.}
+  \item[(i)] \emph{At every threshold $\theta$, $1/(2N) \le g_a(\theta) \le 1 - 1/(2N)$, and thus both $S(a)$ and
+  $\PiP_\tau(a)$ lie in $[1/(2N),\, 1 - 1/(2N)] \subset (0, 1)$.}
+  \item[(ii)] \emph{If $n_a(\theta) = 0$, then $g_a(\theta) = z(\theta)/2$, where $z(\theta) = N^{-1}|\{b \in \Peers :
+  n_b(\theta) = 0\}|$ is the share of peers with no qualifying article, and $g_a(\theta) \le g_b(\theta)$ for every $b \in
+  \Peers$. If every article of $a$ has $y_{a,j} < \tau$, then $S(a) = (2K)^{-1}\sum_{k} z(t_k)$ and $\PiP_\tau(a) =
+  (2(1-\tau))^{-1}\int_\tau^1 z(\theta)\,d\theta$, and no peer in $\Peers$ has a lower score.}
   \item[(iii)] \emph{If $\theta_1 \le \theta_2$ and $n_a(\theta_1) = n_a(\theta_2)$, then $g_a(\theta_1) \le
   g_a(\theta_2)$.}
 \end{enumerate}
 
 \noindent\emph{Proof.}
-(i) The strict-comparison set $\{b \in \Peers : n_b(\theta) < n_a(\theta)\}$ has non-negative size and excludes $a$ by
-irreflexivity of $<$, so its cardinality is at most $N - 1$. Dividing by $N > 0$ gives $0 \le g_a(\theta) \le (N-1)/N <
-1$, and averaging over $k$ or integrating over $[\tau, 1]$ preserves both bounds.
-(ii) Since $n_b(\theta) \ge 0$ for all $b \in \Peers$, no peer satisfies $n_b(\theta) < 0$, so $n_a(\theta) = 0$ implies
-$g_a(\theta) = 0$. If $y_{a,j} < \tau$ for all $j$, then $n_a(\theta) = 0$ for every $\theta \ge \tau$, making every
-summand of $S(a)$ and the integrand of $\PiP_\tau(a)$ zero.
+(i) The sets $B = \{b \in \Peers : n_b(\theta) < n_a(\theta)\}$ and $E = \{b \in \Peers : n_b(\theta) = n_a(\theta)\}$ are
+disjoint subsets of $\Peers$, and $a \in E$, so $|E| \ge 1$ and $|B| + |E| \le N$. Hence $N g_a(\theta) = |B| +
+\tfrac12|E| \ge \tfrac12$ and $N g_a(\theta) = (|B| + |E|) - \tfrac12|E| \le N - \tfrac12$; averaging over $k$ or
+integrating over $[\tau, 1]$ preserves both bounds.
+(ii) Since $n_b(\theta) \ge 0$ for all $b \in \Peers$, $n_a(\theta) = 0$ gives $B = \emptyset$ and $|E| = N z(\theta)$, so
+$g_a(\theta) = z(\theta)/2$. A peer $b$ with $n_b(\theta) = 0$ has the same standing; a peer with $n_b(\theta) > 0$ ranks
+above every peer with none, so $g_b(\theta) \ge z(\theta) + 1/(2N) > z(\theta)/2$. If $y_{a,j} < \tau$ for all $j$, then
+$n_a(\theta) = 0$ for every $\theta \ge \tau$, and averaging or integrating the two statements gives the claim.
 (iii) For every $b \in \Peers$, $\theta_1 \le \theta_2$ implies $\{j : y_{b,j} \ge \theta_2\} \subseteq \{j : y_{b,j}
-\ge \theta_1\}$ and thus $n_b(\theta_2) \le n_b(\theta_1)$. Whenever $n_b(\theta_1) < n_a(\theta_1) = n_a(\theta_2)$,
-transitivity gives $n_b(\theta_2) < n_a(\theta_2)$, so $g_a(\theta_1) \le g_a(\theta_2)$. \hfill$\square$
+\ge \theta_1\}$ and thus $n_b(\theta_2) \le n_b(\theta_1)$. With $m = n_a(\theta_1) = n_a(\theta_2)$, a peer with fewer
+than $m$ (or than $m + 1$) qualifying articles at $\theta_1$ still has fewer at $\theta_2$, so $L_{\theta_1}(m) \le
+L_{\theta_2}(m)$ and $L_{\theta_1}(m + 1) \le L_{\theta_2}(m + 1)$, and $g_a(\theta_1) \le g_a(\theta_2)$. \hfill$\square$
 
 \begin{table}[t]
   \centering
@@ -1355,9 +1382,9 @@ transitivity gives $n_b(\theta_2) < n_a(\theta_2)$, so $g_a(\theta_1) \le g_a(\t
     Result & Module (\texttt{PiP/}) & Principal Lean theorem names \tabularnewline
     \midrule
     Prop.\ C.1(i): Score bounds & \texttt{Basic.lean} &
-      \raggedright\texttt{gridScore\_nonneg}, \texttt{gridScore\_le\_pred\_div\_card}, \texttt{gridScore\_lt\_one} \tabularnewline
-    Prop.\ C.1(ii): Zero below cutoff & \texttt{Basic.lean} &
-      \raggedright\texttt{standing\_eq\_zero\_of\_count\_eq\_zero}, \texttt{gridScore\_eq\_zero\_of\_all\_below\_cutoff} \tabularnewline
+      \raggedright\texttt{gridScore\_ge\_inv\_two\_card}, \texttt{gridScore\_le\_one\_sub\_inv\_two\_card}, \texttt{gridScore\_lt\_one} \tabularnewline
+    Prop.\ C.1(ii): Floor below cutoff & \texttt{Basic.lean} &
+      \raggedright\texttt{standing\_of\_count\_eq\_zero}, \texttt{gridScore\_eq\_of\_all\_below\_cutoff}, \texttt{gridScore\_le\_of\_all\_below\_cutoff} \tabularnewline
     Prop.\ C.1(iii): Sawtooth step & \texttt{Basic.lean} &
       \raggedright\texttt{standing\_mono\_threshold\_on\_const\_count} \tabularnewline
     Prop.\ C.2: Monotonicity & \texttt{Basic.lean} &
@@ -1371,7 +1398,7 @@ transitivity gives $n_b(\theta_2) < n_a(\theta_2)$, so $g_a(\theta_1) \le g_a(\t
     Prop.\ C.4: Strict rounding & \texttt{GridIntegral.lean} &
       \raggedright\texttt{roundUp\_ge\_iff\_ge\_grid}, \texttt{standingAt\_roundUp\_eq\_on\_cell}, \texttt{grid\_eq\_integral\_roundUp} \tabularnewline
     Prop.\ C.5: Exact integration & \texttt{ExactIntegral.lean} &
-      \raggedright\texttt{countAboveList\_lt\_iff\_kthPercentile\_lt}, \texttt{integral\_standingAt\_const\_eq\_H\_sub\_H}, \texttt{H\_eq\_asof\_formula} \tabularnewline
+      \raggedright\texttt{countAboveList\_lt\_iff\_kthPercentile\_lt}, \texttt{integral\_standingAt\_const\_eq\_H\_sub\_H}, \texttt{pip\_eq\_sum\_H\_sub\_H}, \texttt{H\_eq\_asof\_formula} \tabularnewline
     \bottomrule
   \end{tabular}
 \end{table}
@@ -1390,9 +1417,10 @@ and the focal author's other article percentiles held fixed:}
 \end{enumerate}
 
 \noindent\emph{Proof.}
-Fix $k$ and any peer $b \in \Peers$ with $n_{b,k} < n_{a,k}$. Since $n_{a,k} < n_{a,k}$ is false, $b \ne a$, so
-$n'_{b,k} = n_{b,k} < n_{a,k} \le n'_{a,k}$. Thus $\{b \in \Peers : n_{b,k} < n_{a,k}\} \subseteq \{b \in \Peers :
-n'_{b,k} < n'_{a,k}\}$, which yields $g_a(t_k) \le g'_a(t_k)$ for each $k$ and $S(a) \le S'(a)$ upon averaging. Under
+Fix $k$ and write $2N g_a(t_k) = |\{b \in \Peers : n_{b,k} < n_{a,k}\}| + |\{b \in \Peers : n_{b,k} \le n_{a,k}\}|$. The
+focal author belongs to the second set and not to the first under both profiles. Any other peer $b \ne a$ with $n_{b,k}
+< n_{a,k}$ satisfies $n'_{b,k} = n_{b,k} < n_{a,k} \le n'_{a,k}$, and likewise with $\le$ in place of $<$, so both sets
+can only grow. This yields $g_a(t_k) \le g'_a(t_k)$ for each $k$ and $S(a) \le S'(a)$ upon averaging. Under
 (i), appending $y$ increases $n_a(\theta)$ by $\mathbf{1}\{y \ge \theta\} \ge 0$ while leaving $n_b(\theta)$ unchanged
 for $b \ne a$; under (ii), replacing $y$ by $y' \ge y$ satisfies $\mathbf{1}\{y \ge \theta\} \le \mathbf{1}\{y' \ge
 \theta\}$ at every $\theta$; under (iii), $y < \tau \le \theta$ implies $\mathbf{1}\{y \ge \theta\} = 0$ for all
@@ -1404,33 +1432,40 @@ same-year percentiles are recomputed via $y_i = |\{\ell : c_\ell < c_i\}|/M_{\te
 focal author's papers lowers that second paper's percentile and can reduce PiP. Consider a publication year with four
 papers and citation counts $c = (0, 0, 1, 2)$, giving strict percentiles $(0, 0, 1/2, 3/4)$. Let $\Peers = \{a, b\}$,
 where $a$ authored the third and fourth papers (percentiles $1/2$ and $3/4$) and $b$ authored the first two (percentile
-$0$). On $(1/2, 3/4]$, $n_a(\theta) = 1 > 0 = n_b(\theta)$, so $g_a(\theta) = 1/2$ and $\PiP_{1/2}(a) = 1/4$. When $a$'s
-third paper gains one citation, $c' = (0, 0, 2, 2)$ and the recomputed percentiles become $(0, 0, 1/2, 1/2)$; on $(1/2,
-3/4]$, $n_a(\theta)$ drops from $1$ to $0$, reducing $g_a(\theta)$ from $1/2$ to $0$ and $\PiP_{1/2}(a)$ from $1/4$ to $0$.
+$0$). On $(1/2, 3/4]$, $n_a(\theta) = 1 > 0 = n_b(\theta)$, so $g_a(\theta) = (1 + \tfrac12)/2 = 3/4$; on $(3/4, 1]$ both
+have no article and $g_a(\theta) = 1/2$; hence $\PiP_{1/2}(a) = 2\,(\tfrac14 \cdot \tfrac34 + \tfrac14 \cdot \tfrac12) =
+5/8$. When $a$'s third paper gains one citation, $c' = (0, 0, 2, 2)$ and the recomputed percentiles become $(0, 0, 1/2,
+1/2)$; on $(1/2, 3/4]$, $n_a(\theta)$ drops from $1$ to $0$, reducing $g_a(\theta)$ from $3/4$ to $1/2$ and
+$\PiP_{1/2}(a)$ from $5/8$ to $1/2$.
 
-\paragraph{Proposition C.3 (Cohort-mean tie identity).}
-\emph{Let $p_{k,m} = N^{-1}|\{a \in \Peers : n_{a,k} = m\}|$ and $p_{\theta,m} = N^{-1}|\{a \in \Peers : n_a(\theta) =
-m\}|$ denote the share of peers in $\Peers$ with qualifying count $m \in \mathbb{N}_0$. Then}
+\paragraph{Proposition C.3 (Cohort mean).}
+\emph{At every threshold $\theta$ the standings of a peer group average one half, and so do its scores, for every grid
+and every cutoff:}
 \begin{equation}
-  \frac{1}{N}\sum_{a \in \Peers} S(a) = \frac{1}{2K}\sum_{k=1}^{K}\Bigl(1 - \sum_{m \ge 0} p_{k,m}^2\Bigr) < \frac{1}{2},
+  \frac{1}{N}\sum_{a \in \Peers} g_a(\theta) = \frac{1}{2},
   \qquad
-  \frac{1}{N}\sum_{a \in \Peers} \PiP_\tau(a)
-  = \frac{1}{2(1-\tau)}\int_\tau^1 \Bigl(1 - \sum_{m \ge 0} p_{\theta,m}^2\Bigr)\,d\theta .
+  \frac{1}{N}\sum_{a \in \Peers} S(a) = \frac{1}{2},
+  \qquad
+  \frac{1}{N}\sum_{a \in \Peers} \PiP_\tau(a) = \frac{1}{2} .
   \label{eq:gridmean}
 \end{equation}
 
 \noindent\emph{Proof.}
-Fix $k$ and partition the $N^2$ ordered pairs $(a, b) \in \Peers \times \Peers$ by trichotomy into $W_k = \{(a,b) :
-n_{b,k} < n_{a,k}\}$, $L_k = \{(a,b) : n_{a,k} < n_{b,k}\}$, and $T_k = \{(a,b) : n_{a,k} = n_{b,k}\}$. The involution
-$(a, b) \mapsto (b, a)$ is a bijection between $W_k$ and $L_k$, so $|W_k| = |L_k|$, while grouping $T_k$ by the common
-value $m = n_{a,k} = n_{b,k}$ gives $|T_k| = \sum_{m \ge 0} |\{a \in \Peers : n_{a,k} = m\}|^2 = N^2 \sum_{m \ge 0}
-p_{k,m}^2$. Because $|W_k| + |L_k| + |T_k| = 2|W_k| + |T_k| = N^2$ and $\sum_{a \in \Peers} g_a(t_k) = |W_k|/N$,
-dividing by $2N^2$ gives $N^{-1}\sum_{a \in \Peers} g_a(t_k) = \frac{1}{2}(1 - \sum_{m \ge 0} p_{k,m}^2)$. Since $N \ge
-1$, at least one count $m$ has $p_{k,m} > 0$, so $\sum_{m \ge 0} p_{k,m}^2 > 0$ and the mean is strictly below $1/2$.
-Averaging over $k = 1, \dots, K$ gives the first identity in Eq.~\ref{eq:gridmean}, and integrating over $\theta \in
-[\tau, 1]$ gives the second (Section~\ref{sec:definition}). Five conventions enter: every author is evaluated against
-$\Peers$; the focal author remains in $\Peers$ (contributing $(a,a) \in T_k$); comparisons are strict; peers with
-$n_{b,k} = 0$ stay in $\Peers$; and the pair interpretation samples with replacement. \hfill$\square$
+Fix $\theta$ and partition the $N^2$ ordered pairs $(a, b) \in \Peers \times \Peers$ by trichotomy into $W = \{(a,b) :
+n_b(\theta) < n_a(\theta)\}$, $L = \{(a,b) : n_a(\theta) < n_b(\theta)\}$, and $T = \{(a,b) : n_a(\theta) =
+n_b(\theta)\}$. The involution $(a, b) \mapsto (b, a)$ is a bijection between $W$ and $L$, so $|W| = |L|$ and $2|W| +
+|T| = N^2$. Because $N\sum_{a \in \Peers} g_a(\theta) = |W| + \tfrac12|T| = N^2/2$, the mean standing is $1/2$.
+Averaging over the grid gives the second identity in Eq.~\ref{eq:gridmean}, and integrating over $\theta \in [\tau, 1]$
+and dividing by $1 - \tau$ gives the third. Three conventions enter: every author is evaluated against $\Peers$; the
+focal author remains in $\Peers$ (contributing $(a,a) \in T$); and peers with no qualifying article stay in $\Peers$.
+\hfill$\square$
+
+\paragraph{Remark (Ties counted zero).}
+If the standing counted only the peers with strictly fewer articles, the same partition would give a mean standing of
+$|W|/N^2 = \tfrac12\bigl(1 - \sum_{m \ge 0} p_{\theta,m}^2\bigr)$, where $p_{\theta,m} = N^{-1}|\{a \in \Peers :
+n_a(\theta) = m\}|$ is the share of peers with qualifying count $m$ (grouping $T$ by the common count gives $|T| = N^2
+\sum_{m} p_{\theta,m}^2$). That mean is below $1/2$ and falls as ties become more common (Section~\ref{sec:properties});
+this remark is not part of the Lean formalization.
 
 \paragraph{Proposition C.4 (Grid-to-integral equivalence under strict upward rounding).}
 \emph{For an integer grid size $M \ge 1$ and cutoff index $0 \le q < M$ with $\tau = q/M$, define $R_M(y) = (\lfloor M y
@@ -1455,26 +1490,29 @@ qualifies throughout $(\tau, (q+1)/M]$. \hfill$\square$
 \emph{For each peer $b \in \Peers$, sort $b$'s article percentiles in non-increasing order $y_{b,(1)} \ge y_{b,(2)} \ge
 \cdots \ge y_{b,(n_b(0))}$ and set $y_{b,(k)} = 0$ for $k > n_b(0)$. Then for every integer $k \ge 1$ and threshold
 $\theta > 0$, $n_b(\theta) < k$ if and only if $y_{b,(k)} < \theta$. Therefore, on any interval $(x_0, x_1] \subseteq
-[\tau, 1]$ with $0 \le x_0 \le x_1$ on which the focal author has constant count $n_a(\theta) = k \ge 1$,}
+[\tau, 1]$ with $0 \le x_0 \le x_1$ on which the focal author has constant count $n_a(\theta) = k \ge 0$,}
 \begin{equation}
-  \int_{x_0}^{x_1} g_a(\theta)\, d\theta = H_k(x_1) - H_k(x_0),
+  \int_{x_0}^{x_1} g_a(\theta)\, d\theta = \tfrac12\bigl[H_k(x_1) - H_k(x_0)\bigr] + \tfrac12\bigl[H_{k+1}(x_1) -
+  H_{k+1}(x_0)\bigr],
   \qquad
   H_k(x) = \frac{1}{N}\sum_{b \in \Peers} \max\!\bigl(x - y_{b,(k)},\, 0\bigr)
   = \frac{c_k(x)\, x - s_k(x)}{N},
   \label{eq:exactint}
 \end{equation}
-\emph{where $c_k(x) = |\{b \in \Peers : y_{b,(k)} \le x\}|$ and $s_k(x) = \sum_{b \in \Peers : y_{b,(k)} \le x}
-y_{b,(k)}$.}
+\emph{where $H_0 \equiv 0$, $c_k(x) = |\{b \in \Peers : y_{b,(k)} \le x\}|$ and $s_k(x) = \sum_{b \in \Peers : y_{b,(k)}
+\le x} y_{b,(k)}$ for $k \ge 1$. The case $k = 0$ covers the thresholds above the focal author's best article.}
 
 \noindent\emph{Proof.}
 Since $b$'s percentiles are non-increasing in $[0, 1)$, at least $k$ entries satisfy $y_{b,j} \ge \theta > 0$ if and only
 if $k \le n_b(0)$ and the $k$-th entry satisfies $y_{b,(k)} \ge \theta$; since $y_{b,(k)} = 0 < \theta$ when $k >
-n_b(0)$, negation gives $n_b(\theta) < k \iff y_{b,(k)} < \theta$. Thus, for $\theta \in (x_0, x_1]$ where $n_a(\theta) =
-k$, $g_a(\theta) = N^{-1}\sum_{b \in \Peers} \mathbf{1}\{y_{b,(k)} < \theta\}$. For each peer $b$, $\int_{x_0}^{x_1}
-\mathbf{1}\{y_{b,(k)} < \theta\}\, d\theta = \max(x_1 - \max(x_0, y_{b,(k)}), 0) = \max(x_1 - y_{b,(k)}, 0) - \max(x_0 -
-y_{b,(k)}, 0)$ whenever $x_0 \le x_1$. Averaging over $b \in \Peers$ gives $H_k(x_1) - H_k(x_0)$. Finally, partitioning
-$\Peers$ into $\{b : y_{b,(k)} \le x\}$ (where $\max(x - y_{b,(k)}, 0) = x - y_{b,(k)}$) and $\{b : y_{b,(k)} > x\}$
-(where $\max(x - y_{b,(k)}, 0) = 0$) gives $N H_k(x) = c_k(x)\, x - s_k(x)$, the running count-and-sum formula evaluated
-by \texttt{sql/25\_pip\_exact.sql}. \hfill$\square$
+n_b(0)$, negation gives $n_b(\theta) < k \iff y_{b,(k)} < \theta$, that is, $L_\theta(k) = N^{-1}\sum_{b \in \Peers}
+\mathbf{1}\{y_{b,(k)} < \theta\}$ for $k \ge 1$, while $L_\theta(0) = 0$. For $\theta \in (x_0, x_1]$ where $n_a(\theta) =
+k$, $g_a(\theta) = \tfrac12\bigl(L_\theta(k) + L_\theta(k+1)\bigr)$. For each peer $b$ and each $m \ge 1$,
+$\int_{x_0}^{x_1} \mathbf{1}\{y_{b,(m)} < \theta\}\, d\theta = \max(x_1 - \max(x_0, y_{b,(m)}), 0) = \max(x_1 - y_{b,(m)},
+0) - \max(x_0 - y_{b,(m)}, 0)$ whenever $x_0 \le x_1$. Averaging over $b \in \Peers$ gives $\int_{x_0}^{x_1} L_\theta(m)\,
+d\theta = H_m(x_1) - H_m(x_0)$, and applying it to $m = k$ and $m = k + 1$ gives Eq.~\ref{eq:exactint}. Finally,
+partitioning $\Peers$ into $\{b : y_{b,(k)} \le x\}$ (where $\max(x - y_{b,(k)}, 0) = x - y_{b,(k)}$) and $\{b : y_{b,(k)} >
+x\}$ (where $\max(x - y_{b,(k)}, 0) = 0$) gives $N H_k(x) = c_k(x)\, x - s_k(x)$, the running count-and-sum formula
+evaluated by \texttt{sql/25\_pip\_exact.sql}. \hfill$\square$
 
 \end{document}
