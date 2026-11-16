@@ -103,4 +103,25 @@ q 'SELECT DISTINCT start_year,
      PERCENTILE_CONT(sym_tau90, 0.5) OVER w AS sym_tau90
    FROM `scholar-version2.paper_rp.pip_variants` WHERE age = 10 AND start_year BETWEEN 1960 AND 2015
    WINDOW w AS (PARTITION BY start_year) ORDER BY start_year' > tau_sweep_cohort_medians.csv
+# Calibration figure: PiP against the author's percentile in the cohort at every cutoff, career age 10, start years
+# 1960-2015, with a tie counted one half (the paper's rule) and counted zero (strict_*). One row per rule, cutoff and
+# cell of a 50 x 50 grid over (score, percentile): authors, sums of score, percentile and |score - percentile|, and
+# the number within 0.05. The percentile is the Hazen mid-rank of the score within the start year.
+q 'WITH long_form AS (
+     SELECT start_year, rule, tau_pct, x
+     FROM `scholar-version2.paper_rp.pip_variants`,
+       UNNEST([STRUCT("half" AS rule, 0 AS tau_pct, sym AS x), ("half", 25, sym_tau25), ("half", 50, sym_tau50),
+               ("half", 60, sym_tau60), ("half", 75, sym_tau75), ("half", 90, sym_tau90),
+               ("zero", 0, strict), ("zero", 25, strict_tau25), ("zero", 50, strict_tau50),
+               ("zero", 60, strict_tau60), ("zero", 75, strict_tau75), ("zero", 90, strict_tau90)])
+     WHERE age = 10 AND start_year BETWEEN 1960 AND 2015),
+   r AS (
+     SELECT rule, tau_pct, x,
+       (COUNT(*) OVER w + RANK() OVER (w ORDER BY x) - RANK() OVER (w ORDER BY x DESC)) / (2 * COUNT(*) OVER w) AS pct
+     FROM long_form WINDOW w AS (PARTITION BY rule, tau_pct, start_year))
+   SELECT rule, tau_pct, LEAST(49, CAST(FLOOR(x * 50) AS INT64)) AS score_bin,
+     LEAST(49, CAST(FLOOR(pct * 50) AS INT64)) AS pct_bin, COUNT(*) AS authors, SUM(x) AS sum_score,
+     SUM(pct) AS sum_pct, SUM(ABS(x - pct)) AS sum_abs_gap, COUNTIF(ABS(x - pct) <= 0.05) AS within_05,
+     MAX(ABS(x - pct)) AS max_abs_gap
+   FROM r GROUP BY rule, tau_pct, score_bin, pct_bin ORDER BY rule, tau_pct, score_bin, pct_bin' > fig_calibration.csv
 ls -la

@@ -411,7 +411,8 @@ average exactly $0.5$ at every threshold, and the mean of PiP is $0.5$ in every 
 every cutoff (Appendix~\ref{app:proofs}). A score above $0.5$ means that, across the thresholds above $\tau$, the author
 outranks peers more often than peers outrank the author.
 
-With the mean fixed, the score stays close to the author's percentile in the cohort. At career age 10, across cohorts
+With the mean fixed, the score stays close to the author's percentile in the cohort
+(Figure~\ref{fig:calibration}). At career age 10, across cohorts
 from 1960 to 2015, PiP differs from the author's cohort percentile by 0.04 on average and never by more than 0.10; the
 lower quartile of PiP lies between 0.28 and 0.29, the median between 0.47 and 0.48, the upper quartile between 0.70 and
 0.71 and the 90th percentile at 0.87 (Section~\ref{sec:cohorts}). A score of 0.60 sits near the 64th percentile of its
@@ -641,6 +642,26 @@ across cohorts, because more authors share the floor (Section~\ref{sec:propertie
 eligible authors with nothing above the cutoff rises from under 0.1\% to 15\% at $\tau = 0.75$, where the lower quartile
 moves from 0.29 to 0.26, and from 6\% to 42\% at $\tau = 0.9$, where all these authors score 0.28 in the 2010 cohort and
 the median falls from 0.48 to 0.41 (Table~\ref{tab:tau}).
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\textwidth]{fig_calibration.pdf}
+  \caption{PiP against the author's percentile in the cohort, at six cutoffs $\tau$. Eligible authors at career age 10,
+  start years 1960--2015 (5.28 million). The percentile is the mid-rank of the score among the eligible authors with
+  the same start year. Shading: share of authors by score and percentile, with a tie counted one half. Lines: mean
+  percentile of the authors with a given score, with a tie counted one half (solid) and with a tie counted zero
+  (dashed); on the diagonal the score equals the percentile. Each panel reports, for a tie counted one half, the mean
+  absolute difference between score and percentile and the share of authors within 0.05.}
+  \label{fig:calibration}
+\end{figure}
+
+The cutoff also decides how well a score can be read as a position in the cohort (Figure~\ref{fig:calibration}). From
+$\tau = 0$ to $\tau = 0.75$ the score follows the author's cohort percentile: the two differ by 0.036 to 0.040 on
+average and by at most 0.12, and 80\% to 84\% of authors score within 0.05 of their percentile. The scale is compressed
+at the low end, where a score of 0.15 corresponds to about the 7th percentile at $\tau = 0.5$, and above the median the
+score runs up to 0.04 below the percentile. At $\tau = 0.9$ the authors on the floor form a block at one score, the mean
+difference rises to 0.061 and only 27\% of authors are within 0.05 of their percentile. With a tie counted as zero the
+difference grows with the cutoff, from 0.062 at $\tau = 0$ to 0.188 at $\tau = 0.9$ (Section~\ref{sec:properties}).
 
 We use $\tau = 0.5$ as the default: it has a one-line explanation (only papers in the top half of their year count),
 balances the correlations with quantity (0.64) and with top papers (0.58), best predicts a future top-1\% paper and

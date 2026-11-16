@@ -8,6 +8,7 @@
   fig_fields           share of each field in its cohort's top 10%: pooled vs field-normalized score
   fig_frontier         PiP at every cutoff against percentile-based indicators: future quantity vs future impact
   fig_early            early detection: accuracy by the career age at which each indicator is measured
+  fig_calibration      PiP against the author's percentile in the cohort, at every cutoff and under both tie rules
 
 Run: python3 paper/figures/make_figures.py   (matplotlib; Inter if installed)
 """
@@ -19,6 +20,8 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib import font_manager
+from matplotlib.colors import LinearSegmentedColormap, PowerNorm
+from matplotlib.lines import Line2D
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 DATA = os.path.join(HERE, "data")
@@ -526,6 +529,58 @@ def fig_early():
     save(fig, "fig_early")
 
 
+def fig_calibration():
+    """PiP against the author's cohort percentile at six cutoffs (career age 10): density of authors with a tie counted
+    one half, mean percentile per score bin under both tie rules, and the diagonal score = percentile."""
+    rows = read("fig_calibration.csv")
+    ramp = LinearSegmentedColormap.from_list("blue", [SURFACE, BLUE_LIGHT, "#86b6ef", "#3987e5", "#1c5cab", "#0d366b"])
+    fig, axes = plt.subplots(2, 3, figsize=(7.0, 5.15), facecolor=SURFACE, sharex=True, sharey=True)
+    for i, tau in enumerate([0, 25, 50, 60, 75, 90]):
+        ax = axes[i // 3][i % 3]
+        clean(ax, f"τ = {tau / 100:g}" + (" (default)" if tau == 50 else ""), grid_axis="both")
+        cells = {rule: [r for r in rows if r["rule"] == rule and int(r["tau_pct"]) == tau] for rule in ("half", "zero")}
+        n = sum(int(r["authors"]) for r in cells["half"])
+        grid = [[0.0] * 50 for _ in range(50)]
+        for r in cells["half"]:
+            grid[int(r["pct_bin"])][int(r["score_bin"])] = int(r["authors"]) / n
+        # Each cell is written as 8 x 8 pixels so PDF viewers that smooth small images keep the cells sharp; the image
+        # is opaque, and the grid lines are drawn above it (set_axisbelow("line")) and below the curves.
+        big = [[v for v in row for _ in range(8)] for row in grid for _ in range(8)]
+        ax.imshow(big, origin="lower", extent=(0, 1, 0, 1), cmap=ramp, interpolation="nearest", zorder=1,
+                  norm=PowerNorm(0.45, vmin=0, vmax=max(max(row) for row in grid)), aspect="equal")
+        ax.set_axisbelow("line")
+        ax.plot([0, 1], [0, 1], color=INK2, linewidth=0.8, linestyle=(0, (4, 3)), zorder=3)
+        for rule, style in (("zero", dict(color=ORANGE, linewidth=1.3, linestyle=(0, (5, 2)))),
+                            ("half", dict(color=BLUE, linewidth=1.5))):
+            bins = {}
+            for r in cells[rule]:   # score bins of width 0.04; bins with few authors are left out
+                b = bins.setdefault(int(r["score_bin"]) // 2, [0, 0.0, 0.0])
+                b[0] += int(r["authors"]); b[1] += float(r["sum_score"]); b[2] += float(r["sum_pct"])
+            pts = [(sx / m, sp / m) for _, (m, sx, sp) in sorted(bins.items()) if m >= 2000]
+            ax.plot([x for x, _ in pts], [y for _, y in pts], zorder=4, **style)
+            if rule == "half":
+                dots(ax, [x for x, _ in pts], [y for _, y in pts], BLUE, ms=3.0)
+        gap = sum(float(r["sum_abs_gap"]) for r in cells["half"]) / n
+        within = sum(int(r["within_05"]) for r in cells["half"]) / n
+        ax.text(0.97, 0.04, f"mean gap {gap:.3f}\nwithin 0.05: {within * 100:.0f}%", transform=ax.transAxes,
+                ha="right", va="bottom", color=INK2, fontsize=6.6, zorder=5)
+        ax.set_xlim(0, 1); ax.set_ylim(0, 1)
+        ax.set_xticks([0, 0.25, 0.5, 0.75, 1]); ax.set_xticklabels(["0", ".25", ".5", ".75", "1"])
+        ax.set_yticks([0, 0.25, 0.5, 0.75, 1]); ax.set_yticklabels(["0", ".25", ".5", ".75", "1"])
+        if i // 3 == 1:
+            ax.set_xlabel("PiP score")
+        if i % 3 == 0:
+            ax.set_ylabel("Percentile in the cohort")
+    handles = [Line2D([], [], color=BLUE, linewidth=1.5, marker="o", markersize=3.0, markeredgecolor=SURFACE,
+                      label="Tie counted one half: mean percentile by score"),
+               Line2D([], [], color=ORANGE, linewidth=1.3, linestyle=(0, (5, 2)), label="Tie counted zero"),
+               Line2D([], [], color=INK2, linewidth=0.8, linestyle=(0, (4, 3)), label="Score = percentile")]
+    fig.legend(handles=handles, loc="lower center", ncol=3, bbox_to_anchor=(0.5, 0.0), handlelength=2.6)
+    fig.tight_layout(rect=(0, 0.045, 1, 1), w_pad=0.6)
+    fig.subplots_adjust(hspace=0.2)
+    save(fig, "fig_calibration")
+
+
 if __name__ == "__main__":
     setup()
     args = list(sys.argv[1:])
@@ -534,7 +589,7 @@ if __name__ == "__main__":
         EXPORT_DIR = args[idx + 1]
         del args[idx:idx + 2]
     all_figs = [fig_pip_construction, fig_standing_curves, fig_paper_stability, fig_cohorts,
-                fig_prediction, fig_fields, fig_frontier, fig_early]
+                fig_prediction, fig_fields, fig_frontier, fig_early, fig_calibration]
     only = set(args)
     for fn in all_figs:
         if not only or fn.__name__ in only:

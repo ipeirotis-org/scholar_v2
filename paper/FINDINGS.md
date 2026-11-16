@@ -1109,6 +1109,22 @@ Career age 10, start years 1960–2015, 5,279,295 authors, 56 cohorts:
 | Lowest score in a cohort, range | 0.070–0.109 | 0 | 0.076–0.189 | 0 | 0.116–0.288 | 0 |
 | Share of a cohort at the lowest score, range | 0.0%–1.3% | 0.0%–1.3% | 0.0%–15.4% | 0.0%–15.4% | 5.6%–42.5% | 5.6%–42.5% |
 
+All six cutoffs (`figures/data/fig_calibration.csv`, `figures/fig_calibration.pdf`; mean absolute gap between the score
+and the cohort percentile / share of authors within 0.05):
+
+| τ | Tie ½ | Tie 0 |
+|---|---|---|
+| 0 | 0.036 / 81.5% | 0.062 / 33.0% |
+| 0.25 | 0.038 / 80.2% | 0.070 / 29.4% |
+| 0.5 | 0.037 / 81.1% | 0.083 / 20.5% |
+| 0.6 | 0.037 / 82.6% | 0.092 / 17.1% |
+| 0.75 | 0.040 / 84.4% | 0.119 / 11.1% |
+| 0.9 | 0.061 / 26.8% | 0.188 / 10.1% |
+
+- **The score reads as a cohort percentile up to τ = 0.75, not at 0.9.** With a tie at one half the gap is 0.036–0.040
+  from τ = 0 to 0.75 and the largest gap for any author is 0.10–0.12. The scale is compressed at the low end (at
+  τ = 0.5 a score of 0.15 is about the 7th percentile) and runs up to 0.04 below the percentile above the median. At
+  τ = 0.9 the authors on the floor form a block at one score and only 27% are within 0.05.
 - **The price is a floor above zero.** An author with nothing above the cutoff ties, at every threshold above it, with
   the peers who have nothing there, and gets half their share. At τ = 0.5 the floor is 0.07–0.11 and at most 1.3% of
   a cohort sits on it. At τ = 0.9, 42% of the 2010 cohort sits on a floor of 0.29.
