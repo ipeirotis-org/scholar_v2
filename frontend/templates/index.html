@@ -62,27 +62,44 @@
     const authorInput = document.getElementById("author_name");
     const dropdown = document.getElementById("autocomplete-dropdown");
     const searchBtn = document.getElementById("searchButton");
+    const liveSearch = {{ (gs_live_search or s2_search_fallback) | tojson }};
+    const liveSearchName = {{ ("Google Scholar" if data_source == "gs" else "beyond our database") | tojson }};
     let debounceTimer = null;
     let isSearching = false;
     let lastTypeaheadResults = [];
+    // Every new request takes the next number; a response is shown only if no
+    // request was started after it, so a slow reply never replaces a newer one.
+    let requestSeq = 0;
+    let typeaheadAbort = null;
+
+    function cancelTypeahead() {
+        clearTimeout(debounceTimer);
+        if (typeaheadAbort) { typeaheadAbort.abort(); typeaheadAbort = null; }
+    }
 
     // Typeahead: search as user types (debounced, 3+ chars)
     authorInput.addEventListener("input", function() {
-        clearTimeout(debounceTimer);
+        cancelTypeahead();
+        // The text changed: no reply to an earlier request may be shown or acted on.
+        requestSeq++;
         const name = authorInput.value.trim();
         if (name.length < 3) {
             hideDropdown();
             return;
         }
         debounceTimer = setTimeout(function() {
-            fetch("/get_similar_authors?author_name=" + encodeURIComponent(name) + "&typeahead=true")
+            const seq = ++requestSeq;
+            typeaheadAbort = window.AbortController ? new AbortController() : null;
+            fetch("/get_similar_authors?author_name=" + encodeURIComponent(name) + "&typeahead=true",
+                  typeaheadAbort ? { signal: typeaheadAbort.signal } : undefined)
                 .then(function(r) { return r.json(); })
                 .then(function(data) {
+                    if (seq !== requestSeq) return;
                     lastTypeaheadResults = Array.isArray(data) ? data : [data];
                     renderResults(lastTypeaheadResults, "typeahead");
                 })
-                .catch(function(err) { console.error("Typeahead error:", err); });
-        }, 300);
+                .catch(function(err) { if (err.name !== "AbortError") console.error("Typeahead error:", err); });
+        }, 150);
     });
 
     // Close dropdown when clicking outside
@@ -142,6 +159,7 @@
 
         if (authors.length === 0 && mode === "scholar") {
             dropdown.innerHTML = '<div class="author-option search-status text-muted">No authors found for "' + escapeHtml(authorInput.value.trim()) + '".</div>';
+            {% if data_source == 'gs' %}appendPasteHint();{% endif %}
             showDropdown();
             return;
         }
@@ -153,6 +171,14 @@
             appendScholarOption();
             showDropdown();
             return;
+        }
+
+        // Only approximate matches (a misspelled name): say so above the list.
+        if (authors.length > 0 && authors.every(function(a) { return a.fuzzy; })) {
+            var note = document.createElement("div");
+            note.className = "author-option search-status text-muted";
+            note.textContent = "No exact match. Did you mean:";
+            dropdown.appendChild(note);
         }
 
         authors.forEach(function(author) {
@@ -168,10 +194,13 @@
             var detailSpan = document.createElement("div");
             detailSpan.className = "author-option-detail";
             var detailText = author.affiliation || "";
+            // Not crawled yet: the results page fetches the profile (about a minute).
+            var unanalyzed = author.source === "wikidata" || author.source === "coauthor" ||
+                ((author.source === "gs_id" || author.source === "gs_live") && author.hindex == null);
             if (author.citedby) {
                 detailText += (detailText ? " · " : "") + Number(author.citedby).toLocaleString() + " citations";
-            } else if (author.source === "wikidata" || author.source === "coauthor" || (author.source === "gs_id" && author.citedby == null)) {
-                // Not crawled yet: the results page fetches the profile (about a minute).
+            }
+            if (unanalyzed) {
                 detailText += (detailText ? " · " : "") + "not analyzed yet";
             }
             detailSpan.textContent = detailText;
@@ -213,8 +242,8 @@
         dropdown.appendChild(div);
     }
 
-    // GS author search needs a signed-in browser, so we cannot look names up
-    // ourselves: point to a web search for the profile and accept its URL.
+    // Shown when neither our index nor the live lookup found the name:
+    // point to a web search for the profile and accept its URL.
     function appendPasteHint() {
         var name = authorInput.value.trim();
         var div = document.createElement("div");
@@ -234,8 +263,9 @@
     }
 
     function appendScholarOption() {
-        {% if not s2_search_fallback %}return;  // no external name search (GS needs sign-in; S2 fetches are off){% endif %}
-        appendMoreOption('Search beyond our database for "' + escapeHtml(authorInput.value.trim()) + '"', function() { searchScholar(); });
+        if (!liveSearch) return;  // no live name lookup configured
+        var where = {{ ("Search Google Scholar for" if data_source == "gs" else "Search beyond our database for") | tojson }};
+        appendMoreOption(where + ' "' + escapeHtml(authorInput.value.trim()) + '"', function() { searchScholar(); });
     }
 
     function escapeHtml(text) {
@@ -248,6 +278,9 @@
         var name = authorInput.value.trim();
         if (!name || isSearching) return;
 
+        cancelTypeahead();
+        var seq = ++requestSeq;
+        var continueLive = false;
         isSearching = true;
         searchBtn.disabled = true;
 
@@ -258,7 +291,10 @@
         fetch("/get_similar_authors?author_name=" + encodeURIComponent(name))
             .then(function(r) { return r.json(); })
             .then(function(data) {
+                if (seq !== requestSeq) return;
                 var results = Array.isArray(data) ? data : [data];
+                // Nothing in our index, not even a similar name: look the name up live.
+                if (results.length === 0 && liveSearch) { continueLive = true; return; }
                 renderResults(results, "local");
             })
             .catch(function(err) {
@@ -268,22 +304,27 @@
             .finally(function() {
                 isSearching = false;
                 searchBtn.disabled = false;
+                // The name that was submitted, not whatever the box holds by now.
+                if (continueLive) searchScholar(name);
             });
     }
 
-    function searchScholar() {
-        var name = authorInput.value.trim();
+    function searchScholar(submitted) {
+        var name = submitted || authorInput.value.trim();
         if (!name || isSearching) return;
 
+        cancelTypeahead();
+        var seq = ++requestSeq;
         isSearching = true;
         searchBtn.disabled = true;
 
-        dropdown.innerHTML = '<div class="author-option search-status"><div class="spinner-border spinner-border-sm text-primary mr-2" role="status"></div> Searching beyond our database...</div>';
+        dropdown.innerHTML = '<div class="author-option search-status"><div class="spinner-border spinner-border-sm text-primary mr-2" role="status"></div> Searching ' + liveSearchName + '...</div>';
         showDropdown();
 
         fetch("/get_similar_authors?author_name=" + encodeURIComponent(name) + "&scholar=true")
             .then(function(r) { return r.json(); })
             .then(function(data) {
+                if (seq !== requestSeq) return;
                 var results = Array.isArray(data) ? data : [data];
                 renderResults(results, "scholar");
             })

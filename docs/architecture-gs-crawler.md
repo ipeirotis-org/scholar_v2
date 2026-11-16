@@ -52,9 +52,10 @@ gs-monthly-wikidata ──► gs-crawler job (CRAWL_MODE=wikidata): Wikidata GS 
 
 ## Finding authors we have not crawled (Wikidata)
 
-Google Scholar's author search needs a signed-in browser, and SerpApi's Scholar results no longer
-link author names to profiles, so the app cannot turn a name into a GS ID. Wikidata can: ~130K people
-carry a Google Scholar author ID (property P1960). The monthly `wikidata` run:
+Google Scholar's author search needs a signed-in browser, so there is no way to list every profile
+under a name. Wikidata maps ~130K people to their Google Scholar author ID (property P1960), which
+puts them in the name index for free; names outside the index cost one SerpApi search each (see
+"Name search" below). The monthly `wikidata` run:
 
 1. Pulls every P1960 holder with an English label (~125K) (QLever 429s and 5xx are retried after
    1, 3 and 7 minutes; the pageview window shrinks by the time this takes), plus the English description, the
@@ -73,6 +74,46 @@ carry a Google Scholar author ID (property P1960). The monthly `wikidata` run:
 3. Replaces `gs_data.wikidata_authors`, refusing a load that would shrink it by more than half.
 4. Rebuilds the app's author name index and the featured authors (the weekly `materialize` run does
    both too).
+
+## Name search
+
+`author_search/search_service.py` serves the search box from an in-memory index of ~290K names
+(profiled authors, Wikidata, co-authors). Three steps, each tried only when the one before found nothing:
+
+1. **Exact.** Every query word must appear in the name (or match an initial at the same position);
+   accents are ignored. The index keeps all names in one string, so a query looks only at the names
+   containing its longest word: ~10 ms, against ~150 ms for the earlier scan of every name.
+2. **Approximate.** Query words may differ from a word of the name by one typo (4-5 letters) or two
+   (6 or more); initials in the query are ignored; the last word may be half-typed. Up to five
+   suggestions, closest first, marked `"fuzzy": true` and shown under "Did you mean". Covers the
+   misspellings seen in the request logs ("viral acharaya", "arun subdararajan", "robert f. engle").
+   Uses `rapidfuzz`; ~50-100 ms.
+3. **Live Google Scholar lookup** (`author_search/gs_search_client.py`), on a full search only (Enter or
+   the search button, never typeahead). A regular Scholar search for the name through SerpApi
+   (`engine=google_scholar`) returns a "User profiles for ..." block with IDs, affiliations and
+   citation counts, and links each paper's authors to their profiles; both give GS IDs (checked
+   2026-11-16; an earlier note here said SerpApi no longer returned these links). One paid search per
+   lookup, from the same monthly plan as the crawler, so: results are cached for 7 days in
+   `v3_gs_author_search` (also "no profile found"), lookups are capped at `GS_LIVE_SEARCH_DAILY_LIMIT`
+   (25) per UTC day (`v3_gs_live_search_usage/<date>`), only name-like queries qualify, and requests
+   with a crawler user agent are refused. `GS_LIVE_SEARCH=false` turns it off. Picking a result
+   crawls the profile on demand, like a pasted URL.
+
+**Index storage.** `refresh_author_index` saves the list as gzip-compressed JSON cut into parts of
+at most 900 KB (`v3_gs_author_name_index/pack_<version>_<n>`, ~11 documents), then points
+`v3_gs_author_name_index/meta` at the new version and deletes the previous parts. A frontend
+instance starts loading it in a background thread at start-up (~1.5 s; the earlier format, 145
+documents read one after another, took 16 s and made the first search on a new instance wait). Every
+6 hours an instance compares its version with `meta` and downloads only if it changed, while the
+old index keeps serving. Indexes saved in the earlier `chunk_<n>` format still load.
+
+**Query log.** Full searches and profile views go to `v3_query_log` with `user_agent`, `ip_hash`,
+`referrer` (other sites only), `bot` (user agent declares automation) and, for searches, `match`
+(`exact`, `fuzzy`, `live`, `none`). `ip_hash` is HMAC-SHA256 of the address, keyed by the
+`query-log-salt` secret (or `QUERY_LOG_SALT`); without the key no hash is stored. The Cloud Run request
+logs carry the same facts for only 30 days. `/admin/query-log` and `/api/query-log` are public and
+leave out the user agent, hash and referrer. Scrapers with browser user agents are not flagged by
+`bot`; group by `ip_hash` to find them (many profiles within a minute, no searches).
 
 **Featured authors.** The homepage pins the ten profiled authors whose English Wikipedia articles
 were read most over the last 60 days; `/featured` lists the top 100. `gs_crawler/featured.py` ranks
@@ -135,9 +176,9 @@ capped at what is left of it, and one too large to fit is cooled down like a fai
 ## Switching the app to GS (done 2026-11-03)
 
 `deploy-frontend.yml` deploys the frontend and cache layer with `DATA_SOURCE=gs` by default, which
-mounts `serpapi-key` into the cache layer. The cache layer's runtime account
-(`875626982900-compute@developer.gserviceaccount.com`) has `roles/secretmanager.secretAccessor` on that
-secret. GS mode uses separate Firestore collections (`v3_gs_author_name_index`, `v3_gs_author_search`,
+mounts `serpapi-key` into the cache layer (on-demand crawls) and the frontend (live name lookup). Their
+runtime account (`875626982900-compute@developer.gserviceaccount.com`) has
+`roles/secretmanager.secretAccessor` on that secret. GS mode uses separate Firestore collections (`v3_gs_author_name_index`, `v3_gs_author_search`,
 `v3_recent_authors/recent_gs`); the name index bootstraps itself on first use, or call
 `POST /api/refresh_author_index`.
 

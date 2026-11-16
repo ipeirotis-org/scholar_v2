@@ -152,6 +152,12 @@ jobs:
         IMAGE_PATH: ${{ env.GAR_LOCATION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.REPOSITORY_NAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
         CACHE_LAYER_URL: ${{ needs.deploy-cache-layer.outputs.cache_layer_url }}
       run: |-
+        # GS mode looks up names missing from the index on Google Scholar (SerpApi).
+        # Only mounted in GS mode so S2 deploys don't depend on that secret's IAM.
+        SECRETS="S2_API_KEY=s2-api-key:latest"
+        if [ "${{ env.DATA_SOURCE }}" = "gs" ]; then
+          SECRETS="$SECRETS,SERPAPI_KEY=serpapi-key:latest"
+        fi
         gcloud run deploy ${{ env.SERVICE_NAME }} \
           --image "$IMAGE_PATH" \
           --platform managed \
@@ -159,7 +165,7 @@ jobs:
           --allow-unauthenticated \
           --memory=1Gi \
           --set-env-vars="GCP_PROJECT_ID=${{ env.GCP_PROJECT_ID }},CACHE_LAYER_URL=$CACHE_LAYER_URL,QUEUE_LOCATION=${{ env.QUEUE_LOCATION }},DATA_SOURCE=${{ env.DATA_SOURCE }}" \
-          --set-secrets="S2_API_KEY=s2-api-key:latest"
+          --set-secrets="$SECRETS"
 
     - name: Get Cloud Run service URL
       id: service-url

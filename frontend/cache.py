@@ -113,7 +113,7 @@ class FirestoreCache:
             return False
 
     def log_query(self, query_type, query_text, result_count=None, author_id=None,
-                  typeahead=False, scholar=False):
+                  typeahead=False, scholar=False, visitor=None, match=None):
         """Log a search or profile query to Firestore (fire-and-forget).
 
         The Firestore write runs in a background thread so it never
@@ -125,7 +125,11 @@ class FirestoreCache:
             result_count: Number of results returned (for searches)
             author_id: Author ID (for profile views)
             typeahead: Whether this was a typeahead search
-            scholar: Whether S2 API fallback was used
+            scholar: Whether the live lookup (Google Scholar / S2 API) was requested
+            visitor: frontend.visitor.describe_visitor(request): user_agent, ip_hash,
+                referrer and bot, so automated traffic can be filtered out later
+            match: For searches, how the results matched: 'exact', 'fuzzy'
+                (misspelling), 'live' (found on Google Scholar) or 'none'
         """
         entry = {
             "timestamp": datetime.now(timezone.utc),
@@ -139,6 +143,10 @@ class FirestoreCache:
         if query_type == "search":
             entry["typeahead"] = typeahead
             entry["scholar"] = scholar
+            if match:
+                entry["match"] = match
+        if visitor:
+            entry.update({k: v for k, v in visitor.items() if v not in (None, "")})
 
         def _write():
             try:

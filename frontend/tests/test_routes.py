@@ -429,6 +429,11 @@ class TestApiRoutes:
         assert response.status_code == 200
         assert response.json == []
 
+    def test_long_author_name_is_cut(self):
+        app, _, search = _search_app()
+        app.test_client().get("/get_similar_authors?author_name=" + "a" * 500)
+        assert len(search.search.call_args[0][0]) == 200
+
     def test_api_rebuild_statistics_no_ids(self, client):
         response = client.post("/api/rebuild_statistics", data={"scholar_ids": ""})
         assert response.status_code == 400
@@ -677,3 +682,98 @@ class TestErrorHandlers:
         response = client.get("/nonexistent-page")
         assert response.status_code == 404
         assert b"Page not found" in response.data
+
+
+BROWSER = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) "
+           "Chrome/156.0.0.0 Safari/537.36")
+
+
+def _search_app(results=()):
+    """App with a mocked cache and search service; returns (app, cache, search service)."""
+    from frontend.app import create_app
+
+    with mock.patch("frontend.routes.FirestoreCache") as cache_cls, \
+         mock.patch("author_search.search_service.AuthorSearchService") as search_cls:
+        search_cls.return_value.search.return_value = list(results)
+        app = create_app(config={"TESTING": True, "SECRET_KEY": "test"})
+    return app, cache_cls.return_value, search_cls.return_value
+
+
+class TestSearchLogging:
+    """Searches are logged with who asked, so crawler traffic can be filtered out later."""
+
+    @pytest.fixture(autouse=True)
+    def _salt(self, monkeypatch):
+        from frontend import visitor
+        monkeypatch.setattr(visitor, "_salt", b"test-salt")
+
+    def test_index_is_not_warmed_in_tests(self):
+        _, _, search = _search_app()
+        search.warm.assert_not_called()
+
+    def test_index_is_warmed_at_startup(self):
+        from frontend.app import create_app
+        with mock.patch("frontend.routes.FirestoreCache"), \
+             mock.patch("author_search.search_service.AuthorSearchService") as search_cls:
+            create_app(config={"SECRET_KEY": "test"})
+        search_cls.return_value.warm.assert_called_once_with()
+
+    def test_full_search_logs_visitor_and_match(self):
+        from frontend import visitor
+        app, cache, search = _search_app([{"scholar_id": "x", "name": "Viral Acharya", "fuzzy": True}])
+        response = app.test_client().get(
+            "/get_similar_authors?author_name=viral+acharaya",
+            headers={"User-Agent": BROWSER, "X-Forwarded-For": "203.0.113.7",
+                     "Referer": "https://www.behind-the-enemy-lines.com/2024/01/post.html"})
+        assert response.json[0]["name"] == "Viral Acharya"
+        search.search.assert_called_once_with("viral acharaya", typeahead=False, scholar=False, allow_live=True)
+        kwargs = cache.log_query.call_args.kwargs
+        assert cache.log_query.call_args.args == ("search", "viral acharaya")
+        assert kwargs["result_count"] == 1 and kwargs["match"] == "fuzzy"
+        assert kwargs["visitor"] == {"user_agent": BROWSER, "ip_hash": visitor.hash_ip("203.0.113.7"),
+                                     "referrer": "www.behind-the-enemy-lines.com", "bot": False}
+
+    @pytest.mark.parametrize("results,match", [
+        ([], "none"),
+        ([{"scholar_id": "x"}], "exact"),
+        ([{"scholar_id": "x"}, {"scholar_id": "y", "fuzzy": True}], "exact"),
+        ([{"scholar_id": "x", "source": "gs_live"}, {"scholar_id": "y", "fuzzy": True}], "live"),
+    ])
+    def test_match_kind(self, results, match):
+        app, cache, _ = _search_app(results)
+        app.test_client().get("/get_similar_authors?author_name=someone", headers={"User-Agent": BROWSER})
+        assert cache.log_query.call_args.kwargs["match"] == match
+
+    def test_typeahead_is_not_logged(self):
+        app, cache, search = _search_app()
+        app.test_client().get("/get_similar_authors?author_name=vir&typeahead=true", headers={"User-Agent": BROWSER})
+        search.search.assert_called_once_with("vir", typeahead=True, scholar=False, allow_live=True)
+        cache.log_query.assert_not_called()
+
+    @pytest.mark.parametrize("user_agent", ["curl/8.5.0", "Mozilla/5.0 (compatible; SemrushBot/7~bl)", ""])
+    def test_crawlers_get_no_paid_lookup(self, user_agent):
+        app, cache, search = _search_app()
+        app.test_client().get("/get_similar_authors?author_name=someone&scholar=true",
+                              headers={"User-Agent": user_agent})
+        search.search.assert_called_once_with("someone", typeahead=False, scholar=True, allow_live=False)
+        assert cache.log_query.call_args.kwargs["visitor"]["bot"] is True
+
+    def test_public_query_log_leaves_out_visitor_fields(self):
+        app, cache, _ = _search_app()
+        doc = mock.MagicMock()
+        doc.to_dict.return_value = {
+            "timestamp": datetime.datetime(2026, 11, 16, 12, 0, tzinfo=datetime.timezone.utc),
+            "type": "search", "query": "viral acharaya", "result_count": 1, "scholar": False,
+            "typeahead": False, "match": "fuzzy", "bot": False,
+            "user_agent": BROWSER, "ip_hash": "0123456789abcdef", "referrer": "www.google.com",
+        }
+        query = cache.db.collection.return_value.order_by.return_value.limit.return_value
+        query.stream.return_value = [doc]
+        client = app.test_client()
+        entries = client.get("/api/query-log").json
+        assert entries == [{"timestamp": "2026-11-16T12:00:00+00:00", "type": "search", "query": "viral acharaya",
+                            "result_count": 1, "scholar": False, "typeahead": False, "match": "fuzzy",
+                            "bot": False}]
+        page = client.get("/admin/query-log").get_data(as_text=True)
+        assert "viral acharaya" in page
+        assert "0123456789abcdef" not in page and "Chrome/156" not in page and "google.com" not in page

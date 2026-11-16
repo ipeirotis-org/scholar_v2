@@ -31,9 +31,35 @@ def test_s2_wording_by_default(client):
     assert "semanticscholar.org" in html
 
 
-def test_search_beyond_option_hidden_without_s2_fallback(client):
+def test_no_live_search_in_s2_mode_without_fallback(client):
     html = client.get("/").get_data(as_text=True)
-    assert "return;  // no external name search" in html
+    assert "const liveSearch = false;" in html
+
+
+def test_live_google_scholar_search_in_gs_mode(gs_client):
+    html = gs_client.get("/").get_data(as_text=True)
+    assert "const liveSearch = true;" in html
+    assert 'const liveSearchName = "Google Scholar";' in html
+    assert '"Search Google Scholar for"' in html
+    assert "Did you mean:" in html
+
+
+def test_edited_input_cannot_trigger_a_paid_lookup(gs_client):
+    """A reply to a submitted search must not start a live lookup for text typed since."""
+    html = gs_client.get("/").get_data(as_text=True)
+    handler = html[html.index('authorInput.addEventListener("input"'):]
+    # Every input event invalidates earlier requests, before the debounce.
+    assert handler.index("requestSeq++;") < handler.index("setTimeout(")
+    # The automatic lookup uses the submitted name, not the box's current text.
+    assert "if (continueLive) searchScholar(name);" in html
+    assert "var name = submitted || authorInput.value.trim();" in html
+
+
+def test_live_search_can_be_switched_off(gs_client, monkeypatch):
+    from author_search.config import Config as SearchConfig
+    monkeypatch.setattr(SearchConfig, "GS_LIVE_SEARCH", False)
+    html = gs_client.get("/").get_data(as_text=True)
+    assert "const liveSearch = false;" in html
 
 
 def test_empty_search_offers_paste_hint_in_gs_mode(gs_client):

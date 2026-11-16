@@ -103,6 +103,15 @@ via a managed scraping API instead of `scholarly`. Vendor evaluation: [docs/goog
   - [x] Wikidata GS IDs (P1960, ~130K people) in the name index, reloaded monthly (`gs-monthly-wikidata`); empty results link to a web search for the profile (2026-11-03, prompted by "Peyman Milanfar" returning nothing)
   - [x] Ingest new Wikidata authors in order of English Wikipedia pageviews: up to 25% of each refresh run (`NEW_AUTHOR_SHARE`); permanent failures cool down 30 days
   - [x] Co-authors listed on profiled authors' pages (~180K) in the name index, ranked by how many profiled authors list them (2026-11-03)
+  - [x] Approximate name matching, live Google Scholar lookup, faster index (2026-11-16, from 30 days of request logs:
+    15 real visitors searched, median typeahead response 3.3 s, several misspellings and unindexed names returned nothing)
+    - Matching looks only at names containing the query's longest word: ~150 ms → ~10 ms, same results
+    - Index stored as ~11 gzip-JSON documents and loaded at instance start: 16 s → ~1.5 s
+    - No exact match → up to five "Did you mean" suggestions (`rapidfuzz`)
+    - Still nothing → SerpApi Scholar search for the name ("User profiles" block), cached 7 days, 25 a day at most
+    - `v3_query_log` entries carry user agent, hashed IP, referrer, bot flag and match kind
+    - [x] Frontend's runtime account can read the `query-log-salt` secret (granted 2026-11-16)
+    - [ ] After the first deploy, rebuild the index once (`POST /api/refresh_author_index`) to switch it to the new format
   - [ ] Paper-title lookup
 - [x] **Untitled works from the legacy seed** (found 2026-11-04 on Kaiming He's page, `DhtAFkwAAAAJ`: all 95 works
   "Untitled"). 16,158 of 16,218 profiles were still legacy snapshots (2024-02 to 2026-03); the seed had no titles

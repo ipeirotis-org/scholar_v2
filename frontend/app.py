@@ -17,6 +17,12 @@ def _s2_search_fallback():
     return SearchConfig.S2_SEARCH_FALLBACK and Config.DATA_SOURCE != "gs"
 
 
+def _gs_live_search():
+    """Whether names missing from the index can be looked up on Google Scholar."""
+    from author_search.config import Config as SearchConfig
+    return SearchConfig.GS_LIVE_SEARCH and Config.DATA_SOURCE == "gs"
+
+
 def create_app(config=None):
     """Create and configure the Flask application."""
     app = Flask(
@@ -52,6 +58,7 @@ def create_app(config=None):
             "ga_tracking_id": Config.GA_TRACKING_ID,
             "data_source": Config.DATA_SOURCE,
             "s2_search_fallback": _s2_search_fallback(),
+            "gs_live_search": _gs_live_search(),
         }
 
     static_hashes = {}

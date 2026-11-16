@@ -25,6 +25,12 @@ class Config:
     CACHE_AUTHOR_TEMPORAL = "v3_author_temporal"
     CACHE_AUTHOR_FRESHNESS = "v3_author_freshness"
     CACHE_QUERY_LOG = "v3_query_log"
+    # Key for the query log's IP hashes (see frontend/visitor.py). QUERY_LOG_SALT
+    # overrides it; without either, no IP hash is stored.
+    QUERY_LOG_SALT_SECRET = os.environ.get(
+        "QUERY_LOG_SALT_SECRET",
+        "projects/875626982900/secrets/query-log-salt/versions/latest",
+    )
 
     # Cloud Tasks
     QUEUE_LOCATION = os.environ.get("QUEUE_LOCATION", "northamerica-northeast1")

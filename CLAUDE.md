@@ -41,8 +41,9 @@ See the [blog post](https://www.behind-the-enemy-lines.com/2024/01/the-pip-auc-s
 > [`docs/architecture-gs-crawler.md`](docs/architecture-gs-crawler.md)). The S2 pipeline below is frozen: no new
 > fetches, kept for rollback (`DATA_SOURCE=s2`).
 > Name search covers the profiled GS authors, ~121K unprofiled people whose GS ID is on Wikidata
-> (`gs_data.wikidata_authors`, reloaded monthly) and ~180K unprofiled co-authors from profiled authors' pages;
-> others need a pasted profile URL.
+> (`gs_data.wikidata_authors`, reloaded monthly) and ~180K unprofiled co-authors from profiled authors' pages.
+> Misspelled names get approximate matches from that index; a name it does not have is looked up live on
+> Google Scholar through SerpApi (one paid search each, at most 25 a day), and a pasted profile URL always works.
 
 ## Task Tracking
 
@@ -66,6 +67,7 @@ scholar_v2/
 │   ├── routes.py                 # Routes: /, /results, /field, /featured, /publication, /download, /data, /help, /api/*
 │   ├── cache.py                  # Read-only Firestore cache client
 │   ├── queue_client.py           # Enqueue cache-miss tasks to priority queue
+│   ├── visitor.py                # Query-log visitor fields: user agent, hashed IP, referrer, bot flag
 │   ├── formatting.py             # Plain-language percentile wording for the results page
 │   ├── config.py                 # Config with env var overrides
 │   ├── templates/                # Jinja2 HTML templates
@@ -103,9 +105,10 @@ scholar_v2/
 │   ├── config.py                 # Config with env var overrides
 │   └── tests/
 ├── author_search/                # Author search library (used by frontend, not a standalone service)
-│   ├── search_service.py         # In-memory index search (reloaded from Firestore every 6h)
-│   ├── bigquery_client.py        # Loads active S2 authors for the in-memory index
-│   ├── cache.py                  # Firestore cache (24h TTL for search results, chunked index)
+│   ├── search_service.py         # In-memory name index: exact and approximate matching, load/save
+│   ├── gs_search_client.py       # Live Google Scholar profile lookup by name (SerpApi), GS mode
+│   ├── bigquery_client.py        # Loads the names for the in-memory index
+│   ├── cache.py                  # Firestore: live-lookup cache and daily counter, index documents
 │   ├── config.py                 # Config with env var overrides
 │   └── tests/
 ├── bigquery/                     # SQL view definitions (8-level DAG)
@@ -157,6 +160,14 @@ scholar_v2/
              → S2 API fallback for less-known researchers (102M authors) — off by default since
                2026-11-02 (S2_SEARCH_FALLBACK=true re-enables)
              → Results cached in Firestore (24h TTL)
+           In GS mode (live): ~290K names, loaded in the background at instance start from a
+           gzip-JSON copy in Firestore (version checked every 6h)
+             → A query inspects only the names containing its longest word (~10 ms)
+             → No exact match: approximate matches (misspellings, dropped initials), marked "fuzzy"
+             → Still nothing, on a full search: live Google Scholar lookup via SerpApi
+               (GS_LIVE_SEARCH; cached 7 days, capped by GS_LIVE_SEARCH_DAILY_LIMIT, not for crawlers)
+             → Searches and profile views are logged to `v3_query_log` with user agent, hashed IP,
+               referrer and a bot flag
 ```
 
 ## BigQuery Analytics Framework
