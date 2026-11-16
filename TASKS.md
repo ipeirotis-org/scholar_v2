@@ -112,6 +112,11 @@ via a managed scraping API instead of `scholarly`. Vendor evaluation: [docs/goog
     - `v3_query_log` entries carry user agent, hashed IP, referrer, bot flag and match kind
     - [x] Frontend's runtime account can read the `query-log-salt` secret (granted 2026-11-16)
     - [ ] After the first deploy, rebuild the index once (`POST /api/refresh_author_index`) to switch it to the new format
+    - [x] Homepage "Recently Analyzed Authors" leaves out crawler profile views (2026-11-16): `/results` skips
+      `record_recent_author` when the user agent is flagged `bot` (still logged to `v3_query_log`). Crawler bursts
+      (ClaudeBot, ~70 profiles in a few minutes) had made the transactions on `v3_recent_authors/recent_gs` abort each
+      other: 48 to 161 ERROR logs a day, Nov 10 to 16. Contention is now a WARNING without a traceback, and a
+      malformed `Referer` no longer raises in `describe_visitor`
   - [ ] Paper-title lookup
 - [x] **Untitled works from the legacy seed** (found 2026-11-04 on Kaiming He's page, `DhtAFkwAAAAJ`: all 95 works
   "Untitled"). 16,158 of 16,218 profiles were still legacy snapshots (2024-02 to 2026-03); the seed had no titles

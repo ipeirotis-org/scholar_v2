@@ -113,7 +113,11 @@ old index keeps serving. Indexes saved in the earlier `chunk_<n>` format still l
 `query-log-salt` secret (or `QUERY_LOG_SALT`); without the key no hash is stored. The Cloud Run request
 logs carry the same facts for only 30 days. `/admin/query-log` and `/api/query-log` are public and
 leave out the user agent, hash and referrer. Scrapers with browser user agents are not flagged by
-`bot`; group by `ip_hash` to find them (many profiles within a minute, no searches).
+`bot`; group by `ip_hash` to find them (many profiles within a minute, no searches). Profile views
+from user agents flagged `bot` are logged here but do not enter the homepage "Recently Analyzed
+Authors" list (`v3_recent_authors/recent_gs`): it only counts visits from non-bot user agents. A
+crawler opening dozens of profiles within a second also made the transactions on that one document
+abort each other (up to 161 failed updates a day in 2026-11); a failed update is now a warning.
 
 **Featured authors.** The homepage pins the ten profiled authors whose English Wikipedia articles
 were read most over the last 60 days; `/featured` lists the top 100. `gs_crawler/featured.py` ranks

@@ -141,6 +141,46 @@ class TestRecordRecentAuthor:
         # Should not raise
         cache.record_recent_author(_author("a1"))
 
+    @pytest.fixture
+    def api_errors(self, monkeypatch):
+        """Stand-ins for the google.api_core exception classes, which conftest replaces with mocks."""
+        class GoogleAPICallError(Exception):
+            pass
+
+        class Aborted(GoogleAPICallError):
+            pass
+
+        class ServiceUnavailable(GoogleAPICallError):
+            pass
+
+        class RetryError(Exception):
+            pass
+
+        for cls in (GoogleAPICallError, Aborted, RetryError):
+            monkeypatch.setattr("frontend.cache." + cls.__name__, cls)
+        return {"aborted": Aborted("Aborted due to cross-transaction contention."),
+                "retries_exhausted": ValueError("Failed to commit transaction in 5 attempts."),
+                "unavailable": ServiceUnavailable("boom")}
+
+    def _record_with_failing_read(self, error, caplog):
+        cache, client = _make_cache()
+        client.transaction.return_value = mock.MagicMock(name="transaction")
+        client.collection.return_value.document.return_value.get.side_effect = error
+        with caplog.at_level("WARNING", logger="frontend.cache"):
+            cache.record_recent_author(_author("a1"))  # must not raise
+        (record,) = caplog.records
+        return record
+
+    @pytest.mark.parametrize("kind", ["aborted", "retries_exhausted"])
+    def test_contention_is_a_warning_without_traceback(self, kind, api_errors, caplog):
+        record = self._record_with_failing_read(api_errors[kind], caplog)
+        assert record.levelname == "WARNING" and record.exc_info is None
+        assert "a1" in record.getMessage() and str(api_errors[kind]) in record.getMessage()
+
+    def test_other_firestore_failures_stay_errors(self, api_errors, caplog):
+        record = self._record_with_failing_read(api_errors["unavailable"], caplog)
+        assert record.levelname == "ERROR" and record.exc_info is not None
+
     def test_skips_s2_id_in_gs_mode(self, monkeypatch):
         monkeypatch.setattr(Config, "DATA_SOURCE", "gs")
         cache, client = _make_cache()

@@ -92,7 +92,11 @@ def describe_visitor(request):
     user_agent = request.headers.get("User-Agent", "")
     referrer = request.headers.get("Referer", "")
     # Only other sites are worth keeping: they say how the visitor got here.
-    referrer_host = urlsplit(referrer).netloc.lower() if referrer else ""
+    try:
+        referrer_host = urlsplit(referrer).netloc.lower() if referrer else ""
+    except ValueError:
+        # A malformed header ("http://[") must not fail the request it came with.
+        referrer_host = ""
     if referrer_host == request.host.lower():
         referrer_host = ""
     return {
