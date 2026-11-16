@@ -14,8 +14,10 @@
 --
 -- Pre-aggregating to one row per (year_of_first_pub, j) (~3,000 rows total)
 -- lets stats_author_pip_scores_current compute any single author's standing
--- curve g(theta_j) in O(log K) via RANGE_BUCKET(n_j - 1, m_arr) without
--- scanning or windowing across other authors at query time.
+-- curve g(theta_j) in O(log K) without scanning or windowing across other
+-- authors at query time: peers with fewer works via RANGE_BUCKET(n_j - 1, m_arr),
+-- peers with at most as many via RANGE_BUCKET(n_j, m_arr); the standing is the
+-- mean of the two shares (a tie counts one half).
 --
 -- Rebuilt weekly by gs_crawler (CRAWL_MODE=materialize).
 
