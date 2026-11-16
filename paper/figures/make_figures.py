@@ -8,6 +8,7 @@
   fig_fields           share of each field in its cohort's top 10%: pooled vs field-normalized score
   fig_frontier         PiP at every cutoff against percentile-based indicators: future quantity vs future impact
   fig_early            early detection: accuracy by the career age at which each indicator is measured
+  fig_calibration      PiP against the author's percentile in the cohort, at every cutoff and under both tie rules
 
 Run: python3 paper/figures/make_figures.py   (matplotlib; Inter if installed)
 """
@@ -19,6 +20,8 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib import font_manager
+from matplotlib.colors import LinearSegmentedColormap, PowerNorm
+from matplotlib.lines import Line2D
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 DATA = os.path.join(HERE, "data")
@@ -83,13 +86,13 @@ def short_field(name):
 def fig_standing_curves():
     rows = read("fig3_curves.csv")
     fig, axes = plt.subplots(1, 3, figsize=(7.0, 2.75), facecolor=SURFACE, sharey=True)
-    panels = [("25", "(a) 25th-percentile"), ("50", "(b) Median"), ("90", "(c) 90th-percentile")]
+    panels = [("25", "(a) 27th-percentile"), ("50", "(b) Median"), ("90", "(c) 90th-percentile")]
     for ax, (q, name) in zip(axes, panels):
         pts = [r for r in rows if r["sym_tau50_quantile"] == q]
         pip, n = float(pts[0]["sym_tau50"]), int(pts[0]["n_articles"])
         clean(ax, f"{name} author\n{n} articles, PiP = {pip:.2f}")
         xs = [float(r["theta"]) for r in pts] + [1.0]
-        ys = [float(r["g_below"]) for r in pts]
+        ys = [float(r["g_mid"]) for r in pts]
         ys = ys + [ys[-1]]
         ax.axvspan(0, 0.5, color=SHADE, zorder=0, linewidth=0)
         ax.fill_between(xs, ys, step="post", where=[x >= 0.5 for x in xs], color=BLUE_LIGHT, linewidth=0, zorder=1)
@@ -98,7 +101,7 @@ def fig_standing_curves():
 
         # Author's articles ordered by percentile (#1 = highest); each drop in n_j occurs at theta = (j + 1) / 40.
         n_at = {int(r["j"]): int(r["n_j"]) for r in pts}
-        g_at = {int(r["j"]): float(r["g_below"]) for r in pts}
+        g_at = {int(r["j"]): float(r["g_mid"]) for r in pts}
         drops = []
         for j in range(40):
             d = n_at[j] - n_at.get(j + 1, 0)
@@ -143,10 +146,10 @@ def fig_standing_curves():
                         bbox=dict(facecolor=bg, edgecolor="none", pad=0.3) if stagger_hi else None)
 
         if q == "25":
-            ax.annotate("drops at each\nauthor paper", xy=(0.37, 0.29), xytext=(0.05, 0.56), color=ORANGE,
+            ax.annotate("drops at each\nauthor paper", xy=(0.40, 0.37), xytext=(0.05, 0.62), color=ORANGE,
                         fontsize=6.2, ha="left", va="center", zorder=6,
                         arrowprops=dict(arrowstyle="->", color=ORANGE, linewidth=0.8, shrinkA=2, shrinkB=2))
-            ax.annotate("between papers:\nrises as peers drop out", xy=(0.76, 0.31), xytext=(0.38, 0.75),
+            ax.annotate("between papers:\nrises as peers drop out", xy=(0.77, 0.41), xytext=(0.38, 0.78),
                         color=INK2, fontsize=6.2, ha="left", va="center", zorder=6,
                         arrowprops=dict(arrowstyle="->", color=INK3, linewidth=0.75, shrinkA=2, shrinkB=2))
             ax.text(0.20, 0.14, "θ < τ:\nnot counted", color=INK2, fontsize=6.2, ha="center", va="bottom")
@@ -154,14 +157,14 @@ def fig_standing_curves():
             ax.annotate("papers #7–#1 mark\neach downward step", xy=(0.35, 0.43), xytext=(0.04, 0.78),
                         color=ORANGE, fontsize=6.2, ha="left", va="center", zorder=6,
                         arrowprops=dict(arrowstyle="->", color=ORANGE, linewidth=0.8, shrinkA=2, shrinkB=2))
-            ax.annotate("no paper in (.725, .925):\nclimbs from .24 to .63", xy=(0.85, 0.50), xytext=(0.44, 0.85),
+            ax.annotate("no paper in (.725, .925):\nclimbs from .33 to .70", xy=(0.85, 0.58), xytext=(0.40, 0.88),
                         color=INK2, fontsize=6.1, ha="left", va="center", zorder=6,
                         arrowprops=dict(arrowstyle="->", color=BLUE, linewidth=0.85, shrinkA=2, shrinkB=2))
-            ax.annotate("average height = PiP", xy=(0.67, pip), xytext=(0.43, 0.54), color=INK, fontsize=6.1,
+            ax.annotate("average height = PiP", xy=(0.67, pip), xytext=(0.52, 0.19), color=INK, fontsize=6.1,
                         ha="left", va="center", zorder=6,
                         arrowprops=dict(arrowstyle="->", color=INK3, linewidth=0.7, shrinkA=2, shrinkB=2))
         elif q == "90":
-            ax.annotate("larger drops where\npapers tie (#8–10, #2–4)", xy=(0.72, 0.83), xytext=(0.035, 0.58),
+            ax.annotate("larger drops where\npapers tie (#8–10, #2–4)", xy=(0.74, 0.86), xytext=(0.035, 0.58),
                         color=ORANGE, fontsize=6.0, ha="left", va="center", zorder=6,
                         arrowprops=dict(arrowstyle="->", color=ORANGE, linewidth=0.8, shrinkA=2, shrinkB=2))
 
@@ -182,7 +185,8 @@ def fig_pip_construction():
     # Paper percentiles (top of each 1/40 class): 0.975, 0.925, 0.725, 0.625, 0.500, 0.350, 0.300.
     ys = [0.975, 0.925, 0.725, 0.625, 0.500, 0.350, 0.300]
     # Cohort CDF F(k) = share of eligible peers (1995 cohort, age 10) with <= k articles.
-    # F(5)=0.3630, F(6)=0.4547, F(7)=0.5315, F(12)=0.7648, F(13)=0.7920 are directly in fig3_curves.csv.
+    # F(5)=0.3630, F(6)=0.4547, F(7)=0.5315, F(12)=0.7648, F(13)=0.7920 are directly in fig3_curves.csv (prod_pct,
+    # and share_fewer at j = 0).
     F = [0.0, 0.0, 0.0, 0.1100, 0.2380, 0.3630, 0.4547, 0.5315]
     fig, (a, b, c) = plt.subplots(1, 3, figsize=(7.0, 2.65), facecolor=SURFACE)
 
@@ -525,6 +529,58 @@ def fig_early():
     save(fig, "fig_early")
 
 
+def fig_calibration():
+    """PiP against the author's cohort percentile at six cutoffs (career age 10): density of authors with a tie counted
+    one half, mean percentile per score bin under both tie rules, and the diagonal score = percentile."""
+    rows = read("fig_calibration.csv")
+    ramp = LinearSegmentedColormap.from_list("blue", [SURFACE, BLUE_LIGHT, "#86b6ef", "#3987e5", "#1c5cab", "#0d366b"])
+    fig, axes = plt.subplots(2, 3, figsize=(7.0, 5.15), facecolor=SURFACE, sharex=True, sharey=True)
+    for i, tau in enumerate([0, 25, 50, 60, 75, 90]):
+        ax = axes[i // 3][i % 3]
+        clean(ax, f"τ = {tau / 100:g}" + (" (default)" if tau == 50 else ""), grid_axis="both")
+        cells = {rule: [r for r in rows if r["rule"] == rule and int(r["tau_pct"]) == tau] for rule in ("half", "zero")}
+        n = sum(int(r["authors"]) for r in cells["half"])
+        grid = [[0.0] * 50 for _ in range(50)]
+        for r in cells["half"]:
+            grid[int(r["pct_bin"])][int(r["score_bin"])] = int(r["authors"]) / n
+        # Each cell is written as 8 x 8 pixels so PDF viewers that smooth small images keep the cells sharp; the image
+        # is opaque, and the grid lines are drawn above it (set_axisbelow("line")) and below the curves.
+        big = [[v for v in row for _ in range(8)] for row in grid for _ in range(8)]
+        ax.imshow(big, origin="lower", extent=(0, 1, 0, 1), cmap=ramp, interpolation="nearest", zorder=1,
+                  norm=PowerNorm(0.45, vmin=0, vmax=max(max(row) for row in grid)), aspect="equal")
+        ax.set_axisbelow("line")
+        ax.plot([0, 1], [0, 1], color=INK2, linewidth=0.8, linestyle=(0, (4, 3)), zorder=3)
+        for rule, style in (("zero", dict(color=ORANGE, linewidth=1.3, linestyle=(0, (5, 2)))),
+                            ("half", dict(color=BLUE, linewidth=1.5))):
+            bins = {}
+            for r in cells[rule]:   # score bins of width 0.04; bins with few authors are left out
+                b = bins.setdefault(int(r["score_bin"]) // 2, [0, 0.0, 0.0])
+                b[0] += int(r["authors"]); b[1] += float(r["sum_score"]); b[2] += float(r["sum_pct"])
+            pts = [(sx / m, sp / m) for _, (m, sx, sp) in sorted(bins.items()) if m >= 2000]
+            ax.plot([x for x, _ in pts], [y for _, y in pts], zorder=4, **style)
+            if rule == "half":
+                dots(ax, [x for x, _ in pts], [y for _, y in pts], BLUE, ms=3.0)
+        gap = sum(float(r["sum_abs_gap"]) for r in cells["half"]) / n
+        within = sum(int(r["within_05"]) for r in cells["half"]) / n
+        ax.text(0.97, 0.04, f"mean gap {gap:.3f}\nwithin 0.05: {within * 100:.0f}%", transform=ax.transAxes,
+                ha="right", va="bottom", color=INK2, fontsize=6.6, zorder=5)
+        ax.set_xlim(0, 1); ax.set_ylim(0, 1)
+        ax.set_xticks([0, 0.25, 0.5, 0.75, 1]); ax.set_xticklabels(["0", ".25", ".5", ".75", "1"])
+        ax.set_yticks([0, 0.25, 0.5, 0.75, 1]); ax.set_yticklabels(["0", ".25", ".5", ".75", "1"])
+        if i // 3 == 1:
+            ax.set_xlabel("PiP score")
+        if i % 3 == 0:
+            ax.set_ylabel("Percentile in the cohort")
+    handles = [Line2D([], [], color=BLUE, linewidth=1.5, marker="o", markersize=3.0, markeredgecolor=SURFACE,
+                      label="Tie counted one half: mean percentile by score"),
+               Line2D([], [], color=ORANGE, linewidth=1.3, linestyle=(0, (5, 2)), label="Tie counted zero"),
+               Line2D([], [], color=INK2, linewidth=0.8, linestyle=(0, (4, 3)), label="Score = percentile")]
+    fig.legend(handles=handles, loc="lower center", ncol=3, bbox_to_anchor=(0.5, 0.0), handlelength=2.6)
+    fig.tight_layout(rect=(0, 0.045, 1, 1), w_pad=0.6)
+    fig.subplots_adjust(hspace=0.2)
+    save(fig, "fig_calibration")
+
+
 if __name__ == "__main__":
     setup()
     args = list(sys.argv[1:])
@@ -533,7 +589,7 @@ if __name__ == "__main__":
         EXPORT_DIR = args[idx + 1]
         del args[idx:idx + 2]
     all_figs = [fig_pip_construction, fig_standing_curves, fig_paper_stability, fig_cohorts,
-                fig_prediction, fig_fields, fig_frontier, fig_early]
+                fig_prediction, fig_fields, fig_frontier, fig_early, fig_calibration]
     only = set(args)
     for fn in all_figs:
         if not only or fn.__name__ in only:

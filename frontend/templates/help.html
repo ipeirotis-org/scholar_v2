@@ -22,13 +22,17 @@
             <strong>Peer standing at each threshold:</strong> At each citation-percentile threshold
             &theta; (in 40 steps of 2.5 percentile points), we count how many works the author has
             at or above &theta; and compute <em>g</em>(&theta;), the share of active peers who
-            started publishing in the same year and have strictly fewer such works.
+            started publishing in the same year and have fewer such works, plus half the share
+            who have exactly as many (a tie counts as half). Across a cohort's active authors the
+            standing averages 0.5 at every threshold.
         </li>
         <li>
             <strong>Averaging above the cutoff (&tau; = 0.5):</strong> The <strong>PiP</strong>
             score is the average height of the standing curve <em>g</em>(&theta;) across thresholds
             at or above the 50th percentile (&tau; = 0.5). Only works in the top half of their
-            publication year earn credit, so uncited or low-cited entries cannot pad the score.
+            publication year earn credit, so uncited or low-cited entries cannot pad the score. An
+            author with no work above a threshold shares last place there with every peer who has
+            none, so a record without any top-half work scores low but not exactly zero.
         </li>
     </ol>
     <p>

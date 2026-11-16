@@ -408,7 +408,8 @@ class TestHelpRoute:
         html = app.test_client().get("/help").get_data(as_text=True)
         assert "40 steps of 2.5 percentile points" in html
         assert "0.50" in html
-        assert "strictly fewer" in html
+        assert "a tie counts as half" in html
+        assert "strictly fewer" not in html
         assert "PiP-AUC" in html
 
 

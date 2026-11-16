@@ -644,7 +644,7 @@
         layout.yaxis = {
             title: {
                 text: narrow ? 'Peer standing g(θ)'
-                             : 'Standing among cohort peers g(θ) (% with fewer works ≥ θ)',
+                             : 'Standing among cohort peers g(θ) (% with fewer works ≥ θ, ties count half)',
                 standoff: 8
             },
             range: [0, 100],
@@ -876,8 +876,9 @@
             this.finding.appendChild(document.createTextNode(
                 'The dashed line marks the curve’s mean height above the selected cutoff τ (matching official PiP at τ = 0.50, where ' +
                 fmtInt(counted50) + ' of ' + fmtInt(n) + ' cited works are counted).' +
-                ' At each threshold θ, the curve shows the share of career-stage peers with strictly fewer works' +
-                ' at or above θ; between works it rises as peers drop out, and at each work’s threshold it steps down.'));
+                ' At each threshold θ, the curve shows the share of career-stage peers with fewer works' +
+                ' at or above θ, counting a peer with the same number as half;' +
+                ' between works it rises as peers drop out, and at each work’s threshold it steps down.'));
         } else if (this.state.view === 'year') {
             var lead = el('strong', null, countAtLeast(papers, TIERS[0].min) + ' of ' + n +
                 ' scored works reached the ' + ordinal(TIERS[0].min) + ' percentile for their publication year.');
@@ -1064,8 +1065,8 @@
             var k = this._tauClass();
             var nAt = this.countsByClass[b];
             fact('Standing at its threshold',
-                plural(nAt, 'work', 'works') + ' ≥ ' + trim1(b * 2.5) + 'th pct · beats ' +
-                trim1(100 * this.standingCurve[b]) + '% of peers');
+                plural(nAt, 'work', 'works') + ' ≥ ' + trim1(b * 2.5) + 'th pct · ahead of ' +
+                trim1(100 * this.standingCurve[b]) + '% of peers (ties count half)');
             dl.appendChild(el('dt', null, 'Current cutoff'));
             var cutoffDd = el('dd');
             var cutoffSlot = el('span', 'tau-slot');

@@ -7,9 +7,13 @@
 --   pip_tau25  the same restricted to t >= 0.25 and rescaled: (1/(1-tau)) * integral from tau to 1. Papers below
 --              the 25th percentile earn nothing, and the score is still monotone.
 --   pip_tau50  tau = 0.5
---   sym        (1/40) sum_j G_j(n_j), G_j(m) = share of peers with strictly fewer than m articles above t_j: your
---              count above each threshold compared with peers' counts above the same threshold (symmetric).
+--   sym        (1/40) sum_j G_j(n_j), G_j(m) = share of peers with fewer than m articles above t_j plus half the
+--              share with exactly m (a tie counts one half; mid-rank): your count above each threshold compared
+--              with peers' counts above the same threshold (symmetric). G_j averages 1/2 over every peer group.
 --   sym_tauXX  symmetric, restricted to t >= tau, for tau in {0.25, 0.5, 0.6, 0.75, 0.9}
+--   strict, strict_tauXX  the same with a tie counted zero (share of peers with strictly fewer), at every cutoff:
+--              the rule of the first version of the paper, kept for the comparison of tie rules (28 and the
+--              calibration figure)
 --   n_top      articles with y >= 0.975 (top 2.5% of their year), to see which variants reward top papers
 -- Peers: all 'active' authors at the same (start_year, age), so every targeted peer group is complete.
 CREATE OR REPLACE TABLE `scholar-version2.paper_rp.pip_variants`
@@ -43,11 +47,13 @@ WITH
     LEFT JOIN buckets AS b
       ON b.authorid = g.authorid AND b.start_year = g.start_year AND b.age = g.age AND b.b = g.j
   ),
-  -- distribution of n_j among peers, per threshold: G_j(m) = (peers with n_j <= m - peers with n_j = m) / peers
+  -- distribution of n_j among peers, per threshold: G_j(m) = (peers with n_j <= m - half the peers with n_j = m) / peers
   dist_j AS (
     SELECT start_year, age, j, m, cnt,
+      (SUM(cnt) OVER (PARTITION BY start_year, age, j ORDER BY m) - cnt / 2)
+        / SUM(cnt) OVER (PARTITION BY start_year, age, j) AS g_mid,
       (SUM(cnt) OVER (PARTITION BY start_year, age, j ORDER BY m) - cnt)
-        / SUM(cnt) OVER (PARTITION BY start_year, age, j) AS g_below
+        / SUM(cnt) OVER (PARTITION BY start_year, age, j) AS g_strict
     FROM (SELECT start_year, age, j, n_j AS m, COUNT(*) AS cnt FROM nj GROUP BY start_year, age, j, n_j)
   ),
   -- F(m) = share of peers with at most m articles in total, for every integer m up to the group maximum
@@ -69,18 +75,25 @@ WITH
       AVG(f.f) AS pip_grid,
       SUM(IF(n.j >= 10, f.f, 0)) / 30 AS pip_tau25,
       SUM(IF(n.j >= 20, f.f, 0)) / 20 AS pip_tau50,
-      AVG(g.g_below) AS sym,
-      SUM(IF(n.j >= 10, g.g_below, 0)) / 30 AS sym_tau25,
-      SUM(IF(n.j >= 20, g.g_below, 0)) / 20 AS sym_tau50,
-      SUM(IF(n.j >= 24, g.g_below, 0)) / 16 AS sym_tau60,
-      SUM(IF(n.j >= 30, g.g_below, 0)) / 10 AS sym_tau75,
-      SUM(IF(n.j >= 36, g.g_below, 0)) / 4 AS sym_tau90,
+      AVG(g.g_mid) AS sym,
+      SUM(IF(n.j >= 10, g.g_mid, 0)) / 30 AS sym_tau25,
+      SUM(IF(n.j >= 20, g.g_mid, 0)) / 20 AS sym_tau50,
+      SUM(IF(n.j >= 24, g.g_mid, 0)) / 16 AS sym_tau60,
+      SUM(IF(n.j >= 30, g.g_mid, 0)) / 10 AS sym_tau75,
+      SUM(IF(n.j >= 36, g.g_mid, 0)) / 4 AS sym_tau90,
+      AVG(g.g_strict) AS strict,
+      SUM(IF(n.j >= 10, g.g_strict, 0)) / 30 AS strict_tau25,
+      SUM(IF(n.j >= 20, g.g_strict, 0)) / 20 AS strict_tau50,
+      SUM(IF(n.j >= 24, g.g_strict, 0)) / 16 AS strict_tau60,
+      SUM(IF(n.j >= 30, g.g_strict, 0)) / 10 AS strict_tau75,
+      SUM(IF(n.j >= 36, g.g_strict, 0)) / 4 AS strict_tau90,
       MAX(IF(n.j = 39, n.n_j, NULL)) AS n_top
     FROM nj AS n
     JOIN f_dense AS f ON f.start_year = n.start_year AND f.age = n.age AND f.m = n.n_j
     JOIN dist_j AS g ON g.start_year = n.start_year AND g.age = n.age AND g.j = n.j AND g.m = n.n_j
     GROUP BY n.authorid, n.start_year, n.age
   )
-SELECT t.*, s.pip_grid, s.pip_tau25, s.pip_tau50, s.sym, s.sym_tau25, s.sym_tau50, s.sym_tau60, s.sym_tau75, s.sym_tau90, s.n_top
+SELECT t.*, s.pip_grid, s.pip_tau25, s.pip_tau50, s.sym, s.sym_tau25, s.sym_tau50, s.sym_tau60, s.sym_tau75, s.sym_tau90,
+  s.strict, s.strict_tau25, s.strict_tau50, s.strict_tau60, s.strict_tau75, s.strict_tau90, s.n_top
 FROM targets AS t
 JOIN scores AS s USING (authorid, start_year, age);

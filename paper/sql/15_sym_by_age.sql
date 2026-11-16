@@ -2,11 +2,13 @@
 --
 -- Run through paper/sql/run_15.sh ({LO}/{HI} = range of start years; {MODE_PREFIX} = CREATE or INSERT).
 -- Same construction as 12 (40-point grid t_j = j/40, n_j = articles with percentile y >= t_j at the evaluation year,
--- G_j(m) = share of peers with strictly fewer than m articles above t_j), for every (start_year, age) peer group:
+-- G_j(m) = share of peers with fewer than m articles above t_j plus half the share with exactly m), for every
+-- (start_year, age) peer group:
 --   sym, sym_tau25, sym_tau50   averages of G_j(n_j) over t_j >= 0, 0.25, 0.5
 --   prod_pct                    F(n) = share of peers with at most n articles (same as 06)
 --   quality_mult_tau50          sym_tau50 / prod_pct: the quality multiplier in sym_tau50 = F(n) x Q (can exceed 1)
---   g0                          G_0(n): share of peers with strictly fewer articles (the t = 0 point of the curve)
+--   g0                          G_0(n): share of peers with fewer articles plus half the share with as many (the
+--                               t = 0 point of the curve)
 {MODE_PREFIX}
 WITH
   targets AS (
@@ -36,16 +38,16 @@ WITH
   ),
   dist_j AS (
     SELECT start_year, age, j, m,
-      (SUM(cnt) OVER (PARTITION BY start_year, age, j ORDER BY m) - cnt)
-        / SUM(cnt) OVER (PARTITION BY start_year, age, j) AS g_below
+      (SUM(cnt) OVER (PARTITION BY start_year, age, j ORDER BY m) - cnt / 2)
+        / SUM(cnt) OVER (PARTITION BY start_year, age, j) AS g_mid
     FROM (SELECT start_year, age, j, n_j AS m, COUNT(*) AS cnt FROM nj GROUP BY start_year, age, j, n_j)
   ),
   scores AS (
     SELECT n.authorid, n.start_year, n.age,
-      AVG(g.g_below) AS sym,
-      SUM(IF(n.j >= 10, g.g_below, 0)) / 30 AS sym_tau25,
-      SUM(IF(n.j >= 20, g.g_below, 0)) / 20 AS sym_tau50,
-      MAX(IF(n.j = 0, g.g_below, NULL)) AS g0,
+      AVG(g.g_mid) AS sym,
+      SUM(IF(n.j >= 10, g.g_mid, 0)) / 30 AS sym_tau25,
+      SUM(IF(n.j >= 20, g.g_mid, 0)) / 20 AS sym_tau50,
+      MAX(IF(n.j = 0, g.g_mid, NULL)) AS g0,
       MAX(IF(n.j = 39, n.n_j, NULL)) AS n_top
     FROM nj AS n
     JOIN dist_j AS g ON g.start_year = n.start_year AND g.age = n.age AND g.j = n.j AND g.m = n.n_j

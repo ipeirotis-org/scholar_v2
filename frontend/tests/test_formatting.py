@@ -218,10 +218,11 @@ def test_build_standing_treats_nan_as_missing():
 
 
 def test_pip_sql_lookup_matches_paper_sym_tau50_formula():
-    """Verify dist_pip_thresholds + RANGE_BUCKET(n_j - 1, m_arr) matches 14_gs_variant_impact.sql."""
+    """Verify the dist_pip_thresholds lookups (RANGE_BUCKET(n_j - 1, m_arr) and
+    RANGE_BUCKET(n_j, m_arr)) match the mid-rank standing of 14_gs_variant_impact.sql."""
     # Active peers in cohort 2010: each entry is a list of paper citation percentiles in [0, 1].
     cohort_peers = {
-        "peer_zero_high": [0.10, 0.22, 0.49],               # all below 0.50 -> PiP = 0.0
+        "peer_zero_high": [0.10, 0.22, 0.49],               # all below 0.50 -> tied at zero above the cutoff
         "peer_tie_a": [0.20, 0.50, 0.75, 0.99],
         "peer_tie_b": [0.30, 0.51, 0.76, 0.98],             # ties peer_tie_a at j=20, 30, 39
         "peer_prolific": [0.55, 0.60, 0.70, 0.80, 0.92, 1.0],
@@ -254,32 +255,27 @@ def test_pip_sql_lookup_matches_paper_sym_tau50_formula():
         curve = []
         for j in range(40):
             n_j = sum(1 for y in papers if paper_class(y) >= j)
-            if n_j <= 0:
-                g_j = 0.0
-            else:
-                m_arr, cum_arr = dist[j]
-                idx = bisect.bisect_right(m_arr, n_j - 1)  # 1-based SAFE_ORDINAL index
-                strictly_below = cum_arr[idx - 1] if idx >= 1 else 0
-                g_j = strictly_below / cohort_size
-            curve.append(g_j)
+            m_arr, cum_arr = dist[j]
+            idx = bisect.bisect_right(m_arr, n_j - 1)  # 1-based SAFE_ORDINAL index
+            strictly_below = cum_arr[idx - 1] if idx >= 1 else 0
+            idx = bisect.bisect_right(m_arr, n_j)
+            at_most = cum_arr[idx - 1] if idx >= 1 else 0
+            curve.append((strictly_below + at_most) / (2 * cohort_size))
         pip_50 = round(sum(curve[20:]) / 20.0, 4)
         return curve, pip_50
 
     # Reference formula from paper/sql/14_gs_variant_impact.sql (sym_tau50):
-    # g_below(n_j) = fraction of cohort peers with count < n_j (0 when n_j == 0).
+    # g(n_j) = share of cohort peers with count < n_j plus half the share with count == n_j
+    # (a tie counts one half, also at n_j == 0).
     def paper_direct(papers):
         curve = []
         for j in range(40):
             n_j = sum(1 for y in papers if paper_class(y) >= j)
-            if n_j == 0:
-                g_j = 0.0
-            else:
-                below = sum(
-                    1 for peer_papers in cohort_peers.values()
-                    if sum(1 for y in peer_papers if paper_class(y) >= j) < n_j
-                )
-                g_j = below / cohort_size
-            curve.append(g_j)
+            peer_counts = [sum(1 for y in peer_papers if paper_class(y) >= j)
+                           for peer_papers in cohort_peers.values()]
+            below = sum(1 for m in peer_counts if m < n_j)
+            tied = sum(1 for m in peer_counts if m == n_j)
+            curve.append((below + 0.5 * tied) / cohort_size)
         pip_50 = round(sum(curve[20:]) / 20.0, 4)
         return curve, pip_50
 
@@ -288,8 +284,16 @@ def test_pip_sql_lookup_matches_paper_sym_tau50_formula():
         exp_curve, exp_pip = paper_direct(papers)
         assert got_curve == pytest.approx(exp_curve), author_id
         assert got_pip == exp_pip, author_id
-    # Author with no papers >= 0.50 gets exact 0.0
-    assert sql_lookup(cohort_peers["peer_zero_high"])[1] == 0.0
+    # A peer with no paper >= 0.50 stands at half the share of peers with none at each class:
+    # alone at j = 20 (0.5 / 5), and with peer_modest at j = 21 (1 / 5)
+    zero_curve, zero_pip = sql_lookup(cohort_peers["peer_zero_high"])
+    assert zero_curve[20] == pytest.approx(0.1) and zero_curve[21] == pytest.approx(0.2)
+    assert 0 < zero_pip < min(sql_lookup(p)[1] for k, p in cohort_peers.items() if k != "peer_zero_high")
+    # A tie counts one half, so the peers' standings average exactly 0.5 at every class
+    for j in range(40):
+        assert sum(sql_lookup(p)[0][j] for p in cohort_peers.values()) / cohort_size == pytest.approx(0.5)
+    # The outsider (not a peer) beats every peer at j = 39 and ties with none
+    assert sql_lookup(all_authors["outsider"])[0][39] == 1.0
     # Peers tied across all classes >= 20 receive identical high-half standing and PiP score
     assert sql_lookup(cohort_peers["peer_tie_a"])[0][20:] == sql_lookup(cohort_peers["peer_tie_b"])[0][20:]
     assert sql_lookup(cohort_peers["peer_tie_a"])[1] == sql_lookup(cohort_peers["peer_tie_b"])[1]

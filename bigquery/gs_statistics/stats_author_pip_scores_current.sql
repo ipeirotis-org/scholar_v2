@@ -5,8 +5,14 @@ CREATE OR REPLACE VIEW `scholar-version2.gs_statistics.stats_author_pip_scores_c
 --   Each cited work falls into citation-percentile class b = LEAST(39, FLOOR(40 * y)),
 --   corresponding to threshold theta_j = j / 40 for j = 0..39. At each j, n_j is the
 --   author's count of cited works in class >= j, and g_j is the share of active peers
---   in the same year_of_first_pub cohort with strictly fewer (< n_j) such works
---   (0 when n_j = 0), looked up via RANGE_BUCKET(n_j - 1, m_arr) in dist_pip_thresholds.
+--   in the same year_of_first_pub cohort with fewer (< n_j) such works plus half the
+--   share with exactly n_j (a tie counts one half; mid-rank). Both shares come from
+--   dist_pip_thresholds: peers with < n_j via RANGE_BUCKET(n_j - 1, m_arr), peers
+--   with <= n_j via RANGE_BUCKET(n_j, m_arr). The rule also applies at n_j = 0: an
+--   author with no work in class >= j stands at half the share of peers with none.
+--   Over the peers of a cohort g_j averages exactly 0.5 at every j, so pip_score
+--   averages 0.5 and tracks its own cohort percentile closely (2026-11-16; before,
+--   ties counted zero and scores ran about 0.03 below their percentile).
 --   pip_score averages g_j over the top half of thresholds (j = 20..39, tau = 0.5).
 --   pip_standing_json serializes all 40 values [g_0, ..., g_39] for the standing curve
 --   chart and interactive cutoff (tau) selector.
@@ -64,8 +70,9 @@ WITH
       t.j,
       CASE
         WHEN dt.cohort_size IS NULL THEN NULL
-        WHEN t.n_j <= 0 THEN 0.0
-        ELSE COALESCE(dt.cum_arr[SAFE_ORDINAL(RANGE_BUCKET(t.n_j - 1, dt.m_arr))], 0) / dt.cohort_size
+        ELSE (COALESCE(dt.cum_arr[SAFE_ORDINAL(RANGE_BUCKET(t.n_j - 1, dt.m_arr))], 0)
+              + COALESCE(dt.cum_arr[SAFE_ORDINAL(RANGE_BUCKET(t.n_j, dt.m_arr))], 0))
+             / (2 * dt.cohort_size)
       END AS g_j
     FROM AuthorThresholds t
     LEFT JOIN `scholar-version2.gs_statistics.dist_pip_thresholds` dt

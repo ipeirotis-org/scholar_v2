@@ -4,7 +4,8 @@
 -- year_of_first_pub, as in the live app. Paper percentile y = the live num_citations_percentile (share of cited works
 -- from the same year with at most as many citations). Same 40-point threshold grid as 12:
 --   pip_grid   current PiP on the grid; F(m) = share of peers with at most m cited works (exact, not interpolated)
---   sym        compare your count above each threshold with peers' counts above the same threshold
+--   sym        compare your count above each threshold with peers' counts above the same threshold: share of peers
+--              with fewer plus half the share with exactly as many (mid-rank, as in the live app since 2026-11-16)
 --   sym_tauXX  symmetric, thresholds >= tau only, tau in {0.25, 0.5, 0.6, 0.75, 0.9}
 -- Output: one row per active author with the live score and the three variants.
 CREATE OR REPLACE TABLE `scholar-version2.paper_rp.gs_variant_scores`
@@ -31,7 +32,7 @@ WITH
   ),
   dist_j AS (
     SELECT cohort, j, m, cnt,
-      (SUM(cnt) OVER (PARTITION BY cohort, j ORDER BY m) - cnt) / SUM(cnt) OVER (PARTITION BY cohort, j) AS g_below
+      (SUM(cnt) OVER (PARTITION BY cohort, j ORDER BY m) - cnt / 2) / SUM(cnt) OVER (PARTITION BY cohort, j) AS g_mid
     FROM (SELECT cohort, j, n_j AS m, COUNT(*) AS cnt FROM nj GROUP BY cohort, j, n_j)
   ),
   totals AS (SELECT cohort, m, cnt FROM dist_j WHERE j = 0),
@@ -44,12 +45,12 @@ WITH
   scores AS (
     SELECT n.scholar_id, n.cohort,
       AVG(f.f) AS pip_grid,
-      AVG(g.g_below) AS sym,
-      SUM(IF(n.j >= 10, g.g_below, 0)) / 30 AS sym_tau25,
-      SUM(IF(n.j >= 20, g.g_below, 0)) / 20 AS sym_tau50,
-      SUM(IF(n.j >= 24, g.g_below, 0)) / 16 AS sym_tau60,
-      SUM(IF(n.j >= 30, g.g_below, 0)) / 10 AS sym_tau75,
-      SUM(IF(n.j >= 36, g.g_below, 0)) / 4 AS sym_tau90,
+      AVG(g.g_mid) AS sym,
+      SUM(IF(n.j >= 10, g.g_mid, 0)) / 30 AS sym_tau25,
+      SUM(IF(n.j >= 20, g.g_mid, 0)) / 20 AS sym_tau50,
+      SUM(IF(n.j >= 24, g.g_mid, 0)) / 16 AS sym_tau60,
+      SUM(IF(n.j >= 30, g.g_mid, 0)) / 10 AS sym_tau75,
+      SUM(IF(n.j >= 36, g.g_mid, 0)) / 4 AS sym_tau90,
       MAX(IF(n.j = 39, n.n_j, NULL)) AS n_top,
       MAX(IF(n.j = 0, n.n_j, NULL)) AS n_cited
     FROM nj AS n

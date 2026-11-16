@@ -11,7 +11,7 @@ Replication package for *Percentile in Percentile: Evaluating Scholars Across Ca
 - **`lean/`** holds the Lean 4 + Mathlib (`v4.35.0`) formalization of the mathematical properties and integration identities in Section 4, `COMPUTATION.md`, and Appendix C (`lake build` compiles all proofs and checks axioms).
 - **`checks/`** holds the numerical simulation scripts checking the properties of PiP (`sym_properties.py`) and the productivity-normalized area (`pip_properties.py`).
 - **`honors/`** holds the scripts and curated data for the later-recognition analysis (`fetch_wikidata_honors.py`, `analyze_honors.py`, `analyze_gs_honors.py`).
-- **`sql/`** holds the analysis queries, numbered in run order. They write to the BigQuery dataset `scholar-version2.paper_rp` (and `scholar-version2.paper_rp_noself` for the self-citation-free pipeline).
+- **`sql/`** holds the analysis queries, numbered in run order. They write to the BigQuery dataset `scholar-version2.paper_rp` (and `scholar-version2.paper_rp_noself` for the self-citation-free pipeline). `sql/run_standing.sh` replays every step that depends on the peer standing (12-28); the run scripts accept `DATASET=<name>` to read from and write to another dataset.
 
 ## Data decisions
 

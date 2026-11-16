@@ -1,13 +1,16 @@
 -- 25: PiP from order statistics, on any grid or none. Run through paper/sql/run_25.sh.
 --
--- PiP_tau(a) = 1/(1-tau) * integral from tau to 1 of G_t(n_a(t)) dt, where n_a(t) is the number of the author's articles
--- with percentile y >= t (`below` at the evaluation year) and G_t(m) is the share of peers with fewer than m such
--- articles. Sort the author's percentiles y_(1) >= y_(2) >= ... On (y_(k+1), y_(k)] the author has exactly k articles
--- at or above t, and a peer b has fewer than k exactly when its k-th best percentile Y_k^b is below t (or b has fewer
--- than k articles). Hence
---   integral over (x0, x1] of G_t(k) dt = H_k(x1) - H_k(x0),  H_k(x) = (1/|P|) * sum over peers b of (x - Y_k^b)^+,
--- with Y_k^b = 0 for peers with fewer than k articles (x >= 0 throughout), and
---   PiP_tau(a) = 1/(1-tau) * sum over k of [H_k(y_(k)) - H_k(max(tau, y_(k+1)))], over k with y_(k) > max(tau, y_(k+1)).
+-- PiP_tau(a) = 1/(1-tau) * integral from tau to 1 of g_t(n_a(t)) dt, where n_a(t) is the number of the author's articles
+-- with percentile y >= t (`below` at the evaluation year) and the standing g_t(m) is the share of peers with fewer than
+-- m such articles plus half the share with exactly m (a tie counts one half). With L_t(m) = share of peers with fewer
+-- than m articles at or above t, g_t(m) = (L_t(m) + L_t(m + 1)) / 2, and L_t(0) = 0.
+-- Sort the author's percentiles y_(1) >= y_(2) >= ..., and set y_(0) = 1 and y_(n+1) = 0. On (y_(k+1), y_(k)] the author
+-- has exactly k articles at or above t (k = 0 above the author's best article), and a peer b has fewer than k exactly
+-- when its k-th best percentile Y_k^b is below t (or b has fewer than k articles). Hence
+--   integral over (x0, x1] of L_t(k) dt = H_k(x1) - H_k(x0),  H_k(x) = (1/|P|) * sum over peers b of (x - Y_k^b)^+,
+-- with Y_k^b = 0 for peers with fewer than k articles (x >= 0 throughout), H_0 = 0, and
+--   PiP_tau(a) = 1/(1-tau) * sum over k >= 0 of (1/2) * [H_k(y_(k)) - H_k(lo_k) + H_(k+1)(y_(k)) - H_(k+1)(lo_k)],
+--   lo_k = max(tau, y_(k+1)), over the k with y_(k) > lo_k.
 -- H_k is evaluated by sorting the peers' Y_k^b together with the query points within (start year, age, grid, k): an
 -- as-of running count and sum. The cost grows with the number of articles, not with the number of thresholds.
 --
@@ -48,16 +51,28 @@ WITH
   n_at_least AS (
     SELECT start_year, age, k_grid, k, COUNT(*) AS n_k FROM ranked GROUP BY start_year, age, k_grid, k
   ),
+  intervals AS (
+    -- k >= 1: the author has exactly k articles at or above t on (max(tau, v_(k+1)), v_(k)]
+    SELECT r.authorid, r.start_year, r.age, r.k_grid, r.k, tau, r.v AS hi, GREATEST(tau, IFNULL(r.v_next, 0)) AS lo
+    FROM ranked AS r, UNNEST([{TAUS}]) AS tau
+    UNION ALL
+    -- k = 0: no article at or above t on (max(tau, v_(1)), 1]
+    SELECT r.authorid, r.start_year, r.age, r.k_grid, 0, tau, 1.0, GREATEST(tau, r.v)
+    FROM ranked AS r, UNNEST([{TAUS}]) AS tau
+    WHERE r.k = 1
+  ),
   queries AS (
-    SELECT r.authorid, r.start_year, r.age, r.k_grid, r.k, tau, q.x, q.sgn
-    FROM ranked AS r,
-      UNNEST([{TAUS}]) AS tau,
-      UNNEST([STRUCT(r.v AS x, 1 AS sgn), STRUCT(GREATEST(tau, IFNULL(r.v_next, 0)) AS x, -1 AS sgn)]) AS q
-    WHERE r.v > GREATEST(tau, IFNULL(r.v_next, 0))
+    -- the standing on interval k is (L_t(k) + L_t(k+1)) / 2, so each interval asks for H_k and H_(k+1) at both ends
+    -- with weight 1/2; H_0 = 0 (no peer has fewer than zero articles) and is skipped
+    SELECT i.authorid, i.start_year, i.age, i.k_grid, kk AS k, i.tau, q.x, q.sgn
+    FROM intervals AS i,
+      UNNEST([i.k, i.k + 1]) AS kk,
+      UNNEST([STRUCT(i.hi AS x, 0.5 AS sgn), STRUCT(i.lo AS x, -0.5 AS sgn)]) AS q
+    WHERE i.hi > i.lo AND kk >= 1
   ),
   points AS (
     SELECT start_year, age, k_grid, k, v AS x, 1 AS is_peer,
-      CAST(NULL AS STRING) AS authorid, CAST(NULL AS FLOAT64) AS tau, 0 AS sgn
+      CAST(NULL AS STRING) AS authorid, CAST(NULL AS FLOAT64) AS tau, 0.0 AS sgn
     FROM ranked
     UNION ALL
     SELECT start_year, age, k_grid, k, x, 0, authorid, tau, sgn FROM queries
@@ -73,10 +88,11 @@ WITH
   ),
   contrib AS (
     SELECT q.authorid, q.start_year, q.age, q.k_grid, q.tau,
-      SUM(q.sgn * (q.x * (q.c_le + g.n_peers - n.n_k) - q.s_le) / g.n_peers) AS integral
+      -- peers without a k-th article have Y_k = 0 and add x each; no peer has one when k exceeds every peer's count
+      SUM(q.sgn * (q.x * (q.c_le + g.n_peers - IFNULL(n.n_k, 0)) - q.s_le) / g.n_peers) AS integral
     FROM asof AS q
     JOIN group_size AS g USING (start_year, age)
-    JOIN n_at_least AS n USING (start_year, age, k_grid, k)
+    LEFT JOIN n_at_least AS n USING (start_year, age, k_grid, k)
     WHERE q.is_peer = 0
     GROUP BY q.authorid, q.start_year, q.age, q.k_grid, q.tau
   )

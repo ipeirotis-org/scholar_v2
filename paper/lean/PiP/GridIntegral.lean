@@ -17,7 +17,10 @@ This module formalizes the connection between the finite `M`-class grid computat
 continuous integral definition (Section 4.6 of the paper and `paper/COMPUTATION.md`):
 
 For a grid with `M > 0` classes, define the strict upward rounding transformation
-`R_M(y) = (⌊M y⌋ + 1) / M` (`roundUp M y`).
+`R_M(y) = (⌊M y⌋ + 1) / M` (`roundUp M y`). Throughout, `g_a` is the mid-rank standing
+(`standingAt`: a peer with strictly fewer qualifying papers counts one, a tie counts one half).
+The correspondence below is a statement about qualifying-paper counts, so it holds for the
+mid-rank standing exactly as it does for any standing computed from the counts.
 
 1. **Cell correspondence (`roundUp_ge_iff_ge_grid`)**:
    Throughout the half-open cell `θ ∈ (k / M, (k + 1) / M]`, a rounded paper percentile qualifies
@@ -105,8 +108,9 @@ theorem countAboveAt_roundUp_eq_on_cell {M : ℕ} (hM : 0 < M) (papers : α → 
     countAboveAt (roundUpPapers M papers) b θ = countAboveAt papers b ((k : ℝ) / (M : ℝ)) :=
   countAboveList_map_roundUp_eq hM k (papers b) hθ
 
-/-- Every author's standing after cohort-wide upward rounding is constant on `(k / M, (k + 1) / M]`
-and equal to their unrounded standing at `k / M`. -/
+/-- Every author's mid-rank standing after cohort-wide upward rounding is constant on
+`(k / M, (k + 1) / M]` and equal to their unrounded mid-rank standing at `k / M`, because every
+author's count is (`countAboveAt_roundUp_eq_on_cell`). -/
 theorem standingAt_roundUp_eq_on_cell {M : ℕ} (hM : 0 < M) (papers : α → List ℝ)
     (a : α) (k : ℕ) {θ : ℝ}
     (hθ : θ ∈ Set.Ioc ((k : ℝ) / (M : ℝ)) (((k : ℝ) + 1) / (M : ℝ))) :
@@ -130,7 +134,7 @@ theorem intervalIntegrable_standingAt_roundUp_cell {M : ℕ} (hM : 0 < M)
   exact (standingAt_roundUp_eq_on_cell hM papers a k hθ).symm
 
 /-- **Cell integral identity**:
-The integral of the rounded standing curve over `[k / M, (k + 1) / M]` is the area of the
+The integral of the rounded mid-rank standing curve over `[k / M, (k + 1) / M]` is the area of the
 rectangle of width `1 / M` and height `g_a(k / M)`. -/
 theorem integral_standingAt_roundUp_cell {M : ℕ} (hM : 0 < M)
     (papers : α → List ℝ) (a : α) (k : ℕ) :
@@ -151,8 +155,9 @@ theorem integral_standingAt_roundUp_cell {M : ℕ} (hM : 0 < M)
 
 /-- **Grid-to-integral equivalence theorem**:
 For a grid of `M > 0` classes and cutoff `τ = q / M` with `q < M`, the finite-grid average
-`(1 / (M - q)) ∑_{k ∈ Ico q M} g_a(k / M)` equals the continuous PiP integral
-`(1 / (1 - τ)) ∫_τ^1 g_a^{R_M}(θ) dθ` computed after applying `R_M` to every author's paper percentiles. -/
+`(1 / (M - q)) ∑_{k ∈ Ico q M} g_a(k / M)` of the mid-rank standings equals the continuous PiP
+integral `(1 / (1 - τ)) ∫_τ^1 g_a^{R_M}(θ) dθ` computed after applying `R_M` to every author's
+paper percentiles. -/
 theorem grid_eq_integral_roundUp {M q : ℕ} (hM : 0 < M) (hq : q < M)
     (papers : α → List ℝ) (a : α) :
     (∑ k ∈ Finset.Ico q M, standingAt papers a ((k : ℝ) / (M : ℝ))) / ((M : ℝ) - (q : ℝ)) =
