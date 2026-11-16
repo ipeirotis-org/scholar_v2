@@ -505,3 +505,160 @@ class TestSearchInMemory:
             assert len(results) == 1
         finally:
             ss._author_index = old_index
+
+
+@pytest.fixture
+def index(monkeypatch):
+    """Install a list of names (or author dicts) as the in-memory index."""
+    import author_search.search_service as ss
+
+    def install(*authors):
+        entries = [a if isinstance(a, dict) else _make_author(f"id{i}", a, citedby=1000 - i)
+                   for i, a in enumerate(authors)]
+        monkeypatch.setattr(ss, "_author_index", entries)
+        monkeypatch.setattr(ss, "_compiled", None)
+        return ss._search_in_memory
+    return install
+
+
+def _names(results):
+    return [r["name"] for r in results]
+
+
+class TestFuzzyMatching:
+    """Approximate matches, returned only when no name matches exactly.
+
+    The queries are searches that returned nothing on the live site in
+    October-November 2026.
+    """
+
+    @pytest.mark.parametrize("query,expected", [
+        ("viral acharaya", "Viral Acharya"),             # extra letter
+        ("arun subdararajan", "Arun Sundararajan"),      # wrong letter
+        ("marios papachrisou", "Marios Papachristou"),   # missing letter
+        ("ioannis daras", "Giannis Daras"),              # variant of the first name
+        ("john hortno", "John Horton"),                  # swapped letters
+        ("robert f. engle", "Robert Engle"),             # middle initial the profile lacks
+        ("prasanna parasyr", "Prasanna Parasurama"),     # typo in a half-typed word
+        ("tuhun", "Tuhin Chakrabarty"),                  # single word
+    ])
+    def test_finds_the_intended_author(self, index, query, expected):
+        search = index("Viral Acharya", "Arun Sundararajan", "Marios Papachristou", "Giannis Daras",
+                       "John Horton", "Robert Engle", "Prasanna Parasurama", "Tuhin Chakrabarty",
+                       "Maria Garcia", "Wei Zhang")
+        results = search(query)
+        assert _names(results) == [expected]
+        assert results[0]["fuzzy"] is True
+
+    def test_exact_matches_are_not_mixed_with_similar_names(self, index):
+        search = index("Viral Acharya", "Viral Acharaya")
+        results = search("viral acharaya")
+        assert _names(results) == ["Viral Acharaya"]
+        assert "fuzzy" not in results[0]
+
+    def test_closest_name_first_then_by_citations(self, index):
+        search = index(_make_author("far", "Tomas Hartens", citedby=9000),
+                       _make_author("near_low", "Tom Hortan", citedby=10),
+                       _make_author("near_high", "Tim Hortin", citedby=500))
+        assert [r["scholar_id"] for r in search("horton")] == ["near_high", "near_low", "far"]
+
+    def test_short_words_must_match_exactly(self, index):
+        search = index("Wei Li", "Wen Lu")
+        assert search("wei lo") == []
+
+    def test_every_word_must_match_something(self, index):
+        search = index("Viral Acharya", "Viral Shah")
+        assert _names(search("viral acharaya")) == ["Viral Acharya"]
+        assert search("journal of fluid mechanics") == []
+
+    def test_unrelated_query_finds_nothing(self, index):
+        search = index("Viral Acharya", "John Horton")
+        assert search("zzzzqq") == []
+        assert search("j. k.") == []
+
+    def test_at_most_five_suggestions(self, index):
+        search = index(*[f"Hortan{c} Smith" for c in "abcdefgh"])
+        assert len(search("hortun", limit=50)) == 5
+
+    def test_hyphenated_surname_parts(self, index):
+        search = index("Carlos Carranza-Torres")
+        assert _names(search("carlos torrez")) == ["Carlos Carranza-Torres"]
+
+    def test_without_rapidfuzz_search_still_works(self, index, monkeypatch):
+        import sys
+        monkeypatch.setitem(sys.modules, "rapidfuzz", None)
+        search = index("Viral Acharya")
+        assert search("viral acharaya") == []
+        assert _names(search("viral")) == ["Viral Acharya"]
+
+
+class TestAccentFolding:
+    def test_unaccented_query_finds_accented_name(self, index):
+        search = index("Gülsün Tünay", "José Peña", "Søren Łukasz Straße")
+        assert _names(search("gulsun tunay")) == ["Gülsün Tünay"]
+        assert _names(search("jose pena")) == ["José Peña"]
+        assert _names(search("soren lukasz strasse")) == ["Søren Łukasz Straße"]
+        assert "fuzzy" not in search("jose pena")[0]
+
+    def test_accented_query_finds_unaccented_name(self, index):
+        search = index("Jose Pena")
+        assert _names(search("José Peña")) == ["Jose Pena"]
+
+    def test_comma_in_query_is_ignored(self, index):
+        search = index("John J. Horton")
+        assert _names(search("john j, horton")) == ["John J. Horton"]
+
+
+class TestCompiledIndex:
+    def test_same_results_as_checking_every_name(self, index):
+        """The candidate lookup must find exactly the names the per-name rule accepts."""
+        import random
+        import author_search.search_service as ss
+        rng = random.Random(3)
+        first = ["John", "J.", "Tyler", "T.", "Ann", "A", "Li", "Wei", "Maria", "M.", "Joan", "Jo"]
+        last = ["Smith", "Cowen", "Li", "Lee", "Williams", "Johnson", "Jones", "Sloan", "Wei", "Smithson Jr."]
+        names = [" ".join(rng.choice(first) for _ in range(rng.randint(1, 3))) + " " + rng.choice(last)
+                 for _ in range(400)]
+        search = index(*names)
+        queries = set()
+        for name in rng.sample(names, 120):
+            words = name.lower().split()
+            queries |= {name.lower(), words[-1], words[0] + " " + words[-1], words[0][0] + " " + words[-1],
+                        words[0][0] + ". " + words[-1], name.lower()[:rng.randint(2, len(name))].strip(),
+                        " ".join(w[0] for w in words)}
+        for query in sorted(q for q in queries if q):
+            tokens = query.split()
+            expected = [a for a in ss._author_index if ss._entry_matches(tokens, a["name"].lower())]
+            expected.sort(key=ss._rank_key, reverse=True)
+            got = search(query, limit=1000)
+            if expected:
+                assert [r["scholar_id"] for r in got] == [a["scholar_id"] for a in expected], query
+            else:
+                assert all(r.get("fuzzy") for r in got), query
+
+    def test_results_follow_a_new_index(self, index):
+        assert _names(index("Ann Lee")("ann")) == ["Ann Lee"]
+        assert _names(index("Ann Wu")("ann")) == ["Ann Wu"]
+
+    def test_repeated_query_is_served_from_memory(self, index):
+        import author_search.search_service as ss
+        search = index("Ann Lee", "Ann Wu")
+        first = search("ann")
+        with mock.patch.object(ss._CompiledIndex, "exact", side_effect=AssertionError("recomputed")):
+            again = search("ANN ")
+        assert again == first and again is not first
+        again[0]["name"] = "changed"
+        assert search("ann")[0]["name"] == "Ann Lee"
+
+    def test_result_cache_is_bounded(self, index, monkeypatch):
+        import author_search.search_service as ss
+        monkeypatch.setattr(ss, "_RESULT_CACHE_SIZE", 3)
+        search = index("Ann Lee")
+        for q in ("an", "ann", "le", "lee", "nn"):
+            search(q)
+        assert len(ss._compiled._results) == 3
+
+    def test_name_with_line_break_does_not_shift_other_names(self, index):
+        search = index("Ann\nLee", "Bob Stone")
+        assert _names(search("bob stone")) == ["Bob Stone"]
+        assert _names(search("ann lee")) == ["Ann\nLee"]

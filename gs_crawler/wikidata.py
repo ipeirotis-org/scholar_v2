@@ -1,10 +1,11 @@
 """Google Scholar author IDs from Wikidata (property P1960), for name search.
 
-Google Scholar's author search needs a signed-in browser, and SerpApi's Scholar
-results no longer link author names to profiles, so the app cannot look up an
-unprofiled author's GS ID by name. Wikidata maps ~130K people to their GS IDs;
-loading that mapping into `gs_data.wikidata_authors` lets the search index offer
-those names too (the results page then crawls the profile on demand).
+Google Scholar's author search needs a signed-in browser, so the profiles under
+a name cannot be listed in bulk (the app can look one name up per paid SerpApi
+search, see author_search/gs_search_client.py). Wikidata maps ~130K people to
+their GS IDs; loading that mapping into `gs_data.wikidata_authors` lets the
+search index offer those names for free (the results page then crawls the
+profile on demand).
 
 The full query runs in ~20 s on QLever (qlever.dev, University of Freiburg),
 which serves a recent Wikidata snapshot without the 60 s limit. If QLever fails,

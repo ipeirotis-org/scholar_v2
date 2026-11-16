@@ -15,13 +15,15 @@ logger = logging.getLogger(__name__)
 
 # Collection for caching final merged search results (all tiers combined)
 SEARCH_RESULTS_COLLECTION = "v3_search_results"
+# One document per UTC day counting live Google Scholar lookups.
+LIVE_SEARCH_USAGE_COLLECTION = "v3_gs_live_search_usage"
 
 
 class SearchCache:
     def __init__(self, client=None):
         self.db = client or firestore.Client(project=Config.PROJECT_ID)
 
-    def get(self, query_string):
+    def get(self, query_string, ttl_hours=None):
         """Get cached extended search results if fresh.
 
         Returns list of author dicts, or None if missing/stale.
@@ -35,7 +37,7 @@ class SearchCache:
             cached_time = cached.get("timestamp")
             if not cached_time:
                 return None
-            cutoff = datetime.now(timezone.utc) - timedelta(hours=Config.CACHE_TTL_HOURS)
+            cutoff = datetime.now(timezone.utc) - timedelta(hours=ttl_hours or Config.CACHE_TTL_HOURS)
             if cached_time < cutoff:
                 logger.info("Search cache stale for query: %s", query_string)
                 return None
@@ -91,8 +93,27 @@ class SearchCache:
         except Exception:
             logger.exception("Search results cache write failed for: %s", query_string)
 
+    def reserve_live_search(self, daily_limit):
+        """Count one live lookup against today's allowance (UTC day).
+
+        Returns False when the allowance is used up, and also when the counter
+        cannot be read: lookups cost money, so an unknown count means no.
+        """
+        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        doc = self.db.collection(LIVE_SEARCH_USAGE_COLLECTION).document(today)
+        try:
+            snapshot = doc.get()
+            used = (snapshot.to_dict() or {}).get("count", 0) if snapshot.exists else 0
+            if used >= daily_limit:
+                return False
+            doc.set({"count": firestore.Increment(1), "updated": datetime.now(timezone.utc)}, merge=True)
+            return True
+        except Exception:
+            logger.exception("Live search counter failed")
+            return False
+
     def get_index_chunk(self, collection, doc_id):
-        """Get a chunk of the author name index from Firestore."""
+        """Get one document of the author name index (a list, bytes or dict) from Firestore."""
         try:
             doc = self.db.collection(collection).document(doc_id).get()
             if not doc.exists:
@@ -103,7 +124,7 @@ class SearchCache:
             return None
 
     def set_index_chunk(self, collection, doc_id, data):
-        """Save a chunk of the author name index to Firestore."""
+        """Save one document of the author name index to Firestore."""
         try:
             self.db.collection(collection).document(doc_id).set({"data": data})
         except Exception:

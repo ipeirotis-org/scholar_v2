@@ -25,7 +25,9 @@
                 <th>Query</th>
                 <th>Author ID</th>
                 <th class="text-right">Results</th>
+                <th>Match</th>
                 <th>Scholar</th>
+                <th>Bot</th>
             </tr>
         </thead>
         <tbody>
@@ -50,7 +52,9 @@
                     {% endif %}
                 </td>
                 <td class="text-right">{{ q.result_count if q.result_count is not none else '-' }}</td>
+                <td>{{ q.match or '' }}</td>
                 <td>{{ 'Yes' if q.scholar else '' }}</td>
+                <td>{{ 'Yes' if q.bot else '' }}</td>
             </tr>
             {% endfor %}
         </tbody>

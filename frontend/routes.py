@@ -41,6 +41,7 @@ from frontend.cache import (
 from frontend.config import Config
 from frontend.formatting import build_standing, field_comparison, percentile_text, score_text
 from frontend.queue_client import enqueue_cache_populate
+from frontend.visitor import describe_visitor
 
 logger = logging.getLogger(__name__)
 
@@ -55,6 +56,10 @@ AUTHOR_PUB_ID_RE = re.compile(r"^[A-Za-z0-9_:/-]{4,80}$")
 # A Google Scholar paper on a profile: "<12-char user id>:<paper id>".
 GS_PUB_ID_RE = re.compile(r"^[A-Za-z0-9_-]{12}:[A-Za-z0-9_-]{1,40}$")
 GS_CITATION_URL = "https://scholar.google.com/citations?view_op=view_citation&hl=en&citation_for_view="
+
+# Query-log fields shown on /admin/query-log and /api/query-log.
+_QUERY_LOG_PUBLIC_FIELDS = frozenset(
+    {"timestamp", "type", "query", "result_count", "author_id", "typeahead", "scholar", "match", "bot"})
 
 # Featured authors shown on the homepage; /featured lists all of them.
 HOMEPAGE_FEATURED = 10
@@ -384,6 +389,7 @@ def register_routes(app):
                 "profile_view",
                 author_stats.get("name", author_id),
                 author_id=author_id,
+                visitor=describe_visitor(request),
             )
         except Exception:
             logger.debug("Failed to log profile view for %s", author_id)
@@ -611,15 +617,29 @@ def register_routes(app):
 
     from author_search.search_service import AuthorSearchService, refresh_author_index
     search_svc = AuthorSearchService()
+    if not app.config.get("TESTING"):
+        # Load the name index now rather than on the first search.
+        search_svc.warm()
+
+    def _match_kind(results):
+        """How a search's results matched, for the query log."""
+        if not results:
+            return "none"
+        if any(r.get("source") == "gs_live" for r in results):
+            return "live"
+        return "fuzzy" if all(r.get("fuzzy") for r in results) else "exact"
 
     @app.route("/get_similar_authors")
     def get_similar_authors():
-        author_name = request.args.get("author_name", "").strip()
+        author_name = request.args.get("author_name", "").strip()[:200]
         if not author_name or len(author_name) < 2:
             return jsonify([])
         typeahead = request.args.get("typeahead", "").lower() == "true"
         scholar = request.args.get("scholar", "").lower() == "true"
-        results = search_svc.search(author_name, typeahead=typeahead, scholar=scholar)
+        visitor = describe_visitor(request)
+        # A live lookup is a paid request: not for declared crawlers.
+        results = search_svc.search(author_name, typeahead=typeahead, scholar=scholar,
+                                    allow_live=not visitor["bot"])
 
         # Log non-typeahead searches (typeahead fires on every keystroke)
         if not typeahead:
@@ -628,6 +648,7 @@ def register_routes(app):
                     "search", author_name,
                     result_count=len(results),
                     typeahead=typeahead, scholar=scholar,
+                    visitor=visitor, match=_match_kind(results),
                 )
             except Exception:
                 logger.debug("Failed to log search query")
@@ -721,7 +742,9 @@ def register_routes(app):
             ref = ref.limit(fetch_limit)
             results = []
             for doc in ref.stream():
-                data = doc.to_dict()
+                # These pages are public: the visitor fields (user agent, IP hash,
+                # referrer) stay in Firestore.
+                data = {k: v for k, v in doc.to_dict().items() if k in _QUERY_LOG_PUBLIC_FIELDS}
                 if query_type and data.get("type") != query_type:
                     continue
                 ts = data.get("timestamp")

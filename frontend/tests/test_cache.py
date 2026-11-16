@@ -201,3 +201,38 @@ class TestRecordRecentAuthor:
         assert "pip_score" not in entry
         assert entry["pip_auc_score"] == 0.5
         assert entry["pip_auc_percentile"] == 0.75
+
+
+class TestLogQuery:
+    """log_query writes in a background thread; run it inline to inspect the entry."""
+
+    def _logged(self, *args, **kwargs):
+        cache, client = _make_cache()
+        with mock.patch("frontend.cache._log_pool") as pool:
+            cache.log_query(*args, **kwargs)
+            pool.submit.call_args[0][0]()
+        collection = client.collection
+        collection.assert_called_with(Config.CACHE_QUERY_LOG)
+        return collection.return_value.add.call_args[0][0]
+
+    def test_search_entry_with_visitor(self):
+        entry = self._logged("search", "viral acharaya", result_count=1, match="fuzzy",
+                             visitor={"user_agent": "Mozilla/5.0", "ip_hash": "0123456789abcdef",
+                                      "referrer": "", "bot": False})
+        assert entry.pop("timestamp") is not None
+        assert entry == {"type": "search", "query": "viral acharaya", "result_count": 1, "typeahead": False,
+                         "scholar": False, "match": "fuzzy", "user_agent": "Mozilla/5.0",
+                         "ip_hash": "0123456789abcdef", "bot": False}
+
+    def test_profile_view_without_ip_hash(self):
+        """No hashing key configured: the entry simply has no ip_hash."""
+        entry = self._logged("profile_view", "Yann LeCun", author_id="WLN3QrAAAAAJ",
+                             visitor={"user_agent": "", "ip_hash": None, "referrer": "www.google.com",
+                                      "bot": True})
+        assert entry["author_id"] == "WLN3QrAAAAAJ" and entry["bot"] is True
+        assert entry["referrer"] == "www.google.com"
+        assert "ip_hash" not in entry and "user_agent" not in entry and "match" not in entry
+
+    def test_entry_without_visitor(self):
+        entry = self._logged("search", "someone", result_count=0)
+        assert set(entry) == {"timestamp", "type", "query", "result_count", "typeahead", "scholar"}

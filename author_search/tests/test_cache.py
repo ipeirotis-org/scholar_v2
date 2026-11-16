@@ -78,3 +78,51 @@ class TestSafeDocId:
         long_name = "x" * 2000
         doc_id = SearchCache._safe_doc_id(long_name)
         assert len(doc_id) == 64  # SHA-256 hex digest
+
+
+class TestLiveSearchAllowance:
+    """reserve_live_search counts paid lookups per UTC day."""
+
+    def _cache(self, used=None):
+        from author_search.cache import SearchCache
+        db = mock.MagicMock()
+        doc = db.collection.return_value.document.return_value
+        doc.get.return_value = mock.MagicMock(exists=used is not None,
+                                              to_dict=lambda: {"count": used})
+        return SearchCache(client=db), db, doc
+
+    def test_first_lookup_of_the_day(self):
+        cache, db, doc = self._cache()
+        assert cache.reserve_live_search(25) is True
+        db.collection.assert_called_with("v3_gs_live_search_usage")
+        assert len(db.collection.return_value.document.call_args[0][0]) == 10  # YYYY-MM-DD
+        assert doc.set.call_args.kwargs == {"merge": True}
+
+    def test_below_the_limit(self):
+        cache, _, doc = self._cache(used=24)
+        assert cache.reserve_live_search(25) is True
+        doc.set.assert_called_once()
+
+    def test_at_the_limit(self):
+        cache, _, doc = self._cache(used=25)
+        assert cache.reserve_live_search(25) is False
+        doc.set.assert_not_called()
+
+    def test_unreadable_counter_means_no(self):
+        cache, _, doc = self._cache()
+        doc.get.side_effect = RuntimeError("firestore down")
+        assert cache.reserve_live_search(25) is False
+
+
+class TestCacheTtl:
+    def test_longer_ttl_keeps_older_entries(self):
+        from datetime import datetime, timedelta, timezone
+        from author_search.cache import SearchCache
+        db = mock.MagicMock()
+        doc = db.collection.return_value.document.return_value.get.return_value
+        doc.exists = True
+        doc.to_dict.return_value = {"timestamp": datetime.now(timezone.utc) - timedelta(hours=48),
+                                    "data": [{"scholar_id": "x"}]}
+        cache = SearchCache(client=db)
+        assert cache.get("gs:someone") is None
+        assert cache.get("gs:someone", ttl_hours=168) == [{"scholar_id": "x"}]
