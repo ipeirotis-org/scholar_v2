@@ -303,7 +303,7 @@ or above percentile t.
 |---|---|
 | `pip` | Current step form: the average over t of F(n(t)), where F is the share of peers whose *total* count is at most n(t) |
 | `pip_tau25`, `pip_tau50` | The same, restricted to t ≥ τ and rescaled by 1/(1−τ). Papers below τ earn nothing; the score is still monotone. |
-| `sym` | The average over t of G_t(n(t)), where G_t is the share of peers with strictly fewer articles *above the same t* |
+| `sym` | The average over t of G_t(n(t)), where G_t is the share of peers with fewer articles *above the same t* plus half the share with as many |
 | `sym_tau50` | Symmetric, restricted to t ≥ 0.5 |
 
 Check: the grid reproduces the exact `pip` with correlation 0.9999 (+0.0075, as expected from the left-edge sum).
@@ -317,17 +317,17 @@ Within-cohort Spearman with each characteristic:
 | pip | 0.897 | 0.131 | 0.924 | 0.421 |
 | pip_tau25 | 0.844 | 0.228 | 0.932 | 0.450 |
 | pip_tau50 | 0.722 | 0.382 | 0.898 | 0.498 |
-| sym | 0.856 | 0.214 | 0.919 | 0.491 |
-| sym_tau50 | **0.637** | **0.466** | 0.838 | **0.602** |
+| sym | 0.858 | 0.211 | 0.920 | 0.477 |
+| sym_tau50 | **0.643** | **0.463** | 0.844 | **0.585** |
 
 ### Cohort stability: median / 90th percentile of the raw score at age 10
 
 | Start year | pip | pip_tau50 | sym | sym_tau50 |
 |---|---|---|---|---|
-| 1960 | 0.29 / 0.67 | 0.24 / 0.61 | 0.44 / 0.87 | 0.41 / 0.85 |
-| 1980 | 0.28 / 0.67 | 0.17 / 0.56 | 0.42 / 0.86 | 0.39 / 0.85 |
-| 2000 | 0.27 / 0.68 | 0.13 / 0.56 | 0.40 / 0.85 | 0.37 / 0.85 |
-| 2010 | 0.26 / 0.68 | 0.11 / 0.56 | 0.40 / 0.86 | 0.38 / 0.85 |
+| 1960 | 0.29 / 0.67 | 0.24 / 0.61 | 0.49 / 0.88 | 0.48 / 0.87 |
+| 1980 | 0.28 / 0.67 | 0.17 / 0.56 | 0.48 / 0.87 | 0.47 / 0.87 |
+| 2000 | 0.27 / 0.68 | 0.13 / 0.56 | 0.47 / 0.87 | 0.48 / 0.87 |
+| 2010 | 0.26 / 0.68 | 0.11 / 0.56 | 0.47 / 0.87 | 0.48 / 0.87 |
 
 `pip_tau50` drifts: its median halves across cohorts. The asymmetric cut compares a partial count against peers' total
 counts, and those totals grow over time. The symmetric variants stay stable.
@@ -338,31 +338,32 @@ Values are Spearman with future top-10% count / AUC for any future top-1% / Spea
 
 | Setting | h raw | pip | pip_tau25 | sym | sym_tau50 |
 |---|---|---|---|---|---|
-| Age 5 | .268/.646/.155 | .354/.683/.108 | .362/.690/.148 | .375/.698/.140 | **.378/.715/.264** |
-| Age 10 | .352/.719/.230 | .434/.756/.190 | .437/.760/.225 | **.445**/.766/.223 | .427/**.772/.321** |
-| Age 15 | .384/.758/.270 | .453/.792/.236 | .453/.794/.266 | **.460/.799**/.264 | .436/**.799/.343** |
-| Year 2000 | .269/.682/.152 | .398/.751/.186 | **.399**/.755/.215 | .393/.753/.199 | .381/**.761/.288** |
-| Year 2005 | .284/.691/.174 | .434/.770/.201 | **.435**/.773/.235 | .429/.772/.219 | .407/**.776/.310** |
+| Age 5 | .268/.646/.155 | .354/.683/.108 | .362/.690/.148 | .374/.697/.141 | **.377/.714/.262** |
+| Age 10 | .352/.719/.230 | .434/.756/.190 | .437/.760/.225 | **.444**/.765/.219 | .427/**.771/.318** |
+| Age 15 | .384/.758/.270 | .453/.792/.236 | .453/.794/.266 | **.459**/.798/.260 | .436/**.799/.341** |
+| Year 2000 | .269/.682/.152 | .398/.751/.186 | .399/.755/.215 | **.402**/.757/.208 | .388/**.764/.296** |
+| Year 2005 | .284/.691/.174 | .434/.770/.201 | .435/.773/.235 | **.440**/.777/.225 | .417/**.780/.316** |
 
-### Live GS data (`sql/14`, 15,900 active authors in cohorts of at least 30)
+### Live GS data (`sql/14`, 15,953 active authors in cohorts of at least 30)
 
 The live PiP percentile correlates **0.968** with the cited-work count, which is even more productivity-driven than
-on S2.
+on S2. The table was re-run on the live data of 16 November 2026 (15,900 authors on 4 November), so its numbers moved
+with the data as well as with the tie rule.
 
 | | Live PiP | sym | sym_tau50 |
 |---|---|---|---|
-| Rank correlation with live | — | 0.983 | 0.903 |
-| Median shift in cohort percentile | — | 3 points | 7 points (90th percentile: 22) |
-| Rank vs top-2.5% works | 0.568 | 0.659 | 0.761 |
-| Rank vs cited-work count | 0.968 | 0.923 | 0.799 |
-| Score scale, 50th / 75th / 90th | 0.22 / 0.40 / 0.59 | — | 0.47 / 0.72 / 0.88 |
+| Rank correlation with live | — | 0.984 | 0.907 |
+| Median shift in cohort percentile | — | 3 points | 7 points (90th percentile: 21) |
+| Rank vs top-2.5% works | 0.569 | 0.653 | 0.752 |
+| Rank vs cited-work count | 0.968 | 0.927 | 0.804 |
+| Score scale, 50th / 75th / 90th | 0.22 / 0.40 / 0.58 | — | 0.49 / 0.73 / 0.89 |
 
 ### Takeaways
 
 - Every variant beats the h-index in every setting.
 - **`sym_tau50` is the most balanced** and rewards top papers most. It is the best at predicting future top-1% papers
   and future quality in every setting, and it is stable across cohorts.
-- **The cost is a small loss on predicting the count of future top-10% papers** (2005: 0.407 against 0.434), which is
+- **The cost is a small loss on predicting the count of future top-10% papers** (2005: 0.417 against 0.434), which is
   expected once productivity weighs less.
 - **The asymmetric cut (`pip_tau*`) is not usable,** because it drifts across cohorts.
 - **Open questions:** the cut point τ (0.25 / 0.5 / 0.75) for the symmetric version, and whether GS's small cohorts
@@ -383,32 +384,34 @@ the 2005 setting in parentheses. The last column is the median score at age 10 f
 
 | τ | vs articles | vs mean quality | vs h | vs top-2.5% | Future top-10% count | Any future top-1% (AUC) | Future quality | Median 1960 → 2010 |
 |---|---|---|---|---|---|---|---|---|
-| 0 | 0.856 | 0.214 | 0.919 | 0.491 | **0.445** (0.429) | 0.766 (0.772) | 0.223 (0.219) | 0.44 → 0.40 |
-| 0.25 | 0.776 | 0.329 | 0.907 | 0.537 | 0.443 (0.425) | 0.770 (**0.776**) | 0.265 (0.259) | 0.43 → 0.39 |
-| 0.5 | 0.637 | 0.466 | 0.838 | 0.602 | 0.427 (0.407) | **0.772** (**0.776**) | 0.321 (0.310) | 0.41 → 0.38 |
-| 0.6 | 0.573 | 0.506 | 0.789 | 0.633 | 0.415 (0.396) | 0.771 (0.775) | 0.340 (0.325) | 0.41 → 0.37 |
-| 0.75 | 0.473 | **0.536** | 0.694 | 0.688 | 0.388 (0.369) | 0.766 (0.769) | **0.356** (**0.336**) | 0.38 → 0.33 |
-| 0.9 | 0.370 | 0.486 | 0.562 | **0.781** | 0.347 (0.332) | 0.750 (0.753) | 0.338 (0.316) | **0.37 → 0.16** |
+| 0 | 0.858 | 0.211 | 0.920 | 0.477 | **0.444** (0.440) | 0.765 (0.777) | 0.219 (0.225) | 0.49 → 0.47 |
+| 0.25 | 0.778 | 0.327 | 0.909 | 0.522 | 0.442 (0.435) | 0.769 (**0.780**) | 0.262 (0.266) | 0.49 → 0.47 |
+| 0.5 | 0.643 | 0.463 | 0.844 | 0.585 | 0.427 (0.417) | **0.771** (**0.780**) | 0.318 (0.316) | 0.48 → 0.48 |
+| 0.6 | 0.581 | 0.504 | 0.797 | 0.616 | 0.415 (0.405) | **0.771** (0.779) | 0.337 (0.331) | 0.48 → 0.48 |
+| 0.75 | 0.481 | **0.535** | 0.703 | 0.672 | 0.389 (0.378) | 0.766 (0.773) | **0.354** (**0.342**) | 0.47 → 0.47 |
+| 0.9 | 0.374 | 0.488 | 0.567 | **0.773** | 0.339 (0.341) | 0.751 (0.759) | 0.331 (0.324) | **0.48 → 0.41** |
 | Current PiP | 0.897 | 0.131 | 0.924 | 0.421 | 0.434 (0.434) | 0.756 (0.770) | 0.190 (0.201) | 0.29 → 0.26 |
 | h-index (raw) | — | — | — | — | 0.352 (0.284) | 0.719 (0.691) | 0.230 (0.174) | — |
 
 At ages 5 and 15 the pattern is the same: the top-1% AUC is flat from τ = 0.25 to 0.6, and future quality peaks at
 τ = 0.75.
 
-At τ = 0.9 the score is zero for 42% of recent cohorts, and the median drifts. Only 4 grid thresholds remain, and many
-authors have no paper in the top 10%.
+At τ = 0.9, 42% of recent cohorts have nothing above the cutoff and share the lowest score (0.29 in 2000, 0.28 in
+2010), and the median drifts. Only 4 grid thresholds remain, and many authors have no paper in the top 10%.
 
 ### Live GS data
 
+Re-run on the live data of 16 November 2026 (15,953 authors; see §8).
+
 | τ | Rank corr. with live | Median / p90 shift in cohort pct. | vs top-2.5% works | vs cited-work count | 50/75/90th pct. | PA9La6oAAAAJ |
 |---|---|---|---|---|---|---|
-| Live PiP | 1 | — | 0.568 | 0.968 | 0.22/0.40/0.58 | 0.751 |
-| 0 | 0.983 | 0.029 / 0.091 | 0.659 | 0.923 | 0.48/0.72/0.88 | 0.781 |
-| 0.25 | 0.956 | 0.047 / 0.146 | 0.703 | 0.873 | 0.47/0.72/0.88 | 0.764 |
-| 0.5 | 0.903 | 0.073 / 0.217 | 0.761 | 0.799 | 0.47/0.72/0.88 | 0.789 |
-| 0.6 | 0.871 | 0.085 / 0.251 | 0.788 | 0.760 | 0.46/0.72/0.88 | 0.810 |
-| 0.75 | 0.804 | 0.107 / 0.310 | 0.837 | 0.688 | 0.45/0.71/0.88 | 0.829 |
-| 0.9 | 0.693 | 0.134 / 0.388 | 0.907 | 0.580 | 0.41/0.71/0.88 | 0.861 |
+| Live PiP | 1 | — | 0.569 | 0.968 | 0.22/0.40/0.58 | 0.755 |
+| 0 | 0.984 | 0.028 / 0.087 | 0.653 | 0.927 | 0.49/0.72/0.88 | 0.776 |
+| 0.25 | 0.959 | 0.046 / 0.141 | 0.695 | 0.877 | 0.49/0.73/0.88 | 0.762 |
+| 0.5 | 0.907 | 0.071 / 0.213 | 0.752 | 0.804 | 0.49/0.73/0.89 | 0.785 |
+| 0.6 | 0.875 | 0.084 / 0.248 | 0.780 | 0.767 | 0.49/0.73/0.89 | 0.806 |
+| 0.75 | 0.808 | 0.105 / 0.307 | 0.829 | 0.693 | 0.49/0.73/0.89 | 0.825 |
+| 0.9 | 0.697 | 0.133 / 0.388 | 0.900 | 0.585 | 0.48/0.73/0.89 | 0.859 |
 
 ### Reading
 
@@ -416,8 +419,8 @@ authors have no paper in the top 10%.
 *count* of future top-10% papers and gains the ability to predict their *quality*. The top-1% AUC stays flat across
 0.25–0.6.
 
-The usable range is τ ∈ [0.25, 0.6], where cohort stability holds. At 0.75 the median drifts mildly, and 0.9 is
-unusable.
+The usable range is τ ∈ [0.25, 0.6], where cohort stability holds. At 0.75 the lower quartile drifts mildly (0.29 →
+0.26 from 1960 to 2010), and 0.9 is unusable.
 
 τ = 0.5 is a natural default with a one-line explanation: only papers in the top half of their year earn credit.
 Moving to τ = 0.25 halves the shift for live GS authors, which matters if the app switches.
@@ -438,8 +441,8 @@ Correlation of within-cohort percentiles between two career ages, start years 19
 | Indicator | 5 vs 10 | 5 vs 15 | 5 vs 30 | 10 vs 30 | 20 vs 30 |
 |---|---|---|---|---|---|
 | Article count | 0.847 | 0.754 | 0.642 | 0.800 | 0.946 |
-| Symmetric τ = 0 | 0.778 | 0.682 | 0.569 | 0.742 | 0.921 |
-| **Symmetric τ = 0.5** | 0.781 | 0.687 | 0.563 | 0.726 | 0.911 |
+| Symmetric τ = 0 | 0.779 | 0.682 | 0.568 | 0.741 | 0.921 |
+| **Symmetric τ = 0.5** | 0.781 | 0.686 | 0.561 | 0.724 | 0.911 |
 | Current PiP | 0.772 | 0.674 | 0.565 | 0.742 | 0.923 |
 | Citations | 0.798 | 0.659 | 0.451 | 0.620 | 0.886 |
 | h-index | 0.604 | 0.496 | 0.370 | 0.599 | 0.877 |
@@ -454,8 +457,8 @@ ROC AUC of the age-5 percentile for still publishing at career ages 11–15 / 16
 |---|---|---|
 | Articles | 0.683 | 0.663 |
 | Current PiP | 0.647 | 0.630 |
-| Symmetric τ = 0 | 0.647 | 0.631 |
-| **Symmetric τ = 0.5** | 0.616 | 0.603 |
+| Symmetric τ = 0 | 0.647 | 0.630 |
+| **Symmetric τ = 0.5** | 0.615 | 0.603 |
 | h-index | 0.575 | 0.565 |
 | Citations | 0.540 | 0.537 |
 
@@ -464,33 +467,35 @@ most.
 
 ### Factorization on S2
 
-sym_τ50 = F(n) × Q, for active authors with a positive score, start years 1975–2005. The shares are of the variance
-of log sym_τ50.
+sym_τ50 = F(n) × Q, for active authors, start years 1975–2005 (no score is zero, so the authors with nothing above τ,
+who share their peer group's lowest score, are included). The shares are of the variance of log sym_τ50.
 
-| Age | Productivity log F(n) | Quality log Q | Covariance | Q > 1 | Q 10th / 50th / 90th | Score = 0 |
+| Age | Productivity log F(n) | Quality log Q | Covariance | Q > 1 | Q 10th / 50th / 90th | Nothing above τ |
 |---|---|---|---|---|---|---|
-| 5 | 0.30 | 0.82 | −0.11 | 30% | 0.17 / 0.76 / 1.46 | 0.1% |
-| 10 | 0.29 | 0.79 | −0.09 | 35% | 0.16 / 0.83 / 1.53 | 0.5% |
-| 20 | 0.30 | 0.74 | −0.04 | 36% | 0.18 / 0.88 / 1.51 | 1.2% |
+| 5 | 1.24 | 1.11 | −1.35 | 46% | 0.43 / 0.97 / 1.96 | 0.1% |
+| 10 | 1.24 | 1.02 | −1.26 | 49% | 0.44 / 0.99 / 2.00 | 0.5% |
+| 20 | 1.21 | 0.87 | −1.08 | 50% | 0.46 / 1.00 / 1.99 | 1.2% |
 
-The current PiP is the reverse: productivity accounts for 0.59–0.77 of its log variance (§5). The within-cohort
-Spearman view in §9 is more balanced (0.64 with article count, 0.47 with mean quality), because the log variance
-gives extra weight to the low scores.
+With a tie counted one half the split no longer ranks the two factors: log F(n) and log Q each vary about as much as
+log sym_τ50 and offset each other (covariance share −1.08 to −1.35), and Q exceeds 1 for about half of the authors.
+For the current PiP, productivity accounts for 0.59–0.77 of its log variance (§5). The within-cohort Spearman view in
+§9 is the clearer one (0.64 with article count, 0.46 with mean quality), because the log variance gives extra weight
+to the low scores.
 
 ### Theory checks (`checks/sym_properties.py`, simulated cohort of 2,000 peers)
 
 - **Range, monotonicity and τ-invariance:** no violations in 1,500 random authors. The score stayed in [0, 1], never
   fell when a paper was added or a percentile raised, and never changed when a paper below τ was added.
-- **Q > 1:** 24% of the simulated authors.
-- **Consistency in the sense of Waltman & van Eck:** adding the same paper to two authors reversed their order in 0.7%
+- **Q > 1:** 51% of the simulated authors.
+- **Consistency in the sense of Waltman & van Eck:** adding the same paper to two authors reversed their order in 0.6%
   of 3,000 pairs, against 1.3% for the current PiP.
-- **Synthetic careers:**
+- **Synthetic careers** (0.24 is the simulated cohort's lowest score, shared by every record with nothing above τ):
 
   | Career | sym_τ50 | Current PiP |
   |---|---|---|
-  | One top paper (99th percentile) | 0.45 | 0 |
-  | One average paper | 0 | 0 |
-  | 40 weak papers | 0 | 0.10 |
+  | One top paper (99th percentile) | 0.54 | 0 |
+  | One average paper | 0.24 | 0 |
+  | 40 weak papers | 0.24 | 0.10 |
 
 ## 11. Self-citations (`sql/00_noself_citations.sql`, `sql/run_noself.sh`; dataset `paper_rp_noself`)
 
@@ -538,16 +543,16 @@ field-neutral score would put 10% of every field there.
 
 | Field | Authors | sym_τ50 median / 90th | In the cohort top 10% |
 |---|---|---|---|
-| Physics | 76,009 | 0.46 / 0.90 | 14.7% |
-| Psychology | 29,885 | 0.42 / 0.87 | 12.1% |
-| Medicine | 1,905,585 | 0.41 / 0.87 | 11.7% |
-| Biology | 536,964 | 0.43 / 0.84 | 9.3% |
-| Computer Science | 303,231 | 0.26 / 0.82 | 8.3% |
-| Chemistry | 184,019 | 0.32 / 0.77 | 5.8% |
-| Mathematics | 8,210 | 0.23 / 0.70 | 3.7% |
-| Engineering | 129,387 | 0.16 / 0.64 | 2.9% |
-| Economics | 13,928 | 0.26 / 0.66 | 2.1% |
-| Education | 14,791 | 0.18 / 0.58 | 1.4% |
+| Physics | 76,009 | 0.54 / 0.91 | 14.5% |
+| Psychology | 29,885 | 0.51 / 0.89 | 12.0% |
+| Medicine | 1,905,585 | 0.50 / 0.89 | 11.8% |
+| Biology | 536,964 | 0.52 / 0.86 | 9.0% |
+| Computer Science | 303,231 | 0.37 / 0.84 | 8.3% |
+| Chemistry | 184,019 | 0.42 / 0.81 | 5.9% |
+| Mathematics | 8,210 | 0.35 / 0.74 | 3.8% |
+| Engineering | 129,387 | 0.29 / 0.69 | 2.9% |
+| Economics | 13,928 | 0.37 / 0.71 | 2.0% |
+| Education | 14,791 | 0.30 / 0.64 | 1.3% |
 
 ### The prediction advantage holds inside every field
 
@@ -561,11 +566,11 @@ Examples (top-10% count / top-1% AUC / quality):
 
 | Field | sym_τ50 | Current PiP | h-index |
 |---|---|---|---|
-| Medicine | .437/.777/.317 | .443/.762/.207 | .355/.723/.235 |
-| Computer Science | .485/.807/.358 | .513/.804/.264 | .415/.761/.267 |
-| Physics | .371/.695/.168 | .335/.669/.086 | .277/.642/.116 |
-| Economics | .393/.741/.274 | .369/.695/.167 | .311/.665/.166 |
-| Mathematics | .383/.749/.283 | .344/.697/.168 | .294/.682/.190 |
+| Medicine | .437/.776/.315 | .443/.762/.207 | .355/.723/.235 |
+| Computer Science | .486/.807/.355 | .513/.804/.264 | .415/.761/.267 |
+| Physics | .370/.693/.166 | .335/.669/.086 | .277/.642/.116 |
+| Economics | .393/.738/.272 | .369/.695/.167 | .311/.665/.166 |
+| Mathematics | .382/.747/.281 | .344/.697/.168 | .294/.682/.190 |
 
 ### Field-normalized variant (`fn_sym50`)
 
@@ -575,18 +580,19 @@ field-normalized. Population: 1.45M authors.
 
 | Outcome | Score | Top-10% count | Top-1% (AUC) | Quality |
 |---|---|---|---|---|
-| Pooled | pooled score | **.427** | **.772** | **.321** |
-| Pooled | field-normalized score | .414 | .770 | .298 |
-| Field-normalized | pooled score | .405 | .769 | .300 |
-| Field-normalized | field-normalized score | **.407** | **.772** | **.316** |
+| Pooled | pooled score | **.427** | **.771** | **.318** |
+| Pooled | field-normalized score | .413 | .769 | .300 |
+| Field-normalized | pooled score | **.405** | .768 | .297 |
+| Field-normalized | field-normalized score | **.405** | **.770** | **.314** |
 | Field-normalized | h-index | .333 | .717 | .209 |
 
-- **Each version predicts its own kind of outcome best**, by 0.01–0.02. Both versions are far ahead of the h-index.
-- **The field-normalized score removes the field bias.** Each field's share of the cohort top 10% is 6.9–11.6%,
-  against 1.4–14.7% for the pooled score.
-- **Within a field, the ranking barely changes.** The correlation with the pooled score is 0.91–0.99, so
+- **Each version predicts its own kind of outcome best**, by up to 0.02, except that the two tie on the
+  field-normalized top-10% count (.405). Both versions are far ahead of the h-index.
+- **The field-normalized score removes the field bias.** Each field's share of the cohort top 10% is 7.9–10.9%,
+  against 1.3–14.5% for the pooled score.
+- **Within a field, the ranking barely changes.** The correlation with the pooled score is 0.90–0.99, so
   normalization moves fields relative to each other rather than reordering authors inside a field.
-- **The remaining spread**, for example Agricultural and Food Sciences at 6.9%, comes from papers that do not carry
+- **The remaining spread**, for example Agricultural and Food Sciences at 7.9%, comes from papers that do not carry
   the author's main field, which keep their pooled percentile.
 
 ## 13. S2 against Google Scholar for the same people (`sql/19_s2_gs_match.sql`)
@@ -599,6 +605,9 @@ profile is the same-surname S2 author holding the most matched works.
 - **Confident matches:** 14,511 of 16,218 GS profiles (89%), meaning at least 5 matched works and at least 30% of the
   profile's eligible titles.
 
+The match dates from 4 November 2026; the comparison of the two sources (record sizes, start years, rankings) was
+re-run on the Google Scholar profile data of 16 November 2026.
+
 ### S2 author disambiguation
 
 - **Coverage:** for the median profile, 76% of the GS works are found in S2.
@@ -606,22 +615,22 @@ profile is the same-surname S2 author holding the most matched works.
 - **Splitting:** 64% of people have at least 2 of their works under at least 2 S2 IDs with the same surname and first
   initial, and 42% under at least 3. Median 2 IDs, upper quartile 4, maximum 84.
 - **Smaller records in S2:** S2 holds a median 67% as many articles as the GS profile lists cited works, and its
-  h-index is a median 78% of GS's.
+  h-index is a median 77% of GS's.
 - **Career start:** S2's start year (first article in S2) is within one year of GS's for 48% of people, and later for
   47%, because early work is missing or sits under split IDs.
 
 ### Agreement of rankings across the two sources
 
-9,796 people with scores in both sources (S2 start year ≥ 1995, evaluation year 2025). Each source uses its own
+9,784 people with scores in both sources (S2 start year ≥ 1995, evaluation year 2025). Each source uses its own
 reference population: GS faculty profiles against all S2 active authors.
 
 | Indicator | Spearman between sources |
 |---|---|
 | h-index | 0.824 |
-| Current PiP | 0.782 |
-| sym_τ50 | 0.778 |
-| sym_τ50, people with at most one S2 ID | 0.757 |
-| sym_τ50, people split across 3+ S2 IDs | 0.733 |
+| Current PiP | 0.786 |
+| sym_τ50 | 0.765 |
+| sym_τ50, people with at most one S2 ID | 0.745 |
+| sym_τ50, people split across 3+ S2 IDs | 0.724 |
 
 ### What it means
 
@@ -714,12 +723,12 @@ Each cell is precision of the cohort's top 10% at finding stars (chance 0.10) / 
 
 | Measured at | PiP | Original PiP-AUC | I3 | Articles | Top-10% count | h-index | Citations |
 |---|---|---|---|---|---|---|---|
-| Age 3 | **.211** / **.629** | .204 / .611 | .203 / .615 | .196 / .612 | .196 / .616 | .176 / .560 | .174 / .598 |
-| Age 5 | **.299** / **.705** | .292 / .693 | .283 / .691 | .268 / .685 | .278 / .679 | .248 / .660 | .224 / .663 |
-| Age 10 | **.486** / **.817** | .486 / .811 | .460 / .803 | .430 / .793 | .469 / .794 | .423 / .782 | .368 / .768 |
+| Age 3 | **.210** / **.629** | .204 / .611 | .203 / .615 | .196 / .612 | .196 / .616 | .176 / .560 | .174 / .598 |
+| Age 5 | **.299** / **.704** | .292 / .693 | .283 / .691 | .268 / .685 | .278 / .679 | .248 / .660 | .224 / .663 |
+| Age 10 | **.488** / **.817** | .486 / .811 | .460 / .803 | .430 / .793 | .469 / .794 | .423 / .782 | .368 / .768 |
 
-- **PiP leads at every age on both AUC measures** (stars and top-1%). On precision it leads at every age except 9
-  and 10, where the original PiP-AUC matches it (.451 against .450, then .486 against .486).
+- **PiP leads at every age on both AUC measures** (stars and top-1%). On precision it also leads at every age; the
+  original PiP-AUC comes closest at ages 9 and 10 (.451 against .452, then .486 against .488).
 
 ### Lead time
 
@@ -728,11 +737,11 @@ How many years earlier PiP reaches each indicator's accuracy, taken as the range
 | Compared with | Star precision | Star AUC | Top-1% AUC |
 |---|---|---|---|
 | h-index | 1.2–1.8 | 1.1–1.6 | 1.3–1.9 |
-| Citations | 1.7–3.2 | 1.4–2.8 | 1.2–2.5 |
+| Citations | 1.7–3.3 | 1.4–2.8 | 1.2–2.5 |
 | Articles | 0.7–1.6 | 0.3–0.9 | 0.6–1.3 |
 | Top-10% count | 0.5–0.6 | 1.0–1.3 | 0.8–1.3 |
-| I3 | 0.4–0.7 | 0.2–0.4 | 0.4–0.8 |
-| Original PiP-AUC | 0.0–0.2 | 0.0–0.2 | 0.3–0.4 |
+| I3 | 0.4–0.8 | 0.2–0.5 | 0.4–0.8 |
+| Original PiP-AUC | 0.0–0.2 | 0.1–0.2 | 0.3 |
 
 For the population active at age 5, the leads are similar: 1.2–1.8 years over the h-index and 1.6–2.9 over
 citations.
@@ -816,9 +825,9 @@ first dated honor came at or before the evaluation year are dropped. That leaves
 
 | AUC | All, age 5 | All, age 10 | Wikidata people, 10 | GS faculty, 10 |
 |---|---|---|---|---|
-| PiP τ = 0.5 | .749 | .816 | .628 | .631 |
-| PiP τ = 0.75 | **.760** | **.826** | .646 | .638 |
-| PiP τ = 0.9 | .755 | .821 | **.654** | **.640** |
+| PiP τ = 0.5 | .748 | .815 | .626 | .630 |
+| PiP τ = 0.75 | **.759** | **.826** | .645 | .637 |
+| PiP τ = 0.9 | .755 | .821 | **.654** | **.639** |
 | Original PiP-AUC | .719 | .791 | .603 | .622 |
 | h-index | .710 | .782 | .610 | .623 |
 | Citations | .701 | .789 | .629 | .627 |
@@ -826,10 +835,10 @@ first dated honor came at or before the evaluation year are dropped. That leaves
 | I3 | .721 | .788 | .595 | .622 |
 | Articles | .693 | .772 | .569 | .611 |
 
-- **PiP against the h-index, all authors:** +0.039 [0.029, 0.049] at age 5 and +0.035 [0.030, 0.040] at age 10.
-- **PiP against the top-10% count:** a tie, +0.000 [−0.005, 0.005].
+- **PiP against the h-index, all authors:** +0.039 [0.029, 0.049] at age 5 and +0.033 [0.029, 0.038] at age 10.
+- **PiP against the top-10% count:** a tie, −0.001 [−0.007, 0.005].
 - **Within the notable groups:** discrimination is weak for every indicator. PiP is ahead of the h-index at age 10
-  (+0.018 among Wikidata people, +0.008 among GS faculty) and level with it at age 5. The top-10% count and τ ≥ 0.75
+  (+0.016 among Wikidata people, +0.008 among GS faculty) and level with it at age 5. The top-10% count and τ ≥ 0.75
   do best.
 - **Dated honors only:** the same pattern holds.
 
@@ -841,8 +850,8 @@ faculty, 10). From `honors/data/honors_results.csv`, outcome `honored_dated`:
 
 | AUC | All, age 5 | All, age 10 | Wikidata people, 10 | GS faculty, 10 |
 |---|---|---|---|---|
-| PiP τ = 0.5 | .751 | .827 | .641 | .648 |
-| PiP τ = 0.75 | **.761** | **.836** | .658 | .654 |
+| PiP τ = 0.5 | .750 | .826 | .639 | .647 |
+| PiP τ = 0.75 | **.760** | **.836** | .657 | .653 |
 | h-index | .709 | .790 | .618 | .637 |
 | Citations | .700 | .798 | .637 | .638 |
 | Articles | .694 | .783 | .579 | .628 |
@@ -850,20 +859,20 @@ faculty, 10). From `honors/data/honors_results.csv`, outcome `honored_dated`:
 | I3 | .722 | .799 | .607 | .639 |
 | Mean percentile | .531 | .572 | .574 | .541 |
 
-- **PiP against the h-index, all authors:** +0.042 [0.031, 0.052] at age 5 and +0.037 [0.031, 0.043] at age 10.
-- **PiP against the top-10% count:** +0.001 [−0.005, 0.007] at age 10.
-- **Notable groups:** level with the h-index at age 5 (−0.005 [−0.019, 0.011] Wikidata; +0.001 [−0.011, 0.013] GS
-  faculty), ahead at age 10 (+0.022 [0.014, 0.030]; +0.011 [0.005, 0.018]).
+- **PiP against the h-index, all authors:** +0.041 [0.031, 0.052] at age 5 and +0.036 [0.031, 0.041] at age 10.
+- **PiP against the top-10% count:** −0.001 [−0.006, 0.006] at age 10.
+- **Notable groups:** level with the h-index at age 5 (−0.005 [−0.021, 0.010] Wikidata; +0.001 [−0.011, 0.013] GS
+  faculty), ahead at age 10 (+0.021 [0.013, 0.028]; +0.011 [0.004, 0.017]).
 
-### Cross-sectional test on GS (15,890 profiles)
+### Cross-sectional test on GS (15,953 profiles)
 
 Scores and recognition are both measured now, so this checks agreement, not prediction.
 
 | Outcome | Measure | PiP τ = 0.5 | τ = 0.75 | Original | h-index | Citations | Top-10% count |
 |---|---|---|---|---|---|---|---|
-| Honors (1,497) | AUC | .712 | .711 | .696 | .708 | **.714** | .709 |
-| Wikipedia article (2,160) | AUC | .716 | **.721** | .692 | .704 | **.721** | .720 |
-| Wikipedia pageviews (among those with an article) | Spearman | .259 | .310 | .179 | .219 | **.324** | .320 |
+| Honors (1,524) | AUC | .712 | .711 | .695 | .708 | **.714** | .708 |
+| Wikipedia article (2,231) | AUC | .714 | **.719** | .691 | .702 | **.719** | **.719** |
+| Wikipedia pageviews (among those with an article) | Spearman | .243 | .292 | .169 | .204 | **.303** | .302 |
 
 ### Reading
 
@@ -893,61 +902,64 @@ and an article in the class just above the median earns a full class of credit.
 ### Exact computation
 
 `25_pip_exact.sql` computes the integral from order statistics: on (y_(k+1), y_(k)] the author has k articles at or above
-t, and a peer has fewer exactly when its k-th best percentile is below t, so each piece is H_k(x1) - H_k(x0) with
+t, and a peer has fewer exactly when its k-th best percentile is below t, so each piece is the mean of H_k(x1) - H_k(x0)
+and H_{k+1}(x1) - H_{k+1}(x0) (a tie counts one half) with
 H_k(x) = mean over peers of (x - Y_k)^+, evaluated by an as-of running sum. The cost grows with the number of articles,
 not with the grid. With percentiles rounded to K classes it reproduces the K-point grid; K = 0 is exact.
 
 - **Validation:** K = 40 matches the production scores of 12 for all 5,279,295 eligible authors at career age 10 (start
-  years 1960-2015), at tau = 0.5, 0.75 and 0.9: largest difference 8e-15.
+  years 1960-2015), at tau = 0.5, 0.75 and 0.9: largest difference 6e-15.
 - **Runtime:** about 1.5 minutes for four grids and three cutoffs at career age 10.
 
 ### Grid against exact, career age 10, start years 1975-2010 (3.43M authors)
 
 | tau | Grid | Mean diff | Mean abs diff | Max abs diff | Rank corr. within cohort | Top-10% overlap |
 |---|---|---|---|---|---|---|
-| 0.5 | 40 | +0.0096 | 0.0113 | 0.055 | 0.9994 | 96.2% |
-| 0.5 | 200 | +0.0022 | 0.0025 | 0.012 | 0.99998 | 99.2% |
-| 0.5 | 1000 | +0.0004 | 0.0005 | 0.002 | 0.999999 | 99.9% |
-| 0.75 | 40 | +0.0187 | 0.0206 | 0.108 | 0.9985 | 93.1% |
-| 0.9 | 40 | +0.0395 | 0.0415 | 0.251 | 0.9960 | 84.7% |
+| 0.5 | 40 | 0.0000 | 0.0073 | 0.034 | 0.9996 | 97.3% |
+| 0.5 | 200 | 0.0000 | 0.0015 | 0.007 | 0.99998 | 99.5% |
+| 0.5 | 1000 | 0.0000 | 0.0003 | 0.001 | 0.999999 | 99.9% |
+| 0.75 | 40 | 0.0000 | 0.0139 | 0.067 | 0.9988 | 94.9% |
+| 0.9 | 40 | 0.0000 | 0.0328 | 0.149 | 0.9951 | 87.4% |
+
+The mean difference is zero because both scores average exactly 0.5 in every cohort.
 
 ### Prediction at career age 10 (1.45M authors; Table 4 outcomes)
 
 | tau | Grid 40 | Exact |
 |---|---|---|
-| 0.5 | .427 / .772 / .321 | .426 / .773 / .325 |
-| 0.75 | .388 / .766 / .356 | .386 / .766 / .357 |
-| 0.9 | .347 / .750 / .338 | .343 / .749 / .337 |
+| 0.5 | .427 / .771 / .318 | .426 / .772 / .322 |
+| 0.75 | .389 / .766 / .354 | .386 / .766 / .355 |
+| 0.9 | .339 / .751 / .331 | .334 / .750 / .327 |
 
-No metric moves by more than 0.004, so the paper keeps the 40 classes and states what they compute.
+No metric moves by more than 0.006, so the paper keeps the 40 classes and states what they compute.
 
 ### Cohort drift at high tau is not a grid effect
 
 Exact integral, career age 10:
 
-| tau | Start year | Mean | 25th | Median | 75th | 90th | Share at zero |
+| tau | Start year | Mean | 25th | Median | 75th | 90th | Share at the lowest score |
 |---|---|---|---|---|---|---|---|
-| 0.5 | 1960 | 0.433 | 0.193 | 0.407 | 0.658 | 0.837 | 0 |
-| 0.5 | 2010 | 0.407 | 0.153 | 0.368 | 0.640 | 0.836 | 1.2% |
-| 0.9 | 1960 | 0.367 | 0.117 | 0.324 | 0.584 | 0.804 | 5.6% |
-| 0.9 | 2010 | 0.266 | 0 | 0.116 | 0.511 | 0.769 | 41.7% |
+| 0.5 | 1960 | 0.500 | 0.284 | 0.481 | 0.706 | 0.864 | 0.0% |
+| 0.5 | 2010 | 0.500 | 0.287 | 0.477 | 0.703 | 0.865 | 1.2% |
+| 0.9 | 1960 | 0.500 | 0.297 | 0.477 | 0.685 | 0.851 | 5.6% |
+| 0.9 | 2010 | 0.500 | 0.317 | 0.403 | 0.666 | 0.839 | 41.7% |
 
-At tau = 0.9 the drift comes from authors with no article in the top 10% of its year: 6% of the 1960 cohort, 42% of the
-2000 and 2010 cohorts.
+At tau = 0.9 the drift comes from authors with no article in the top 10% of its year, who share the cohort's lowest
+score: 6% of the 1960 cohort, 42% of the 2000 and 2010 cohorts.
 
 ### Property checks (`checks/sym_properties.py`, both grids)
 
 | | Production grid | 400-point midpoint |
 |---|---|---|
 | Violations of range, monotonicity, below-tau invariance (1,500 authors) | 0 | 0 |
-| Q > 1 | 26% | 24% |
-| Order reversals after adding the same paper (3,000 pairs) | 22 | 22 |
-| One article at the 97.5th / 99th / 99.9th percentile | 0.449 / 0.449 / 0.449 | 0.422 / 0.452 / 0.472 |
-| One article at the 50th percentile | 0.004 | 0 |
+| Q > 1 | 51% | 51% |
+| Order reversals after adding the same paper (3,000 pairs) | 15 | 18 |
+| One article at the 97.5th / 99th / 99.9th percentile | 0.525 / 0.525 / 0.525 | 0.521 / 0.536 / 0.546 |
+| One article at the 50th percentile | 0.230 | 0.236 |
 
-Over the 2,000 simulated peers the two grids agree to rank correlation 0.9995 (top-10% overlap 97%). With mid-ranks
-instead of the strict rule, an author with five articles at the 30th percentile would score 0.24 on the fine grid (0.22
-on the production grid) instead of 0.
+Over the 2,000 simulated peers the two grids agree to rank correlation 0.9996 (top-10% overlap 97.5%). An author with
+five articles at the 30th percentile scores 0.24 on the fine grid (0.22 on the production grid), the lowest score
+possible against that cohort; with a tie counted as zero the score would be 0.
 
 ## 19. What the peer comparison adds (`sql/20_percentile_baselines.sql`, `sql/21_early_detection.sql`)
 
@@ -1031,15 +1043,15 @@ The h >= 3 rule keeps a population tilted towards the life sciences.
 
 | Age | Rule | Authors | PiP | h-index | T_0.5 | I3 | Mean pct. |
 |---|---|---|---|---|---|---|---|
-| 5 | active | 1.17M | .378 / .715 / .264 | .268 / .646 / .155 | .370 / .705 / .255 | .365 / .689 / .121 | -.038 / .523 / .361 |
-| 5 | min3 | 2.81M | .394 / .761 / .512 | .338 / .719 / .452 | .395 / .756 / .502 | .385 / .745 / .455 | .240 / .667 / .531 |
-| 10 | active | 1.45M | .427 / .772 / .321 | .352 / .719 / .230 | .430 / .765 / .296 | .438 / .755 / .182 | -.043 / .523 / .394 |
-| 10 | min3 | 2.54M | .420 / .805 / .493 | .376 / .770 / .443 | .424 / .801 / .481 | .424 / .794 / .429 | .194 / .656 / .519 |
-| 15 | active | 1.24M | .436 / .799 / .343 | .384 / .758 / .270 | .443 / .794 / .317 | .456 / .789 / .220 | -.047 / .522 / .397 |
-| 15 | min3 | 2.00M | .423 / .830 / .475 | .393 / .802 / .432 | .429 / .828 / .463 | .434 / .824 / .412 | .171 / .653 / .497 |
+| 5 | active | 1.17M | .377 / .714 / .262 | .268 / .646 / .155 | .370 / .705 / .255 | .365 / .689 / .121 | -.038 / .523 / .361 |
+| 5 | min3 | 2.81M | .391 / .759 / .505 | .338 / .719 / .452 | .395 / .756 / .502 | .385 / .745 / .455 | .240 / .667 / .531 |
+| 10 | active | 1.45M | .427 / .771 / .318 | .352 / .719 / .230 | .430 / .765 / .296 | .438 / .755 / .182 | -.043 / .523 / .394 |
+| 10 | min3 | 2.54M | .418 / .803 / .487 | .376 / .770 / .443 | .424 / .801 / .481 | .424 / .794 / .429 | .194 / .656 / .519 |
+| 15 | active | 1.24M | .436 / .799 / .341 | .384 / .758 / .270 | .443 / .794 / .317 | .456 / .789 / .220 | -.047 / .522 / .397 |
+| 15 | min3 | 2.00M | .423 / .829 / .470 | .393 / .802 / .432 | .429 / .828 / .463 | .434 / .824 / .412 | .171 / .653 / .497 |
 
 The 'active' rows reproduce 20 exactly, which checks the query. Under min3, PiP beats the h-index on all three
-outcomes at every age by 0.028-0.060 (half to two thirds of the margin under 'active'), keeps the highest top-1% AUC,
+outcomes at every age by 0.027-0.053 (half to two thirds of the margin under 'active'), keeps the highest top-1% AUC,
 and no indicator beats it on more than one outcome.
 
 ### Early detection under min3 (population with three articles at age 3: 1,455,891)

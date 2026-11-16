@@ -83,23 +83,24 @@ no rounding, the exact integral. `run_25.sh grid` runs it for the eligible autho
 start years 1960–2015) with K = 40, 200, 1000 and exact, at tau = 0.5, 0.75 and 0.9. It takes about 1.5 minutes.
 
 **Validation.** With K = 40 the query reproduces the production scores of `12_pip_variants.sql` for every one of these
-authors, to within 8 × 10⁻¹⁵ (`grid_validation`). This confirms the rounding identity above.
+authors, to within 6 × 10⁻¹⁵ (`grid_validation`). This confirms the rounding identity above.
 
 ## The classes against the exact integral
 
 `26_grid_convergence.sql` compares the scores at career age 10.
 
 **Scores**, start years 1975–2010, 3.43 million authors (`grid_convergence`). Differences are class score minus exact
-score; the rank correlation is within start-year cohorts; the overlap is the share of each cohort's exact top 10%
-that the class score also puts in the top 10%.
+score (the mean difference is zero because both scores average exactly 1/2 in every peer group); the rank correlation
+is within start-year cohorts; the overlap is the share of each cohort's exact top 10% that the class score also puts
+in the top 10%.
 
 | tau | Classes | Mean difference | Mean absolute difference | Largest difference | Rank correlation | Top-10% overlap |
 |---|---|---|---|---|---|---|
-| 0.5 | 40 | +0.0096 | 0.0113 | 0.055 | 0.9994 | 96.2% |
-| 0.5 | 200 | +0.0022 | 0.0025 | 0.012 | 0.99998 | 99.2% |
-| 0.5 | 1000 | +0.0004 | 0.0005 | 0.002 | 0.999999 | 99.9% |
-| 0.75 | 40 | +0.0187 | 0.0206 | 0.108 | 0.9985 | 93.1% |
-| 0.9 | 40 | +0.0395 | 0.0415 | 0.251 | 0.9960 | 84.7% |
+| 0.5 | 40 | 0.0000 | 0.0073 | 0.034 | 0.9996 | 97.3% |
+| 0.5 | 200 | 0.0000 | 0.0015 | 0.007 | 0.99998 | 99.5% |
+| 0.5 | 1000 | 0.0000 | 0.0003 | 0.001 | 0.999999 | 99.9% |
+| 0.75 | 40 | 0.0000 | 0.0139 | 0.067 | 0.9988 | 94.9% |
+| 0.9 | 40 | 0.0000 | 0.0328 | 0.149 | 0.9951 | 87.4% |
 
 **Prediction**, start years 1975–2000, 1.45 million authors (`grid_prediction`): Spearman correlation with the number
 of future top-10% articles / ROC AUC for at least one future top-1% article / Spearman correlation with the mean
@@ -107,17 +108,17 @@ percentile of future articles, as in the paper's prediction tables.
 
 | tau | 40 classes | Exact |
 |---|---|---|
-| 0.5 | 0.427 / 0.772 / 0.321 | 0.426 / 0.773 / 0.325 |
-| 0.75 | 0.388 / 0.766 / 0.356 | 0.386 / 0.766 / 0.357 |
-| 0.9 | 0.347 / 0.750 / 0.338 | 0.343 / 0.749 / 0.337 |
+| 0.5 | 0.427 / 0.771 / 0.318 | 0.426 / 0.772 / 0.322 |
+| 0.75 | 0.389 / 0.766 / 0.354 | 0.386 / 0.766 / 0.355 |
+| 0.9 | 0.339 / 0.751 / 0.331 | 0.334 / 0.750 / 0.327 |
 
-No result moves by more than 0.004 at any of the three cutoffs, so the paper reports the 40-class scores.
+No result moves by more than 0.006 at any of the three cutoffs, so the paper reports the 40-class scores.
 
 **Cohort drift at high cutoffs** (`grid_cohorts`). The paper reports that above tau = 0.6 the score's distribution
 drifts across cohorts. The drift is not caused by the classes: with the exact integral, the median at tau = 0.9 falls
-from 0.32 in the 1960 cohort to 0.12 in 2010, against 0.37 to 0.16 on the classes (the paper's cutoff table). It comes
-from authors with no article in the top 10% of its year, who all score zero at tau = 0.9: 6% of the 1960 cohort and
-42% of the 2010 cohort. At tau = 0.5 the exact median moves only from 0.41 to 0.37.
+from 0.48 in the 1960 cohort to 0.40 in 2010, against 0.48 to 0.41 on the classes (the paper's cutoff table). It comes
+from authors with no article in the top 10% of its year, who all share the cohort's lowest score at tau = 0.9: 6% of
+the 1960 cohort and 42% of the 2010 cohort (exact score 0.17 and 0.32). At tau = 0.5 the exact median stays at 0.48.
 
 ## Numerical checks of the properties
 
