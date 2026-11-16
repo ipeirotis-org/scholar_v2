@@ -57,6 +57,7 @@ _META_DOC = "meta"
 _PACK_FORMAT = "gzip-json"
 _PACK_PART_BYTES = 900_000  # Firestore documents are capped at 1 MiB
 _LOAD_WORKERS = 16
+_LOAD_ATTEMPTS = 3  # versions to try when one's parts vanish mid-read (a refresh just replaced it)
 
 # Ranking tier by index source: profiled authors (any other source) 2, then people
 # we have not crawled yet (the results page crawls them): Wikidata 1, co-authors 0.
@@ -158,12 +159,21 @@ def _load_packed(cache, meta):
 
 
 def _load_index(cache):
-    """(authors, version) of the index saved in Firestore; ([], None) if there is none."""
-    meta = _read_index_meta(cache)
-    if meta:
+    """(authors, version) of the index saved in Firestore; ([], None) if there is none.
+
+    A refresh deletes the previous version's parts right after publishing the new
+    one, so a reader that fetched the meta document just before may find its parts
+    gone. It then reads the meta document again and loads the version named there.
+    """
+    failed = None
+    for _ in range(_LOAD_ATTEMPTS):
+        meta = _read_index_meta(cache)
+        if not meta or meta["version"] == failed:
+            break
         authors = _load_packed(cache, meta)
         if authors:
             return authors, meta["version"]
+        failed = meta["version"]
     authors = _load_legacy_chunks(cache)
     for a in authors:
         a.pop("name_lower", None)  # derived from the name; the compiled index keeps its own copy
@@ -822,14 +832,17 @@ class AuthorSearchService:
         # Supplement with S2 API when we got few local results.
         # Always fall back when 0 results; also fall back with scholar=True
         # when < 5 results, giving users broader coverage on explicit request.
-        if len(results) == 0 or (scholar and len(results) < 5):
+        # Approximate suggestions do not count: they mean the name itself was not found.
+        found = sum(1 for r in results if not r.get("fuzzy"))
+        if found == 0 or (scholar and found < 5):
             if Config.S2_SEARCH_FALLBACK:
                 results = self._supplement_with_s2(name, results)
 
         logger.info("Search '%s': %d results (scholar=%s)", name, len(results), scholar)
         # Don't cache empty results — a transient S2 API failure should
-        # not suppress retries for the full cache TTL (24h).
-        if results:
+        # not suppress retries for the full cache TTL (24h). The same goes
+        # for results that are only approximate suggestions.
+        if any(not r.get("fuzzy") for r in results):
             self.cache.set_search_results(cache_key, results)
         return results
 

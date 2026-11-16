@@ -206,6 +206,51 @@ class TestFullSearch:
         cache.set_search_results.assert_not_called()
 
 
+class TestS2FallbackWithSuggestions:
+    """Approximate suggestions mean the name was not found: they must not hold back the S2 lookup."""
+
+    FUZZY = [dict(_make_author(f"id{i}", f"Hortan{i} Smith"), fuzzy=True) for i in range(5)]
+
+    def _search(self, monkeypatch, local, **kwargs):
+        monkeypatch.setattr("author_search.config.Config.S2_SEARCH_FALLBACK", True)
+        cache = mock.MagicMock()
+        cache.get_search_results.return_value = None
+        cache.get.return_value = None
+        svc = AuthorSearchService(bq_client=mock.MagicMock(), cache=cache)
+        with mock.patch("author_search.search_service._search_in_memory", return_value=list(local)), \
+             mock.patch("author_search.s2_client.search_authors",
+                        return_value=[_make_author("s2id", "Hortun Smith")]) as s2:
+            return svc.search("hortun smith", **kwargs), s2
+
+    def test_five_suggestions_still_reach_s2_on_explicit_search(self, monkeypatch):
+        results, s2 = self._search(monkeypatch, self.FUZZY, scholar=True)
+        s2.assert_called_once()
+        assert [r["scholar_id"] for r in results][-1] == "s2id" and len(results) == 6
+
+    def test_only_suggestions_fall_back_like_no_results(self, monkeypatch):
+        results, s2 = self._search(monkeypatch, self.FUZZY[:2])
+        s2.assert_called_once()
+        assert "s2id" in [r["scholar_id"] for r in results]
+
+    def test_suggestions_alone_are_not_cached(self, monkeypatch):
+        """If S2 fails, caching the suggestions would keep the name from S2 for a day."""
+        monkeypatch.setattr("author_search.config.Config.S2_SEARCH_FALLBACK", True)
+        cache = mock.MagicMock()
+        cache.get_search_results.return_value = None
+        cache.get.return_value = None
+        svc = AuthorSearchService(bq_client=mock.MagicMock(), cache=cache)
+        with mock.patch("author_search.search_service._search_in_memory", return_value=list(self.FUZZY)), \
+             mock.patch("author_search.s2_client.search_authors", return_value=[]):
+            assert len(svc.search("hortun smith")) == 5
+        cache.set_search_results.assert_not_called()
+
+    def test_five_exact_matches_still_skip_s2(self, monkeypatch):
+        exact = [_make_author(f"id{i}", "Hortun Smith") for i in range(5)]
+        results, s2 = self._search(monkeypatch, exact, scholar=True)
+        s2.assert_not_called()
+        assert len(results) == 5
+
+
 class TestBootstrap:
     """Test automatic index bootstrap when Firestore index is missing."""
 

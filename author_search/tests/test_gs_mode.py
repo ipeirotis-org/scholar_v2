@@ -388,6 +388,27 @@ class TestIndexStorage:
         store.docs[f"pack_{version}_0"] = b"not gzip"
         assert ss._load_index(store) == ([], None)
 
+    def test_reader_holding_the_previous_meta_loads_the_new_version(self):
+        """A refresh published and deleted the old parts between a reader's meta read and its part reads."""
+        store = FakeIndexStore()
+        ss._save_index_to_firestore(store, AUTHORS[:10])
+        previous_meta = dict(store.docs["meta"])
+        with mock.patch("time.time", return_value=4102444800.0):
+            newer = ss._save_index_to_firestore(store, AUTHORS[:20])
+        current = store.get_index_chunk
+        stale = [previous_meta]
+        store.get_index_chunk = lambda c, d: stale.pop() if d == "meta" and stale else current(c, d)
+        assert ss._load_index(store) == (AUTHORS[:20], newer)
+
+    def test_gives_up_after_a_few_versions(self):
+        """Parts that are always missing must not keep a reader retrying forever."""
+        store = FakeIndexStore()
+        versions = iter(range(100))
+        store.get_index_chunk = lambda c, d: (
+            {"format": "gzip-json", "version": str(next(versions)), "parts": 1, "count": 1} if d == "meta" else None)
+        assert ss._load_index(store) == ([], None)
+        assert next(versions) == ss._LOAD_ATTEMPTS
+
     def test_mock_cache_does_not_loop(self):
         """A MagicMock cache answers every read with a truthy mock; loading must still end."""
         assert ss._load_index(mock.MagicMock()) == ([], None)
