@@ -110,7 +110,7 @@ via a managed scraping API instead of `scholarly`. Vendor evaluation: [docs/goog
     - No exact match → up to five "Did you mean" suggestions (`rapidfuzz`)
     - Still nothing → SerpApi Scholar search for the name ("User profiles" block), cached 7 days, 25 a day at most
     - `v3_query_log` entries carry user agent, hashed IP, referrer, bot flag and match kind
-    - [ ] Grant the frontend's runtime account access to the `query-log-salt` secret (until then no `ip_hash` is stored)
+    - [x] Frontend's runtime account can read the `query-log-salt` secret (granted 2026-11-16)
     - [ ] After the first deploy, rebuild the index once (`POST /api/refresh_author_index`) to switch it to the new format
   - [ ] Paper-title lookup
 - [x] **Untitled works from the legacy seed** (found 2026-11-04 on Kaiming He's page, `DhtAFkwAAAAJ`: all 95 works
