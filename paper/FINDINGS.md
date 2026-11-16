@@ -1066,3 +1066,55 @@ picks the top 10% with ties broken by a hash of the author id (one random draw);
 tied at the boundary the weight (slots left) / (number tied), the expected precision under random tie-breaking. The
 two differ by at most 0.0013 in any cell. The paper reports `precision_top10_frac`; the lead times are the same at one
 decimal.
+
+## 22. Tie rule of the standing (`sql/12_pip_variants.sql`, `sql/28_tie_rule.sql`)
+
+Until 16 November 2026 the standing at a threshold was the share of peers with strictly fewer articles at or above
+it, so a tie counted zero. It now counts one half: the standing is the share of peers with fewer articles plus half
+the share with exactly as many, the author's mid-rank (Hazen) percentile on the count at that threshold. Every number
+from §8 on that involves the symmetric score was re-run with the new rule. `pip_variants` keeps the old rule in
+`strict_tau50`, `strict_tau75` and `strict_tau90`, which reproduce the earlier scores exactly, and
+`tie_rule_comparison` (`results/paper_rp/tie_rule_comparison.csv`) compares the two.
+
+Why: with a tie at zero, a peer group's mean score is half the share of peer pairs that do not tie, so the scale of
+the score depends on how common ties are. With a tie at one half, the standings of a peer group average exactly 0.5 at
+every threshold, so the mean PiP is 0.5 for every cohort, career age and cutoff, and the score stays close to the
+author's percentile in the cohort.
+
+Career age 10, start years 1960–2015, 5,279,295 authors, 56 cohorts:
+
+| | τ = 0.5, tie ½ | τ = 0.5, tie 0 | τ = 0.75, tie ½ | τ = 0.75, tie 0 | τ = 0.9, tie ½ | τ = 0.9, tie 0 |
+|---|---|---|---|---|---|---|
+| Mean score (range of cohort means) | 0.500 (0.500–0.500) | 0.417 (0.412–0.442) | 0.500 | 0.381 (0.375–0.427) | 0.500 | 0.312 (0.301–0.405) |
+| Mean absolute gap to the cohort percentile | 0.037 | 0.083 | 0.040 | 0.119 | 0.061 | 0.188 |
+| Share of authors within 0.05 of their percentile | 81.1% | 20.5% | 84.4% | 11.1% | 26.8% | 10.1% |
+| Largest gap | 0.103 | 0.135 | 0.119 | 0.188 | 0.113 | 0.355 |
+| Lower quartile, range over cohorts | 0.279–0.292 | 0.157–0.198 | 0.259–0.292 | 0.076–0.187 | 0.217–0.288 | 0.000–0.141 |
+| Median, range over cohorts | 0.467–0.482 | 0.372–0.414 | 0.465–0.480 | 0.324–0.382 | 0.406–0.490 | 0.158–0.371 |
+| Median, 1960 → 2010 | 0.480 → 0.476 | 0.414 → 0.378 | 0.465 → 0.471 | 0.379 → 0.332 | 0.476 → 0.409 | 0.370 → 0.160 |
+| Upper quartile, range over cohorts | 0.700–0.712 | 0.641–0.675 | 0.697–0.709 | 0.622–0.660 | 0.672–0.717 | 0.553–0.650 |
+| 90th percentile, range over cohorts | 0.866–0.874 | 0.842–0.855 | 0.866–0.876 | 0.840–0.856 | 0.873–0.883 | 0.841–0.862 |
+| Lowest score in a cohort, range | 0.070–0.109 | 0 | 0.076–0.189 | 0 | 0.116–0.288 | 0 |
+| Share of a cohort at the lowest score, range | 0.0%–1.3% | 0.0%–1.3% | 0.0%–15.4% | 0.0%–15.4% | 5.6%–42.5% | 5.6%–42.5% |
+
+- **The price is a floor above zero.** An author with nothing above the cutoff ties, at every threshold above it, with
+  the peers who have nothing there, and gets half their share. At τ = 0.5 the floor is 0.07–0.11 and at most 1.3% of
+  a cohort sits on it. At τ = 0.9, 42% of the 2010 cohort sits on a floor of 0.29.
+- **Rankings barely move.** Within cohorts the two rules correlate at 0.9994 (τ = 0.5 and 0.75) and 0.9996 (τ = 0.9),
+  and agree on 97.3%, 97.6% and 98.4% of each cohort's top 10%.
+- **Prediction is the same to within 0.003 at τ = 0.5** (start years 1975–2000, 1,454,978 authors; future top-10%
+  count / AUC for a future top-1% paper / future mean percentile): 0.427 / 0.771 / 0.318 with a tie at one half
+  against 0.427 / 0.772 / 0.321 with a tie at zero. At τ = 0.75: 0.389 / 0.766 / 0.354 against 0.388 / 0.766 / 0.356.
+  At τ = 0.9: 0.340 / 0.751 / 0.331 against 0.347 / 0.750 / 0.338.
+- **In pools of mixed seniority the raw score predicts slightly better with a tie at one half** (§9, `same_year`
+  settings), because every peer group now has the same mean.
+- **The properties change in two places.** The range is 1/(2N) to 1 − 1/(2N) instead of 0 to (N − 1)/N, and an author
+  with every article below the cutoff gets the cohort's lowest score instead of zero. Monotonicity, the invariance to
+  articles below the cutoff, the rounding identity of the 40 classes and the order-statistics formula carry over
+  (`lean/`, `COMPUTATION.md`); `sql/25_pip_exact.sql` reproduces the 40-class scores to 6 × 10⁻¹⁵.
+- **Simulated cohort** (`checks/sym_properties.py`, fine grid): one article at the 97.5th, 99th or 99.9th percentile
+  scores 0.52, 0.54 or 0.55 (0.42, 0.45, 0.47 with a tie at zero); a record with nothing above the median scores 0.24,
+  that cohort's floor (0 before).
+- **Live website** (Google Scholar profiles, 16,179 active authors, 16 November 2026): mean score 0.475 → 0.500, mean
+  absolute gap to the cohort percentile 0.027 → 0.018, share within 0.05 of the percentile 87% → 98%, rank correlation
+  between the rules 0.997. The 87 authors who scored exactly 0 now score 0.01–0.20 (median 0.06).

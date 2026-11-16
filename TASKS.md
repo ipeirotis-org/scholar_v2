@@ -204,6 +204,24 @@ via a managed scraping API instead of `scholarly`. Vendor evaluation: [docs/goog
     - [x] Always one decimal (2026-11-04), also for round values ("86.0th", "90.0th percentile", "86.0" in tables): rounded and clamped to 0.1–99.9 (`formatting.percentile_value`, `percentileValue` in `paper_explorer.js`). A day of whole numbers (floored, 1st–99th) lost the detail people wanted
   - [x] GS mode: publication detail links go to the paper's Google Scholar record; `/publication/...` redirects there (no cache task, no loading page) until Phase B adds per-paper histories (re-enable via `_has_publication_history()` in `frontend/routes.py`)
   - [x] **PiP ($\tau = 0.5$) replaces PiP-AUC as primary metric** (2026-11-14): operationalized on Google Scholar (`dist_pip_thresholds`, `dist_pip_scores`, `stats_author_pip_scores_current`, `dist_pip_auc_scores_field`, `ranked_author_pip_scores_current`) with 40 citation-percentile classes $\theta_j = j/40$, strict `<` cohort peer standing $g(\theta_j)$, and upper-half mean $\mathrm{PiP}_{0.5} = \frac{1}{20}\sum_{j=20}^{39} g(\theta_j)$; works explorer opens on `Standing curve` with interactive $\tau$ cutoff slider and presets (`0, 0.25, 0.50, 0.75, 0.90`), followed by `By publication year` and legacy `PiP-AUC curve`
+  - [x] **A tie counts one half in the standing** (code 2026-11-16, branch `claude/happy-fermi-680sav`): $g(\theta_j)$ is
+    the share of cohort peers with fewer works at or above $\theta_j$ plus half the share with exactly as many (it was
+    the share with strictly fewer), in `gs_statistics.stats_author_pip_scores_current`; help page, standing-curve
+    labels and tests updated. On 16,179 active GS authors: mean score 0.475 → 0.500, mean absolute gap between score
+    and cohort percentile 0.027 → 0.018, within 0.05 of the percentile 87% → 98%, rank correlation with the old score
+    0.997. The 87 authors with no top-half work no longer score exactly 0 (0.01–0.20, median 0.06).
+    - [ ] Merge to main: `bigquery-views.yml` redeploys the view and rebuilds `dist_pip_scores` and
+      `dist_pip_auc_scores_field` from the new scores
+    - [ ] Re-cache Firestore `v3_author_stats` after the deploy (cached authors keep the old score and curve until
+      then), as on 2026-11-04
+  - [ ] **Paper: same tie rule** (same branch): SQL 12–28, Lean proofs, checks, figures, `FINDINGS.md` §22 and the
+    manuscript re-done with a tie at one half; cohort mean exactly 0.5, score within 0.04 of the cohort percentile at
+    career age 10, predictions within 0.003 of the old rule (`results/paper_rp/tie_rule_comparison.csv`).
+    - [ ] Promote the staging datasets: the re-run lives in `paper_rp_mid` and `paper_rp_noself_mid` (private). The
+      public `paper_rp` / `paper_rp_noself` tables still hold the strict-rule results behind arXiv v4 and Zenodo
+      10.5281/zenodo.23987119. Replace them (and re-grant public read) when the new version is posted
+    - [ ] New arXiv version and new Zenodo package version
+    - [ ] Co-author sign-off on the change of definition (Section 4 "Ties", Appendix C)
   - [ ] Authors in the pinned-work panel: `author_pub_stats` docs for the largest profiles are already ~790 KB of Firestore's 1 MiB, so author lists need a per-paper store or a size cap first (the panel links to the GS record meanwhile)
 
 ---
