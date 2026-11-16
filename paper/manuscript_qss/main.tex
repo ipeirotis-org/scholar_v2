@@ -456,13 +456,13 @@ most have none. The standing counts a tie as one half, the mid-rank convention f
 \citep{hazen1914storage,bornmann2013use,waltman2013percentile}. Counting only the peers with strictly fewer articles
 would instead give exactly zero to an author with nothing above a threshold, but it ties the scale of the score to how
 common ties are: a peer group's mean becomes half the share of peer pairs that do not tie. At career age 10 that mean is
-TIEMEAN50 at $\tau = 0.5$ and TIEMEAN90 at $\tau = 0.9$, scores run below the author's cohort percentile by TIEGAP50 on
-average at $\tau = 0.5$, and at $\tau = 0.9$ the median falls from TIEMED1960 in the 1960 cohort to TIEMED2010 in 2010 as
+0.42 at $\tau = 0.5$ and 0.31 at $\tau = 0.9$, scores run below the author's cohort percentile by 0.08 on
+average at $\tau = 0.5$, and at $\tau = 0.9$ the median falls from 0.37 in the 1960 cohort to 0.16 in 2010 as
 more authors tie at zero. With ties at one half the mean is $0.5$ everywhere and the score follows the author's cohort
 percentile (Section~\ref{sec:definition}). The price is a floor above zero: an author with nothing above the cutoff
 shares the lowest standing with every peer in the same position, and at high cutoffs, where such authors are many, the
 floor is high (Section~\ref{sec:tau}). The two rules rank authors almost identically (within-cohort rank correlation
-TIECORR50 at $\tau = 0.5$) and predict future work equally well (Section~\ref{sec:robustness}).
+0.9994 at $\tau = 0.5$) and predict future work about equally well (Section~\ref{sec:robustness}).
 
 \paragraph{Balance of volume and impact.} In the productivity-normalized area of Figure~\ref{fig:construction}c, no
 author's score can exceed their percentile on total article count (the horizontal width of their curve). In PiP, by
@@ -1131,6 +1131,17 @@ at career age 5, the indicators predict whether an author is still publishing at
 0.68 for the article count, 0.62 for PiP, 0.58 for the $h$-index and 0.54 for citations. Continuing to publish is a
 matter of volume, so the indicators that weigh volume most predict it best. PiP still leads the article count, the
 best predictor of survival, on the top-1\% outcome and on future citation impact.
+
+\paragraph{Tie rule.} The standing counts a tie between two peers as one half (Section~\ref{sec:properties}). Counting
+a tie as zero instead, as an earlier version of this paper did, changes the scale of the score and little else. At
+career age 10 (5.28 million authors, start years 1960--2015) the two versions correlate at 0.9994 within cohorts at
+$\tau = 0.5$ and agree on 97\% of each cohort's top decile. In the prediction of the next ten years (start years
+1975--2000) they differ by at most 0.003 on each outcome: 0.427 for both on the number of future top-10\% papers, 0.771
+against 0.772 on a future top-1\% paper, and 0.318 against 0.321 on future citation impact. What changes is the scale.
+With a tie at zero the cohort mean is 0.42 instead of 0.50 and varies between 0.41 and 0.44 across cohorts, the score
+lies 0.08 below the author's cohort percentile on average instead of within 0.04 of it, and at $\tau = 0.9$ the cohort
+median ranges from 0.16 to 0.37, against 0.41 to 0.49 with a tie at one half.
+
 \section{Discussion}
 \label{sec:discussion}
 

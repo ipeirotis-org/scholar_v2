@@ -182,7 +182,8 @@ def fig_pip_construction():
     # Paper percentiles (top of each 1/40 class): 0.975, 0.925, 0.725, 0.625, 0.500, 0.350, 0.300.
     ys = [0.975, 0.925, 0.725, 0.625, 0.500, 0.350, 0.300]
     # Cohort CDF F(k) = share of eligible peers (1995 cohort, age 10) with <= k articles.
-    # F(5)=0.3630, F(6)=0.4547, F(7)=0.5315, F(12)=0.7648, F(13)=0.7920 are directly in fig3_curves.csv.
+    # F(5)=0.3630, F(6)=0.4547, F(7)=0.5315, F(12)=0.7648, F(13)=0.7920 are directly in fig3_curves.csv (prod_pct,
+    # and share_fewer at j = 0).
     F = [0.0, 0.0, 0.0, 0.1100, 0.2380, 0.3630, 0.4547, 0.5315]
     fig, (a, b, c) = plt.subplots(1, 3, figsize=(7.0, 2.65), facecolor=SURFACE)
 
