@@ -42,7 +42,8 @@ def candidates_query():
     """Candidates in crawl order: on-demand requests (oldest first), then authors
     never crawled from Wikidata (most Wikipedia pageviews first), then legacy-seeded
     profiles with untitled works (largest untitled share first, then most cited), then the stalest
-    profiles. Authors whose crawl failed recently are left out.
+    profiles, down to those last crawled REFRESH_MIN_AGE_DAYS ago. Authors whose crawl failed
+    recently are left out.
 
     The untitled tier exists because the legacy seed lacked titles for some
     profiles (2026-11-04: 122 with none, 260 more with at least 10% missing,
@@ -108,6 +109,7 @@ def candidates_query():
         WHERE scholar_id NOT IN (SELECT scholar_id FROM pending)
           AND scholar_id NOT IN (SELECT scholar_id FROM failed)
           AND scholar_id NOT IN (SELECT scholar_id FROM untitled)
+          AND fetched_at < TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL @min_age_days DAY)
         ORDER BY priority, rank
         LIMIT @limit
     """
@@ -141,6 +143,7 @@ def select_batch(budget, client=None, new_author_share=None):
             bigquery.ScalarQueryParameter("new_limit", "INT64", new_budget // UNKNOWN_AUTHOR_SEARCHES + 1),
             bigquery.ScalarQueryParameter("cooldown_days", "INT64", Config.FAILURE_COOLDOWN_DAYS),
             bigquery.ScalarQueryParameter("untitled_min_share", "FLOAT64", Config.UNTITLED_MIN_SHARE),
+            bigquery.ScalarQueryParameter("min_age_days", "INT64", Config.REFRESH_MIN_AGE_DAYS),
         ]
     )
     rows = client.query(candidates_query(), job_config=job_config).result()

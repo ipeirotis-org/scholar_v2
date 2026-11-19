@@ -351,6 +351,15 @@ class TestNewAuthorShare:
         assert "ORDER BY u.untitled_share DESC, a.citedby DESC" in sql[tier:stale]
         assert "NOT IN (SELECT scholar_id FROM untitled)" in sql[stale:]
 
+    def test_stale_tier_skips_recently_crawled_profiles(self):
+        sql = scheduler.candidates_query()
+        stale = sql.index("3 AS priority")
+        assert "fetched_at < TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL @min_age_days DAY)" in sql[stale:]
+        assert "@min_age_days" not in sql[:stale]  # on-demand, new and untitled tiers are not held back
+        client = _Client(self.ROWS)
+        scheduler.select_batch(20, client=client)
+        assert client.params["min_age_days"] == scheduler.Config.REFRESH_MIN_AGE_DAYS == 30
+
     def test_untitled_share_is_a_query_parameter(self):
         client = _Client(self.ROWS)
         scheduler.select_batch(20, client=client)

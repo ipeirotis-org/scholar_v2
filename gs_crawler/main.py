@@ -4,8 +4,9 @@ Modes (CRAWL_MODE):
   - refresh: crawl queued on-demand authors, then the stalest profiles, within
     MAX_SEARCHES_PER_RUN and never dipping below SERPAPI_SEARCH_RESERVE.
   - authors: crawl the comma-separated GS_AUTHOR_IDS now (may use the reserve).
-  - materialize: rebuild gs_statistics distribution tables (percentile breakpoints),
-    then the app's author search index and featured authors.
+  - percentiles: rebuild gs_statistics distribution tables (percentile breakpoints)
+    and drop the cached author profiles, which carry the old percentiles.
+  - materialize: the same, then the app's author search index and featured authors.
   - deploy: create/replace all gs_statistics views and tables.
   - wikidata: reload gs_data.wikidata_authors (GS IDs from Wikidata, for name search
     and ingestion priority), then the app's author search index and featured authors.
@@ -19,6 +20,7 @@ histograms (see docs/google-scholar-data-sources.md).
 import logging
 import os
 import sys
+import time
 from datetime import datetime, timezone
 
 from gs_crawler import cache_invalidate, featured, materialize, scheduler, serpapi_client, wikidata, writer
@@ -45,7 +47,11 @@ def crawl_and_store(author_ids, budget, new_ids=(), new_budget=None):
     each is capped at what is left of it, so a large profile cannot eat into the
     refreshes. One that does not fit is recorded as a failure and waits out the
     cooldown rather than being retried (and paid for) every day.
+
+    No profile is started after RUN_TIME_LIMIT_SECONDS: the snapshots are loaded
+    at the end, and the job's task timeout would discard them.
     """
+    deadline = time.monotonic() + Config.RUN_TIME_LIMIT_SECONDS
     new_ids = set(new_ids)
     author_rows, pub_rows, crawled_ids, gone_ids, failures = [], [], [], [], []
     summary = {"crawled": 0, "failed": 0, "searches": 0, "skipped": 0, "new_searches": 0}
@@ -54,7 +60,7 @@ def crawl_and_store(author_ids, budget, new_ids=(), new_budget=None):
         cap = budget - summary["searches"]
         if is_new and new_budget is not None:
             cap = min(cap, new_budget - summary["new_searches"])
-        if cap <= 0:
+        if cap <= 0 or time.monotonic() >= deadline:
             summary["skipped"] += 1
             continue
         result = crawl_author(scholar_id, max_searches=cap)
@@ -121,6 +127,12 @@ def refresh_featured():
     return count
 
 
+def rebuild_percentiles():
+    """Rebuild the distribution tables, then drop the cached profiles that hold the old percentiles."""
+    logger.info("Rebuilt: %s", materialize.run(kinds=("table",)))
+    cache_invalidate.invalidate_all_gs()
+
+
 def run_refresh():
     left = searches_left()
     budget = min(Config.MAX_SEARCHES_PER_RUN, left - Config.SEARCH_RESERVE)
@@ -147,8 +159,11 @@ def main():
         if not ids:
             raise SystemExit("CRAWL_MODE=authors requires GS_AUTHOR_IDS")
         summary = run_authors(ids)
+    elif mode == "percentiles":
+        rebuild_percentiles()
+        return
     elif mode == "materialize":
-        logger.info("Rebuilt: %s", materialize.run(kinds=("table",)))
+        rebuild_percentiles()
         refresh_search_index()
         refresh_featured()
         return

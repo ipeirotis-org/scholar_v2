@@ -68,3 +68,67 @@ def test_invalidate_legacy_pip_mode(monkeypatch):
     with patch.object(main.cache_invalidate, "invalidate_missing_pip", return_value=3) as inv:
         main.main()
     inv.assert_called_once()
+
+
+def test_crawl_and_store_starts_no_profile_after_the_time_limit(monkeypatch):
+    """Snapshots load at the end of a run, so a run must end before the job's task timeout."""
+    clock = iter([0.0, 10.0, 5000.0])  # deadline set at 0; first profile at 10 s; second after the limit
+    monkeypatch.setattr(main.time, "monotonic", lambda: next(clock))
+    ok = CrawlResult("GOODAAAAAAAJ", pages=[make_page(3, author_id="GOODAAAAAAAJ")], searches=1)
+    with patch.object(main, "crawl_author", return_value=ok) as crawl, \
+         patch.object(main.writer, "write_raw_pages"), \
+         patch.object(main.writer, "load_snapshots") as load, \
+         patch.object(main.cache_invalidate, "invalidate_authors"):
+        summary = main.crawl_and_store(["GOODAAAAAAAJ", "LATEAAAAAAAJ"], budget=10)
+    crawl.assert_called_once()
+    assert summary["crawled"] == 1 and summary["skipped"] == 1
+    load.assert_called_once()  # what was fetched in time is still stored
+
+
+def test_invalidate_all_gs_drops_every_cached_gs_profile():
+    def _doc(doc_id):
+        d = MagicMock()
+        d.id = doc_id
+        return d
+
+    db = MagicMock()
+    db.collection.return_value.select.return_value.stream.side_effect = [
+        [_doc("AAAAAAAAAAAJ"), _doc("2942126")],          # v3_author_freshness (one S2 leftover)
+        [_doc("AAAAAAAAAAAJ"), _doc("BBBBBBBBBBBJ")],     # v3_author_stats
+    ]
+    assert cache_invalidate.invalidate_all_gs(db=db) == 2
+    batch = db.batch.return_value
+    assert batch.delete.call_count == 2 * len(cache_invalidate.AUTHOR_CACHE_COLLECTIONS)
+    deleted_docs = {c.args[0] for c in db.collection.return_value.document.call_args_list}
+    assert deleted_docs == {"AAAAAAAAAAAJ", "BBBBBBBBBBBJ"}
+
+
+def test_invalidate_all_gs_with_empty_cache():
+    db = MagicMock()
+    db.collection.return_value.select.return_value.stream.return_value = []
+    assert cache_invalidate.invalidate_all_gs(db=db) == 0
+    db.batch.assert_not_called()
+
+
+def test_percentiles_mode_rebuilds_tables_then_drops_cached_profiles(monkeypatch):
+    monkeypatch.setenv("CRAWL_MODE", "percentiles")
+    calls = []
+    with patch.object(main.materialize, "run", side_effect=lambda **kw: calls.append("tables") or []), \
+         patch.object(main.cache_invalidate, "invalidate_all_gs",
+                      side_effect=lambda: calls.append("cache") or 0), \
+         patch.object(main, "refresh_search_index") as index, \
+         patch.object(main, "refresh_featured") as feat:
+        main.main()
+    assert calls == ["tables", "cache"]  # cached pages must not be rebuilt from the old tables
+    index.assert_not_called()
+    feat.assert_not_called()
+
+
+def test_materialize_mode_also_drops_cached_profiles(monkeypatch):
+    monkeypatch.setenv("CRAWL_MODE", "materialize")
+    with patch.object(main.materialize, "run", return_value=[]), \
+         patch.object(main.cache_invalidate, "invalidate_all_gs", return_value=0) as inv, \
+         patch.object(main, "refresh_search_index"), \
+         patch.object(main, "refresh_featured"):
+        main.main()
+    inv.assert_called_once()

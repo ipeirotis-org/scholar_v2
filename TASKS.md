@@ -66,6 +66,32 @@
 Semantic Scholar data has too much junk (fragmented author profiles, low coverage). Move back to Google Scholar
 via a managed scraping API instead of `scholarly`. Vendor evaluation: [docs/google-scholar-data-sources.md](docs/google-scholar-data-sources.md).
 
+- [ ] **Stale reference profiles inflate freshly crawled authors** (found 2026-11-19, from a report that PiP
+  percentiles sat well above the h-index and citation percentiles; example `nCiRahoAAAAJ`: PiP 95.1 against
+  75.9 for h-index). The PiP formula is not at fault: over all 16,267 active authors the mean PiP percentile is
+  0.50 and PiP is above all four conventional percentiles as often as below (16% each). The reference set is
+  out of date: of 16,356 profiles, 8,241 were last crawled in 2024-02, 6,650 in 2025-04/05 and 949 in 2026-11,
+  and a viewed profile is crawled fresh. Stale peers have old citation counts for recent papers (median for a
+  2023 paper: 3 on 2024-02 profiles, 7 on 2025-04/05 ones, 13 on 2026-11 ones) and no 2025-2026 papers, so PiP,
+  which ranks each paper within its year, is hit about twice as hard as the cumulative metrics. For the 415
+  authors with both a 2024-02 and a 2026-11 snapshot, scored against the same tables, the re-crawl alone moved
+  PiP by +12.6 percentile points, citations +7.7, h-index +7.0, i10 +6.2, cited publications +5.2.
+  - [x] SerpApi plan raised from Developer (5,000 searches a month) to Big Data (30,000) on 2026-11-19
+  - [x] Crawler set for the larger plan: four runs a day of up to 600 searches, new-author share 0.10 during the
+    catch-up, a 45-minute limit per run, profiles crawled in the last 30 days left alone
+  - [x] Percentile tables rebuilt daily (`gs-daily-percentiles`); every rebuild drops the cached author profiles,
+    which otherwise keep the percentiles of the day they were cached (236 cached profiles on 2026-11-19)
+  - [ ] Catch-up: ~15,200 stale profiles, ~44,000 searches, stalest first, after the 759 ACM Fellows queued on
+    2026-11-17. Expected to finish in the cycle that starts 2026-12-02; check that no legacy snapshot is left
+  - [ ] After the catch-up: move to Production (15,000 a month), set `MAX_SEARCHES_PER_RUN` to ~450 with one run a
+    day and `NEW_AUTHOR_SHARE` back to 0.25
+  - [ ] After the catch-up: restrict the reference population (the `dist_*` tables and paper percentiles) to
+    profiles crawled in the last 12 months, so a stalled refresh cannot bring the bias back
+  - Considered and dropped: an age-aligned benchmark (papers ranked among papers of the same age when observed,
+    authors among authors of the same career age when observed). A test removed the bias (the 415 re-crawled
+    authors moved by -0.9 PiP points instead of +12.6), but it resolves crawl dates only to the year, so it
+    does nothing once every profile is under a year old, and it departs from the paper's definition
+
 - [x] **Evaluate Google Scholar scraping vendors** (2026-10-12, two research rounds)
   - Pre-pilot recommendation was SearchApi.io primary; the pilot switched it to SerpApi (see below)
   - GS author search by name now requires sign-in (since mid-2025), so no vendor offers it

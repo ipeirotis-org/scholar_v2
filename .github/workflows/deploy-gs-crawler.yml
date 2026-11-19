@@ -27,6 +27,7 @@ on:
           - ''
           - 'featured'
           - 'materialize'
+          - 'percentiles'
           - 'deploy'
           - 'invalidate_legacy_pip'
           - 'refresh'
@@ -41,10 +42,17 @@ env:
   JOB_NAME: gs-crawler
   # Runs as claude-agent, which already has BigQuery, GCS and Secret Manager access.
   JOB_SA: claude-agent@scholar-version2.iam.gserviceaccount.com
-  # SerpApi Developer plan: 5,000 searches/month. Daily runs of up to 130 searches
-  # (~3,900/month) leave >= 1,000 for on-demand lookups.
-  MAX_SEARCHES_PER_RUN: '130'
+  # SerpApi Big Data plan (since 2026-11-19): 30,000 searches/month, to re-crawl the
+  # ~15,200 profiles last fetched in 2024-2025 (~44,000 searches) and add new authors.
+  # Four runs a day of up to 600 searches (~32 min each, 2,400 a day) use a month's
+  # searches in about 12 days; runs then stop at the reserve kept for on-demand lookups.
+  # On a smaller plan lower the cap: Production (15,000/month) is one run of ~450 a day.
+  MAX_SEARCHES_PER_RUN: '600'
   SERPAPI_SEARCH_RESERVE: '1000'
+  # Share of each run for never-crawled Wikidata authors. 0.10 while the stale profiles
+  # are re-crawled (at 0.25 the backlog would not clear in two billing cycles); the
+  # code default is 0.25.
+  NEW_AUTHOR_SHARE: '0.10'
   # Same switch as deploy-frontend.yml; selects the search index the job rebuilds.
   DATA_SOURCE: ${{ vars.DATA_SOURCE || 'gs' }}
 
@@ -119,7 +127,7 @@ jobs:
           --cpu=1 \
           --task-timeout=3600 \
           --max-retries=0 \
-          --set-env-vars="GCP_PROJECT_ID=${{ env.GCP_PROJECT_ID }},CRAWL_MODE=refresh,MAX_SEARCHES_PER_RUN=${{ env.MAX_SEARCHES_PER_RUN }},SERPAPI_SEARCH_RESERVE=${{ env.SERPAPI_SEARCH_RESERVE }},DATA_SOURCE=${{ env.DATA_SOURCE }}"
+          --set-env-vars="GCP_PROJECT_ID=${{ env.GCP_PROJECT_ID }},CRAWL_MODE=refresh,MAX_SEARCHES_PER_RUN=${{ env.MAX_SEARCHES_PER_RUN }},SERPAPI_SEARCH_RESERVE=${{ env.SERPAPI_SEARCH_RESERVE }},NEW_AUTHOR_SHARE=${{ env.NEW_AUTHOR_SHARE }},DATA_SOURCE=${{ env.DATA_SOURCE }}"
 
     - name: Create or update schedulers
       run: |-
@@ -144,11 +152,16 @@ jobs:
             --attempt-deadline=600s \
             --oauth-service-account-email="${{ env.JOB_SA }}"
         }
-        # Daily profile refresh (queued on-demand authors first, then stalest).
-        upsert gs-daily-refresh "17 4 * * *" '{}'
-        # Weekly rebuild of percentile distribution tables.
+        # Profile refresh every 6 hours (queued on-demand authors first, then stalest).
+        # The job name predates the 2026-11-19 move from one run a day.
+        upsert gs-daily-refresh "17 4,10,16,22 * * *" '{}'
+        # Weekly rebuild of percentile distribution tables, search index and featured authors.
         upsert gs-weekly-materialize "47 5 * * 1" \
           '{"overrides":{"containerOverrides":[{"env":[{"name":"CRAWL_MODE","value":"materialize"}]}]}}'
+        # On the other days, the percentile tables only: with hundreds of profiles re-crawled
+        # a day, week-old percentiles compare fresh profiles with a visibly older reference set.
+        upsert gs-daily-percentiles "47 5 * * 0,2-6" \
+          '{"overrides":{"containerOverrides":[{"env":[{"name":"CRAWL_MODE","value":"percentiles"}]}]}}'
         # Monthly reload of GS IDs from Wikidata (+ Wikipedia pageviews), 3rd of the month.
         upsert gs-monthly-wikidata "41 3 3 * *" \
           '{"overrides":{"containerOverrides":[{"env":[{"name":"CRAWL_MODE","value":"wikidata"}]}]}}'
