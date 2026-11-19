@@ -13,7 +13,7 @@ list with per-paper totals. No per-paper citation histograms, so the temporal vi
 ## Data flow
 
 ```
-gs-daily-refresh (Cloud Scheduler) ──► gs-crawler job (CRAWL_MODE=refresh)
+gs-daily-refresh (Cloud Scheduler, every 6 hours) ──► gs-crawler job (CRAWL_MODE=refresh)
 cache miss in GS mode ──► cache layer ──► gs_crawler.crawl_and_store (on demand)
         │
         ├─► SerpApi google_scholar_author (100 publications per search, validated)
@@ -26,8 +26,9 @@ cache miss in GS mode ──► cache layer ──► gs_crawler.crawl_and_store
                 ▼
         gs_statistics.* views + dist_* tables ──► cache layer ──► Firestore ──► frontend
 
-gs-weekly-materialize ──► gs-crawler job (CRAWL_MODE=materialize): rebuild dist_* + author_coauthor_fields tables + search index
-        + featured authors
+gs-weekly-materialize ──► gs-crawler job (CRAWL_MODE=materialize): rebuild dist_* + author_coauthor_fields tables, drop the
+        cached author profiles (they hold the old percentiles), then search index + featured authors
+gs-daily-percentiles ──► gs-crawler job (CRAWL_MODE=percentiles): the tables and the cache drop only, on the other six days
 gs-monthly-wikidata ──► gs-crawler job (CRAWL_MODE=wikidata): Wikidata GS IDs + Wikipedia pageviews
         └─► gs_data.wikidata_authors ──► search index (unprofiled names) + refresh scheduler (new authors)
                                          + featured authors (homepage)
@@ -127,8 +128,8 @@ Soros profile with h-index 1 and Rachael Gunn, the Olympic breakdancer, at 7), a
 with the recent-list fields plus the article title and views in `v3_featured_authors/featured_gs`.
 It runs after the weekly percentile rebuild, so the scores match what the cache layer serves, and
 after the monthly Wikidata reload; `CRAWL_MODE=featured` rebuilds it alone. An empty result keeps
-the stored list. The featured authors' result pages are cached like any other: on first view, or
-when the daily refresh invalidates them.
+the stored list. The featured authors' result pages are cached like any other: on first view, and
+dropped when the profile is re-crawled or the percentile tables are rebuilt.
 
 **Search.** The index holds every profiled author, the unprofiled Wikidata ones (~121K) and the
 unprofiled co-authors listed on profiled authors' pages (~180K, ~157K of them not on Wikidata),
@@ -148,13 +149,28 @@ Unused share goes back to refreshes. The share is enforced on actual searches: a
 capped at what is left of it, and one too large to fit is cooled down like a failure. Permanent failures (no profile behind the ID) go to
 `gs_data.crawl_failures`, and the scheduler skips those IDs for `FAILURE_COOLDOWN_DAYS` (30).
 
-## Budget (SerpApi Developer plan, 5,000 searches/month)
+## Budget (SerpApi Big Data plan, 30,000 searches/month, since 2026-11-19)
 
-- **Refresh:** `MAX_SEARCHES_PER_RUN=130` per daily run, about 3,900 a month. Runs never take the account
-  below `SERPAPI_SEARCH_RESERVE=1000`, which is kept for on-demand lookups. Up to a quarter of each run
-  (~32 searches, ~10 authors a day) goes to new Wikidata authors.
-- **Cost per author:** an average profile costs ~3 searches, so ~1,300 authors are crawled a month. With
-  ~300 of those new, the 16.2K reference set turns over in roughly 16 months while it grows by ~3,600 a year.
+- **Why the larger plan.** On 2026-11-19, 15,213 of the 16,356 reference profiles still carried their legacy
+  snapshot: 8,241 from 2024-02 and 6,650 from 2025-04/05. A profile crawled today was compared with peers
+  frozen 1.5 to 2.75 years earlier, so its percentiles were inflated, PiP most of all (see `TASKS.md`,
+  "Stale reference profiles"). Re-crawling them takes ~44,000 searches; the Developer plan (5,000 a month,
+  130 a day) would have needed about 11 months.
+- **Refresh:** four runs a day (`gs-daily-refresh`, every 6 hours) of up to `MAX_SEARCHES_PER_RUN=600`. A search
+  takes ~3.2 s, so a run lasts ~32 min; `RUN_TIME_LIMIT_SECONDS=2700` stops it from starting new profiles after
+  45 min, because snapshots are loaded at the end and the job's 60 min task timeout would discard them. At
+  2,400 searches a day a month's searches last about 12 days; runs then stop at `SERPAPI_SEARCH_RESERVE=1000`,
+  which is kept for on-demand lookups, until the plan renews (the 2nd of the month).
+- **New authors:** `NEW_AUTHOR_SHARE=0.10` of each run during the catch-up (~60 searches a run, ~60 authors a
+  day); the code default is 0.25.
+- **Recently crawled profiles are left alone:** the stalest-first tier only takes profiles last crawled more than
+  `REFRESH_MIN_AGE_DAYS=30` ago. Without it, a budget larger than the backlog re-crawls week-old profiles.
+- **Cost per author:** an average profile costs ~2.7 searches (218 works); the best-known Wikidata authors
+  average ~4.
+- **After the catch-up** (expected mid-December 2026): Production (15,000 a month) refreshes ~16K profiles
+  every 6 months (~7,400 searches a month) with room for ~1,500 new authors a month at first; lower
+  `MAX_SEARCHES_PER_RUN` to ~450 with one run a day. The refresh load grows by ~2.7 searches per cycle for
+  every author added.
 - **On-demand:** a new author costs ~3 searches. A Firestore lock (`v3_gs_crawl_locks/{id}`, 10 min) ensures one crawl per author even though the loading page re-enqueues a populate task on every reload. These crawls stop when the account is down to
   `GS_ON_DEMAND_MIN_SEARCHES=25`. There is deliberately no daily cap (decided 2026-11-02).
 - **Free calls:** account checks (`account.json`) and failed searches are not counted by SerpApi.

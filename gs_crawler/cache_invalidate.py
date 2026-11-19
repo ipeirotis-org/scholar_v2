@@ -77,6 +77,31 @@ def _batch_delete_authors(scholar_ids, db):
     return deleted
 
 
+def invalidate_all_gs(db=None):
+    """Drop every cached GS author profile. Returns the number of authors.
+
+    Cached profiles carry percentiles from the distribution tables as they were when
+    the profile was cached, so after a rebuild they describe an older reference set
+    (2026-11-19: while 93% of the reference profiles were 1.5-2.75 years stale, a
+    profile's percentiles moved by several points a week as the backlog was
+    re-crawled). The next visit repopulates from BigQuery; no SerpApi search is spent
+    on a profile that is already in gs_data."""
+    try:
+        db = db or _client()
+    except Exception:
+        logger.exception("Firestore unavailable; cached profiles not invalidated")
+        return 0
+    ids = set()
+    for collection in ("v3_author_freshness", "v3_author_stats"):
+        for doc in db.collection(collection).select([]).stream():
+            if _GS_ID_RE.match(doc.id) and not _S2_ID_RE.match(doc.id):
+                ids.add(doc.id)
+    if ids:
+        _batch_delete_authors(sorted(ids), db=db)
+    logger.info("Invalidated all %d cached GS author profiles", len(ids))
+    return len(ids)
+
+
 def invalidate_missing_pip(db=None):
     """Invalidate cached GS author profiles that predate the PiP (pip_score) migration."""
     try:

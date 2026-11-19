@@ -107,6 +107,7 @@ def test_refresh_featured_logs_failures():
 def test_scheduled_modes_rebuild_featured(monkeypatch, mode):
     monkeypatch.setenv("CRAWL_MODE", mode)
     with patch.object(main.materialize, "run", return_value={}), \
+         patch.object(main.cache_invalidate, "invalidate_all_gs", return_value=0), \
          patch.object(main.wikidata, "run", return_value=1), \
          patch.object(main, "refresh_search_index"), \
          patch.object(main, "refresh_featured") as refresh:

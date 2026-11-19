@@ -83,7 +83,7 @@ scholar_v2/
 │   ├── Dockerfile                # Python 3.12-slim
 │   └── tests/
 ├── gs_crawler/                   # Cloud Run Job: Google Scholar profiles via SerpApi → gs_data (DATA_SOURCE=gs)
-│   ├── main.py                   # Modes: refresh (daily, budgeted) / authors / materialize / deploy / wikidata / featured
+│   ├── main.py                   # Modes: refresh (6-hourly, budgeted) / authors / percentiles / materialize / deploy / wikidata / featured
 │   ├── serpapi_client.py         # SerpApi Scholar Author API + response validation
 │   ├── crawler.py, parser.py     # Profile pagination; pages → snapshot rows
 │   ├── writer.py, scheduler.py   # GCS raw + BigQuery load; refresh selection within budget
@@ -233,13 +233,13 @@ Ranked views default to `active_authors` for user-facing percentiles.
 - **BigQuery Datasets**: `s2_data` (S2 raw tables + derived), `statistics` (analytics views), `scholar_raw_data` (legacy)
 - **GCS Bucket**: `scholar_data_share` (prefixes: `s2_datasets/`, `bq_load_temp/`)
 - **Cloud Tasks Queues**: `cache-priority`, `cache-batch` (location: `northamerica-northeast1`)
-- **Cloud Scheduler**: `s2-monthly-ingestion` (monthly 1st of month, 02:00 UTC; **paused** 2026-11-02), `gs-daily-refresh` (04:17 UTC), `gs-weekly-materialize` (Mon 05:47 UTC), `gs-monthly-wikidata` (3rd, 03:41 UTC)
+- **Cloud Scheduler**: `s2-monthly-ingestion` (monthly 1st of month, 02:00 UTC; **paused** 2026-11-02), `gs-daily-refresh` (every 6 hours from 04:17 UTC), `gs-weekly-materialize` (Mon 05:47 UTC), `gs-daily-percentiles` (other days, 05:47 UTC), `gs-monthly-wikidata` (3rd, 03:41 UTC)
 
 ## CI/CD
 
 - **deploy-frontend.yml**: Push to `main` → Docker build → deploy Cloud Run frontend (`us-central1`)
 - **deploy-dataset-ingestion.yml**: S2 dataset ingestion job (manual dispatch only; keeps `s2-monthly-ingestion` paused)
-- **deploy-gs-crawler.yml**: Google Scholar crawler job + daily refresh / weekly materialize schedulers
+- **deploy-gs-crawler.yml**: Google Scholar crawler job + refresh / percentile rebuild / weekly materialize schedulers
 - **deploy-ingestion.yml**: Deploy GCS→BQ ingestion function
 - **deploy-infrastructure.yml**: Cloud Tasks queues + Cloud Scheduler jobs
 - **bigquery-views.yml**: Deploy analytics SQL views in topological DAG order (views kept for dev/debugging)

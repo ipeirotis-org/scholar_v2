@@ -19,10 +19,18 @@ class Config:
     # Hard cap on profile pages per author (GS profiles top out around 3K papers).
     MAX_PAGES_PER_AUTHOR = int(os.environ.get("MAX_PAGES_PER_AUTHOR", "40"))
 
-    # Search budget. The Developer plan has 5,000 searches/month; keep a reserve
-    # for on-demand lookups so scheduled refreshes never starve user requests.
+    # Search budget. Keep a reserve for on-demand lookups so scheduled refreshes
+    # never starve user requests. The deploy workflow sets the per-run cap for the
+    # SerpApi plan in use (docs/architecture-gs-crawler.md, "Budget").
     SEARCH_RESERVE = int(os.environ.get("SERPAPI_SEARCH_RESERVE", "1000"))
     MAX_SEARCHES_PER_RUN = int(os.environ.get("MAX_SEARCHES_PER_RUN", "150"))
+    # A run stops starting new profiles after this long. Snapshots are loaded into
+    # BigQuery at the end of a run, so a run killed by the job's task timeout (3600 s)
+    # would lose every search it paid for. A search takes ~3.2 s (2026-11).
+    RUN_TIME_LIMIT_SECONDS = int(os.environ.get("RUN_TIME_LIMIT_SECONDS", "2700"))
+    # The scheduled refresh leaves alone profiles crawled more recently than this.
+    # Without it, a budget larger than the backlog would re-crawl week-old profiles.
+    REFRESH_MIN_AGE_DAYS = int(os.environ.get("REFRESH_MIN_AGE_DAYS", "30"))
     # Legacy-seeded profiles where at least this share of works has no title (the seed
     # lacked titles for some authors, e.g. Kaiming He) are refreshed before stale ones.
     UNTITLED_MIN_SHARE = float(os.environ.get("UNTITLED_MIN_SHARE", "0.1"))
