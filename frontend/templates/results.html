@@ -170,6 +170,41 @@
 {% endblock %}
 
 {% block scripts %}
+<script>
+// Tell the server once this page has been visible for a few seconds, so the author enters the
+// homepage's recent list. Crawlers fetch the page and leave; time in a background tab does not count.
+(function () {
+    var token = {{ recent_token | tojson }};
+    if (!token || !window.fetch) { return; }
+    var remaining = {{ recent_dwell_ms | tojson }};
+    var startedAt = null, timer = null, sent = false;
+    function send() {
+        if (sent) { return; }
+        sent = true;
+        fetch("/api/recent_author", {
+            method: "POST",
+            headers: {"Content-Type": "application/x-www-form-urlencoded"},
+            body: "author_id=" + encodeURIComponent({{ author_id | tojson }}) + "&token=" + encodeURIComponent(token),
+            keepalive: true,
+        }).catch(function () {});
+    }
+    function resume() {
+        if (sent || timer || document.visibilityState !== "visible") { return; }
+        startedAt = Date.now();
+        timer = setTimeout(send, remaining);
+    }
+    function pause() {
+        if (!timer) { return; }
+        clearTimeout(timer);
+        timer = null;
+        remaining = Math.max(0, remaining - (Date.now() - startedAt));
+    }
+    document.addEventListener("visibilitychange", function () {
+        if (document.visibilityState === "visible") { resume(); } else { pause(); }
+    });
+    resume();
+})();
+</script>
 <script src="{{ url_for('static', filename='js/paper_explorer.js') }}"></script>
 <script>
 $(document).ready(function(){

@@ -114,11 +114,24 @@ old index keeps serving. Indexes saved in the earlier `chunk_<n>` format still l
 `query-log-salt` secret (or `QUERY_LOG_SALT`); without the key no hash is stored. The Cloud Run request
 logs carry the same facts for only 30 days. `/admin/query-log` and `/api/query-log` are public and
 leave out the user agent, hash and referrer. Scrapers with browser user agents are not flagged by
-`bot`; group by `ip_hash` to find them (many profiles within a minute, no searches). Profile views
-from user agents flagged `bot` are logged here but do not enter the homepage "Recently Analyzed
-Authors" list (`v3_recent_authors/recent_gs`): it only counts visits from non-bot user agents. A
-crawler opening dozens of profiles within a second also made the transactions on that one document
-abort each other (up to 161 failed updates a day in 2026-11); a failed update is now a warning.
+`bot`; group by `ip_hash` to find them (many profiles within a minute, no searches). `bot` is also
+set for a user agent that does not start like a browser's (`Mozilla/`, `Opera/`).
+
+**Recent authors.** The homepage "Recently Analyzed Authors" list (`v3_recent_authors/recent_gs`)
+holds profiles people read, not profile views. A results page served to a non-bot user agent carries
+a token (`frontend/visitor.py`: issue time and an HMAC over the author ID, keyed by the query-log
+salt, which all instances share). The page posts it to `/api/recent_author` once it has been visible
+for 5 seconds (time in a background tab does not count), and the server accepts it only if it is 5
+seconds to 1 hour old. Only then is the author recorded, and a `profile_read` entry is added to the
+query log, so views by people can be counted against all `profile_view` entries. Without the salt no
+token is issued and the list does not change. Why: of the 1,251 profile views of 2026-11-17 to 19,
+541 came from declared crawlers and at least 688 of the other 710 looked automated (one crawler
+with a bare `panscient.com` user agent, two sub-second bursts with Chrome user agents, and 501
+single views from 475 addresses covering 149 profiles), so all 20 listed authors had been put there
+by crawlers. A crawler that fetches HTML never posts the token; one that drives a real browser and
+keeps each page open for 5 seconds still gets through. A crawler opening dozens of profiles within a
+second also made the transactions on that one document abort each other (up to 161 failed updates a
+day in 2026-11); a failed update is now a warning.
 
 **Featured authors.** The homepage pins the ten profiled authors whose English Wikipedia articles
 were read most over the last 60 days; `/featured` lists the top 100. `gs_crawler/featured.py` ranks

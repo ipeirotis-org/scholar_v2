@@ -143,6 +143,14 @@ via a managed scraping API instead of `scholarly`. Vendor evaluation: [docs/goog
       (ClaudeBot, ~70 profiles in a few minutes) had made the transactions on `v3_recent_authors/recent_gs` abort each
       other: 48 to 161 ERROR logs a day, Nov 10 to 16. Contention is now a WARNING without a traceback, and a
       malformed `Referer` no longer raises in `describe_visitor`
+    - [x] Recent list counts profiles people read (2026-11-20): the user-agent filter above was not enough. Of 710
+      unflagged profile views on 2026-11-17 to 19, at least 688 looked automated (`panscient.com`, two sub-second
+      bursts with Chrome user agents, 501 single views from 475 addresses), and all 20 listed authors came from
+      them. `/results` no longer records the author; the page posts a signed token to `/api/recent_author` after
+      5 seconds of visible time and the server checks the token's age. Logged as `profile_read` in `v3_query_log`.
+      User agents that do not start like a browser's are now flagged `bot`. Checked in headless Chromium: one
+      report after 5 s visible, none for a page closed after 2 s, hidden time not counted
+      - [ ] A week after deploy, compare `profile_read` with `profile_view` counts to see how many views are people
   - [ ] Paper-title lookup
 - [x] **Untitled works from the legacy seed** (found 2026-11-04 on Kaiming He's page, `DhtAFkwAAAAJ`: all 95 works
   "Untitled"). 16,158 of 16,218 profiles were still legacy snapshots (2024-02 to 2026-03); the seed had no titles

@@ -19,9 +19,11 @@ from frontend.config import Config
 
 logger = logging.getLogger(__name__)
 
-# User agents that declare automation, plus the empty one. Scrapers that send a
-# browser's user agent are not caught here; the hashed IP lets them be grouped
-# by behaviour afterwards (many profiles within a minute, no search activity).
+# User agents that declare automation, the empty one, and any that does not start like a
+# browser's (every browser sends "Mozilla/5.0 ..."; 2026-11-19: "panscient.com" opened 112
+# profiles in 30 minutes). Scrapers that send a browser's user agent are not caught here; the
+# hashed IP lets them be grouped by behaviour afterwards (many profiles within a minute, no
+# search activity), and the homepage's recent list asks for a view token instead (below).
 _BOT_UA_RE = re.compile(
     r"bot|crawl|spider|scan|slurp|python|curl|wget|go-http|okhttp|headless|httpclient|java/|libwww|axios"
     r"|node-fetch|scrapy|monitor|preview|facebookexternalhit|lighthouse|phantom|feed|pdfmin|audit|https?://",
@@ -36,8 +38,17 @@ _salt_checked_at = 0.0
 _salt_lock = threading.Lock()
 
 
+_BROWSER_UA_PREFIXES = ("Mozilla/", "Opera/")
+
+# A profile page counts as read by a person once it has been open and visible this long.
+VIEW_MIN_SECONDS = 5
+# A view token is accepted for this long after the page was served.
+VIEW_MAX_SECONDS = 3600
+
+
 def is_bot_user_agent(user_agent):
-    return not user_agent or bool(_BOT_UA_RE.search(user_agent))
+    return (not user_agent or not user_agent.startswith(_BROWSER_UA_PREFIXES)
+            or bool(_BOT_UA_RE.search(user_agent)))
 
 
 def client_ip(request):
@@ -85,6 +96,43 @@ def hash_ip(ip):
     if not ip or not salt:
         return None
     return hmac.new(salt, ip.encode("utf-8"), hashlib.sha256).hexdigest()[:16]
+
+
+def _view_signature(salt, author_id, issued):
+    return hmac.new(salt, f"view:{author_id}:{issued}".encode("utf-8"), hashlib.sha256).hexdigest()[:32]
+
+
+def view_token(author_id, now=None):
+    """A signed "<issued>.<signature>" token for one profile page, or None without the key.
+
+    The results page hands it to the browser, which posts it back once the page has been
+    visible for VIEW_MIN_SECONDS (/api/recent_author). Only then does the author enter the
+    homepage's recent list. A crawler that fetches the HTML never posts it; one that
+    drives a browser has to keep each page open, and the server checks the age itself.
+    Signed with the query-log key, which every instance shares (SECRET_KEY is per instance).
+    """
+    salt = _get_salt()
+    if not salt or not author_id:
+        return None
+    issued = int(time.time() if now is None else now)
+    return f"{issued}.{_view_signature(salt, author_id, issued)}"
+
+
+def view_token_age(author_id, token, now=None):
+    """Seconds since `token` was issued for this author; None if it is not one of ours."""
+    salt = _get_salt()
+    issued, _, signature = (token or "").partition(".")
+    if not salt or not author_id or not issued.isdigit() or len(issued) > 12:
+        return None
+    if not hmac.compare_digest(signature, _view_signature(salt, author_id, int(issued))):
+        return None
+    return (time.time() if now is None else now) - int(issued)
+
+
+def is_read_by_person(author_id, token, now=None):
+    """True when the token is valid and the page has been open between the two limits."""
+    age = view_token_age(author_id, token, now)
+    return age is not None and VIEW_MIN_SECONDS <= age <= VIEW_MAX_SECONDS
 
 
 def describe_visitor(request):
