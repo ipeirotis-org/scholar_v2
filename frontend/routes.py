@@ -41,7 +41,7 @@ from frontend.cache import (
 from frontend.config import Config
 from frontend.formatting import build_standing, field_comparison, percentile_text, score_text
 from frontend.queue_client import enqueue_cache_populate
-from frontend.visitor import describe_visitor
+from frontend.visitor import VIEW_MIN_SECONDS, describe_visitor, is_read_by_person, view_token
 
 logger = logging.getLogger(__name__)
 
@@ -379,14 +379,11 @@ def register_routes(app):
 
         visitor = describe_visitor(request)
 
-        # Record this author as recently queried (fire-and-forget). Declared crawlers are left out:
-        # the homepage list is for what people looked up, and a crawler opening many profiles within
-        # a second makes the transactions on the one list document abort each other.
-        if not visitor["bot"]:
-            try:
-                cache.record_recent_author(author_stats)
-            except Exception:
-                logger.debug("Failed to record recent author %s", author_id)
+        # The homepage's recent list is for what people looked up, so this view does not enter it
+        # here: the page posts the token to /api/recent_author once it has been visible for a few
+        # seconds. Most crawler views came with a browser's user agent (2026-11-19: all 20 listed
+        # authors had been put there by such views). Declared crawlers get no token.
+        recent_token = None if visitor["bot"] else view_token(author_id)
 
         # Log profile view (crawlers included: the entry carries the bot flag)
         try:
@@ -408,7 +405,38 @@ def register_routes(app):
             temporal_chart_data=temporal_chart_data,
             last_updated=last_updated,
             stats_cached_at=stats_cached_at,
+            recent_token=recent_token,
+            recent_dwell_ms=VIEW_MIN_SECONDS * 1000,
         )
+
+    @app.route("/api/recent_author", methods=["POST"])
+    def api_recent_author():
+        """A results page reports that it stayed open and visible: add its author to the recent list.
+
+        The token was signed for this author when the page was served, and has to be at least
+        VIEW_MIN_SECONDS old, so a request that did not come from a page a browser kept open is
+        ignored. The answer is 204 either way: a client that should not be here learns nothing.
+        """
+        author_id = _validate_scholar_id(request.form.get("author_id", "").strip())
+        if not author_id or is_legacy_s2_id(author_id):
+            return "", 400
+        visitor = describe_visitor(request)
+        if visitor["bot"] or not is_read_by_person(author_id, request.form.get("token", "")):
+            return "", 204
+        author_stats = _read_cache(Config.CACHE_AUTHOR_STATS, author_id)
+        if not author_stats:
+            return "", 204
+        try:
+            cache.record_recent_author(author_stats)
+        except Exception:
+            logger.debug("Failed to record recent author %s", author_id)
+        # A second log entry, so views by people can be counted against all profile views.
+        try:
+            cache.log_query("profile_read", author_stats.get("name", author_id),
+                            author_id=author_id, visitor=visitor)
+        except Exception:
+            logger.debug("Failed to log profile read for %s", author_id)
+        return "", 204
 
     @app.route("/field")
     def field_page():
@@ -719,7 +747,7 @@ def register_routes(app):
     @app.route("/admin/query-log")
     def admin_query_log():
         """View recent search queries and profile views."""
-        query_type = request.args.get("type", "")  # 'search', 'profile_view', or '' for all
+        query_type = request.args.get("type", "")  # 'search', 'profile_view', 'profile_read', or '' for all
         limit = _parse_limit(request.args.get("limit", "200"))
         queries = _get_query_log(query_type=query_type, limit=limit)
         return render_template("query_log.html", queries=queries, query_type=query_type)

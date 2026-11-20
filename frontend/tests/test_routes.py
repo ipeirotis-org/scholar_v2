@@ -779,11 +779,13 @@ class TestSearchLogging:
         assert "0123456789abcdef" not in page and "Chrome/156" not in page and "google.com" not in page
 
 
-class TestRecentAuthorsSkipCrawlers:
-    """The homepage "Recently Analyzed Authors" list counts visits by people, not crawlers.
+class TestRecentAuthorsCountPeople:
+    """The homepage "Recently Analyzed Authors" list counts profiles people read, not crawler views.
 
-    A crawler opening many profiles within a second also made the transactions on
-    the one list document abort each other.
+    Viewing a profile does not put it on the list. The page carries a signed token and posts it
+    to /api/recent_author once it has been visible for a few seconds; the server checks the
+    token's age itself. Most crawler views came with a browser's user agent, so the user agent
+    alone could not tell them apart (2026-11-19).
     """
 
     AUTHOR_ID = "WLN3QrAAAAAJ"
@@ -794,7 +796,7 @@ class TestRecentAuthorsSkipCrawlers:
         from frontend import visitor
         monkeypatch.setattr(visitor, "_salt", b"test-salt")
 
-    def _view_profile(self, user_agent, **headers):
+    def _app(self):
         from frontend.config import Config
 
         app, cache, _ = _search_app()
@@ -802,43 +804,131 @@ class TestRecentAuthorsSkipCrawlers:
         def cache_get(collection, doc_id):
             if collection == Config.CACHE_AUTHOR_FRESHNESS:
                 return {"exists": True}
-            if collection == Config.CACHE_AUTHOR_STATS:
+            if collection == Config.CACHE_AUTHOR_STATS and doc_id == self.AUTHOR_ID:
                 return {"scholar_id": doc_id, "name": "Yann LeCun", "pip_auc_score": 0.987}
             return None
 
         cache.get.side_effect = cache_get
         cache.get_timestamp.return_value = None
+        return app, cache
+
+    def _view_profile(self, user_agent, **headers):
+        app, cache = self._app()
         with mock.patch("frontend.routes.enqueue_cache_populate"):
             response = app.test_client().get(f"/results?author_id={self.AUTHOR_ID}",
                                              headers={"User-Agent": user_agent, **headers})
         assert response.status_code == 200
-        assert "Yann LeCun" in response.get_data(as_text=True)
-        return cache
+        html = response.get_data(as_text=True)
+        assert "Yann LeCun" in html
+        return cache, html
 
-    def test_browser_view_records_recent_author(self):
-        cache = self._view_profile(BROWSER)
-        cache.record_recent_author.assert_called_once()
-        assert cache.record_recent_author.call_args.args[0]["scholar_id"] == self.AUTHOR_ID
+    def _report(self, token, age, user_agent=BROWSER, author_id=None):
+        """POST the token `age` seconds after it was issued at t=1000."""
+        app, cache = self._app()
+        with mock.patch("frontend.visitor.time.time", return_value=1000 + age):
+            response = app.test_client().post(
+                "/api/recent_author", data={"author_id": author_id or self.AUTHOR_ID, "token": token},
+                headers={"User-Agent": user_agent})
+        return response, cache
+
+    def _token(self, author_id=None):
+        from frontend import visitor
+        return visitor.view_token(author_id or self.AUTHOR_ID, now=1000)
+
+    def test_viewing_a_profile_does_not_record_it(self):
+        cache, _ = self._view_profile(BROWSER)
+        cache.record_recent_author.assert_not_called()
+        assert cache.log_query.call_args.args == ("profile_view", "Yann LeCun")
         assert cache.log_query.call_args.kwargs["visitor"]["bot"] is False
+
+    def test_browser_page_carries_a_token_for_this_author(self):
+        from frontend import visitor
+
+        with mock.patch("frontend.visitor.time.time", return_value=1000):
+            _, html = self._view_profile(BROWSER)
+        token = visitor.view_token(self.AUTHOR_ID, now=1000)
+        assert f'var token = "{token}";' in html
+        assert "var remaining = 5000;" in html and '"/api/recent_author"' in html
 
     @pytest.mark.parametrize("user_agent", [
         CLAUDEBOT,
         "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)",
         "python-requests/2.32.3",
+        "panscient.com",
         "",
     ])
-    def test_crawler_view_does_not_record_recent_author(self, user_agent):
-        cache = self._view_profile(user_agent)
+    def test_crawler_page_carries_no_token(self, user_agent):
+        cache, html = self._view_profile(user_agent)
+        assert "var token = null;" in html
         cache.record_recent_author.assert_not_called()
 
+    def test_no_signing_key_no_token(self, monkeypatch):
+        from frontend import visitor
+        monkeypatch.setattr(visitor, "_salt", None)
+        monkeypatch.setattr(visitor, "_salt_checked_at", visitor.time.time())
+        monkeypatch.delenv("QUERY_LOG_SALT", raising=False)
+        _, html = self._view_profile(BROWSER)
+        assert "var token = null;" in html
+
     def test_crawler_view_is_still_logged_with_bot_flag(self):
-        cache = self._view_profile(self.CLAUDEBOT)
+        cache, _ = self._view_profile(self.CLAUDEBOT)
         assert cache.log_query.call_args.args == ("profile_view", "Yann LeCun")
         kwargs = cache.log_query.call_args.kwargs
         assert kwargs["author_id"] == self.AUTHOR_ID
         assert kwargs["visitor"]["bot"] is True and "ClaudeBot" in kwargs["visitor"]["user_agent"]
 
     def test_malformed_referrer_does_not_break_the_page(self):
-        cache = self._view_profile(BROWSER, Referer="http://[")
-        cache.record_recent_author.assert_called_once()
+        cache, _ = self._view_profile(BROWSER, Referer="http://[")
         assert cache.log_query.call_args.kwargs["visitor"]["referrer"] == ""
+
+    def test_report_after_the_page_stayed_open_records_the_author(self):
+        response, cache = self._report(self._token(), age=6)
+        assert response.status_code == 204 and response.data == b""
+        cache.record_recent_author.assert_called_once()
+        assert cache.record_recent_author.call_args.args[0]["scholar_id"] == self.AUTHOR_ID
+        assert cache.log_query.call_args.args == ("profile_read", "Yann LeCun")
+        assert cache.log_query.call_args.kwargs["author_id"] == self.AUTHOR_ID
+
+    @pytest.mark.parametrize("age", [0, 1, 4, 3601])
+    def test_report_too_early_or_too_late_is_ignored(self, age):
+        response, cache = self._report(self._token(), age=age)
+        assert response.status_code == 204
+        cache.record_recent_author.assert_not_called()
+        cache.log_query.assert_not_called()
+
+    @pytest.mark.parametrize("token", ["", "1000.0000", "not-a-token"])
+    def test_report_without_a_valid_token_is_ignored(self, token):
+        response, cache = self._report(token, age=6)
+        assert response.status_code == 204
+        cache.record_recent_author.assert_not_called()
+
+    def test_token_for_another_author_is_ignored(self):
+        response, cache = self._report(self._token("PA9La6oAAAAJ"), age=6)
+        assert response.status_code == 204
+        cache.record_recent_author.assert_not_called()
+
+    def test_report_from_a_declared_crawler_is_ignored(self):
+        response, cache = self._report(self._token(), age=6, user_agent=self.CLAUDEBOT)
+        assert response.status_code == 204
+        cache.record_recent_author.assert_not_called()
+
+    def test_report_for_an_author_without_cached_stats_is_ignored(self):
+        other = "PA9La6oAAAAJ"
+        response, cache = self._report(self._token(other), age=6, author_id=other)
+        assert response.status_code == 204
+        cache.record_recent_author.assert_not_called()
+
+    @pytest.mark.parametrize("author_id, data_source", [("<script>", "s2"), ("", "gs"), ("2942126", "gs")])
+    def test_report_with_a_bad_author_id_is_rejected(self, monkeypatch, author_id, data_source):
+        """Malformed IDs, and Semantic Scholar IDs while the app serves Google Scholar data."""
+        from frontend.config import Config
+        monkeypatch.setattr(Config, "DATA_SOURCE", data_source)
+        app, cache = self._app()
+        response = app.test_client().post("/api/recent_author", data={"author_id": author_id, "token": "x"},
+                                          headers={"User-Agent": BROWSER})
+        assert response.status_code == 400
+        cache.record_recent_author.assert_not_called()
+
+    def test_report_must_be_a_post(self):
+        app, _ = self._app()
+        assert app.test_client().get("/api/recent_author").status_code == 405

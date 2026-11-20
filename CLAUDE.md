@@ -168,6 +168,8 @@ scholar_v2/
                (GS_LIVE_SEARCH; cached 7 days, capped by GS_LIVE_SEARCH_DAILY_LIMIT, not for crawlers)
              → Searches and profile views are logged to `v3_query_log` with user agent, hashed IP,
                referrer and a bot flag
+             → The homepage's recent-authors list takes a profile only after its page has been
+               visible in a browser for 5 seconds (signed token posted to `/api/recent_author`)
 ```
 
 ## BigQuery Analytics Framework

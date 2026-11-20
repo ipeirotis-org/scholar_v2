@@ -120,7 +120,8 @@ class FirestoreCache:
         blocks the calling request handler.
 
         Args:
-            query_type: 'search' or 'profile_view'
+            query_type: 'search', 'profile_view' (every view of a results page) or
+                'profile_read' (the page stayed open and visible, see /api/recent_author)
             query_text: The search string or author ID
             result_count: Number of results returned (for searches)
             author_id: Author ID (for profile views)

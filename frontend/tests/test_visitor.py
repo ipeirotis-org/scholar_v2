@@ -29,6 +29,8 @@ class TestBotUserAgent:
         "TLM-Audit-Scanner/2.0",
         "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/124.0 Safari/537.36",
         "http://pip-score.org/wp-admin/install.php?step=1",
+        "panscient.com",  # 112 profiles in 30 minutes, 2026-11-19: no browser sends this
+        "Dalvik/2.1.0 (Linux; U; Android 14)",
     ])
     def test_automated(self, user_agent):
         assert visitor.is_bot_user_agent(user_agent)
@@ -43,6 +45,44 @@ class TestBotUserAgent:
     ])
     def test_browsers(self, user_agent):
         assert not visitor.is_bot_user_agent(user_agent)
+
+
+class TestViewToken:
+    """The token a results page posts back once a person has kept it open (recent-authors list)."""
+
+    AUTHOR = "WLN3QrAAAAAJ"
+
+    def test_too_early_then_accepted_then_expired(self):
+        token = visitor.view_token(self.AUTHOR, now=1000)
+        assert not visitor.is_read_by_person(self.AUTHOR, token, now=1000 + visitor.VIEW_MIN_SECONDS - 1)
+        assert visitor.is_read_by_person(self.AUTHOR, token, now=1000 + visitor.VIEW_MIN_SECONDS)
+        assert visitor.is_read_by_person(self.AUTHOR, token, now=1000 + visitor.VIEW_MAX_SECONDS)
+        assert not visitor.is_read_by_person(self.AUTHOR, token, now=1000 + visitor.VIEW_MAX_SECONDS + 1)
+
+    def test_bound_to_the_author(self):
+        token = visitor.view_token(self.AUTHOR, now=1000)
+        assert visitor.view_token_age(self.AUTHOR, token, now=1010) == 10
+        assert visitor.view_token_age("PA9La6oAAAAJ", token, now=1010) is None
+
+    def test_issue_time_cannot_be_changed(self):
+        _, _, signature = visitor.view_token(self.AUTHOR, now=1000).partition(".")
+        assert visitor.view_token_age(self.AUTHOR, f"900.{signature}", now=1010) is None
+
+    @pytest.mark.parametrize("token", ["", None, "abc", "1000", "1000.", ".abc", "1e3.abc", "9" * 13 + ".abc"])
+    def test_malformed(self, token):
+        assert visitor.view_token_age(self.AUTHOR, token, now=1010) is None
+
+    def test_depends_on_the_key(self, monkeypatch):
+        token = visitor.view_token(self.AUTHOR, now=1000)
+        monkeypatch.setattr(visitor, "_salt", None)
+        monkeypatch.setenv("QUERY_LOG_SALT", "another-salt")
+        assert visitor.view_token_age(self.AUTHOR, token, now=1010) is None
+
+    def test_no_key_no_token(self, monkeypatch):
+        monkeypatch.delenv("QUERY_LOG_SALT")
+        monkeypatch.setattr(visitor, "_salt_checked_at", visitor.time.time())  # lookup just failed
+        assert visitor.view_token(self.AUTHOR) is None
+        assert visitor.view_token_age(self.AUTHOR, "1000.abc") is None
 
 
 class TestIpHash:

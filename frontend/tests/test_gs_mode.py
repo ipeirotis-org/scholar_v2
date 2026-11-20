@@ -243,7 +243,8 @@ def test_gs_author_page_still_renders_in_gs_mode(s2_cache_gs):
     response = gs_client.get("/results?author_id=WLN3QrAAAAAJ")
     assert response.status_code == 200
     assert 'id="paperChart"' in response.get_data(as_text=True)
-    cache.record_recent_author.assert_called_once()
+    # A view alone no longer enters the recent list: the page reports back (/api/recent_author).
+    cache.record_recent_author.assert_not_called()
 
 
 def test_s2_author_page_still_renders_in_s2_mode(monkeypatch):
@@ -254,6 +255,24 @@ def test_s2_author_page_still_renders_in_s2_mode(monkeypatch):
         patcher.stop()
     assert response.status_code == 200
     assert "Metric Evolution Over Time" in response.get_data(as_text=True)
+    cache.record_recent_author.assert_not_called()
+
+
+def test_s2_author_enters_the_recent_list_in_s2_mode(monkeypatch):
+    """Numeric IDs are only refused while the app serves Google Scholar data."""
+    from frontend import visitor
+
+    monkeypatch.setattr(visitor, "_salt", b"test-salt")
+    app, cache, patcher = _app_with_s2_cache(monkeypatch, "s2")
+    try:
+        token = visitor.view_token(S2_ID, now=1000)
+        with mock.patch("frontend.visitor.time.time", return_value=1000 + visitor.VIEW_MIN_SECONDS):
+            response = app.test_client().post(
+                "/api/recent_author", data={"author_id": S2_ID, "token": token},
+                headers={"User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:137.0) Gecko/20100101 Firefox/137.0"})
+    finally:
+        patcher.stop()
+    assert response.status_code == 204
     cache.record_recent_author.assert_called_once()
 
 
