@@ -40,7 +40,9 @@ def wikidata_migration_sql():
 
 def candidates_query():
     """Candidates in crawl order: on-demand requests (oldest first), then authors
-    never crawled from Wikidata (most Wikipedia pageviews first), then legacy-seeded
+    never crawled, from Wikidata (most Wikipedia pageviews first) and from the co-author
+    lists of profiled authors (listed by the most profiled authors first), alternating
+    between the two sources, then legacy-seeded
     profiles with untitled works (largest untitled share first, then most cited), then the stalest
     profiles, down to those last crawled REFRESH_MIN_AGE_DAYS ago. Authors whose crawl failed
     recently are left out.
@@ -79,6 +81,23 @@ def candidates_query():
           ORDER BY w.enwiki_views_60d DESC NULLS LAST, w.sitelinks DESC NULLS LAST, w.scholar_id
           LIMIT @new_limit
         ),
+        new_coauthors AS (
+          -- People on profiled authors' co-author lists who have no profile here. Those
+          -- Wikidata records as dead or as politicians are left out, as in new_authors.
+          SELECT c.scholar_id, COUNT(DISTINCT a.scholar_id) AS listed_by
+          FROM {latest} a, UNNEST(a.coauthors) AS c
+          WHERE c.scholar_id IS NOT NULL
+            AND c.scholar_id NOT IN (SELECT scholar_id FROM {latest})
+            AND c.scholar_id NOT IN (SELECT scholar_id FROM pending)
+            AND c.scholar_id NOT IN (SELECT scholar_id FROM failed)
+            AND c.scholar_id NOT IN (SELECT scholar_id FROM new_authors)
+            AND c.scholar_id NOT IN (SELECT scholar_id FROM {wikidata}
+                                     WHERE died IS TRUE OR is_politician IS TRUE)
+          GROUP BY c.scholar_id
+          HAVING listed_by >= @coauthor_min_listed_by
+          ORDER BY listed_by DESC, c.scholar_id
+          LIMIT @coauthor_limit
+        ),
         untitled AS (
           SELECT p.scholar_id,
                  COUNTIF(p.title IS NULL OR TRIM(p.title) = '') / COUNT(*) AS untitled_share
@@ -89,48 +108,68 @@ def candidates_query():
           HAVING untitled_share >= @untitled_min_share
         )
         SELECT scholar_id, num_publications, 0 AS priority,
-               ROW_NUMBER() OVER (ORDER BY requested_at, scholar_id) AS rank
+               ROW_NUMBER() OVER (ORDER BY requested_at, scholar_id) AS rank,
+               CAST(NULL AS STRING) AS new_source
         FROM pending LEFT JOIN {latest} USING (scholar_id)
         UNION ALL
         SELECT scholar_id, NULL AS num_publications, 1 AS priority,
                ROW_NUMBER() OVER (ORDER BY enwiki_views_60d DESC NULLS LAST,
-                                           sitelinks DESC NULLS LAST, scholar_id) AS rank
+                                           sitelinks DESC NULLS LAST, scholar_id) AS rank,
+               'wikidata' AS new_source
         FROM new_authors
         UNION ALL
+        -- Same priority as the Wikidata authors, so the two sources alternate by rank.
+        SELECT scholar_id, NULL AS num_publications, 1 AS priority,
+               ROW_NUMBER() OVER (ORDER BY listed_by DESC, scholar_id) AS rank,
+               'coauthor' AS new_source
+        FROM new_coauthors
+        UNION ALL
         SELECT a.scholar_id, a.num_publications, 2 AS priority,
-               ROW_NUMBER() OVER (ORDER BY u.untitled_share DESC, a.citedby DESC, a.scholar_id) AS rank
+               ROW_NUMBER() OVER (ORDER BY u.untitled_share DESC, a.citedby DESC, a.scholar_id) AS rank,
+               CAST(NULL AS STRING) AS new_source
         FROM {latest} a JOIN untitled u USING (scholar_id)
         WHERE a.scholar_id NOT IN (SELECT scholar_id FROM pending)
           AND a.scholar_id NOT IN (SELECT scholar_id FROM failed)
         UNION ALL
         SELECT scholar_id, num_publications, 3 AS priority,
-               ROW_NUMBER() OVER (ORDER BY fetched_at, scholar_id) AS rank
+               ROW_NUMBER() OVER (ORDER BY fetched_at, scholar_id) AS rank,
+               CAST(NULL AS STRING) AS new_source
         FROM {latest}
         WHERE scholar_id NOT IN (SELECT scholar_id FROM pending)
           AND scholar_id NOT IN (SELECT scholar_id FROM failed)
           AND scholar_id NOT IN (SELECT scholar_id FROM untitled)
           AND fetched_at < TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL @min_age_days DAY)
-        ORDER BY priority, rank
+        ORDER BY priority, rank, new_source DESC
         LIMIT @limit
     """
 
 
 def new_author_budget(budget, share=None):
-    """Searches a run of `budget` may spend on never-crawled (Wikidata) authors."""
+    """Searches a run of `budget` may spend on never-crawled authors (Wikidata and co-authors)."""
     share = Config.NEW_AUTHOR_SHARE if share is None else share
     return int(max(budget, 0) * max(0.0, min(share, 1.0)))
 
 
-def select_batch(budget, client=None, new_author_share=None):
+def coauthor_budget(new_budget, share=None):
+    """The part of the new-author budget for co-authors of profiled authors; Wikidata gets the rest."""
+    share = Config.COAUTHOR_NEW_SHARE if share is None else share
+    return int(max(new_budget, 0) * max(0.0, min(share, 1.0)))
+
+
+def select_batch(budget, client=None, new_author_share=None, coauthor_share=None):
     """Return [(scholar_id, estimated_searches, is_new)] whose estimates fit in `budget`.
 
-    New (never crawled) authors may use at most `new_author_share` of the budget;
-    whatever they leave goes to refreshing the stalest profiles. Estimates for new
-    authors are guesses, so crawl_and_store enforces the share on actual searches.
+    New (never crawled) authors may use at most `new_author_share` of the budget,
+    split between Wikidata and co-authors by `coauthor_share`; whatever either
+    source leaves goes to refreshing the stalest profiles. Estimates for new
+    authors are guesses, so crawl_and_store enforces the share on actual searches
+    (for the two sources together; they alternate in crawl order).
     """
     if budget <= 0:
         return []
     new_budget = new_author_budget(budget, new_author_share)
+    source_budget = {"coauthor": coauthor_budget(new_budget, coauthor_share)}
+    source_budget["wikidata"] = new_budget - source_budget["coauthor"]
     client = client or bigquery.Client(project=Config.PROJECT_ID)
     try:
         client.query(wikidata_migration_sql()).result()
@@ -140,24 +179,34 @@ def select_batch(budget, client=None, new_author_share=None):
     job_config = bigquery.QueryJobConfig(
         query_parameters=[
             bigquery.ScalarQueryParameter("limit", "INT64", max(budget, 1) * 2),
-            bigquery.ScalarQueryParameter("new_limit", "INT64", new_budget // UNKNOWN_AUTHOR_SEARCHES + 1),
+            # No budget, no candidates: a zero limit keeps that source out of the batch.
+            bigquery.ScalarQueryParameter(
+                "new_limit", "INT64",
+                source_budget["wikidata"] // UNKNOWN_AUTHOR_SEARCHES + 1 if source_budget["wikidata"] else 0),
+            bigquery.ScalarQueryParameter(
+                "coauthor_limit", "INT64",
+                source_budget["coauthor"] // UNKNOWN_AUTHOR_SEARCHES + 1 if source_budget["coauthor"] else 0),
+            bigquery.ScalarQueryParameter("coauthor_min_listed_by", "INT64", Config.COAUTHOR_MIN_LISTED_BY),
             bigquery.ScalarQueryParameter("cooldown_days", "INT64", Config.FAILURE_COOLDOWN_DAYS),
             bigquery.ScalarQueryParameter("untitled_min_share", "FLOAT64", Config.UNTITLED_MIN_SHARE),
             bigquery.ScalarQueryParameter("min_age_days", "INT64", Config.REFRESH_MIN_AGE_DAYS),
         ]
     )
     rows = client.query(candidates_query(), job_config=job_config).result()
-    batch, used, used_new = [], 0, 0
+    batch, used = [], 0
+    used_new = {"wikidata": 0, "coauthor": 0}
     for row in rows:
         cost = estimate_searches(row["num_publications"])
         if used + cost > budget:
             continue  # a smaller profile further down may still fit
         is_new = row.get("priority") == 1
-        if is_new and used_new + cost > new_budget:
-            continue
+        if is_new:
+            source = row.get("new_source") or "wikidata"
+            if used_new[source] + cost > source_budget[source]:
+                continue
+            used_new[source] += cost
         batch.append((row["scholar_id"], cost, is_new))
         used += cost
-        used_new += cost if is_new else 0
-    logger.info("Selected %d authors, ~%d searches (%d on new authors; budget %d)",
-                len(batch), used, used_new, budget)
+    logger.info("Selected %d authors, ~%d searches (%d on new authors: %d Wikidata, %d co-authors; budget %d)",
+                len(batch), used, sum(used_new.values()), used_new["wikidata"], used_new["coauthor"], budget)
     return batch

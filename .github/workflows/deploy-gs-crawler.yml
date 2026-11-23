@@ -53,6 +53,9 @@ env:
   # are re-crawled (at 0.25 the backlog would not clear in two billing cycles); the
   # code default is 0.25.
   NEW_AUTHOR_SHARE: '0.10'
+  # Part of that share for co-authors of profiled authors (listed by 3 or more of them).
+  # Off while the stale profiles are re-crawled; the code default is 0.5.
+  COAUTHOR_NEW_SHARE: '0'
   # Same switch as deploy-frontend.yml; selects the search index the job rebuilds.
   DATA_SOURCE: ${{ vars.DATA_SOURCE || 'gs' }}
 
@@ -127,7 +130,7 @@ jobs:
           --cpu=1 \
           --task-timeout=3600 \
           --max-retries=0 \
-          --set-env-vars="GCP_PROJECT_ID=${{ env.GCP_PROJECT_ID }},CRAWL_MODE=refresh,MAX_SEARCHES_PER_RUN=${{ env.MAX_SEARCHES_PER_RUN }},SERPAPI_SEARCH_RESERVE=${{ env.SERPAPI_SEARCH_RESERVE }},NEW_AUTHOR_SHARE=${{ env.NEW_AUTHOR_SHARE }},DATA_SOURCE=${{ env.DATA_SOURCE }}"
+          --set-env-vars="GCP_PROJECT_ID=${{ env.GCP_PROJECT_ID }},CRAWL_MODE=refresh,MAX_SEARCHES_PER_RUN=${{ env.MAX_SEARCHES_PER_RUN }},SERPAPI_SEARCH_RESERVE=${{ env.SERPAPI_SEARCH_RESERVE }},NEW_AUTHOR_SHARE=${{ env.NEW_AUTHOR_SHARE }},COAUTHOR_NEW_SHARE=${{ env.COAUTHOR_NEW_SHARE }},DATA_SOURCE=${{ env.DATA_SOURCE }}"
 
     - name: Create or update schedulers
       run: |-

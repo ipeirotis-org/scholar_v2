@@ -41,6 +41,14 @@ class Config:
     # Share of each refresh run spent on authors we have never crawled, taken from
     # Wikidata in order of Wikipedia pageviews; unused share goes to refreshes.
     NEW_AUTHOR_SHARE = float(os.environ.get("NEW_AUTHOR_SHARE", "0.25"))
+    # Part of that share spent on co-authors instead: people listed on the profiles we
+    # hold but never crawled themselves, most-listed first. Wikidata reaches the famous
+    # (median h-index 50 among those added in 2026-11); co-authors are the working
+    # academics around the profiled authors, and most of them are not on Wikidata.
+    COAUTHOR_NEW_SHARE = float(os.environ.get("COAUTHOR_NEW_SHARE", "0.5"))
+    # A co-author qualifies when at least this many profiled authors list them
+    # (2026-11-23: 20,758 unprofiled co-authors are listed by 3 or more, 172K by any).
+    COAUTHOR_MIN_LISTED_BY = int(os.environ.get("COAUTHOR_MIN_LISTED_BY", "3"))
     # A failed crawl (deleted profile, stale Wikidata ID) is not retried for this long.
     FAILURE_COOLDOWN_DAYS = int(os.environ.get("FAILURE_COOLDOWN_DAYS", "30"))
 

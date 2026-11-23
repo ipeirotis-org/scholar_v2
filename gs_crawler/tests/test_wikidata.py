@@ -303,11 +303,64 @@ class TestNewAuthorShare:
 
     def test_new_authors_capped_by_share(self):
         client = _Client(self.ROWS)
-        batch = scheduler.select_batch(20, client=client, new_author_share=0.3)
+        batch = scheduler.select_batch(20, client=client, new_author_share=0.3, coauthor_share=0)
         ids = [sid for sid, _, _ in batch]
         # 0.3 * 20 = 6 searches for new authors: two unknown profiles at 3 each.
         assert ids == ["queued", "new1", "new2", "stale1", "stale2"]
         assert client.params["new_limit"] == 6 // scheduler.UNKNOWN_AUTHOR_SEARCHES + 1
+        assert client.params["coauthor_limit"] == 0  # no budget, no co-author candidates
+
+    def test_new_author_budget_is_split_between_wikidata_and_coauthors(self):
+        rows = [
+            {"scholar_id": "queued", "num_publications": None, "priority": 0, "new_source": None},
+            {"scholar_id": "wiki1", "num_publications": None, "priority": 1, "new_source": "wikidata"},
+            {"scholar_id": "co1", "num_publications": None, "priority": 1, "new_source": "coauthor"},
+            {"scholar_id": "wiki2", "num_publications": None, "priority": 1, "new_source": "wikidata"},
+            {"scholar_id": "co2", "num_publications": None, "priority": 1, "new_source": "coauthor"},
+            {"scholar_id": "wiki3", "num_publications": None, "priority": 1, "new_source": "wikidata"},
+            {"scholar_id": "co3", "num_publications": None, "priority": 1, "new_source": "coauthor"},
+            {"scholar_id": "stale1", "num_publications": 50, "priority": 3, "new_source": None},
+        ]
+        client = _Client(rows)
+        # 0.45 * 40 = 18 searches for new authors; a third of it (6) for co-authors, 12 for Wikidata.
+        batch = scheduler.select_batch(40, client=client, new_author_share=0.45, coauthor_share=1 / 3)
+        assert [sid for sid, _, _ in batch] == ["queued", "wiki1", "co1", "wiki2", "co2", "wiki3", "stale1"]
+        assert [is_new for _, _, is_new in batch] == [False, True, True, True, True, True, False]
+        assert client.params["new_limit"] == 12 // scheduler.UNKNOWN_AUTHOR_SEARCHES + 1
+        assert client.params["coauthor_limit"] == 6 // scheduler.UNKNOWN_AUTHOR_SEARCHES + 1
+        assert client.params["coauthor_min_listed_by"] == scheduler.Config.COAUTHOR_MIN_LISTED_BY == 3
+
+    def test_all_of_the_share_can_go_to_coauthors(self):
+        rows = [
+            {"scholar_id": "wiki1", "num_publications": None, "priority": 1, "new_source": "wikidata"},
+            {"scholar_id": "co1", "num_publications": None, "priority": 1, "new_source": "coauthor"},
+            {"scholar_id": "co2", "num_publications": None, "priority": 1, "new_source": "coauthor"},
+        ]
+        client = _Client(rows)
+        batch = scheduler.select_batch(20, client=client, new_author_share=0.3, coauthor_share=1)
+        assert [sid for sid, _, _ in batch] == ["co1", "co2"]
+        assert client.params["new_limit"] == 0
+
+    def test_coauthor_budget(self):
+        assert scheduler.coauthor_budget(60, 0.5) == 30
+        assert scheduler.coauthor_budget(60, 0) == 0
+        assert scheduler.coauthor_budget(60, 2) == 60  # clamped
+        assert scheduler.coauthor_budget(60) == int(60 * scheduler.Config.COAUTHOR_NEW_SHARE)
+
+    def test_coauthor_candidates_query(self):
+        sql = scheduler.candidates_query()
+        tier = sql[sql.index("new_coauthors AS ("):sql.index("untitled AS (")]
+        assert "UNNEST(a.coauthors) AS c" in tier
+        assert "HAVING listed_by >= @coauthor_min_listed_by" in tier
+        assert "ORDER BY listed_by DESC, c.scholar_id" in tier and "LIMIT @coauthor_limit" in tier
+        # Never crawled, not queued, not cooling down, not already chosen from Wikidata, not dead.
+        for excluded in ("authors_latest`)", "FROM pending)", "FROM failed)", "FROM new_authors)",
+                         "WHERE died IS TRUE OR is_politician IS TRUE"):
+            assert excluded in tier
+        # Both sources share priority 1 and alternate by rank.
+        assert "'coauthor' AS new_source" in sql and "'wikidata' AS new_source" in sql
+        assert sql.count("1 AS priority") == 2
+        assert "ORDER BY priority, rank, new_source DESC" in sql
 
     def test_zero_share_skips_new_authors(self):
         batch = scheduler.select_batch(20, client=_Client(self.ROWS), new_author_share=0)

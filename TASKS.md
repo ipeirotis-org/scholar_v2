@@ -91,6 +91,11 @@ via a managed scraping API instead of `scholarly`. Vendor evaluation: [docs/goog
       unparseable profile is recorded as a failure
   - [ ] After the catch-up: move to Production (15,000 a month), set `MAX_SEARCHES_PER_RUN` to ~450 with one run a
     day and `NEW_AUTHOR_SHARE` back to 0.25
+  - [ ] After the catch-up: turn on co-author ingestion by setting `COAUTHOR_NEW_SHARE` to 0.5 in
+    `deploy-gs-crawler.yml` (built 2026-11-23, off until then). Half the new-author budget then goes to
+    never-crawled co-authors listed by at least 3 profiled authors, most-listed first (20,758 people, ~60,000
+    searches); the other half stays with Wikidata, which only reaches the well known (median h-index 50 among
+    the 102 it added on 2026-11-21 to 23). On Production that is ~400 co-authors and ~400 Wikidata authors a month
   - [ ] After the catch-up: restrict the reference population (the `dist_*` tables and paper percentiles) to
     profiles crawled in the last 12 months, so a stalled refresh cannot bring the bias back
   - Considered and dropped: an age-aligned benchmark (papers ranked among papers of the same age when observed,
