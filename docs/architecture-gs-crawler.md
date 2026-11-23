@@ -162,6 +162,17 @@ Unused share goes back to refreshes. The share is enforced on actual searches: a
 capped at what is left of it, and one too large to fit is cooled down like a failure. Permanent failures (no profile behind the ID) go to
 `gs_data.crawl_failures`, and the scheduler skips those IDs for `FAILURE_COOLDOWN_DAYS` (30).
 
+**Co-authors.** Wikidata reaches well-known people: the 102 authors it added on 2026-11-21 to 23 have a
+median h-index of 50. The working academics around the profiled authors are mostly not on Wikidata, but
+they are on those authors' co-author lists (11,162 of 17,178 profiles list co-authors, 19 on average).
+`COAUTHOR_NEW_SHARE` of the new-author budget goes to co-authors we have never crawled who are listed by at
+least `COAUTHOR_MIN_LISTED_BY` (3) profiled authors, most-listed first: 20,758 people on 2026-11-23, about
+60,000 searches (172K are listed by at least one). The two sources alternate in crawl order, and the share
+is enforced for them together on actual searches. People Wikidata records as dead or as politicians are
+left out; an ID with no profile behind it cools down like any other failure. Co-author lists are
+self-curated and cluster around the fields already covered, so this route deepens coverage where it
+exists; Wikidata stays the route to other fields.
+
 ## Budget (SerpApi Big Data plan, 30,000 searches/month, since 2026-11-19)
 
 - **Why the larger plan.** On 2026-11-19, 15,213 of the 16,356 reference profiles still carried their legacy
@@ -180,8 +191,9 @@ capped at what is left of it, and one too large to fit is cooled down like a fai
   UTC) discarded ~115 searches' worth of profiles. At
   2,400 searches a day a month's searches last about 12 days; runs then stop at `SERPAPI_SEARCH_RESERVE=1000`,
   which is kept for on-demand lookups, until the plan renews (the 2nd of the month).
-- **New authors:** `NEW_AUTHOR_SHARE=0.10` of each run during the catch-up (~60 searches a run, ~60 authors a
-  day); the code default is 0.25.
+- **New authors:** `NEW_AUTHOR_SHARE=0.10` of each run during the catch-up (60 searches a run, ~45 authors a
+  day at ~4.3 searches each); the code default is 0.25. `COAUTHOR_NEW_SHARE` of that goes to co-authors of
+  profiled authors (see "Ingestion priority"): 0 during the catch-up, code default 0.5.
 - **Recently crawled profiles are left alone:** the stalest-first tier only takes profiles last crawled more than
   `REFRESH_MIN_AGE_DAYS=30` ago. Without it, a budget larger than the backlog re-crawls week-old profiles.
 - **Cost per author:** an average profile costs ~2.7 searches (218 works); the best-known Wikidata authors

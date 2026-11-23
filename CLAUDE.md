@@ -86,7 +86,7 @@ scholar_v2/
 │   ├── main.py                   # Modes: refresh (6-hourly, budgeted) / authors / percentiles / materialize / deploy / wikidata / featured
 │   ├── serpapi_client.py         # SerpApi Scholar Author API + response validation
 │   ├── crawler.py, parser.py     # Profile pagination; pages → snapshot rows
-│   ├── writer.py, scheduler.py   # GCS raw + BigQuery load; refresh selection within budget
+│   ├── writer.py, scheduler.py   # GCS raw + BigQuery load; refresh selection within budget (on-demand, new from Wikidata and co-author lists, stalest)
 │   ├── materialize.py            # gs_statistics views / dist tables (deploy_order.txt)
 │   ├── featured.py               # Homepage featured authors (most-read Wikipedia articles) → Firestore
 │   └── tests/
