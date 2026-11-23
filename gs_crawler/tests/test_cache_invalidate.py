@@ -2,6 +2,8 @@
 
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from gs_crawler import cache_invalidate, main
 from gs_crawler.crawler import CrawlResult
 from gs_crawler.tests.conftest import make_page
@@ -132,3 +134,112 @@ def test_materialize_mode_also_drops_cached_profiles(monkeypatch):
          patch.object(main, "refresh_featured"):
         main.main()
     inv.assert_called_once()
+
+
+class TestRunSurvivesFailures:
+    """Every profile fetched is paid for, so a failure must not discard the rest of the run
+    (2026-11-19: a dropped connection during a raw-page upload ended a run and lost ~115 searches)."""
+
+    IDS = ["AAAAAAAAAAAJ", "BBBBBBBBBBBJ", "CCCCCCCCCCCJ"]
+
+    @staticmethod
+    def _ok(sid, max_searches=None):
+        return CrawlResult(sid, pages=[make_page(3, author_id=sid)], searches=1)
+
+    def test_failed_raw_upload_is_retried_then_the_profile_is_still_stored(self, monkeypatch):
+        monkeypatch.setattr(main.time, "sleep", lambda s: None)
+        with patch.object(main, "crawl_author", side_effect=self._ok), \
+             patch.object(main.writer, "write_raw_pages", side_effect=ConnectionError("dropped")) as raw, \
+             patch.object(main.writer, "load_snapshots") as load, \
+             patch.object(main.cache_invalidate, "invalidate_authors") as inv:
+            summary = main.crawl_and_store(self.IDS[:1], budget=10)
+        assert raw.call_count == 3
+        assert summary["crawled"] == 1 and summary["failed"] == 0
+        assert len(load.call_args.args[0]) == 1
+        inv.assert_called_once_with(self.IDS[:1])
+
+    def test_raw_upload_that_succeeds_on_retry(self, monkeypatch):
+        monkeypatch.setattr(main.time, "sleep", lambda s: None)
+        with patch.object(main.writer, "write_raw_pages", side_effect=[ConnectionError("dropped"), None]) as raw:
+            assert main.archive_raw_pages("AAAAAAAAAAAJ", "2026-11-23T00:00:00+00:00", [{}])
+        assert raw.call_count == 2
+
+    def test_snapshots_are_stored_in_chunks(self, monkeypatch):
+        monkeypatch.setattr(main.Config, "STORE_EVERY_AUTHORS", 2)
+        with patch.object(main, "crawl_author", side_effect=self._ok), \
+             patch.object(main.writer, "write_raw_pages"), \
+             patch.object(main.writer, "load_snapshots") as load, \
+             patch.object(main.cache_invalidate, "invalidate_authors") as inv:
+            summary = main.crawl_and_store(self.IDS, budget=10)
+        assert summary["crawled"] == 3
+        assert [len(c.args[0]) for c in load.call_args_list] == [2, 1]
+        assert [c.args[0] for c in inv.call_args_list] == [self.IDS[:2], self.IDS[2:]]
+
+    def test_unexpected_error_still_stores_what_was_fetched(self):
+        def crawl(sid, max_searches=None):
+            if sid == self.IDS[2]:
+                raise RuntimeError("boom")
+            return self._ok(sid)
+
+        with patch.object(main, "crawl_author", side_effect=crawl), \
+             patch.object(main.writer, "write_raw_pages"), \
+             patch.object(main.writer, "load_snapshots") as load, \
+             patch.object(main.cache_invalidate, "invalidate_authors") as inv, \
+             pytest.raises(RuntimeError):
+            main.crawl_and_store(self.IDS, budget=10)
+        assert len(load.call_args.args[0]) == 2
+        inv.assert_called_once_with(self.IDS[:2])
+
+    def test_unparseable_profile_is_recorded_and_the_run_goes_on(self):
+        def parse(pages, sid, fetched_at):
+            if sid == self.IDS[0]:
+                raise KeyError("articles")
+            return {"scholar_id": sid}, [{"scholar_id": sid}]
+
+        with patch.object(main, "crawl_author", side_effect=self._ok), \
+             patch.object(main, "parse_author", side_effect=parse), \
+             patch.object(main.writer, "write_raw_pages") as raw, \
+             patch.object(main.writer, "load_snapshots") as load, \
+             patch.object(main.writer, "record_failures") as rec, \
+             patch.object(main.cache_invalidate, "invalidate_authors"):
+            summary = main.crawl_and_store(self.IDS, budget=10)
+        assert summary["crawled"] == 2 and summary["failed"] == 1
+        assert [r["scholar_id"] for r in load.call_args.args[0]] == self.IDS[1:]
+        recorded = rec.call_args.args[0]
+        assert [f["scholar_id"] for f in recorded] == self.IDS[:1]
+        assert recorded[0]["error"].startswith("parse error: KeyError")
+        assert raw.call_count == 2  # nothing archived for the profile that was not stored
+
+    def test_failed_chunk_load_is_not_sent_again(self, monkeypatch):
+        """load_snapshots is two appends: after a failure the publications may already be in
+        BigQuery, and loading the chunk again would leave them there twice."""
+        monkeypatch.setattr(main.Config, "STORE_EVERY_AUTHORS", 2)
+        sent = []
+
+        def load(authors, pubs):
+            sent.append([a["scholar_id"] for a in authors])
+            if len(sent) == 1:
+                raise RuntimeError("author load failed after the publication load")
+
+        with patch.object(main, "crawl_author", side_effect=self._ok) as crawl, \
+             patch.object(main.writer, "write_raw_pages"), \
+             patch.object(main.writer, "load_snapshots", side_effect=load), \
+             patch.object(main.writer, "record_failures"), \
+             patch.object(main.cache_invalidate, "invalidate_authors") as inv, \
+             pytest.raises(RuntimeError):
+            main.crawl_and_store(self.IDS, budget=10)
+        assert crawl.call_count == 2  # the run ends at the failed load
+        assert sent == [self.IDS[:2], []]  # the chunk went out once; the final store had nothing left
+        inv.assert_called_once_with([])  # no cached page dropped for profiles that were not stored
+
+    def test_failed_final_load_is_not_sent_again(self):
+        with patch.object(main, "crawl_author", side_effect=self._ok), \
+             patch.object(main.writer, "write_raw_pages"), \
+             patch.object(main.writer, "load_snapshots", side_effect=RuntimeError("boom")) as load, \
+             patch.object(main.writer, "record_failures") as rec, \
+             patch.object(main.cache_invalidate, "invalidate_authors") as inv, \
+             pytest.raises(RuntimeError):
+            main.crawl_and_store(self.IDS, budget=10)
+        load.assert_called_once()
+        rec.assert_called_once()  # failures are recorded before the load that can raise
+        inv.assert_not_called()

@@ -83,6 +83,12 @@ via a managed scraping API instead of `scholarly`. Vendor evaluation: [docs/goog
     which otherwise keep the percentiles of the day they were cached (236 cached profiles on 2026-11-19)
   - [ ] Catch-up: ~15,200 stale profiles, ~44,000 searches, stalest first, after the 759 ACM Fellows queued on
     2026-11-17. Expected to finish in the cycle that starts 2026-12-02; check that no legacy snapshot is left
+    - 2026-11-23: 14 of 15 runs succeeded; 2,157 profiles crawled since the upgrade (657 of the 659 queued
+      Fellows, 1,343 of the 8,241 profiles from 2024-02); 17,615 searches left until 2026-12-02
+    - [x] A run no longer loses its profiles to one failure (2026-11-23): the 2026-11-19 22:17 UTC run ended on a
+      dropped connection during a raw-page upload and discarded ~115 searches' worth. Snapshots are now loaded
+      every 25 profiles and when a run ends in an error; raw uploads are retried, then only logged; an
+      unparseable profile is recorded as a failure
   - [ ] After the catch-up: move to Production (15,000 a month), set `MAX_SEARCHES_PER_RUN` to ~450 with one run a
     day and `NEW_AUTHOR_SHARE` back to 0.25
   - [ ] After the catch-up: restrict the reference population (the `dist_*` tables and paper percentiles) to
