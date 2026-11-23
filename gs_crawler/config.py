@@ -28,6 +28,10 @@ class Config:
     # BigQuery at the end of a run, so a run killed by the job's task timeout (3600 s)
     # would lose every search it paid for. A search takes ~3.2 s (2026-11).
     RUN_TIME_LIMIT_SECONDS = int(os.environ.get("RUN_TIME_LIMIT_SECONDS", "2700"))
+    # Snapshots go to BigQuery after this many crawled profiles, and once more when the run
+    # ends, also when it ends in an error. On 2026-11-19 a dropped connection during a raw-page
+    # upload ended a run after 6 minutes and discarded ~115 searches' worth of profiles.
+    STORE_EVERY_AUTHORS = int(os.environ.get("STORE_EVERY_AUTHORS", "25"))
     # The scheduled refresh leaves alone profiles crawled more recently than this.
     # Without it, a budget larger than the backlog would re-crawl week-old profiles.
     REFRESH_MIN_AGE_DAYS = int(os.environ.get("REFRESH_MIN_AGE_DAYS", "30"))

@@ -40,6 +40,21 @@ def searches_left():
     return int(serpapi_client.get_account().get("total_searches_left") or 0)
 
 
+def archive_raw_pages(scholar_id, fetched_at, pages, attempts=3):
+    """Keep the raw SerpApi pages in GCS. They are only needed for reprocessing, so after a
+    few tries a failed upload is logged and the run goes on: the profile is still stored."""
+    for attempt in range(attempts):
+        try:
+            writer.write_raw_pages(scholar_id, fetched_at, pages)
+            return True
+        except Exception:
+            if attempt + 1 < attempts:
+                time.sleep(2 ** attempt)
+            else:
+                logger.exception("Raw pages of %s (%s) not archived", scholar_id, fetched_at)
+    return False
+
+
 def crawl_and_store(author_ids, budget, new_ids=(), new_budget=None):
     """Crawl authors in order until `budget` searches are used. Returns a summary dict.
 
@@ -48,51 +63,70 @@ def crawl_and_store(author_ids, budget, new_ids=(), new_budget=None):
     refreshes. One that does not fit is recorded as a failure and waits out the
     cooldown rather than being retried (and paid for) every day.
 
-    No profile is started after RUN_TIME_LIMIT_SECONDS: the snapshots are loaded
-    at the end, and the job's task timeout would discard them.
+    No profile is started after RUN_TIME_LIMIT_SECONDS, so the run ends before the
+    job's task timeout. Snapshots are loaded every STORE_EVERY_AUTHORS profiles and
+    when the run ends, also if it ends in an error: every profile fetched is paid for.
+    A profile whose pages cannot be parsed is recorded as a failure and waits out the
+    cooldown; raised, it would stop every later run at the same profile.
     """
     deadline = time.monotonic() + Config.RUN_TIME_LIMIT_SECONDS
     new_ids = set(new_ids)
     author_rows, pub_rows, crawled_ids, gone_ids, failures = [], [], [], [], []
     summary = {"crawled": 0, "failed": 0, "searches": 0, "skipped": 0, "new_searches": 0}
-    for scholar_id in author_ids:
-        is_new = scholar_id in new_ids
-        cap = budget - summary["searches"]
-        if is_new and new_budget is not None:
-            cap = min(cap, new_budget - summary["new_searches"])
-        if cap <= 0 or time.monotonic() >= deadline:
-            summary["skipped"] += 1
-            continue
-        result = crawl_author(scholar_id, max_searches=cap)
-        summary["searches"] += result.searches
-        if is_new:
-            summary["new_searches"] += result.searches
-        if not result.ok:
-            summary["failed"] += 1
-            too_large = is_new and (result.error or "").startswith("search limit")
-            if result.permanent and serpapi_client.is_missing_profile(result.error):
-                gone_ids.append(scholar_id)
-            if result.permanent or too_large:
-                failures.append({"scholar_id": scholar_id, "error": (result.error or "")[:500],
-                                 "failed_at": datetime.now(timezone.utc).isoformat(timespec="seconds")})
-            continue
-        fetched_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
-        writer.write_raw_pages(scholar_id, fetched_at, result.pages)
-        author_row, pubs = parse_author(result.pages, scholar_id, fetched_at)
-        author_rows.append(author_row)
-        pub_rows.extend(pubs)
-        crawled_ids.append(scholar_id)
-        summary["crawled"] += 1
-    writer.load_snapshots(author_rows, pub_rows)
+
+    def failure(scholar_id, error):
+        return {"scholar_id": scholar_id, "error": (error or "")[:500],
+                "failed_at": datetime.now(timezone.utc).isoformat(timespec="seconds")}
+
     try:
-        writer.record_failures(failures)
-    except Exception:
-        logger.exception("Could not record %d crawl failures", len(failures))
-    # Only after the snapshots are in BigQuery, so a repopulation sees the new data.
-    # Profiles found gone are now in gs_data.retired_profiles (the failures above); clearing
-    # their cache makes the next visit show the "no longer on Google Scholar" page
-    # instead of the last cached metrics.
-    cache_invalidate.invalidate_authors(crawled_ids + gone_ids)
+        for scholar_id in author_ids:
+            is_new = scholar_id in new_ids
+            cap = budget - summary["searches"]
+            if is_new and new_budget is not None:
+                cap = min(cap, new_budget - summary["new_searches"])
+            if cap <= 0 or time.monotonic() >= deadline:
+                summary["skipped"] += 1
+                continue
+            result = crawl_author(scholar_id, max_searches=cap)
+            summary["searches"] += result.searches
+            if is_new:
+                summary["new_searches"] += result.searches
+            if not result.ok:
+                summary["failed"] += 1
+                too_large = is_new and (result.error or "").startswith("search limit")
+                if result.permanent and serpapi_client.is_missing_profile(result.error):
+                    gone_ids.append(scholar_id)
+                if result.permanent or too_large:
+                    failures.append(failure(scholar_id, result.error))
+                continue
+            fetched_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
+            try:
+                author_row, pubs = parse_author(result.pages, scholar_id, fetched_at)
+            except Exception as exc:
+                logger.exception("Pages of %s could not be parsed", scholar_id)
+                summary["failed"] += 1
+                failures.append(failure(scholar_id, f"parse error: {type(exc).__name__}: {exc}"))
+                continue
+            archive_raw_pages(scholar_id, fetched_at, result.pages)
+            author_rows.append(author_row)
+            pub_rows.extend(pubs)
+            crawled_ids.append(scholar_id)
+            summary["crawled"] += 1
+            if len(author_rows) >= Config.STORE_EVERY_AUTHORS:
+                writer.load_snapshots(author_rows, pub_rows)
+                # Only after the snapshots are in BigQuery, so a repopulation sees the new data.
+                cache_invalidate.invalidate_authors(crawled_ids)
+                author_rows, pub_rows, crawled_ids = [], [], []
+    finally:
+        writer.load_snapshots(author_rows, pub_rows)
+        try:
+            writer.record_failures(failures)
+        except Exception:
+            logger.exception("Could not record %d crawl failures", len(failures))
+        # Profiles found gone are now in gs_data.retired_profiles (the failures above); clearing
+        # their cache makes the next visit show the "no longer on Google Scholar" page
+        # instead of the last cached metrics.
+        cache_invalidate.invalidate_authors(crawled_ids + gone_ids)
     return summary
 
 

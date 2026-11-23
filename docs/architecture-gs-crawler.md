@@ -171,7 +171,11 @@ capped at what is left of it, and one too large to fit is cooled down like a fai
   130 a day) would have needed about 11 months.
 - **Refresh:** four runs a day (`gs-daily-refresh`, every 6 hours) of up to `MAX_SEARCHES_PER_RUN=600`. A search
   takes ~3.2 s, so a run lasts ~32 min; `RUN_TIME_LIMIT_SECONDS=2700` stops it from starting new profiles after
-  45 min, because snapshots are loaded at the end and the job's 60 min task timeout would discard them. At
+  45 min, ahead of the job's 60 min task timeout. Snapshots are loaded every `STORE_EVERY_AUTHORS=25` profiles
+  and when the run ends, also if it ends in an error; a failed raw-page upload is retried and then only
+  logged; a profile that cannot be parsed is recorded as a failure (30-day cooldown). Before 2026-11-23 a
+  run loaded everything at the end, and one dropped connection during a raw-page upload (2026-11-19 22:17
+  UTC) discarded ~115 searches' worth of profiles. At
   2,400 searches a day a month's searches last about 12 days; runs then stop at `SERPAPI_SEARCH_RESERVE=1000`,
   which is kept for on-demand lookups, until the plan renews (the 2nd of the month).
 - **New authors:** `NEW_AUTHOR_SHARE=0.10` of each run during the catch-up (~60 searches a run, ~60 authors a
