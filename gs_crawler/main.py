@@ -66,6 +66,7 @@ def crawl_and_store(author_ids, budget, new_ids=(), new_budget=None):
     No profile is started after RUN_TIME_LIMIT_SECONDS, so the run ends before the
     job's task timeout. Snapshots are loaded every STORE_EVERY_AUTHORS profiles and
     when the run ends, also if it ends in an error: every profile fetched is paid for.
+    Each chunk is sent to BigQuery once (see store).
     A profile whose pages cannot be parsed is recorded as a failure and waits out the
     cooldown; raised, it would stop every later run at the same profile.
     """
@@ -77,6 +78,22 @@ def crawl_and_store(author_ids, budget, new_ids=(), new_budget=None):
     def failure(scholar_id, error):
         return {"scholar_id": scholar_id, "error": (error or "")[:500],
                 "failed_at": datetime.now(timezone.utc).isoformat(timespec="seconds")}
+
+    def store(also_invalidate=()):
+        """Load the profiles crawled since the last call, then drop their cached pages.
+
+        The buffers are emptied before the load, so a load that fails is never sent again:
+        load_snapshots is two appends (publications, then authors), and repeating it after the
+        first one succeeded would leave every publication of the chunk in BigQuery twice,
+        which publications_latest would count twice. A failed load ends the run and costs
+        at most this chunk; publications without their author snapshot are never read.
+        """
+        nonlocal author_rows, pub_rows, crawled_ids
+        authors, pubs, ids = author_rows, pub_rows, crawled_ids
+        author_rows, pub_rows, crawled_ids = [], [], []
+        writer.load_snapshots(authors, pubs)
+        # Only after the snapshots are in BigQuery, so a repopulation sees the new data.
+        cache_invalidate.invalidate_authors(ids + list(also_invalidate))
 
     try:
         for scholar_id in author_ids:
@@ -113,12 +130,8 @@ def crawl_and_store(author_ids, budget, new_ids=(), new_budget=None):
             crawled_ids.append(scholar_id)
             summary["crawled"] += 1
             if len(author_rows) >= Config.STORE_EVERY_AUTHORS:
-                writer.load_snapshots(author_rows, pub_rows)
-                # Only after the snapshots are in BigQuery, so a repopulation sees the new data.
-                cache_invalidate.invalidate_authors(crawled_ids)
-                author_rows, pub_rows, crawled_ids = [], [], []
+                store()
     finally:
-        writer.load_snapshots(author_rows, pub_rows)
         try:
             writer.record_failures(failures)
         except Exception:
@@ -126,7 +139,7 @@ def crawl_and_store(author_ids, budget, new_ids=(), new_budget=None):
         # Profiles found gone are now in gs_data.retired_profiles (the failures above); clearing
         # their cache makes the next visit show the "no longer on Google Scholar" page
         # instead of the last cached metrics.
-        cache_invalidate.invalidate_authors(crawled_ids + gone_ids)
+        store(also_invalidate=gone_ids)
     return summary
 
 

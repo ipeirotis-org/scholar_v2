@@ -172,7 +172,9 @@ capped at what is left of it, and one too large to fit is cooled down like a fai
 - **Refresh:** four runs a day (`gs-daily-refresh`, every 6 hours) of up to `MAX_SEARCHES_PER_RUN=600`. A search
   takes ~3.2 s, so a run lasts ~32 min; `RUN_TIME_LIMIT_SECONDS=2700` stops it from starting new profiles after
   45 min, ahead of the job's 60 min task timeout. Snapshots are loaded every `STORE_EVERY_AUTHORS=25` profiles
-  and when the run ends, also if it ends in an error; a failed raw-page upload is retried and then only
+  and when the run ends, also if it ends in an error. Each chunk is sent once: a failed load ends the
+  run and is not repeated, because repeating the two appends could store its publications twice. A failed
+  raw-page upload is retried and then only
   logged; a profile that cannot be parsed is recorded as a failure (30-day cooldown). Before 2026-11-23 a
   run loaded everything at the end, and one dropped connection during a raw-page upload (2026-11-19 22:17
   UTC) discarded ~115 searches' worth of profiles. At

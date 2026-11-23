@@ -209,3 +209,37 @@ class TestRunSurvivesFailures:
         assert [f["scholar_id"] for f in recorded] == self.IDS[:1]
         assert recorded[0]["error"].startswith("parse error: KeyError")
         assert raw.call_count == 2  # nothing archived for the profile that was not stored
+
+    def test_failed_chunk_load_is_not_sent_again(self, monkeypatch):
+        """load_snapshots is two appends: after a failure the publications may already be in
+        BigQuery, and loading the chunk again would leave them there twice."""
+        monkeypatch.setattr(main.Config, "STORE_EVERY_AUTHORS", 2)
+        sent = []
+
+        def load(authors, pubs):
+            sent.append([a["scholar_id"] for a in authors])
+            if len(sent) == 1:
+                raise RuntimeError("author load failed after the publication load")
+
+        with patch.object(main, "crawl_author", side_effect=self._ok) as crawl, \
+             patch.object(main.writer, "write_raw_pages"), \
+             patch.object(main.writer, "load_snapshots", side_effect=load), \
+             patch.object(main.writer, "record_failures"), \
+             patch.object(main.cache_invalidate, "invalidate_authors") as inv, \
+             pytest.raises(RuntimeError):
+            main.crawl_and_store(self.IDS, budget=10)
+        assert crawl.call_count == 2  # the run ends at the failed load
+        assert sent == [self.IDS[:2], []]  # the chunk went out once; the final store had nothing left
+        inv.assert_called_once_with([])  # no cached page dropped for profiles that were not stored
+
+    def test_failed_final_load_is_not_sent_again(self):
+        with patch.object(main, "crawl_author", side_effect=self._ok), \
+             patch.object(main.writer, "write_raw_pages"), \
+             patch.object(main.writer, "load_snapshots", side_effect=RuntimeError("boom")) as load, \
+             patch.object(main.writer, "record_failures") as rec, \
+             patch.object(main.cache_invalidate, "invalidate_authors") as inv, \
+             pytest.raises(RuntimeError):
+            main.crawl_and_store(self.IDS, budget=10)
+        load.assert_called_once()
+        rec.assert_called_once()  # failures are recorded before the load that can raise
+        inv.assert_not_called()
